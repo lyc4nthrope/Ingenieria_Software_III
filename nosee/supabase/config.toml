@@ -1,0 +1,43 @@
+# Supabase Configuration File
+# Referencia: https://supabase.com/docs/guides/cli/local-development
+
+[project]
+project_id = "nosee-local"
+account_id = "local"
+db_url = "postgresql://postgres:postgres@localhost:54322/postgres"
+
+[api]
+# Configuración del servidor API
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+max_rows = 1000
+
+[db]
+# Configuración de la base de datos PostgreSQL
+port = 54322
+shadow_port = 54323
+major_version = 15
+
+# Iniciar con `supabase start`
+# Acceso a la API: http://localhost:54321
+# Acceso a DB: postgresql://postgres:postgres@localhost:54322/postgres
+
+[auth]
+# Configuración de autenticación local
+enabled = true
+email = {enable_signup = true, autoconfirm = false}
+phone = {enable_signup = false}
+
+[storage]
+file_size_limit = 52428800  # 50MB
+s3_protocol = "http"
+s3_host = "localhost"
+s3_port = 54321
+s3_region = "local"
+s3_access_key = "625729a08b95740f4382c65039c42f0d25b52bdf1234567890abcdef1234567"
+s3_secret_key = "850181e4652fc779383f1840a82c28738661234567890abcdef12345678901234"
+s3_bucket = "stub"
+
+[vector]
+enabled = false
