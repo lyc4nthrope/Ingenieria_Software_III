@@ -12,13 +12,17 @@ import { supabase } from '../supabase.client';
  * 
  * @param {string} email - Email del usuario
  * @param {string} password - Contraseña del usuario
+ * @param {Object} metadata - Datos adicionales (fullName, etc.)
  * @returns {Promise<Object>} Datos del usuario registrado
  */
-export const signUp = async (email, password) => {
+export const signUp = async (email, password, metadata = {}) => {
   try {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: metadata, // full_name, etc.
+      },
     });
 
     if (error) throw error;
@@ -82,6 +86,22 @@ export const getCurrentUser = async () => {
 };
 
 /**
+ * Obtener sesión actual
+ * 
+ * @returns {Promise<Object>} Sesión actual con tokens
+ */
+export const getSession = async () => {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    if (error) throw error;
+    return { success: true, data: session };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+/**
  * Resetear contraseña
  * 
  * @param {string} email - Email del usuario
@@ -105,5 +125,6 @@ export default {
   signIn,
   signOut,
   getCurrentUser,
+  getSession,
   resetPassword,
 };

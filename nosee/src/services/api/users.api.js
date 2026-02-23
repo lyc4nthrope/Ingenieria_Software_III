@@ -66,7 +66,10 @@ export const updateUserProfile = async (userId, updates) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .update(updates)
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', userId)
       .select();
 
