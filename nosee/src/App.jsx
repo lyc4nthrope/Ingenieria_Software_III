@@ -5,9 +5,24 @@
  * 1. Inicializar el store de auth (verificar sesión guardada)
  * 2. Configurar React Router con todas las rutas
  * 3. Proteger rutas que requieren autenticación
+ *
+ * RUTAS CONFIGURADAS:
+ * ┌─────────────────────────┬───────────────────┬───────────┐
+ * │ Ruta                    │ Componente        │ Protegida │
+ * ├─────────────────────────┼───────────────────┼───────────┤
+ * │ /                       │ HomePage          │ ✅ Sí     │
+ * │ /perfil                 │ ProfilePage       │ ✅ Sí     │
+ * │ /publicaciones          │ HomePage (stub)   │ ✅ Sí     │
+ * │ /login                  │ LoginPage         │ ❌ No     │
+ * │ /registro               │ RegisterPage      │ ❌ No     │
+ * │ /auth/callback          │ CallbackPage      │ ❌ No     │  ← NUEVO
+ * │ /recuperar-contrasena   │ ForgotPasswordPage│ ❌ No     │  ← STUB
+ * │ /nueva-contrasena       │ NewPasswordPage   │ ❌ No     │  ← STUB
+ * │ *                       │ NotFoundPage      │ ❌ No     │
+ * └─────────────────────────┴───────────────────┴───────────┘
  */
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 // Store
 import { useAuthStore, selectIsInitialized } from '@/features/auth/store/authStore';
@@ -22,12 +37,13 @@ import { PageLoader } from '@/components/ui/Spinner';
 // Páginas públicas
 import LoginPage from '@/features/auth/pages/LoginPage';
 import RegisterPage from '@/features/auth/pages/RegisterPage';
+import CallbackPage from '@/features/auth/pages/CallbackPage';
 
 // Páginas protegidas
 import HomePage from '@/pages/HomePage';
 import ProfilePage from '@/features/auth/pages/ProfilePage';
 
-// Página 404 inline
+// ── Página 404 inline ──────────────────────────────────────────────────────
 function NotFoundPage() {
   return (
     <main style={{
@@ -41,7 +57,7 @@ function NotFoundPage() {
       <a href="/" style={{
         padding: '8px 20px', background: 'var(--accent-soft)',
         color: 'var(--accent)', borderRadius: 'var(--radius-md)',
-        fontSize: '14px', fontWeight: '500',
+        fontSize: '14px', fontWeight: '500', textDecoration: 'none',
       }}>
         Volver al inicio
       </a>
@@ -49,21 +65,42 @@ function NotFoundPage() {
   );
 }
 
-// ────────────────────────────────────────────────────────────────
-// Componente interno que maneja la inicialización del auth store
-// Separado para poder usar hooks dentro de BrowserRouter
-// ────────────────────────────────────────────────────────────────
+// ── Stub para páginas aún no implementadas ────────────────────────────────
+// Se reemplazarán en el Paso 3 (recuperar contraseña) y Paso 4 (nueva contraseña)
+function ComingSoonPage({ title }) {
+  return (
+    <main style={{
+      flex: 1, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      padding: '24px', textAlign: 'center', gap: '12px',
+    }}>
+      <div style={{ fontSize: '48px' }}>🔧</div>
+      <h2 style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: '700' }}>{title}</h2>
+      <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+        Esta página será implementada en el siguiente paso
+      </p>
+      <a href="/login" style={{
+        color: 'var(--accent)', fontSize: '14px', textDecoration: 'none',
+      }}>
+        ← Volver al login
+      </a>
+    </main>
+  );
+}
+
+// ── Componente interno con las rutas ──────────────────────────────────────
+// Separado de App para poder usar hooks dentro de BrowserRouter
 function AppContent() {
   const { initialize } = useAuthStore();
-  const isInitialized = useAuthStore(selectIsInitialized);
+  const isInitialized  = useAuthStore(selectIsInitialized);
 
   // Inicializar auth UNA SOLA VEZ al arrancar la app
-  // Verifica si hay sesión guardada en localStorage y configura el listener
+  // Verifica sesión guardada en localStorage y configura onAuthStateChange
   useEffect(() => {
     initialize();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mientras verificamos la sesión guardada, mostramos un loader
+  // Mientras verificamos la sesión, mostramos un loader
   // Esto evita el parpadeo a la pantalla de login
   if (!isInitialized) {
     return <PageLoader message="Iniciando aplicación..." />;
@@ -74,16 +111,39 @@ function AppContent() {
       {/* Navbar siempre visible */}
       <Navbar />
 
-      {/* Rutas */}
       <Routes>
-        {/* ── Rutas públicas ─────────────────────────── */}
-        <Route path="/login" element={<LoginPage />} />
+        {/* ── Rutas públicas ──────────────────────────────────────────── */}
+        <Route path="/login"    element={<LoginPage />} />
         <Route path="/registro" element={<RegisterPage />} />
 
-        {/* Recuperar contraseña — por ahora redirige a login */}
-        <Route path="/recuperar-contrasena" element={<LoginPage />} />
+        {/*
+          /auth/callback — Receptor del link de email de Supabase.
+          NO debe ser protegida: el usuario llega aquí sin sesión aún.
+          El token viene en el hash de la URL (#access_token=...&type=signup)
+          y el cliente de Supabase lo procesa automáticamente.
+        */}
+        <Route path="/auth/callback" element={<CallbackPage />} />
 
-        {/* ── Rutas protegidas ───────────────────────── */}
+        {/*
+          Recuperar contraseña — Stub hasta el Paso 3.
+          El usuario escribe su email y Supabase envía el link.
+        */}
+        <Route
+          path="/recuperar-contrasena"
+          element={<ComingSoonPage title="Recuperar contraseña" />}
+        />
+
+        {/*
+          Nueva contraseña — Stub hasta el Paso 4.
+          El usuario llega aquí desde /auth/callback con type=recovery.
+          Aquí ingresa y confirma su nueva contraseña.
+        */}
+        <Route
+          path="/nueva-contrasena"
+          element={<ComingSoonPage title="Nueva contraseña" />}
+        />
+
+        {/* ── Rutas protegidas ─────────────────────────────────────────── */}
         <Route
           path="/"
           element={
@@ -119,9 +179,7 @@ function AppContent() {
   );
 }
 
-// ────────────────────────────────────────────────────────────────
-// App principal — envuelve todo en BrowserRouter
-// ────────────────────────────────────────────────────────────────
+// ── App principal — envuelve todo en BrowserRouter ────────────────────────
 export default function App() {
   return (
     <BrowserRouter>
