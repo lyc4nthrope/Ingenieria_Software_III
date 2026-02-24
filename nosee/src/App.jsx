@@ -1,33 +1,37 @@
 /**
  * App.jsx - Punto de entrada de la aplicación
  *
- * Responsabilidades:
- * 1. Inicializar el store de auth (verificar sesión guardada)
- * 2. Configurar React Router con todas las rutas
- * 3. Proteger rutas que requieren autenticación
+ * RUTAS CONFIGURADAS:
+ * ┌─────────────────────────┬──────────────────────────┬───────────┐
+ * │ Ruta                    │ Componente               │ Protegida │
+ * ├─────────────────────────┼──────────────────────────┼───────────┤
+ * │ /                       │ HomePage                 │ ✅ Sí     │
+ * │ /perfil                 │ ProfilePage              │ ✅ Sí     │
+ * │ /publicaciones          │ HomePage                 │ ✅ Sí     │
+ * │ /login                  │ LoginPage                │ ❌ No     │
+ * │ /registro               │ RegisterPage             │ ❌ No     │
+ * │ /auth/callback          │ CallbackPage             │ ❌ No     │
+ * │ /recuperar-contrasena   │ ForgotPasswordPage       │ ❌ No     │
+ * │ /nueva-contrasena       │ NewPasswordPage          │ ❌ No     │
+ * │ *                       │ NotFoundPage             │ ❌ No     │
+ * └─────────────────────────┴──────────────────────────┴───────────┘
  */
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-// Store
 import { useAuthStore, selectIsInitialized } from '@/features/auth/store/authStore';
-
-// Layout
-import Navbar from '@/components/layout/Navbar';
+import Navbar         from '@/components/layout/Navbar';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
-
-// Loaders
 import { PageLoader } from '@/components/ui/Spinner';
 
-// Páginas públicas
-import LoginPage from '@/features/auth/pages/LoginPage';
-import RegisterPage from '@/features/auth/pages/RegisterPage';
+import LoginPage          from '@/features/auth/pages/LoginPage';
+import RegisterPage       from '@/features/auth/pages/RegisterPage';
+import CallbackPage       from '@/features/auth/pages/CallbackPage';
+import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage';
+import NewPasswordPage    from '@/features/auth/pages/NewPasswordPage';
+import HomePage           from '@/pages/HomePage';
+import ProfilePage        from '@/features/auth/pages/ProfilePage';
 
-// Páginas protegidas
-import HomePage from '@/pages/HomePage';
-import ProfilePage from '@/features/auth/pages/ProfilePage';
-
-// Página 404 inline
 function NotFoundPage() {
   return (
     <main style={{
@@ -41,7 +45,7 @@ function NotFoundPage() {
       <a href="/" style={{
         padding: '8px 20px', background: 'var(--accent-soft)',
         color: 'var(--accent)', borderRadius: 'var(--radius-md)',
-        fontSize: '14px', fontWeight: '500',
+        fontSize: '14px', fontWeight: '500', textDecoration: 'none',
       }}>
         Volver al inicio
       </a>
@@ -49,79 +53,46 @@ function NotFoundPage() {
   );
 }
 
-// ────────────────────────────────────────────────────────────────
-// Componente interno que maneja la inicialización del auth store
-// Separado para poder usar hooks dentro de BrowserRouter
-// ────────────────────────────────────────────────────────────────
 function AppContent() {
   const { initialize } = useAuthStore();
-  const isInitialized = useAuthStore(selectIsInitialized);
+  const isInitialized  = useAuthStore(selectIsInitialized);
 
-  // Inicializar auth UNA SOLA VEZ al arrancar la app
-  // Verifica si hay sesión guardada en localStorage y configura el listener
   useEffect(() => {
     initialize();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mientras verificamos la sesión guardada, mostramos un loader
-  // Esto evita el parpadeo a la pantalla de login
   if (!isInitialized) {
     return <PageLoader message="Iniciando aplicación..." />;
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* Navbar siempre visible */}
       <Navbar />
-
-      {/* Rutas */}
       <Routes>
-        {/* ── Rutas públicas ─────────────────────────── */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/registro" element={<RegisterPage />} />
+        {/* Rutas públicas */}
+        <Route path="/login"                 element={<LoginPage />} />
+        <Route path="/registro"              element={<RegisterPage />} />
+        <Route path="/auth/callback"         element={<CallbackPage />} />
+        <Route path="/recuperar-contrasena"  element={<ForgotPasswordPage />} />
+        <Route path="/nueva-contrasena"      element={<NewPasswordPage />} />
 
-        {/* Recuperar contraseña — por ahora redirige a login */}
-        <Route path="/recuperar-contrasena" element={<LoginPage />} />
+        {/* Rutas protegidas */}
+        <Route path="/" element={
+          <ProtectedRoute><HomePage /></ProtectedRoute>
+        } />
+        <Route path="/perfil" element={
+          <ProtectedRoute><ProfilePage /></ProtectedRoute>
+        } />
+        <Route path="/publicaciones" element={
+          <ProtectedRoute><HomePage /></ProtectedRoute>
+        } />
 
-        {/* ── Rutas protegidas ───────────────────────── */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <HomePage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/perfil"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* Publicaciones — placeholder hasta Sprint 2 */}
-        <Route
-          path="/publicaciones"
-          element={
-            <ProtectedRoute>
-              <HomePage />
-            </ProtectedRoute>
-          }
-        />
-
-        {/* 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>
   );
 }
 
-// ────────────────────────────────────────────────────────────────
-// App principal — envuelve todo en BrowserRouter
-// ────────────────────────────────────────────────────────────────
 export default function App() {
   return (
     <BrowserRouter>
