@@ -1,112 +1,78 @@
 /**
- * Auth Schemas - Validaciones y tipos
- * 
- * Define contratos de validación para inputs y outputs del feature auth
- * Puede usar Zod, Yup, o TypeScript puro según preferencia
- * 
- * Instalación (cuando sea): npm install zod
+ * Publications Schemas - Validaciones y tipos
+ *
+ * Define contratos de validación para inputs y outputs del feature publications
  */
 
-// Ejemplo con comentarios (implementar cuando agregues Zod)
-/*
-import { z } from 'zod';
-
-// ====== INPUT SCHEMAS ======
-
-export const SignUpSchema = z.object({
-  email: z.string().email('Email inválido'),
-  password: z.string()
-    .min(8, 'Mínimo 8 caracteres')
-    .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
-    .regex(/[0-9]/, 'Debe contener al menos un número'),
-  confirmPassword: z.string(),
-  full_name: z.string().min(2, 'Nombre muy corto'),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Las contraseñas no coinciden",
-  path: ["confirmPassword"],
-});
-
-export const SignInSchema = z.object({
-  email: z.string().email('Email inválido'),
-  password: z.string().min(1, 'Contraseña requerida'),
-});
-
-export const ResetPasswordSchema = z.object({
-  email: z.string().email('Email inválido'),
-});
-
-export const UpdateProfileSchema = z.object({
-  full_name: z.string().min(2).optional(),
-  avatar_url: z.string().url().optional(),
-}).strict();
-
-// ====== OUTPUT SCHEMAS ======
-
-export const AuthUserSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string().email(),
-  full_name: z.string().nullable(),
-  role: z.enum(['user', 'admin']),
-  created_at: z.string().datetime(),
-});
-
-export const SessionSchema = z.object({
-  user: AuthUserSchema,
-  access_token: z.string(),
-  refresh_token: z.string().optional(),
-  expires_in: z.number(),
-});
-
-// ====== TIPOS DERIVADOS ======
-export type SignUpInput = z.infer<typeof SignUpSchema>;
-export type SignInInput = z.infer<typeof SignInSchema>;
-export type AuthUser = z.infer<typeof AuthUserSchema>;
-export type Session = z.infer<typeof SessionSchema>;
-*/
-
-// Por ahora, tipos TypeScript simples:
-
-export const SignUpValidation = {
-  email: (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
-  password: (pwd) => pwd.length >= 8,
-  confirmPassword: (pwd, confirm) => pwd === confirm,
-};
-
-export const SignInValidation = {
-  email: (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
-  password: (pwd) => pwd.length > 0,
+/**
+ * Validaciones de formulario para crear publicación
+ */
+export const PublicationValidation = {
+  productName: (name) => name && name.trim().length >= 2,
+  price: (price) => !isNaN(parseFloat(price)) && parseFloat(price) > 0,
+  photoUrl: (url) => !url || url.startsWith('https://'),
+  description: (desc) => !desc || desc.length <= 500,
 };
 
 /**
- * Tipos globales del feature auth
- * (cuando migres a TypeScript completo, muévelos a src/types/)
+ * Mensajes de validación
  */
-export const AuthTypes = {
-  SignUpInput: `{
-    email: string;
-    password: string;
-    confirmPassword: string;
-    full_name: string;
-  }`,
-  
-  SignInInput: `{
-    email: string;
-    password: string;
-  }`,
-  
-  AuthUser: `{
-    id: string;
-    email: string;
-    full_name: string | null;
-    role: 'user' | 'admin';
-    created_at: string;
-    updated_at: string;
+export const PublicationValidationMessages = {
+  productName: 'El nombre del producto debe tener al menos 2 caracteres',
+  price: 'El precio debe ser un número mayor a 0',
+  photoUrl: 'La URL de la foto debe ser https',
+  description: 'La descripción no puede superar 500 caracteres',
+};
+
+/**
+ * Estado posibles de una publicación
+ */
+export const PublicationStatusEnum = {
+  PENDING: 'pending',
+  VALIDATED: 'validated',
+  REJECTED: 'rejected',
+  EXPIRED: 'expired',
+};
+
+/**
+ * Tipos del feature publications (doc reference)
+ */
+export const PublicationTypes = {
+  Publication: `{
+    id: string (UUID);
+    productName: string;
+    price: number;
+    currency: 'COP' | 'USD';
+    storeId: string | null;
+    storeName: string | null;
+    userId: string;
+    userName: string;
+    photoUrl: string | null;
+    description: string;
+    validatedCount: number;
+    reportedCount: number;
+    status: 'pending' | 'validated' | 'rejected' | 'expired';
+    latitude: number | null;
+    longitude: number | null;
+    createdAt: Date;
+    updatedAt: Date | null;
   }`,
 
-  Session: `{
-    user: AuthUser;
-    access_token: string;
-    refresh_token?: string;
-    expires_in: number;
+  CreatePublicationInput: `{
+    productName: string;
+    price: number;
+    currency?: string;
+    storeId?: string;
+    photoUrl?: string;
+    description?: string;
+    latitude?: number;
+    longitude?: number;
   }`,
+};
+
+export default {
+  PublicationValidation,
+  PublicationValidationMessages,
+  PublicationStatusEnum,
+  PublicationTypes,
 };

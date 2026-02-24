@@ -1,207 +1,209 @@
 /**
- * RegisterForm - Formulario de registro de nuevo usuario
+ * ProfileCard - Tarjeta que muestra y permite editar el perfil del usuario
  */
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
-// Íconos
-const MailIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="4" width="20" height="16" rx="2"/>
-    <path d="M2 7l10 7 10-7"/>
-  </svg>
-);
-
-const LockIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-    <path d="M7 11V7a5 5 0 0110 0v4"/>
-  </svg>
-);
-
 const UserIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
     <circle cx="12" cy="7" r="4"/>
   </svg>
 );
 
-const CheckIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 6 9 17 4 12"/>
+const EditIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
   </svg>
 );
 
-// Reglas de contraseña
-const passwordRules = [
-  { label: 'Al menos 8 caracteres', test: (v) => v.length >= 8 },
-  { label: 'Una letra mayúscula', test: (v) => /[A-Z]/.test(v) },
-  { label: 'Un número', test: (v) => /\d/.test(v) },
-];
-
-export default function RegisterForm({ onSubmit, loading = false, error = null }) {
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '' });
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
-    if (fieldErrors[name]) setFieldErrors(prev => ({ ...prev, [name]: '' }));
+const RoleBadge = ({ role }) => {
+  const colors = {
+    admin: { bg: 'rgba(251,191,36,0.15)', color: '#FBBF24', border: 'rgba(251,191,36,0.3)' },
+    moderator: { bg: 'rgba(167,139,250,0.15)', color: '#A78BFA', border: 'rgba(167,139,250,0.3)' },
+    user: { bg: 'var(--accent-soft)', color: 'var(--accent)', border: 'rgba(56,189,248,0.3)' },
   };
-
-  const validate = () => {
-    const errors = {};
-    if (!form.fullName.trim()) errors.fullName = 'El nombre es requerido';
-    if (!form.email) errors.email = 'El email es requerido';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Email inválido';
-    if (!form.password) errors.password = 'La contraseña es requerida';
-    else if (!passwordRules.every(r => r.test(form.password))) errors.password = 'La contraseña no cumple los requisitos';
-    if (!form.confirmPassword) errors.confirmPassword = 'Confirma tu contraseña';
-    else if (form.password !== form.confirmPassword) errors.confirmPassword = 'Las contraseñas no coinciden';
-    return errors;
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const errors = validate();
-    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
-    onSubmit(form.email, form.password, { fullName: form.fullName });
-  };
-
-  const pwdStrength = passwordRules.filter(r => r.test(form.password)).length;
+  const c = colors[role] || colors.user;
+  const labels = { admin: 'Administrador', moderator: 'Moderador', user: 'Usuario' };
 
   return (
-    <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-      {/* Error global */}
-      {error && (
-        <div role="alert" style={{
-          padding: '12px 16px', borderRadius: 'var(--radius-md)',
-          background: 'var(--error-soft)', border: '1px solid rgba(248,113,113,0.25)',
-          color: 'var(--error)', fontSize: '13px',
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '4px',
+      padding: '3px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: '600',
+      letterSpacing: '0.04em', textTransform: 'uppercase',
+      background: c.bg, color: c.color, border: `1px solid ${c.border}`,
+    }}>
+      {labels[role] || role}
+    </span>
+  );
+};
+
+export default function ProfileCard({ user, onUpdate, loading = false }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ fullName: user?.fullName || '' });
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleChange = (e) => {
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setError(null);
+    setSuccess(false);
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!form.fullName.trim()) { setError('El nombre no puede estar vacío'); return; }
+
+    const result = await onUpdate({ fullName: form.fullName.trim() });
+    if (result?.success) {
+      setEditing(false);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } else {
+      setError(result?.error || 'Error al actualizar perfil');
+    }
+  };
+
+  const initials = user?.fullName
+    ? user.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    : user?.email?.[0]?.toUpperCase() || 'U';
+
+  return (
+    <div style={{
+      background: 'var(--bg-surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-xl)',
+      overflow: 'hidden',
+      animation: 'fadeIn 0.3s ease',
+    }}>
+      {/* Header con gradiente */}
+      <div style={{
+        height: '100px',
+        background: 'linear-gradient(135deg, rgba(56,189,248,0.15) 0%, rgba(14,165,233,0.05) 100%)',
+        borderBottom: '1px solid var(--border)',
+        position: 'relative',
+      }} />
+
+      {/* Contenido */}
+      <div style={{ padding: '0 24px 28px' }}>
+        {/* Avatar */}
+        <div style={{
+          width: '72px', height: '72px',
+          borderRadius: '50%',
+          background: 'var(--bg-elevated)',
+          border: '3px solid var(--bg-surface)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '24px', fontWeight: '700', color: 'var(--accent)',
+          marginTop: '-36px',
+          marginBottom: '14px',
+          overflow: 'hidden',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
         }}>
-          {error}
-        </div>
-      )}
-
-      <Input
-        label="Nombre completo"
-        id="reg-fullname"
-        name="fullName"
-        type="text"
-        value={form.fullName}
-        onChange={handleChange}
-        placeholder="Tu nombre y apellido"
-        error={fieldErrors.fullName}
-        iconLeft={<UserIcon />}
-        autoComplete="name"
-        required
-        disabled={loading}
-      />
-
-      <Input
-        label="Correo electrónico"
-        id="reg-email"
-        name="email"
-        type="email"
-        value={form.email}
-        onChange={handleChange}
-        placeholder="tucorreo@ejemplo.com"
-        error={fieldErrors.email}
-        iconLeft={<MailIcon />}
-        autoComplete="email"
-        required
-        disabled={loading}
-      />
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
-          <Input
-            label="Contraseña"
-            id="reg-password"
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            value={form.password}
-            onChange={handleChange}
-            placeholder="Mínimo 8 caracteres"
-            error={fieldErrors.password}
-            iconLeft={<LockIcon />}
-            autoComplete="new-password"
-            required
-            disabled={loading}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            style={{ padding: '8px 12px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-            disabled={loading}
-          >
-            {showPassword ? '●●●' : '○○○'}
-          </button>
+          {user?.avatarUrl
+            ? <img src={user.avatarUrl} alt={user.fullName || 'Avatar'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : initials
+          }
         </div>
 
-        {/* Indicador de fortaleza */}
-        {form.password.length > 0 && (
+        {!editing ? (
+          /* Vista de lectura */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              {passwordRules.map((_, i) => (
-                <div key={i} style={{
-                  flex: 1, height: '3px', borderRadius: '2px',
-                  background: i < pwdStrength ? (pwdStrength === 3 ? 'var(--success)' : 'var(--warning)') : 'var(--border)',
-                  transition: 'background 0.2s ease',
-                }} />
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div>
+                <h2 style={{ fontSize: '20px', fontWeight: '700', color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                  {user?.fullName || 'Sin nombre'}
+                </h2>
+                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  {user?.email}
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+                <EditIcon /> Editar
+              </Button>
+            </div>
+
+            <div style={{ marginTop: '8px' }}>
+              <RoleBadge role={user?.role || 'user'} />
+            </div>
+
+            {success && (
+              <p style={{ fontSize: '13px', color: 'var(--success)', marginTop: '8px' }}>
+                ✓ Perfil actualizado correctamente
+              </p>
+            )}
+
+            {/* Stats placeholder */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '1px', marginTop: '20px',
+              background: 'var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden',
+            }}>
+              {[
+                { label: 'Publicaciones', value: '0' },
+                { label: 'Validaciones', value: '0' },
+                { label: 'Reputación', value: '0' },
+              ].map(stat => (
+                <div key={stat.label} style={{
+                  padding: '14px', textAlign: 'center', background: 'var(--bg-elevated)',
+                }}>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: 'var(--text-primary)' }}>{stat.value}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{stat.label}</div>
+                </div>
               ))}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              {passwordRules.map((rule, i) => {
-                const met = rule.test(form.password);
-                return (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: met ? 'var(--success)' : 'var(--text-muted)' }}>
-                    <span style={{ opacity: met ? 1 : 0.4 }}><CheckIcon /></span>
-                    {rule.label}
-                  </div>
-                );
-              })}
-            </div>
           </div>
+        ) : (
+          /* Modo edición */
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-primary)' }}>
+              Editar perfil
+            </h3>
+
+            {error && (
+              <div style={{
+                padding: '10px 14px', borderRadius: 'var(--radius-md)',
+                background: 'var(--error-soft)', color: 'var(--error)', fontSize: '13px',
+              }}>
+                {error}
+              </div>
+            )}
+
+            <Input
+              label="Nombre completo"
+              id="profile-fullname"
+              name="fullName"
+              type="text"
+              value={form.fullName}
+              onChange={handleChange}
+              placeholder="Tu nombre"
+              required
+              disabled={loading}
+            />
+
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+              Email: <span style={{ color: 'var(--text-secondary)' }}>{user?.email}</span>
+              <br />
+              <small>(El email no se puede cambiar aquí)</small>
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <Button type="submit" loading={loading} disabled={loading} size="md">
+                Guardar cambios
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                onClick={() => { setEditing(false); setError(null); setForm({ fullName: user?.fullName || '' }); }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
         )}
       </div>
-
-      <Input
-        label="Confirmar contraseña"
-        id="reg-confirm"
-        name="confirmPassword"
-        type="password"
-        value={form.confirmPassword}
-        onChange={handleChange}
-        placeholder="Repite tu contraseña"
-        error={fieldErrors.confirmPassword}
-        iconLeft={<LockIcon />}
-        autoComplete="new-password"
-        required
-        disabled={loading}
-      />
-
-      {/* Términos */}
-      <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        Al registrarte aceptas los{' '}
-        <a href="#" style={{ color: 'var(--accent)' }}>Términos de uso</a>
-        {' '}y la{' '}
-        <a href="#" style={{ color: 'var(--accent)' }}>Política de privacidad</a>.
-      </p>
-
-      <Button type="submit" fullWidth loading={loading} disabled={loading} size="lg">
-        {loading ? 'Creando cuenta...' : 'Crear cuenta'}
-      </Button>
-
-      <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
-        ¿Ya tienes cuenta?{' '}
-        <Link to="/login" style={{ color: 'var(--accent)', fontWeight: '500', textDecoration: 'none' }}>
-          Inicia sesión
-        </Link>
-      </p>
-    </form>
+    </div>
   );
 }
