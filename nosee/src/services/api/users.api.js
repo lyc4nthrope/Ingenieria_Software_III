@@ -10,7 +10,7 @@
  * lo que retorna: { ..., roles: { name: 'Admin' } }
  */
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 
 // ─── Mapper BD → UI ───────────────────────────────────────────────────────────

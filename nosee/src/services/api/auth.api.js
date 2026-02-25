@@ -9,7 +9,7 @@
  * De este modo el store puede manejar errores de forma uniforme.
  */
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/services/supabase.client';
 
 // ─── Registro ────────────────────────────────────────────────────────────────
 

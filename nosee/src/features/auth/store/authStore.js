@@ -27,8 +27,8 @@ import { authApi, usersApi } from '@/services/api';
 // cambios de sesión en tiempo real (cuando el token se refresca, etc.)
 import { supabase } from '@/services/supabase.client';
 
-// Importamos mappers para transformar datos de Supabase a formato UI
-import { mapDBUserToUI } from '@/features/auth/mappers';
+// NOTA: mapDBUserToUI ya NO se importa aquí porque usersApi lo aplica
+// internamente. Importarlo y usarlo de nuevo corrompía los datos (doble mapeo).
 
 // Importamos los tipos de estado asincrónico definidos en types/
 // IDLE = sin actividad, LOADING = esperando, SUCCESS = ok, ERROR = falló
@@ -100,9 +100,10 @@ export const useAuthStore = create((set, get) => ({
         // en nuestra tabla 'users' (no solo el objeto de Auth de Supabase)
         const profileResult = await usersApi.getUserProfile(sessionData.user.id);
 
-        // Transformamos los datos al formato que espera la UI (camelCase, fechas como Date, etc.)
+        // FIX Bug 2: getUserProfile ya devuelve datos mapeados con mapDBUserToUI
+        // internamente, así que usamos profileResult.data directo (sin re-mapear)
         const mappedUser = profileResult.success
-          ? mapDBUserToUI(profileResult.data)
+          ? profileResult.data
           : { id: sessionData.user.id, email: sessionData.user.email };
 
         set({
@@ -147,8 +148,9 @@ export const useAuthStore = create((set, get) => ({
         // Actualizamos el perfil del usuario con los datos frescos
         const profileResult = await usersApi.getUserProfile(session.user.id);
 
+        // FIX Bug 2: ídem, profileResult.data ya viene mapeado
         const mappedUser = profileResult.success
-          ? mapDBUserToUI(profileResult.data)
+          ? profileResult.data
           : { id: session.user.id, email: session.user.email };
 
         set({
@@ -204,8 +206,9 @@ export const useAuthStore = create((set, get) => ({
     // (Supabase Auth solo guarda email/id, nosotros guardamos nombre, rol, etc.)
     const profileResult = await usersApi.getUserProfile(result.data.user.id);
 
+    // FIX Bug 2: profileResult.data ya viene mapeado por usersApi
     const mappedUser = profileResult.success
-      ? mapDBUserToUI(profileResult.data)
+      ? profileResult.data
       : { id: result.data.user.id, email: result.data.user.email };
 
     set({
@@ -242,9 +245,8 @@ export const useAuthStore = create((set, get) => ({
     set({ status: AsyncStateEnum.LOADING, error: null });
 
     // Paso 1: Crear cuenta en Supabase Auth
-    const signUpResult = await authApi.signUp(email, password, {
-      full_name: metadata.fullName,
-    });
+    // FIX Bug 3: signUp espera fullName como string, no como objeto
+    const signUpResult = await authApi.signUp(email, password, metadata.fullName);
 
     if (!signUpResult.success) {
       set({ status: AsyncStateEnum.ERROR, error: signUpResult.error });
@@ -256,10 +258,12 @@ export const useAuthStore = create((set, get) => ({
     // Paso 2: Crear perfil en nuestra tabla 'users'
     // Esto es necesario porque Supabase Auth no guarda campos personalizados como role
     if (newUser) {
-      await usersApi.createUserProfile(newUser.id, {
-        email: newUser.email,
-        full_name: metadata.fullName || '',
-      });
+      // FIX Bug 4: createUserProfile espera (userId, fullName, email) como strings separados
+      await usersApi.createUserProfile(
+        newUser.id,
+        metadata.fullName || '',
+        newUser.email
+      );
     }
 
     // Si Supabase requiere verificación de email (autoconfirm = false en config.toml),
@@ -335,8 +339,9 @@ export const useAuthStore = create((set, get) => ({
       return { success: false, error: result.error };
     }
 
-    // Actualizamos el store con los datos frescos de la BD
-    const updatedUser = mapDBUserToUI(result.data[0]);
+    // FIX Bug 5: updateUserProfile usa .single() y ya devuelve un objeto mapeado,
+    // no un array. Usamos result.data directo (sin [0] ni re-mapear).
+    const updatedUser = result.data;
 
     set({
       user: updatedUser,
