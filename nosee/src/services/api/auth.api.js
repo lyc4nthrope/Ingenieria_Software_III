@@ -104,18 +104,32 @@ export const getSession = async () => {
 /**
  * Resetear contraseña
  * 
+ * Supabase enviará un email con un link que contiene:
+ * access_token y type=recovery en el hash
+ * 
+ * El usuario hace clic en el link → navegador redirige a /auth/callback#access_token=...&type=recovery
+ * → Supabase detecta automáticamente el token en el hash
+ * → Supabase limpia el hash y procesa el token
+ * → onAuthStateChange se dispara con SIGNED_IN
+ * → CallbackPage redirige a /nueva-contrasena
+ * 
  * @param {string} email - Email del usuario
  * @returns {Promise<Object>} Resultado de la operación
  */
 export const resetPassword = async (email) => {
   try {
+    // Guardamos en localStorage que estamos en un flujo de recovery
+    // Así CallbackPage puede detectarlo incluso si el hash se limpia
+    localStorage.setItem('auth_callback_type', 'recovery');
+    
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
+      redirectTo: `${window.location.origin}/auth/callback`,
     });
 
     if (error) throw error;
     return { success: true };
   } catch (error) {
+    localStorage.removeItem('auth_callback_type');
     return { success: false, error: error.message };
   }
 };

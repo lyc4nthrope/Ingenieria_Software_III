@@ -18,7 +18,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/services/supabase.client';
-import { useAuthStore, selectIsInitialized } from '@/features/auth/store/authStore';
+//import { useAuthStore, selectIsInitialized } from '@/features/auth/store/authStore';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
@@ -92,24 +92,40 @@ function SuccessView() {
 
 // ── Página principal ──────────────────────────────────────────────────────
 export default function NewPasswordPage() {
-  const navigate       = useNavigate();
-  const isInitialized  = useAuthStore(selectIsInitialized);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const navigate = useNavigate();
 
-  const [form, setForm]             = useState({ password: '', confirmPassword: '' });
+  const [form, setForm] = useState({ password: '', confirmPassword: '' });
   const [showPassword, setShowPassword] = useState(false);
-  const [fieldErrors, setFieldErrors]   = useState({});
-  const [serverError, setServerError]   = useState('');
-  const [loading, setLoading]       = useState(false);
-  const [success, setSuccess]       = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [serverError, setServerError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [hasValidSession, setHasValidSession] = useState(null); // null = verificando
 
-  // ── Guardia: si no hay sesión, no tiene sentido estar aquí ───────────
+  // ── Guardia SIMPLE: si fuimos redirigidos desde CallbackPage, confiar en eso ──
+  // Si el usuario llegó directo a esta URL SIN venir del callback,
+  // esperará 3 segundos y redirigirá (asumiendo token expirado)
   useEffect(() => {
-    if (isInitialized && !isAuthenticated) {
-      // No hay sesión → el link de recovery ya expiró o nunca llegó
-      navigate('/recuperar-contrasena', { replace: true });
+    const storedType = localStorage.getItem('auth_callback_type');
+    
+    // Si vinimos del flujo de recovery, estamos bien
+    if (storedType === 'recovery') {
+      console.log('✅ Flujo de recovery confirmado. Nueva contraseña lista.');
+      localStorage.removeItem('auth_callback_type');
+      setHasValidSession(true);
+      return;
     }
-  }, [isInitialized, isAuthenticated, navigate]);
+
+    // Si NO vinimos del callback, esperar y redirigir
+    console.log('⏳ Verificando si hay sesión válida...');
+    const timer = setTimeout(() => {
+      console.log('❌ No hay sesión válida (token expirado o acceso directo)');
+      setHasValidSession(false);
+      navigate('/recuperar-contrasena', { replace: true });
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [navigate]);
 
   // ── Redirección tras éxito ───────────────────────────────────────────
   useEffect(() => {
@@ -171,6 +187,35 @@ export default function NewPasswordPage() {
   const pwdStrength = passwordRules.filter((r) => r.test(form.password)).length;
 
   // ── Render ───────────────────────────────────────────────────────────
+  // Si aún estamos verificando la sesión, mostrar loader
+  if (hasValidSession === null) {
+    return (
+      <main style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+        minHeight: 'calc(100vh - 60px)',
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '40px', height: '40px',
+            border: '3px solid rgba(56,189,248,0.15)',
+            borderTop: '3px solid var(--accent, #38BDF8)',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+            margin: '0 auto 16px',
+          }} />
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+            Verificando enlace de recuperación...
+          </p>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </main>
+    );
+  }
+
   return (
     <main style={{
       flex: 1,
