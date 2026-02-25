@@ -1,4 +1,4 @@
--- ============================================================
+-- ============================================================ NO EJECUTAR SOLO ES REFERENCIA
 -- Migración: 20240101000002_create_updated_at_trigger.sql
 -- Trigger genérico que actualiza updated_at automáticamente
 -- ============================================================
