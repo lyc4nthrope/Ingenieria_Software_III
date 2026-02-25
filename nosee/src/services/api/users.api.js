@@ -8,46 +8,55 @@
  * El SELECT usa JOIN implícito con Supabase:
  *   .select('*, roles(name)')
  * lo que retorna: { ..., roles: { name: 'Admin' } }
+ *
+ * NOTA ESQUEMA: la tabla public.users NO tiene columnas email ni avatar_url.
+ * El email siempre se obtiene de auth.users vía supabase.auth.getUser().
  */
 
 import { supabase } from '@/services/supabase.client';
-import { UserRoleEnum } from '@/types';
 
 // ─── Mapper BD → UI ───────────────────────────────────────────────────────────
 
 /**
  * Convierte el objeto raw de la BD al shape que usa el store/UI.
  *
- * CORRECCIÓN: Los valores de roles.name en BD son 'Usuario', 'Moderador',
- * 'Admin', 'Repartidor'. Coinciden exactamente con UserRoleEnum, así que
- * se asignan directamente. Si el valor no está en el enum, se cae a
- * UserRoleEnum.USUARIO como valor seguro por defecto.
+ * IMPORTANTE: `data.email` debe inyectarse antes de llamar esta función,
+ * ya que la columna email no existe en public.users.
  *
- * @param {Object} dbUser - Fila raw de la tabla users con join de roles
+ * @param {Object} data - Fila de la tabla users (con join de roles) + email inyectado
  * @returns {import('@/types').UserProfile}
  */
 export function mapDBUserToUI(data) {
+  if (!data) return null;
   return {
     id:               data.id,
-    fullName:         data.full_name,
-    email:            data.email ?? '',      
+    fullName:         data.full_name ?? '',
+    email:            data.email    ?? '',   // Inyectado desde auth.users
     roleId:           data.role_id,
     role:             data.roles?.name ?? 'Usuario',
-    reputationPoints: data.reputation_points ?? 0,  
-    isVerified:       data.is_verified,
-    isActive:         data.is_active,
+    reputationPoints: data.reputation_points ?? 0,
+    isVerified:       data.is_verified  ?? false,
+    isActive:         data.is_active    ?? true,
     createdAt:        data.created_at,
   };
+}
+
+// ─── Helper interno: obtener email de auth ────────────────────────────────────
+
+async function getAuthEmail() {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.email ?? '';
 }
 
 // ─── Obtener perfil ───────────────────────────────────────────────────────────
 
 /**
  * Obtiene el perfil completo del usuario autenticado (incluye su rol).
+ * Combina public.users con auth.users para exponer el email.
+ *
  * @param {string} userId - UUID del usuario
  */
 export async function getUserProfile(userId) {
-  // 1. Perfil público
   const { data: profile, error } = await supabase
     .from('users')
     .select('*, roles(name)')
@@ -56,46 +65,48 @@ export async function getUserProfile(userId) {
 
   if (error) return { success: false, error: error.message };
 
-  // 2. Email viene de auth (no está en public.users)
-  const { data: { user: authUser } } = await supabase.auth.getUser();
+  const email = await getAuthEmail();
 
   return {
     success: true,
-    data: mapDBUserToUI({ ...profile, email: authUser?.email })
+    data: mapDBUserToUI({ ...profile, email }),
   };
 }
 
 // ─── Crear perfil ─────────────────────────────────────────────────────────────
 
 /**
- * Crea el perfil del usuario en la tabla `users`.
- * Normalmente lo ejecuta el trigger `handle_new_user` automáticamente.
- * Esta función es un fallback por si el trigger falla.
+ * Crea el perfil del usuario en la tabla `users` (fallback al trigger).
+ * Usa upsert para no colisionar con el trigger handle_new_user.
  *
  * @param {string} userId
  * @param {string} fullName
- * @param {string} email
  */
 export async function createUserProfile(userId, fullName) {
   const { data, error } = await supabase
     .from('users')
     .upsert(
       { id: userId, role_id: 1, full_name: fullName, is_verified: false },
-      { onConflict: 'id' }  // el trigger ya pudo haberlo creado
+      { onConflict: 'id' }
     )
     .select('*, roles(name)')
     .single();
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data: mapDBUserToUI(data) };
+
+  const email = await getAuthEmail();
+
+  return { success: true, data: mapDBUserToUI({ ...data, email }) };
 }
 
 // ─── Actualizar perfil ────────────────────────────────────────────────────────
 
 /**
  * Actualiza campos del perfil del usuario autenticado.
+ * Re-inyecta el email desde auth.users para no perderlo en el store.
+ *
  * @param {string} userId
- * @param {Object} updates - campos a actualizar (full_name, avatar_url, etc.)
+ * @param {Object} updates - campos snake_case: full_name, etc.
  */
 export async function updateUserProfile(userId, updates) {
   const { data, error } = await supabase
@@ -106,7 +117,11 @@ export async function updateUserProfile(userId, updates) {
     .single();
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data: mapDBUserToUI(data) };
+
+  // FIX: volver a inyectar email para que el store no lo pierda
+  const email = await getAuthEmail();
+
+  return { success: true, data: mapDBUserToUI({ ...data, email }) };
 }
 
 // ─── Listar usuarios (solo Admin) ─────────────────────────────────────────────
@@ -114,6 +129,7 @@ export async function updateUserProfile(userId, updates) {
 /**
  * Retorna todos los perfiles de usuario con sus roles.
  * Requiere RLS permiso de Admin.
+ * NOTA: No inyecta email individual (operación masiva de admin).
  */
 export async function getAllUsers() {
   const { data, error } = await supabase
@@ -122,13 +138,13 @@ export async function getAllUsers() {
     .order('created_at', { ascending: false });
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data: data.map(mapDBUserToUI) };
+  return { success: true, data: data.map(row => mapDBUserToUI(row)) };
 }
 
 /**
  * Cambia el rol de un usuario (solo Admin).
  * @param {string} userId
- * @param {number} roleId - ID del nuevo rol (1=Usuario, 2=Moderador, 3=Admin, 4=Repartidor)
+ * @param {number} roleId - 1=Usuario, 2=Moderador, 3=Admin, 4=Repartidor
  */
 export async function changeUserRole(userId, roleId) {
   const { data, error } = await supabase
@@ -139,5 +155,8 @@ export async function changeUserRole(userId, roleId) {
     .single();
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data: mapDBUserToUI(data) };
+
+  const email = await getAuthEmail();
+
+  return { success: true, data: mapDBUserToUI({ ...data, email }) };
 }

@@ -1,13 +1,12 @@
 /**
  * Auth Mappers - Transformación de datos
  *
- * Transforma respuestas de Supabase en modelos UI.
- *
- * NOTA: La tabla 'users' usa role_id (FK → roles.id).
- * Cuando se hace .select('*, roles(name)') en Supabase, el objeto
- * devuelto tiene { ..., roles: { name: 'Usuario' } }.
- * mapDBUserToUI lee ese join para exponer `role` como string simple.
+ * NOTA: El mapper principal de usuarios (mapDBUserToUI) vive en
+ * services/api/users.api.js para evitar duplicación.
+ * Este archivo conserva los mappers exclusivos del flujo de auth.
  */
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
 /**
  * Mapear objeto user de Supabase Auth → modelo UI mínimo
@@ -18,81 +17,10 @@
  */
 export const mapSupabaseUserToUI = (supabaseUser) => {
   if (!supabaseUser) return null;
-
   return {
-    id: supabaseUser.id,
+    id:    supabaseUser.id,
     email: supabaseUser.email,
   };
-};
-
-/**
- * Mapear datos del formulario Sign Up → payload para signUp()
- *
- * @param {Object} formData - { email, password, full_name }
- * @returns {Object} payload para supabase.auth.signUp()
- */
-export const mapSignUpFormToAPI = (formData) => {
-  const { email, password, full_name } = formData;
-
-  return {
-    email,
-    password,
-    options: {
-      data: { full_name },
-    },
-  };
-};
-
-/**
- * Mapear fila de la tabla 'users' (con join a 'roles') → modelo UI
- *
- * El objeto llega así desde Supabase cuando usas .select('*, roles(name)'):
- * {
- *   id, email, full_name, role_id, avatar_url, is_verified,
- *   created_at, updated_at,
- *   roles: { name: 'Usuario' }   ← join
- * }
- *
- * @param {Object} dbUser
- * @returns {Object|null}
- */
-export const mapDBUserToUI = (dbUser) => {
-  if (!dbUser) return null;
-
-  return {
-    id: dbUser.id,
-    email: dbUser.email,
-    fullName: dbUser.full_name || '',
-    // El join trae { roles: { name: 'Usuario' } }
-    // Fallback a 'Usuario' si no viene el join
-    role: dbUser.roles?.name || 'Usuario',
-    avatarUrl: dbUser.avatar_url || null,
-    isVerified: dbUser.is_verified || false,
-    createdAt: new Date(dbUser.created_at),
-    updatedAt: dbUser.updated_at ? new Date(dbUser.updated_at) : null,
-  };
-};
-
-/**
- * Mapear datos de perfil UI → payload para updateUserProfile()
- *
- * Solo incluye los campos que se pasan (undefined = no cambió).
- *
- * @param {Object} profileData - { fullName?, avatarUrl? }
- * @returns {Object} en snake_case para la BD
- */
-export const mapProfileFormToAPI = (profileData) => {
-  const updates = {};
-
-  if (profileData.fullName !== undefined) {
-    updates.full_name = profileData.fullName;
-  }
-
-  if (profileData.avatarUrl !== undefined) {
-    updates.avatar_url = profileData.avatarUrl;
-  }
-
-  return updates;
 };
 
 /**
@@ -118,10 +46,8 @@ export const mapAuthErrorToUI = (error) => {
     'User already registered':        'Este email ya está registrado',
   };
 
-  // Buscar coincidencia exacta por código
   if (errorMap[errorCode]) return errorMap[errorCode];
 
-  // Buscar coincidencia parcial en el mensaje
   for (const [key, msg] of Object.entries(errorMap)) {
     if (errorCode.includes(key)) return msg;
   }
@@ -131,8 +57,5 @@ export const mapAuthErrorToUI = (error) => {
 
 export default {
   mapSupabaseUserToUI,
-  mapSignUpFormToAPI,
-  mapDBUserToUI,
-  mapProfileFormToAPI,
   mapAuthErrorToUI,
 };
