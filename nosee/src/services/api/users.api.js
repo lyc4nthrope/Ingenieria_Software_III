@@ -1,140 +1,147 @@
 /**
- * Users API
+ * users.api.js
+ * Capa de acceso a datos: operaciones sobre la tabla `users` (perfiles).
  *
- * Funciones para operaciones CRUD de usuarios en la base de datos
- * Contrato entre el frontend y la tabla 'users' en Supabase
+ * La tabla `users` está relacionada con `roles`:
+ *   users.role_id → roles.id
  *
- * NOTA: La tabla 'users' usa role_id (FK → roles.id), por eso
- * getUserProfile hace join con la tabla roles para obtener el nombre del rol.
+ * El SELECT usa JOIN implícito con Supabase:
+ *   .select('*, roles(name)')
+ * lo que retorna: { ..., roles: { name: 'Admin' } }
  */
 
-import { supabase } from '../supabase.client';
+import { supabase } from '@/lib/supabase';
+import { UserRoleEnum } from '@/types';
+
+// ─── Mapper BD → UI ───────────────────────────────────────────────────────────
 
 /**
- * Crear perfil de usuario
- * Se llama justo después de signUp() con el UUID que genera Supabase Auth.
+ * Convierte el objeto raw de la BD al shape que usa el store/UI.
  *
- * @param {string} userId  - ID del usuario (de Auth)
- * @param {Object} userData - { email, full_name }
- * @returns {Promise<{ success: boolean, data: Object|null, error: string|null }>}
+ * CORRECCIÓN: Los valores de roles.name en BD son 'Usuario', 'Moderador',
+ * 'Admin', 'Repartidor'. Coinciden exactamente con UserRoleEnum, así que
+ * se asignan directamente. Si el valor no está en el enum, se cae a
+ * UserRoleEnum.USUARIO como valor seguro por defecto.
+ *
+ * @param {Object} dbUser - Fila raw de la tabla users con join de roles
+ * @returns {import('@/types').UserProfile}
  */
-export const createUserProfile = async (userId, userData) => {
-  try {
-    // Obtener el ID del rol por defecto ('Usuario')
-    // Ajusta el nombre del rol según tu configuración (puede ser 'user' o 'Usuario')
-    const { data: roleData, error: roleError } = await supabase
-      .from('roles')
-      .select('id')
-      .eq('name', 'Usuario')
-      .single();
+export function mapDBUserToUI(dbUser) {
+  if (!dbUser) return null;
 
-    if (roleError) {
-      // Si no existe el rol 'Usuario', intentar con 'user' como fallback
-      const { data: fallbackRole } = await supabase
-        .from('roles')
-        .select('id')
-        .eq('name', 'user')
-        .single();
+  const roleFromDB = dbUser.roles?.name;
 
-      if (!fallbackRole) {
-        console.warn('No se encontró el rol por defecto. El perfil se creará sin role_id.');
-      }
-    }
+  // Verificar que el rol del DB es un valor válido del enum
+  const role = Object.values(UserRoleEnum).includes(roleFromDB)
+    ? roleFromDB
+    : UserRoleEnum.USUARIO;  // fallback seguro
 
-    const roleId = roleData?.id || null;
+  return {
+    id:         dbUser.id,
+    email:      dbUser.email       ?? '',
+    fullName:   dbUser.full_name   ?? '',
+    role,
+    isVerified: dbUser.is_verified ?? false,
+    points:     dbUser.points      ?? 0,
+    avatarUrl:  dbUser.avatar_url  ?? null,
+    createdAt:  dbUser.created_at  ?? null,
+  };
+}
 
-    const { data, error } = await supabase
-      .from('users')
-      .insert([
-        {
-          id: userId,
-          email: userData.email,
-          full_name: userData.full_name || '',
-          role_id: roleId,
-          is_verified: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ])
-      .select('*, roles(name)');
-
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+// ─── Obtener perfil ───────────────────────────────────────────────────────────
 
 /**
- * Obtener perfil de usuario por ID
- * Hace join con 'roles' para traer el nombre del rol.
- *
- * @param {string} userId - ID del usuario
- * @returns {Promise<{ success: boolean, data: Object|null, error: string|null }>}
+ * Obtiene el perfil completo del usuario autenticado (incluye su rol).
+ * @param {string} userId - UUID del usuario
  */
-export const getUserProfile = async (userId) => {
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*, roles(name)')   // join a tabla roles
-      .eq('id', userId)
-      .single();
+export async function getUserProfile(userId) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*, roles(name)')
+    .eq('id', userId)
+    .single();
 
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: mapDBUserToUI(data) };
+}
+
+// ─── Crear perfil ─────────────────────────────────────────────────────────────
 
 /**
- * Actualizar perfil de usuario
+ * Crea el perfil del usuario en la tabla `users`.
+ * Normalmente lo ejecuta el trigger `handle_new_user` automáticamente.
+ * Esta función es un fallback por si el trigger falla.
  *
- * @param {string} userId  - ID del usuario
- * @param {Object} updates - Campos a actualizar (en snake_case, como en la BD)
- * @returns {Promise<{ success: boolean, data: Object|null, error: string|null }>}
+ * @param {string} userId
+ * @param {string} fullName
+ * @param {string} email
  */
-export const updateUserProfile = async (userId, updates) => {
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
-      .select('*, roles(name)');  // también devuelve el rol actualizado
+export async function createUserProfile(userId, fullName, email) {
+  const { data, error } = await supabase
+    .from('users')
+    .insert({
+      id:          userId,
+      role_id:     1,        // rol por defecto: Usuario
+      full_name:   fullName,
+      email,
+      is_verified: false,
+      points:      0,
+    })
+    .select('*, roles(name)')
+    .single();
 
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: mapDBUserToUI(data) };
+}
+
+// ─── Actualizar perfil ────────────────────────────────────────────────────────
 
 /**
- * Eliminar perfil de usuario
- *
- * @param {string} userId - ID del usuario
- * @returns {Promise<{ success: boolean, error: string|null }>}
+ * Actualiza campos del perfil del usuario autenticado.
+ * @param {string} userId
+ * @param {Object} updates - campos a actualizar (full_name, avatar_url, etc.)
  */
-export const deleteUserProfile = async (userId) => {
-  try {
-    const { error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', userId);
+export async function updateUserProfile(userId, updates) {
+  const { data, error } = await supabase
+    .from('users')
+    .update(updates)
+    .eq('id', userId)
+    .select('*, roles(name)')
+    .single();
 
-    if (error) throw error;
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: mapDBUserToUI(data) };
+}
 
-export default {
-  createUserProfile,
-  getUserProfile,
-  updateUserProfile,
-  deleteUserProfile,
-};
+// ─── Listar usuarios (solo Admin) ─────────────────────────────────────────────
+
+/**
+ * Retorna todos los perfiles de usuario con sus roles.
+ * Requiere RLS permiso de Admin.
+ */
+export async function getAllUsers() {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*, roles(name)')
+    .order('created_at', { ascending: false });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data.map(mapDBUserToUI) };
+}
+
+/**
+ * Cambia el rol de un usuario (solo Admin).
+ * @param {string} userId
+ * @param {number} roleId - ID del nuevo rol (1=Usuario, 2=Moderador, 3=Admin, 4=Repartidor)
+ */
+export async function changeUserRole(userId, roleId) {
+  const { data, error } = await supabase
+    .from('users')
+    .update({ role_id: roleId })
+    .eq('id', userId)
+    .select('*, roles(name)')
+    .single();
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: mapDBUserToUI(data) };
+}
