@@ -1,140 +1,162 @@
 /**
- * Users API
+ * users.api.js
+ * Capa de acceso a datos: operaciones sobre la tabla `users` (perfiles).
  *
- * Funciones para operaciones CRUD de usuarios en la base de datos
- * Contrato entre el frontend y la tabla 'users' en Supabase
+ * La tabla `users` está relacionada con `roles`:
+ *   users.role_id → roles.id
  *
- * NOTA: La tabla 'users' usa role_id (FK → roles.id), por eso
- * getUserProfile hace join con la tabla roles para obtener el nombre del rol.
+ * El SELECT usa JOIN implícito con Supabase:
+ *   .select('*, roles(name)')
+ * lo que retorna: { ..., roles: { name: 'Admin' } }
+ *
+ * NOTA ESQUEMA: la tabla public.users NO tiene columnas email ni avatar_url.
+ * El email siempre se obtiene de auth.users vía supabase.auth.getUser().
  */
 
-import { supabase } from '../supabase.client';
+import { supabase } from '@/services/supabase.client';
+
+// ─── Mapper BD → UI ───────────────────────────────────────────────────────────
 
 /**
- * Crear perfil de usuario
- * Se llama justo después de signUp() con el UUID que genera Supabase Auth.
+ * Convierte el objeto raw de la BD al shape que usa el store/UI.
  *
- * @param {string} userId  - ID del usuario (de Auth)
- * @param {Object} userData - { email, full_name }
- * @returns {Promise<{ success: boolean, data: Object|null, error: string|null }>}
+ * IMPORTANTE: `data.email` debe inyectarse antes de llamar esta función,
+ * ya que la columna email no existe en public.users.
+ *
+ * @param {Object} data - Fila de la tabla users (con join de roles) + email inyectado
+ * @returns {import('@/types').UserProfile}
  */
-export const createUserProfile = async (userId, userData) => {
-  try {
-    // Obtener el ID del rol por defecto ('Usuario')
-    // Ajusta el nombre del rol según tu configuración (puede ser 'user' o 'Usuario')
-    const { data: roleData, error: roleError } = await supabase
-      .from('roles')
-      .select('id')
-      .eq('name', 'Usuario')
-      .single();
+export function mapDBUserToUI(data) {
+  if (!data) return null;
+  return {
+    id:               data.id,
+    fullName:         data.full_name ?? '',
+    email:            data.email    ?? '',   // Inyectado desde auth.users
+    roleId:           data.role_id,
+    role:             data.roles?.name ?? 'Usuario',
+    reputationPoints: data.reputation_points ?? 0,
+    isVerified:       data.is_verified  ?? false,
+    isActive:         data.is_active    ?? true,
+    createdAt:        data.created_at,
+  };
+}
 
-    if (roleError) {
-      // Si no existe el rol 'Usuario', intentar con 'user' como fallback
-      const { data: fallbackRole } = await supabase
-        .from('roles')
-        .select('id')
-        .eq('name', 'user')
-        .single();
+// ─── Helper interno: obtener email de auth ────────────────────────────────────
 
-      if (!fallbackRole) {
-        console.warn('No se encontró el rol por defecto. El perfil se creará sin role_id.');
-      }
-    }
+async function getAuthEmail() {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.email ?? '';
+}
 
-    const roleId = roleData?.id || null;
-
-    const { data, error } = await supabase
-      .from('users')
-      .insert([
-        {
-          id: userId,
-          email: userData.email,
-          full_name: userData.full_name || '',
-          role_id: roleId,
-          is_verified: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ])
-      .select('*, roles(name)');
-
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+// ─── Obtener perfil ───────────────────────────────────────────────────────────
 
 /**
- * Obtener perfil de usuario por ID
- * Hace join con 'roles' para traer el nombre del rol.
+ * Obtiene el perfil completo del usuario autenticado (incluye su rol).
+ * Combina public.users con auth.users para exponer el email.
  *
- * @param {string} userId - ID del usuario
- * @returns {Promise<{ success: boolean, data: Object|null, error: string|null }>}
+ * @param {string} userId - UUID del usuario
  */
-export const getUserProfile = async (userId) => {
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*, roles(name)')   // join a tabla roles
-      .eq('id', userId)
-      .single();
+export async function getUserProfile(userId) {
+  const { data: profile, error } = await supabase
+    .from('users')
+    .select('*, roles(name)')
+    .eq('id', userId)
+    .single();
 
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+  if (error) return { success: false, error: error.message };
+
+  const email = await getAuthEmail();
+
+  return {
+    success: true,
+    data: mapDBUserToUI({ ...profile, email }),
+  };
+}
+
+// ─── Crear perfil ─────────────────────────────────────────────────────────────
 
 /**
- * Actualizar perfil de usuario
+ * Crea el perfil del usuario en la tabla `users` (fallback al trigger).
+ * Usa upsert para no colisionar con el trigger handle_new_user.
  *
- * @param {string} userId  - ID del usuario
- * @param {Object} updates - Campos a actualizar (en snake_case, como en la BD)
- * @returns {Promise<{ success: boolean, data: Object|null, error: string|null }>}
+ * @param {string} userId
+ * @param {string} fullName
  */
-export const updateUserProfile = async (userId, updates) => {
-  try {
-    const { data, error } = await supabase
-      .from('users')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
-      .select('*, roles(name)');  // también devuelve el rol actualizado
+export async function createUserProfile(userId, fullName) {
+  const { data, error } = await supabase
+    .from('users')
+    .upsert(
+      { id: userId, role_id: 1, full_name: fullName, is_verified: false },
+      { onConflict: 'id' }
+    )
+    .select('*, roles(name)')
+    .single();
 
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+  if (error) return { success: false, error: error.message };
+
+  const email = await getAuthEmail();
+
+  return { success: true, data: mapDBUserToUI({ ...data, email }) };
+}
+
+// ─── Actualizar perfil ────────────────────────────────────────────────────────
 
 /**
- * Eliminar perfil de usuario
+ * Actualiza campos del perfil del usuario autenticado.
+ * Re-inyecta el email desde auth.users para no perderlo en el store.
  *
- * @param {string} userId - ID del usuario
- * @returns {Promise<{ success: boolean, error: string|null }>}
+ * @param {string} userId
+ * @param {Object} updates - campos snake_case: full_name, etc.
  */
-export const deleteUserProfile = async (userId) => {
-  try {
-    const { error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', userId);
+export async function updateUserProfile(userId, updates) {
+  const { data, error } = await supabase
+    .from('users')
+    .update(updates)
+    .eq('id', userId)
+    .select('*, roles(name)')
+    .single();
 
-    if (error) throw error;
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+  if (error) return { success: false, error: error.message };
 
-export default {
-  createUserProfile,
-  getUserProfile,
-  updateUserProfile,
-  deleteUserProfile,
-};
+  // FIX: volver a inyectar email para que el store no lo pierda
+  const email = await getAuthEmail();
+
+  return { success: true, data: mapDBUserToUI({ ...data, email }) };
+}
+
+// ─── Listar usuarios (solo Admin) ─────────────────────────────────────────────
+
+/**
+ * Retorna todos los perfiles de usuario con sus roles.
+ * Requiere RLS permiso de Admin.
+ * NOTA: No inyecta email individual (operación masiva de admin).
+ */
+export async function getAllUsers() {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*, roles(name)')
+    .order('created_at', { ascending: false });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data.map(row => mapDBUserToUI(row)) };
+}
+
+/**
+ * Cambia el rol de un usuario (solo Admin).
+ * @param {string} userId
+ * @param {number} roleId - 1=Usuario, 2=Moderador, 3=Admin, 4=Repartidor
+ */
+export async function changeUserRole(userId, roleId) {
+  const { data, error } = await supabase
+    .from('users')
+    .update({ role_id: roleId })
+    .eq('id', userId)
+    .select('*, roles(name)')
+    .single();
+
+  if (error) return { success: false, error: error.message };
+
+  const email = await getAuthEmail();
+
+  return { success: true, data: mapDBUserToUI({ ...data, email }) };
+}

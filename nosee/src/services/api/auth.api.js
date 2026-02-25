@@ -1,144 +1,115 @@
 /**
- * Authentication API
- * 
- * Funciones para comunicarse con Supabase Auth
- * Contrato entre el frontend y el servidor de autenticación
+ * auth.api.js
+ * Capa de acceso a datos: operaciones de autenticación con Supabase Auth.
+ *
+ * TODAS las funciones retornan el mismo shape:
+ *   { success: true,  data: <payload> }
+ *   { success: false, error: <string>  }
+ *
+ * De este modo el store puede manejar errores de forma uniforme.
  */
 
-import { supabase } from '../supabase.client';
+import { supabase } from '@/services/supabase.client';
+
+// ─── Registro ────────────────────────────────────────────────────────────────
 
 /**
- * Registrar un nuevo usuario
- * 
- * @param {string} email - Email del usuario
- * @param {string} password - Contraseña del usuario
- * @param {Object} metadata - Datos adicionales (fullName, etc.)
- * @returns {Promise<Object>} Datos del usuario registrado
+ * Registra un nuevo usuario con email y contraseña.
+ * Supabase envía automáticamente un email de verificación.
+ * @param {string} email
+ * @param {string} password
+ * @param {string} fullName
  */
-export const signUp = async (email, password, metadata = {}) => {
-  try {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: metadata, // full_name, etc.
-      },
-    });
+export async function signUp(email, password, fullName) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { full_name: fullName },
+      emailRedirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
 
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+  if (error) return { success: false, error: error.message };
+  return { success: true, data };
+}
+
+// ─── Login ───────────────────────────────────────────────────────────────────
 
 /**
- * Iniciar sesión
- * 
- * @param {string} email - Email del usuario
- * @param {string} password - Contraseña del usuario
- * @returns {Promise<Object>} Token y datos del usuario
+ * Inicia sesión con email y contraseña.
  */
-export const signIn = async (email, password) => {
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+export async function signIn(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+  if (error) return { success: false, error: error.message };
+  return { success: true, data };
+}
+
+// ─── Logout ──────────────────────────────────────────────────────────────────
+
+export async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+// ─── Sesión activa ───────────────────────────────────────────────────────────
 
 /**
- * Cerrar sesión
- * 
- * @returns {Promise<Object>} Resultado de la operación
+ * Obtiene la sesión actual (si existe).
  */
-export const signOut = async () => {
-  try {
-    const { error } = await supabase.auth.signOut();
+export async function getSession() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data.session };
+}
 
-    if (error) throw error;
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+// ─── Recuperación de contraseña ───────────────────────────────────────────────
 
 /**
- * Obtener usuario actual
- * 
- * @returns {Promise<Object>} Datos del usuario autenticado
+ * Solicita el envío de un email de recuperación de contraseña.
+ *
+ * CORRECCIÓN: redirectTo debe apuntar a /auth/callback (no a /auth/reset-password
+ * que no existe). CallbackPage detecta type=recovery y redirige a /nueva-contrasena.
+ *
+ * @param {string} email
  */
-export const getCurrentUser = async () => {
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser();
+export async function resetPassword(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/auth/callback`,  // ✅ CORRECTO
+  });
 
-    if (error) throw error;
-    return { success: true, data: user };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+// ─── Nueva contraseña ─────────────────────────────────────────────────────────
 
 /**
- * Obtener sesión actual
- * 
- * @returns {Promise<Object>} Sesión actual con tokens
+ * Actualiza la contraseña del usuario autenticado (tras seguir el link de recovery).
+ * @param {string} newPassword
  */
-export const getSession = async () => {
-  try {
-    const { data: { session }, error } = await supabase.auth.getSession();
+export async function updatePassword(newPassword) {
+  const { data, error } = await supabase.auth.updateUser({
+    password: newPassword,
+  });
 
-    if (error) throw error;
-    return { success: true, data: session };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
+  if (error) return { success: false, error: error.message };
+  return { success: true, data };
+}
+
+// ─── Listener de cambios de sesión ───────────────────────────────────────────
 
 /**
- * Resetear contraseña
- * 
- * Supabase enviará un email con un link que contiene:
- * access_token y type=recovery en el hash
- * 
- * El usuario hace clic en el link → navegador redirige a /auth/callback#access_token=...&type=recovery
- * → Supabase detecta automáticamente el token en el hash
- * → Supabase limpia el hash y procesa el token
- * → onAuthStateChange se dispara con SIGNED_IN
- * → CallbackPage redirige a /nueva-contrasena
- * 
- * @param {string} email - Email del usuario
- * @returns {Promise<Object>} Resultado de la operación
+ * Suscribe un callback a los cambios de estado de auth (login, logout, token refresh).
+ * Retorna la función de unsubscribe.
+ * @param {Function} callback - (event, session) => void
  */
-export const resetPassword = async (email) => {
-  try {
-    // Guardamos en localStorage que estamos en un flujo de recovery
-    // Así CallbackPage puede detectarlo incluso si el hash se limpia
-    localStorage.setItem('auth_callback_type', 'recovery');
-    
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    });
-
-    if (error) throw error;
-    return { success: true };
-  } catch (error) {
-    localStorage.removeItem('auth_callback_type');
-    return { success: false, error: error.message };
-  }
-};
-
-export default {
-  signUp,
-  signIn,
-  signOut,
-  getCurrentUser,
-  getSession,
-  resetPassword,
-};
+export function onAuthStateChange(callback) {
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(callback);
+  return () => subscription.unsubscribe();
+}
