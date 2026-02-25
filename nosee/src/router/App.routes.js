@@ -11,10 +11,10 @@
  * ─────────────────────────────────────────────────────────────────
  *
  *   import RoleRouter                  from '@/router/RoleRouter';
- *   import UsuarioDashboard            from '@/features/dashboard/usuario/UsuarioDashboard';
+ *   import UsuarioDashboard            from '@/features/dashboard/user/UserDashboard';
  *   import AdminDashboard              from '@/features/dashboard/admin/AdminDashboard';
- *   import ModeradorDashboard          from '@/features/dashboard/moderador/ModeradorDashboard';
- *   import RepartidorDashboard         from '@/features/dashboard/repartidor/RepartidorDashboard';
+ *   import ModeradorDashboard          from '@/features/dashboard/moderator/ModeratorDashboard';
+ *   import RepartidorDashboard         from '@/features/dashboard/dealer/DealerDashboard';
  *
  * ─────────────────────────────────────────────────────────────────
  * RUTAS que necesitas agregar dentro de <Routes>:
@@ -32,18 +32,18 @@
  *
  *   {/* Dashboards por rol *\/}
  *   <Route
- *     path="/dashboard/usuario"
+ *     path="/dashboard/user"
  *     element={
  *       <ProtectedRoute allowedRoles={['Usuario']}>
- *         <UsuarioDashboard />
+ *         <UserDashboard />
  *       </ProtectedRoute>
  *     }
  *   />
  *   <Route
- *     path="/dashboard/moderador"
+ *     path="/dashboard/moderator"
  *     element={
  *       <ProtectedRoute allowedRoles={['Moderador', 'Admin']}>
- *         <ModeradorDashboard />
+ *         <ModeratorDashboard />
  *       </ProtectedRoute>
  *     }
  *   />
@@ -56,10 +56,10 @@
  *     }
  *   />
  *   <Route
- *     path="/dashboard/repartidor"
+ *     path="/dashboard/dealer"
  *     element={
  *       <ProtectedRoute allowedRoles={['Repartidor']}>
- *         <RepartidorDashboard />
+ *         <DealerDashboard />
  *       </ProtectedRoute>
  *     }
  *   />
