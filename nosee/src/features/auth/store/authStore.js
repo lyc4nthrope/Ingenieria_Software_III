@@ -259,11 +259,7 @@ export const useAuthStore = create((set, get) => ({
     // Esto es necesario porque Supabase Auth no guarda campos personalizados como role
     if (newUser) {
       // FIX Bug 4: createUserProfile espera (userId, fullName, email) como strings separados
-      await usersApi.createUserProfile(
-        newUser.id,
-        metadata.fullName || '',
-        newUser.email
-      );
+      await usersApi.createUserProfile(newUser.id, metadata.fullName || '');
     }
 
     // Si Supabase requiere verificación de email (autoconfirm = false en config.toml),

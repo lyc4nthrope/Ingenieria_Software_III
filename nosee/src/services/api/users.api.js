@@ -26,25 +26,17 @@ import { UserRoleEnum } from '@/types';
  * @param {Object} dbUser - Fila raw de la tabla users con join de roles
  * @returns {import('@/types').UserProfile}
  */
-export function mapDBUserToUI(dbUser) {
-  if (!dbUser) return null;
-
-  const roleFromDB = dbUser.roles?.name;
-
-  // Verificar que el rol del DB es un valor válido del enum
-  const role = Object.values(UserRoleEnum).includes(roleFromDB)
-    ? roleFromDB
-    : UserRoleEnum.USUARIO;  // fallback seguro
-
+export function mapDBUserToUI(data) {
   return {
-    id:         dbUser.id,
-    email:      dbUser.email       ?? '',
-    fullName:   dbUser.full_name   ?? '',
-    role,
-    isVerified: dbUser.is_verified ?? false,
-    points:     dbUser.points      ?? 0,
-    avatarUrl:  dbUser.avatar_url  ?? null,
-    createdAt:  dbUser.created_at  ?? null,
+    id:               data.id,
+    fullName:         data.full_name,
+    email:            data.email ?? '',      
+    roleId:           data.role_id,
+    role:             data.roles?.name ?? 'Usuario',
+    reputationPoints: data.reputation_points ?? 0,  
+    isVerified:       data.is_verified,
+    isActive:         data.is_active,
+    createdAt:        data.created_at,
   };
 }
 
@@ -55,14 +47,22 @@ export function mapDBUserToUI(dbUser) {
  * @param {string} userId - UUID del usuario
  */
 export async function getUserProfile(userId) {
-  const { data, error } = await supabase
+  // 1. Perfil público
+  const { data: profile, error } = await supabase
     .from('users')
     .select('*, roles(name)')
     .eq('id', userId)
     .single();
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data: mapDBUserToUI(data) };
+
+  // 2. Email viene de auth (no está en public.users)
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+
+  return {
+    success: true,
+    data: mapDBUserToUI({ ...profile, email: authUser?.email })
+  };
 }
 
 // ─── Crear perfil ─────────────────────────────────────────────────────────────
@@ -76,17 +76,13 @@ export async function getUserProfile(userId) {
  * @param {string} fullName
  * @param {string} email
  */
-export async function createUserProfile(userId, fullName, email) {
+export async function createUserProfile(userId, fullName) {
   const { data, error } = await supabase
     .from('users')
-    .insert({
-      id:          userId,
-      role_id:     1,        // rol por defecto: Usuario
-      full_name:   fullName,
-      email,
-      is_verified: false,
-      points:      0,
-    })
+    .upsert(
+      { id: userId, role_id: 1, full_name: fullName, is_verified: false },
+      { onConflict: 'id' }  // el trigger ya pudo haberlo creado
+    )
     .select('*, roles(name)')
     .single();
 
