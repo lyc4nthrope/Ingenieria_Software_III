@@ -12,6 +12,31 @@
  *   id=4  name='Repartidor'
  */
 
+// ─── Errores de dominio ───────────────────────────────────────────────────────
+// Usados por shared/errors/index.js para clasificar errores de aplicación.
+// Cada código corresponde a un tipo de fallo semántico distinto.
+
+/**
+ * @readonly
+ * @enum {string}
+ */
+export const DomainErrors = {
+  // Auth
+  UNAUTHORIZED:     'UNAUTHORIZED',      // Sin sesión o token inválido
+  FORBIDDEN:        'FORBIDDEN',         // Sesión válida pero sin permiso
+
+  // Recursos
+  USER_NOT_FOUND:   'USER_NOT_FOUND',    // Usuario no existe en la BD
+  NOT_FOUND:        'NOT_FOUND',         // Recurso genérico no encontrado
+
+  // Validación
+  VALIDATION_ERROR: 'VALIDATION_ERROR',  // Input inválido (formulario, etc.)
+
+  // Infraestructura
+  INTERNAL_ERROR:   'INTERNAL_ERROR',    // Error de servidor / BD inesperado
+  NETWORK_ERROR:    'NETWORK_ERROR',     // Sin conexión o timeout
+};
+
 // ─── Roles de usuario ─────────────────────────────────────────────────────────
 
 /**
@@ -27,6 +52,22 @@ export const UserRoleEnum = {
 
 /** Array de todos los roles disponibles */
 export const ALL_ROLES = Object.values(UserRoleEnum);
+
+// ─── Estados asincrónicos ─────────────────────────────────────────────────────
+
+/**
+ * Estado de operaciones asincrónicas.
+ * Usado por Zustand stores para reflejar el ciclo de vida de una petición.
+ *
+ * @readonly
+ * @enum {string}
+ */
+export const AsyncStateEnum = {
+  IDLE:    'idle',     // Sin actividad — estado inicial
+  LOADING: 'loading',  // Petición en vuelo
+  SUCCESS: 'success',  // Petición completada con éxito
+  ERROR:   'error',    // Petición fallida
+};
 
 // ─── Helpers de rol ───────────────────────────────────────────────────────────
 
@@ -58,14 +99,14 @@ export function isRepartidor(role) {
 
 /**
  * @typedef {Object} UserProfile
- * @property {string}  id          - UUID del usuario (coincide con auth.users.id)
- * @property {string}  email       - Correo electrónico
- * @property {string}  fullName    - Nombre completo
- * @property {string}  role        - Uno de UserRoleEnum
- * @property {boolean} isVerified  - true si el email fue confirmado
- * @property {number}  points      - Puntos de reputación acumulados
- * @property {string|null} avatarUrl - URL del avatar (Cloudinary)
- * @property {string}  createdAt   - ISO string de fecha de creación
+ * @property {string}  id               - UUID del usuario (coincide con auth.users.id)
+ * @property {string}  email            - Correo electrónico
+ * @property {string}  fullName         - Nombre completo
+ * @property {string}  role             - Uno de UserRoleEnum
+ * @property {boolean} isVerified       - true si el email fue confirmado
+ * @property {number}  reputationPoints - Puntos de reputación acumulados
+ * @property {string|null} avatarUrl    - URL del avatar (Cloudinary)
+ * @property {string}  createdAt        - ISO string de fecha de creación
  */
 
 // ─── Estados de publicación ───────────────────────────────────────────────────
