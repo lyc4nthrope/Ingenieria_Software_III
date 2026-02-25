@@ -18,9 +18,3 @@ DROP TRIGGER IF EXISTS trg_users_updated_at ON public.users;
 CREATE TRIGGER trg_users_updated_at
   BEFORE UPDATE ON public.users
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
--- Aplicar a otra tabla, por ejemplo, posts
-CREATE TRIGGER set_updated_at_trigger
-BEFORE UPDATE ON posts
-FOR EACH ROW
-EXECUTE FUNCTION public.set_updated_at();

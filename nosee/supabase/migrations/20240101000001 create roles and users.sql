@@ -47,5 +47,5 @@ COMMENT ON COLUMN public.users.is_verified       IS 'true cuando el email fue co
 CREATE INDEX IF NOT EXISTS idx_users_role_id ON public.users(role_id);
 
 -- Habilitar Row Level Security (PostgreSQL)
--- ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;

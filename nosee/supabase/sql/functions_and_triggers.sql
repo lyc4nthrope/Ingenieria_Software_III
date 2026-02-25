@@ -1,4 +1,4 @@
--- ============================================================
+-- ============================================================    NO EJECUTAR SOLO REFERENCIA
 -- sql/functions_and_triggers.sql
 --
 -- Referencia centralizada de todas las funciones y triggers.

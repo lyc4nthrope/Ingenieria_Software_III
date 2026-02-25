@@ -1,5 +1,5 @@
--- ============================================================
--- seed.sql — Datos iniciales para desarrollo
+-- ============================================================  NO EJECUTAR SOLO REFERENCIA
+-- seed.sql — Datos iniciales para desarrollo 
 --
 -- Ejecutar DESPUÉS de aplicar todas las migraciones.
 -- NUNCA ejecutar en producción (usa datos de ejemplo).
