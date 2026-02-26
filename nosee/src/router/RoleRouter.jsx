@@ -8,7 +8,7 @@
  */
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { getRolePath } from './roleUtils';
+import { getRolePath } from '@/utils/roleUtils';
 
 /**
  * Componente de redirección.

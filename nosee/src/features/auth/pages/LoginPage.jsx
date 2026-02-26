@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import LoginForm from "@/features/auth/components/LoginForm";
-import { getRolePath } from "@/router/RoleRouter";
+import { getRolePath } from '@/utils/roleUtils';
 
 export default function LoginPage() {
   const navigate = useNavigate();
