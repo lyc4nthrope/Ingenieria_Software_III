@@ -6,17 +6,23 @@
  */
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "@/features/auth/store/authStore";
+import { useAuthStore, selectIsAuthenticated } from "@/features/auth/store/authStore";
 import LoginForm from "@/features/auth/components/LoginForm";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, isAuthenticated, status, error, clearError } = useAuthStore();
+  const { login, status, error, clearError } = useAuthStore((s) => ({
+    login: s.login,
+    status: s.status,
+    error: s.error,
+    clearError: s.clearError,
+  }));
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
   // Si ya estaba logueado, redirigir al inicio
   useEffect(() => {
-    if (isAuthenticated()) navigate("/", { replace: true });
-  }, []); // eslint-disable-line
+    if (isAuthenticated) navigate("/", { replace: true });
+  }, [isAuthenticated, navigate]); // eslint-disable-line
 
   const handleLogin = async (email, password) => {
     clearError();

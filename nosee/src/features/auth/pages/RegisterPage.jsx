@@ -114,14 +114,19 @@ function VerificationView({ email, onResend }) {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { register, isAuthenticated, status, error, clearError } =
-    useAuthStore();
+  const { register, status, error, clearError } = useAuthStore((s) => ({
+    register: s.register,
+    status: s.status,
+    error: s.error,
+    clearError: s.clearError,
+  }));
+  const isAuthenticated = useAuthStore((s) => !!s.user && !!s.session);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
 
   useEffect(() => {
-    if (isAuthenticated()) navigate("/", { replace: true });
-  }, []); // eslint-disable-line
+    if (isAuthenticated) navigate("/", { replace: true });
+  }, [isAuthenticated, navigate]); // eslint-disable-line
 
   const handleRegister = async (email, password, metadata) => {
     clearError();

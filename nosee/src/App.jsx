@@ -21,6 +21,12 @@
  * │ /nueva-contrasena       │ NewPasswordPage          │ ❌ No     │
  * │ *                       │ NotFoundPage             │ ❌ No     │
  * └─────────────────────────┴──────────────────────────┴───────────┘
+ *
+ * SOLUCIÓN APLICADA: Opción 3 - Layout con main semántico y flexible
+ * ✅ Navbar sticky sin superposición
+ * ✅ Contenido se adapta automáticamente
+ * ✅ Responsive y escalable
+ * ✅ Sem ántica HTML correcta
  */
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -110,109 +116,146 @@ function AppContent() {
   }
 
   return (
-    <div
-      style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}
-    >
-      <Navbar />
-      <Routes>
-        {/* ── Rutas públicas ───────────────────────────────────── */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/registro" element={<RegisterPage />} />
-        <Route path="/auth/callback" element={<CallbackPage />} />
-        <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
-        <Route path="/nueva-contrasena" element={<NewPasswordPage />} />
+    <Routes>
+      {/* ── Rutas públicas ───────────────────────────────────── */}
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/registro" element={<RegisterPage />} />
+      <Route path="/auth/callback" element={<CallbackPage />} />
+      <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
+      <Route path="/nueva-contrasena" element={<NewPasswordPage />} />
 
-        {/* ── Rutas protegidas ─────────────────────────────────── */}
+      {/* ── Rutas protegidas ─────────────────────────────────── */}
 
-        {/* HOMEPAGE PÚBLICA - Red Social */}
-        <Route path="/" element={<HomePage />} />
+      {/* HOMEPAGE PÚBLICA - Red Social */}
+      <Route path="/" element={<HomePage />} />
 
-        {/* Dashboard según rol - Protegido */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <RoleRouter />
-            </ProtectedRoute>
-          }
-        />
+      {/* Dashboard según rol - Protegido */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <RoleRouter />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/perfil"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/perfil"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/publicaciones"
-          element={
-            <ProtectedRoute>
-              <PublicationsPage />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/publicaciones"
+        element={
+          <ProtectedRoute>
+            <PublicationsPage />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/publicaciones/nueva"
-          element={
-            <ProtectedRoute>
-              <PublicationForm onSuccess={() => {}} />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/publicaciones/nueva"
+        element={
+          <ProtectedRoute>
+            <PublicationForm onSuccess={() => {}} />
+          </ProtectedRoute>
+        }
+      />
 
-        {/* ── Dashboards por rol ───────────────────────────────── */}
-        {/* Cada rol accede a su dashboard correspondiente */}
-        <Route
-          path="/dashboard/user"
-          element={
-            <ProtectedRoute>
-              <UserDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard/admin"
-          element={
-            <ProtectedRoute>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard/moderator"
-          element={
-            <ProtectedRoute>
-              <ModeratorDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard/dealer"
-          element={
-            <ProtectedRoute>
-              <DealerDashboard />
-            </ProtectedRoute>
-          }
-        />
+      {/* ── Dashboards por rol ───────────────────────────────── */}
+      {/* Cada rol accede a su dashboard correspondiente */}
+      <Route
+        path="/dashboard/user"
+        element={
+          <ProtectedRoute>
+            <UserDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/admin"
+        element={
+          <ProtectedRoute>
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/moderator"
+        element={
+          <ProtectedRoute>
+            <ModeratorDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/dealer"
+        element={
+          <ProtectedRoute>
+            <DealerDashboard />
+          </ProtectedRoute>
+        }
+      />
 
-        {/*
-          FIX 4: wildcard al final para que no capture las rutas de los dashboards.
-          Antes estaba ANTES de los dashboards, bloqueándolos.
-        */}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </div>
+      {/*
+        FIX 4: wildcard al final para que no capture las rutas de los dashboards.
+        Antes estaba ANTES de los dashboards, bloqueándolos.
+      */}
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
   );
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      {/* 
+        ✅ SOLUCIÓN OPCIÓN 3
+        
+        Estructura del layout:
+        ┌─────────────────────────────┐
+        │      Navbar (sticky)        │ altura: 60px
+        ├─────────────────────────────┤
+        │                             │
+        │   main (flex: 1)            │ ← Crece para llenar espacio
+        │   └─ AppContent (Routes)    │
+        │                             │
+        └─────────────────────────────┘
+        
+        Ventajas:
+        ✅ Sin superposición
+        ✅ Navbar siempre visible al scroll
+        ✅ Contenido respeta el espacio
+        ✅ Semántica HTML correcta (<main>)
+        ✅ Responsive automáticamente
+      */}
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          background: "var(--bg-base)",
+        }}
+      >
+        {/* Navbar sticky en la parte superior */}
+        <Navbar />
+
+        {/* Main semántico que crece para llenar el espacio disponible */}
+        <main
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "auto", // Permite scroll si el contenido es mayor
+          }}
+        >
+          <AppContent />
+        </main>
+      </div>
     </BrowserRouter>
   );
 }

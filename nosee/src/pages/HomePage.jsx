@@ -55,7 +55,7 @@ const mockPublications = [
     price: 4500,
     store: "Carrefour",
     photo: "https://via.placeholder.com/400x500?text=Pan+integral",
-    description: "Pan integral de buena calidad, recomendsdo",
+    description: "Pan integral de buena calidad, recomendado",
     likes: 12,
     reports: 0,
     timestamp: "Hace 5 horas",
@@ -282,7 +282,7 @@ export default function HomePage() {
           <p style={{
             fontSize: "10px",
             color: "var(--text-muted)",
-            margin: "0px 0 0",
+            margin: 0,
           }}>
             {isAuthenticated ? "Comparte y descubre precios" : "Inicia sesión para participar"}
           </p>
@@ -374,10 +374,10 @@ export default function HomePage() {
             color: "var(--text-muted)",
           }}>
             <div style={{ fontSize: "32px", marginBottom: "8px" }}>📊</div>
-            <h2 style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-primary)", marginBottom: "6px", margin: "0 0 6px" }}>
+            <h2 style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-primary)", marginBottom: "8px" }}>
               No hay publicaciones aún
             </h2>
-            <p style={{ fontSize: "12px", marginBottom: "12px", margin: "0 0 12px" }}>
+            <p style={{ fontSize: "12px", marginBottom: "12px" }}>
               {isAuthenticated ? "¡Sé el primero en publicar un precio!" : "Inicia sesión para ver y compartir precios"}
             </p>
             {isAuthenticated && (
