@@ -23,8 +23,7 @@
  */
 
 import { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { formatDistanceToNowInSpanish } from '@/features/publications/utils/dateUtils';
 
 /**
  * Componente: PublicationCard
@@ -118,10 +117,9 @@ export function PublicationCard({
     return <div>Publicación no disponible</div>;
   }
 
-  const timeAgo = formatDistanceToNow(new Date(publication.created_at), {
-    addSuffix: true,
-    locale: es,
-  });
+  const timeAgo = formatDistanceToNowInSpanish(
+    publication.timestamp || publication.created_at
+  );
 
   return (
     <div style={styles.card}>

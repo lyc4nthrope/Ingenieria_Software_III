@@ -46,6 +46,10 @@ import AdminDashboard from "@/features/dashboard/admin/AdminDashboard";
 import ModeratorDashboard from "@/features/dashboard/moderator/ModeratorDashboard";
 import DealerDashboard from "@/features/dashboard/dealer/DealerDashboard";
 
+// Importar páginas de publicaciones
+import PublicationsPage from "@/features/publications/pages/PublicationsPage";
+import PublicationForm from "@/features/publications/components/PublicationForm";
+
 function NotFoundPage() {
   return (
     <main
@@ -145,7 +149,16 @@ function AppContent() {
           path="/publicaciones"
           element={
             <ProtectedRoute>
-              <HomePage />
+              <PublicationsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/publicaciones/nueva"
+          element={
+            <ProtectedRoute>
+              <PublicationForm onSuccess={() => {}} />
             </ProtectedRoute>
           }
         />
