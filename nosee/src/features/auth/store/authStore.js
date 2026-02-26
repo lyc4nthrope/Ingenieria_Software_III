@@ -181,28 +181,20 @@ export const useAuthStore = create((set, get) => ({
   // ════════════════════════════════════════════════════════════════
   // ACCIÓN: register
   // ════════════════════════════════════════════════════════════════
-  register: async (email, password, metadata = {}) => {
-    set({ status: AsyncStateEnum.LOADING, error: null });
+register: async (email, password, metadata = {}) => {
+  set({ status: AsyncStateEnum.LOADING, error: null });
 
-    const signUpResult = await authApi.signUp(email, password, metadata.fullName);
+  const signUpResult = await authApi.signUp(email, password, metadata.fullName);
 
-    if (!signUpResult.success) {
-      set({ status: AsyncStateEnum.ERROR, error: signUpResult.error });
-      return { success: false, error: signUpResult.error, needsVerification: false };
-    }
+  if (!signUpResult.success) {
+    set({ status: AsyncStateEnum.ERROR, error: signUpResult.error });
+    return { success: false, error: signUpResult.error, needsVerification: false };
+  }
 
-    const newUser = signUpResult.data.user;
-
-    if (newUser) {
-      await usersApi.createUserProfile(newUser.id, metadata.fullName || '');
-    }
-
-    const needsVerification = !signUpResult.data.session;
-
-    set({ status: AsyncStateEnum.SUCCESS });
-
-    return { success: true, error: null, needsVerification };
-  },
+  const needsVerification = !signUpResult.data.session;
+  set({ status: AsyncStateEnum.SUCCESS });
+  return { success: true, error: null, needsVerification };
+},
 
 
   // ════════════════════════════════════════════════════════════════
