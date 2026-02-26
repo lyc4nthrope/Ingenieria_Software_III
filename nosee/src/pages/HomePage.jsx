@@ -260,10 +260,10 @@ export default function HomePage() {
         style={{
           position: "sticky",
           top: "60px",
-          zIndex: 50,
+          zIndex: 40,
           background: "var(--bg-surface)",
           borderBottom: "1px solid var(--border)",
-          padding: "8px 12px",
+          padding: "6px 12px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -272,7 +272,7 @@ export default function HomePage() {
       >
         <div>
           <h1 style={{
-            fontSize: "15px",
+            fontSize: "14px",
             fontWeight: "700",
             color: "var(--text-primary)",
             margin: 0,
@@ -280,9 +280,9 @@ export default function HomePage() {
             Precios en tiempo real
           </h1>
           <p style={{
-            fontSize: "11px",
+            fontSize: "10px",
             color: "var(--text-muted)",
-            margin: "1px 0 0",
+            margin: "0px 0 0",
           }}>
             {isAuthenticated ? "Comparte y descubre precios" : "Inicia sesión para participar"}
           </p>
@@ -303,22 +303,25 @@ export default function HomePage() {
       {/* Aviso de email verification (solo para autenticados sin verificar) */}
       {isAuthenticated && !user?.isVerified && (
         <div style={{
-          margin: "12px 16px 0",
-          padding: "12px 16px",
-          borderRadius: "var(--radius-md)",
+          position: "relative",
+          zIndex: 45,
+          margin: "0",
+          padding: "8px 12px",
+          borderRadius: "0",
           background: "rgba(251,191,36,0.1)",
-          border: "1px solid rgba(251,191,36,0.3)",
+          border: "none",
+          borderBottom: "1px solid rgba(251,191,36,0.3)",
           color: "#FBBF24",
-          fontSize: "13px",
+          fontSize: "12px",
           display: "flex",
           alignItems: "flex-start",
-          gap: "8px",
+          gap: "6px",
         }}>
-          <span>⚠️</span>
+          <span style={{ flexShrink: 0 }}>⚠️</span>
           <div>
-            <strong>Email no verificado</strong>
-            <div style={{ fontSize: "12px", marginTop: "2px" }}>
-              Confirma tu email en tu bandeja de entrada para poder publicar precios
+            <strong style={{ fontSize: "11px" }}>Email no verificado</strong>
+            <div style={{ fontSize: "11px", marginTop: "1px" }}>
+              Confirma tu email para publicar precios
             </div>
           </div>
         </div>
