@@ -34,6 +34,25 @@ export async function signUp(email, password, fullName) {
   return { success: true, data };
 }
 
+/**
+ * Reenvía el email de confirmación a un usuario no verificado.
+ * Genera un token nuevo cada vez que se llama.
+ * @param {string} email
+ */
+export async function resendConfirmation(email) {
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: {
+      emailRedirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+
 // ─── Login ───────────────────────────────────────────────────────────────────
 
 /**
