@@ -255,51 +255,6 @@ export default function HomePage() {
         overflow: "auto",
       }}
     >
-      {/* Header sticky con botón publicar */}
-      <div
-        style={{
-          position: "sticky",
-          top: "60px",
-          zIndex: 40,
-          background: "var(--bg-surface)",
-          borderBottom: "1px solid var(--border)",
-          padding: "6px 12px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "8px",
-        }}
-      >
-        <div>
-          <h1 style={{
-            fontSize: "14px",
-            fontWeight: "700",
-            color: "var(--text-primary)",
-            margin: 0,
-          }}>
-            Precios en tiempo real
-          </h1>
-          <p style={{
-            fontSize: "10px",
-            color: "var(--text-muted)",
-            margin: 0,
-          }}>
-            {isAuthenticated ? "Comparte y descubre precios" : "Inicia sesión para participar"}
-          </p>
-        </div>
-
-        <Button
-          size="sm"
-          onClick={handlePublish}
-          style={{
-            whiteSpace: "nowrap",
-            fontSize: "12px",
-          }}
-        >
-          <PlusIcon /> Publicar
-        </Button>
-      </div>
-
       {/* Aviso de email verification (solo para autenticados sin verificar) */}
       {isAuthenticated && !user?.isVerified && (
         <div style={{
