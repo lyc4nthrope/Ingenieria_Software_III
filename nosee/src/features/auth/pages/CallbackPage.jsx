@@ -74,19 +74,19 @@ export default function CallbackPage() {
 
   useEffect(() => {
     // Si hay un code en query params → intercambiar por sesión (PKCE)
-    if (code) {
-      supabase.auth.exchangeCodeForSession(window.location.href)
-        .then(({ error }) => {
-          if (error) console.error('Error exchanging code:', error);
-        });
-      return;
-    }
+  if (code) {
+    supabase.auth.exchangeCodeForSession(window.location.href)
+      .then(({ error }) => {
+        if (error) console.error('Error exchanging code:', error);
+      });
+    return;
+  }
 
     // Si no hay hash ni code ni error → alguien llegó directo
-    if (!hash && !urlError) {
-      navigate('/login', { replace: true });
-    }
-  }, [code, hash, urlError, navigate]);
+  if (!hash && !urlError && !code) {
+    navigate('/login', { replace: true });
+  }
+}, [code, hash, urlError, navigate]);
 
   useEffect(() => {
     if (!isInitialized) return;
