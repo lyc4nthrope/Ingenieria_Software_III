@@ -5,9 +5,11 @@
  * ┌─────────────────────────┬──────────────────────────┬───────────┐
  * │ Ruta                    │ Componente               │ Protegida │
  * ├─────────────────────────┼──────────────────────────┼───────────┤
- * │ /                       │ RoleRouter               │ ✅ Sí     │
+ * │ /                       │ HomePage (RED SOCIAL)    │ ❌ No     │
+ * │ /dashboard              │ RoleRouter               │ ✅ Sí     │
  * │ /perfil                 │ ProfilePage              │ ✅ Sí     │
- * │ /publicaciones          │ HomePage                 │ ✅ Sí     │
+ * │ /publicaciones          │ PublicationsPage         │ ✅ Sí     │
+ * │ /publicaciones/nueva    │ PublicationForm          │ ✅ Sí     │
  * │ /dashboard/user         │ UserDashboard            │ ✅ Sí     │
  * │ /dashboard/admin        │ AdminDashboard           │ ✅ Sí     │
  * │ /dashboard/moderator    │ ModeratorDashboard       │ ✅ Sí     │
@@ -122,13 +124,12 @@ function AppContent() {
 
         {/* ── Rutas protegidas ─────────────────────────────────── */}
 
-        {/*
-          FIX 2 + 3: la ruta "/" usa RoleRouter (redirige al dashboard según rol).
-          Se elimina el "/" duplicado que renderizaba HomePage, que hacía que
-          RoleRouter nunca se alcanzara.
-        */}
+        {/* HOMEPAGE PÚBLICA - Red Social */}
+        <Route path="/" element={<HomePage />} />
+
+        {/* Dashboard según rol - Protegido */}
         <Route
-          path="/"
+          path="/dashboard"
           element={
             <ProtectedRoute>
               <RoleRouter />
@@ -164,6 +165,7 @@ function AppContent() {
         />
 
         {/* ── Dashboards por rol ───────────────────────────────── */}
+        {/* Cada rol accede a su dashboard correspondiente */}
         <Route
           path="/dashboard/user"
           element={

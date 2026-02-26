@@ -2,13 +2,12 @@
  * LoginPage - Página de inicio de sesión
  *
  * Conecta LoginForm con authStore.login().
- * Si el usuario ya estaba en una ruta protegida, lo redirige de vuelta.
+ * Redirige a la homepage pública "/" después del login exitoso.
  */
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import LoginForm from "@/features/auth/components/LoginForm";
-import { getRolePath } from '@/utils/roleUtils';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -23,8 +22,7 @@ export default function LoginPage() {
     clearError();
     const result = await login(email, password);
     if (result.success) {
-      const user = useAuthStore.getState().user;
-      navigate(getRolePath(user?.role), { replace: true });
+      navigate("/", { replace: true });
     }
   };
 

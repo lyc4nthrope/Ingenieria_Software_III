@@ -5,7 +5,7 @@
  * Se adapta a mobile (barra inferior) y desktop (top bar).
  */
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuthStore, selectAuthUser } from '@/features/auth/store/authStore';
+import { useAuthStore, selectAuthUser, selectIsAuthenticated } from '@/features/auth/store/authStore';
 
 // Íconos SVG inline (no dependencias externas)
 const HomeIcon = () => (
@@ -39,6 +39,7 @@ const TagIcon = () => (
 
 export default function Navbar() {
   const user = useAuthStore(selectAuthUser);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const { logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,7 +48,7 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate('/');
   };
 
   // Estilo de la barra superior (desktop)
@@ -116,7 +117,7 @@ export default function Navbar() {
         NØ<span style={{ color: 'var(--text-secondary)' }}>SEE</span>
       </Link>
 
-      {user ? (
+      {isAuthenticated ? (
         <>
           {/* Nav links */}
           <Link to="/" style={navLinkStyle(isActive('/'))}>

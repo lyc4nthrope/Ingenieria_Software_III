@@ -1,11 +1,12 @@
 /**
- * HomePage - Dashboard principal (placeholder)
+ * HomePage - Red Social Pública
  *
- * Aquí irán las publicaciones de precios en Sprint 2.
- * Por ahora muestra la bienvenida al usuario autenticado.
+ * Página principal pública donde usuarios autenticados y no autenticados
+ * pueden ver publicaciones de precios. Solo usuarios autenticados pueden
+ * interactuar (publicar, validar, reportar).
  */
-import { Link } from "react-router-dom";
-import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
+import { useNavigate } from "react-router-dom";
+import { useAuthStore, selectAuthUser, selectIsAuthenticated } from "@/features/auth/store/authStore";
 import Button from "@/components/ui/Button";
 
 const TagIcon = () => (
@@ -77,7 +78,18 @@ const features = [
 
 export default function HomePage() {
   const user = useAuthStore(selectAuthUser);
-  const firstName = user?.fullName?.split(" ")[0] || "Hola";
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const navigate = useNavigate();
+
+  const firstName = user?.fullName?.split(" ")[0] || "usuario";
+
+  const handlePublish = () => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
+    navigate("/publicaciones/nueva");
+  };
 
   return (
     <main
@@ -109,7 +121,7 @@ export default function HomePage() {
             letterSpacing: "-0.02em",
           }}
         >
-          ¡Hola, {firstName}! 👋
+          {isAuthenticated ? `¡Hola, ${firstName}! 👋` : "🏷️ Comparador de Precios NØSEE"}
         </h1>
         <p
           style={{
@@ -119,12 +131,16 @@ export default function HomePage() {
             marginBottom: "20px",
           }}
         >
-          Bienvenido a NØSEE. La plataforma colaborativa de comparación de
-          precios de la{" "}
+          {isAuthenticated
+            ? "Bienvenido a NØSEE. La plataforma colaborativa de comparación de precios de la"
+            : "Descubre precios reales compartidos por la comunidad de la"}
+          {" "}
           <span style={{ color: "var(--accent)", fontWeight: "600" }}>
             Universidad del Quindío
           </span>
-          .
+          {isAuthenticated
+            ? "."
+            : ". Inicia sesión para publicar precios y participar en la comunidad."}
         </p>
         {/* Aviso si no verificó email */}
         {!user?.isVerified && (
