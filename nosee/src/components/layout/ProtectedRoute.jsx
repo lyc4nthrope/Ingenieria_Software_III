@@ -9,12 +9,12 @@
  *   <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
  */
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthStore, selectIsInitialized } from '@/features/auth/store/authStore';
+import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import { PageLoader } from '@/components/ui/Spinner';
 
 export default function ProtectedRoute({ children, redirectTo = '/login' }) {
   const isInitialized = useAuthStore(selectIsInitialized);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const location = useLocation();
 
   // La app aún está verificando si hay sesión guardada en localStorage

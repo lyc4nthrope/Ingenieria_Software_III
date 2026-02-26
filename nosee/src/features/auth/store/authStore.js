@@ -296,5 +296,6 @@ export const selectAuthStatus      = (state) => state.status;
 export const selectAuthError       = (state) => state.error;
 export const selectIsInitialized   = (state) => state.isInitialized;
 export const selectSession         = (state) => state.session;
+export const selectIsAuthenticated = (state) => !!state.user && !!state.session;
 
 export default useAuthStore;

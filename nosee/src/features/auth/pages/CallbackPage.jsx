@@ -26,7 +26,7 @@
  */
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore, selectIsInitialized } from '@/features/auth/store/authStore';
+import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import { supabase } from '@/services/supabase.client';
 
 // ── Spinner inline para no depender de importaciones que podrían no estar ──
@@ -52,7 +52,7 @@ const CALLBACK_TYPE = {
 export default function CallbackPage() {
   const navigate = useNavigate();
   const isInitialized = useAuthStore(selectIsInitialized);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
   // Detectar errores en query params O en hash
   const searchParams = new URLSearchParams(window.location.search);

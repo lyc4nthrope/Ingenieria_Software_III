@@ -2,11 +2,11 @@
  * publications.api.js
  *
  * API para gestionar publicaciones de precios en NØSEE
- * 
+ *
  * UBICACIÓN: src/services/api/publications.api.js
  * FECHA: 26-02-2026
  * STATUS: Paso 1 de Proceso 2
- * 
+ *
  * FUNCIONES:
  * - createPublication()      : Crear nueva publicación de precio
  * - getPublications()        : Obtener publicaciones con filtros
@@ -19,7 +19,7 @@
  * - deletePublication()      : Eliminar propia publicación
  */
 
-import { supabase } from '@/config/supabase';
+import { supabase } from '@/services/supabase.client';
 
 // ─── TIPOS / INTERFACES ───────────────────────────────────────────────────────
 
