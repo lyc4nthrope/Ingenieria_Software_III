@@ -50,57 +50,54 @@ const CALLBACK_TYPE = {
 };
 
 export default function CallbackPage() {
-  const navigate     = useNavigate();
+  const navigate = useNavigate();
   const isInitialized = useAuthStore(selectIsInitialized);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
 
-  // ── Paso 1: Parsear la URL hash (sin efectos secundarios) ──
+  // Detectar errores en query params O en hash
+  const searchParams = new URLSearchParams(window.location.search);
   const hash = window.location.hash;
-  const params = new URLSearchParams(hash.substring(1)); // quitar el '#'
-  const urlType = params.get('type');
-  const urlError = params.get('error_description');
+  const hashParams = new URLSearchParams(hash.substring(1));
 
-  // Derive state from URL parameters
-  const callbackType = urlError ? CALLBACK_TYPE.UNKNOWN : (
-    urlType === CALLBACK_TYPE.RECOVERY ? CALLBACK_TYPE.RECOVERY :
-    urlType === CALLBACK_TYPE.SIGNUP ? CALLBACK_TYPE.SIGNUP :
-    CALLBACK_TYPE.UNKNOWN
-  );
-  const errorMessage = urlError ? decodeURIComponent(urlError.replace(/\+/g, ' ')) : '';
-  
-  // Derive status from URL state (no useState needed)
-  const status = urlError ? 'error' : 'loading'; // 'loading' | 'error' (success set in second effect)
+  const urlError = searchParams.get('error_description') || hashParams.get('error_description');
+  const urlType = searchParams.get('type') || hashParams.get('type');
+  const code = searchParams.get('code'); // PKCE flow
 
-  // ── Paso 1b: Efecto para manejar redirecciones iniciales ──
+  // Derivar el tipo de callback
+  const callbackType = urlType === CALLBACK_TYPE.RECOVERY ? CALLBACK_TYPE.RECOVERY :
+                       urlType === CALLBACK_TYPE.SIGNUP ? CALLBACK_TYPE.SIGNUP :
+                       CALLBACK_TYPE.UNKNOWN;
+
+  // Derivar el estado y mensaje de error
+  const status = !isInitialized ? 'loading' : (urlError || !isAuthenticated && hash) ? 'error' : 'loading';
+  const errorMessage = urlError || null;
+
   useEffect(() => {
-    if (!hash) {
-      // No hay token en el hash → alguien llegó a esta URL directamente
+    // Si hay un code en query params → intercambiar por sesión (PKCE)
+    if (code) {
+      supabase.auth.exchangeCodeForSession(window.location.href)
+        .then(({ error }) => {
+          if (error) console.error('Error exchanging code:', error);
+        });
+      return;
+    }
+
+    // Si no hay hash ni code ni error → alguien llegó directo
+    if (!hash && !urlError) {
       navigate('/login', { replace: true });
-      return;
     }
-  }, [hash, navigate]);
+  }, [code, hash, urlError, navigate]);
 
-  // ── Paso 2: Esperar a que el authStore procese el token ──
-  // onAuthStateChange en el store detecta el SIGNED_IN event automáticamente
   useEffect(() => {
-    if (!isInitialized) return; // El store aún está cargando
+    if (!isInitialized) return;
 
-    if (callbackType === CALLBACK_TYPE.RECOVERY) {
-      // Para recovery: redirigir a la página de nueva contraseña
-      // El token ya está en la sesión de Supabase
-      if (isAuthenticated) {
-        setTimeout(() => navigate('/nueva-contrasena', { replace: true }), 1200);
-      }
-      return;
+    if (isAuthenticated) {
+      const isRecovery = urlType === 'recovery';
+      setTimeout(() => {
+        navigate(isRecovery ? '/nueva-contrasena' : '/perfil', { replace: true });
+      }, 1200);
     }
-
-    if (callbackType === CALLBACK_TYPE.SIGNUP || callbackType === CALLBACK_TYPE.UNKNOWN) {
-      if (isAuthenticated) {
-        // Email confirmado y sesión activa → ir al perfil
-        setTimeout(() => navigate('/perfil', { replace: true }), 1500);
-      }
-    }
-  }, [isInitialized, isAuthenticated, callbackType, navigate]);
+  }, [isInitialized, isAuthenticated, urlType, navigate]);
 
   // ── También escuchar cambios directamente de Supabase ──
   // Por si el store tarda en reflejar el evento
