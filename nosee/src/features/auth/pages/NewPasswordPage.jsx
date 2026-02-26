@@ -18,7 +18,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/services/supabase.client';
-import { useAuthStore, selectIsInitialized } from '@/features/auth/store/authStore';
+import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
@@ -94,7 +94,7 @@ function SuccessView() {
 export default function NewPasswordPage() {
   const navigate       = useNavigate();
   const isInitialized  = useAuthStore(selectIsInitialized);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
   const [form, setForm]             = useState({ password: '', confirmPassword: '' });
   const [showPassword, setShowPassword] = useState(false);

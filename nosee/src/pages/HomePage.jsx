@@ -1,87 +1,230 @@
 /**
- * HomePage - Red Social Pública
+ * HomePage - Red Social Pública (Feed estilo Instagram)
  *
  * Página principal pública donde usuarios autenticados y no autenticados
- * pueden ver publicaciones de precios. Solo usuarios autenticados pueden
- * interactuar (publicar, validar, reportar).
+ * pueden ver publicaciones de precios en un feed vertical scrollable.
+ * Solo usuarios autenticados pueden interactuar (publicar, validar, reportar).
  */
 import { useNavigate } from "react-router-dom";
 import { useAuthStore, selectAuthUser, selectIsAuthenticated } from "@/features/auth/store/authStore";
 import Button from "@/components/ui/Button";
 
-const TagIcon = () => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
-    <line x1="7" y1="7" x2="7.01" y2="7" />
+// Ícono para botón publicar
+const PlusIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"/>
+    <line x1="5" y1="12" x2="19" y2="12"/>
   </svg>
 );
 
-const UsersIcon = () => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 00-3-3.87" />
-    <path d="M16 3.13a4 4 0 010 7.75" />
+// Ícono de corazón (validación)
+const HeartIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
   </svg>
 );
 
-const ShieldIcon = () => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+// Ícono de comentario (reportar)
+const MessageIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
   </svg>
 );
 
-const features = [
+// Mock data - Publicaciones de ejemplo
+const mockPublications = [
   {
-    icon: <TagIcon />,
-    title: "Publica precios",
-    desc: "Comparte precios de productos con foto como evidencia.",
+    id: 1,
+    author: "María García",
+    avatar: "MG",
+    productName: "Leche (1L)",
+    price: 3200,
+    store: "Éxito Centro",
+    photo: "https://via.placeholder.com/400x500?text=Leche+1L",
+    description: "Leche fresca, recién llegó al supermercado",
+    likes: 24,
+    reports: 0,
+    timestamp: "Hace 2 horas",
+    verified: true,
   },
   {
-    icon: <UsersIcon />,
-    title: "Valida con la comunidad",
-    desc: "La comunidad valida y reporta publicaciones en tiempo real.",
+    id: 2,
+    author: "Carlos López",
+    avatar: "CL",
+    productName: "Pan integral (500g)",
+    price: 4500,
+    store: "Carrefour",
+    photo: "https://via.placeholder.com/400x500?text=Pan+integral",
+    description: "Pan integral de buena calidad, recomendsdo",
+    likes: 12,
+    reports: 0,
+    timestamp: "Hace 5 horas",
+    verified: false,
   },
   {
-    icon: <ShieldIcon />,
-    title: "Datos confiables",
-    desc: "Sistema de reputación asegura información precisa.",
+    id: 3,
+    author: "Laura Martínez",
+    avatar: "LM",
+    productName: "Huevos (Docena)",
+    price: 5800,
+    store: "Carrefour",
+    photo: "https://via.placeholder.com/400x500?text=Huevos",
+    description: "Huevos frescos, calidad A",
+    likes: 34,
+    reports: 1,
+    timestamp: "Hace 12 horas",
+    verified: true,
   },
 ];
+
+// Componente PublicationCard
+function PublicationCard({ pub, isAuthenticated, onLike, onReport }) {
+  return (
+    <div
+      style={{
+        background: "var(--bg-surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-lg)",
+        overflow: "hidden",
+        marginBottom: "16px",
+        animation: "fadeIn 0.3s ease",
+      }}
+    >
+      {/* Header de la publicación */}
+      <div style={{
+        padding: "12px 16px",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        borderBottom: "1px solid var(--border)",
+      }}>
+        <div style={{
+          width: "40px",
+          height: "40px",
+          borderRadius: "50%",
+          background: "var(--accent-soft)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "14px",
+          fontWeight: "600",
+          color: "var(--accent)",
+        }}>
+          {pub.avatar}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{
+            fontSize: "14px",
+            fontWeight: "600",
+            color: "var(--text-primary)",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+          }}>
+            {pub.author}
+            {pub.verified && <span style={{ fontSize: "12px" }}>✓</span>}
+          </div>
+          <div style={{
+            fontSize: "12px",
+            color: "var(--text-muted)",
+          }}>
+            {pub.timestamp} • {pub.store}
+          </div>
+        </div>
+      </div>
+
+      {/* Foto */}
+      <img
+        src={pub.photo}
+        alt={pub.productName}
+        style={{
+          width: "100%",
+          aspectRatio: "4/5",
+          objectFit: "cover",
+        }}
+      />
+
+      {/* Acciones */}
+      <div style={{
+        padding: "12px 16px",
+        display: "flex",
+        gap: "12px",
+        borderBottom: "1px solid var(--border)",
+      }}>
+        <button
+          onClick={() => onLike && onLike(pub.id)}
+          disabled={!isAuthenticated}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            background: "none",
+            border: "none",
+            color: isAuthenticated ? "var(--accent)" : "var(--text-muted)",
+            cursor: isAuthenticated ? "pointer" : "not-allowed",
+            fontSize: "13px",
+            fontWeight: "500",
+            padding: 0,
+            opacity: isAuthenticated ? 1 : 0.5,
+          }}
+        >
+          <HeartIcon /> {pub.likes}
+        </button>
+        <button
+          onClick={() => onReport && onReport(pub.id)}
+          disabled={!isAuthenticated}
+          title="Reportar publicación"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            background: "none",
+            border: "none",
+            color: isAuthenticated ? "var(--text-secondary)" : "var(--text-muted)",
+            cursor: isAuthenticated ? "pointer" : "not-allowed",
+            fontSize: "13px",
+            padding: 0,
+            opacity: isAuthenticated ? 0.7 : 0.5,
+          }}
+        >
+          <MessageIcon /> Reportar
+        </button>
+      </div>
+
+      {/* Info del producto */}
+      <div style={{ padding: "16px" }}>
+        <div style={{
+          fontSize: "16px",
+          fontWeight: "600",
+          color: "var(--text-primary)",
+          marginBottom: "4px",
+        }}>
+          {pub.productName}
+        </div>
+        <div style={{
+          fontSize: "14px",
+          color: "var(--accent)",
+          fontWeight: "600",
+          marginBottom: "8px",
+        }}>
+          ${pub.price.toLocaleString()}
+        </div>
+        <div style={{
+          fontSize: "13px",
+          color: "var(--text-secondary)",
+          lineHeight: "1.5",
+        }}>
+          {pub.description}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function HomePage() {
   const user = useAuthStore(selectAuthUser);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const navigate = useNavigate();
-
-  const firstName = user?.fullName?.split(" ")[0] || "usuario";
 
   const handlePublish = () => {
     if (!isAuthenticated) {
@@ -91,153 +234,152 @@ export default function HomePage() {
     navigate("/publicaciones/nueva");
   };
 
+  const handleLike = (pubId) => {
+    console.log("Liked publication:", pubId);
+  };
+
+  const handleReport = (pubId) => {
+    console.log("Reported publication:", pubId);
+  };
+
   return (
     <main
       style={{
         flex: 1,
-        padding: "28px 16px",
-        maxWidth: "800px",
-        margin: "0 auto",
-        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--bg-base)",
+        overflow: "auto",
       }}
     >
-      {/* Saludo */}
-      <section
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(56,189,248,0.08) 0%, rgba(14,165,233,0.03) 100%)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-xl)",
-          padding: "28px",
-          marginBottom: "24px",
-        }}
-      >
-        <h1
-          style={{
-            fontSize: "26px",
-            fontWeight: "800",
-            color: "var(--text-primary)",
-            marginBottom: "8px",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {isAuthenticated ? `¡Hola, ${firstName}! 👋` : "🏷️ Comparador de Precios NØSEE"}
-        </h1>
-        <p
-          style={{
-            fontSize: "15px",
-            color: "var(--text-secondary)",
-            lineHeight: "1.6",
-            marginBottom: "20px",
-          }}
-        >
-          {isAuthenticated
-            ? "Bienvenido a NØSEE. La plataforma colaborativa de comparación de precios de la"
-            : "Descubre precios reales compartidos por la comunidad de la"}
-          {" "}
-          <span style={{ color: "var(--accent)", fontWeight: "600" }}>
-            Universidad del Quindío
-          </span>
-          {isAuthenticated
-            ? "."
-            : ". Inicia sesión para publicar precios y participar en la comunidad."}
-        </p>
-        {/* Aviso si no verificó email */}
-        {!user?.isVerified && (
-          <div
-            style={{
-              padding: "12px 16px",
-              borderRadius: "var(--radius-md)",
-              background: "rgba(251,191,36,0.1)",
-              border: "1px solid rgba(251,191,36,0.3)",
-              color: "#FBBF24",
-              fontSize: "13px",
-              marginBottom: "16px",
-            }}
-          >
-            ⚠️ Confirma tu email para poder publicar precios. Revisa tu bandeja
-            de entrada.
-          </div>
-        )}
-
-        <Button size="md" disabled={!user?.isVerified} onClick={() => {}}>
-          + Publicar precio
-        </Button>
-      </section>
-
-      {/* Feature cards */}
-      <section>
-        <h2
-          style={{
-            fontSize: "14px",
-            fontWeight: "600",
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            color: "var(--text-muted)",
-            marginBottom: "14px",
-          }}
-        >
-          ¿Qué puedes hacer?
-        </h2>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "12px",
-          }}
-        >
-          {features.map((f) => (
-            <div
-              key={f.title}
-              style={{
-                background: "var(--bg-surface)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius-lg)",
-                padding: "20px",
-                transition: "border-color 0.18s ease",
-              }}
-            >
-              <div style={{ color: "var(--accent)", marginBottom: "12px" }}>
-                {f.icon}
-              </div>
-              <h3
-                style={{
-                  fontSize: "15px",
-                  fontWeight: "600",
-                  marginBottom: "6px",
-                  color: "var(--text-primary)",
-                }}
-              >
-                {f.title}
-              </h3>
-              <p
-                style={{
-                  fontSize: "13px",
-                  color: "var(--text-secondary)",
-                  lineHeight: "1.5",
-                }}
-              >
-                {f.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Sprint 2 placeholder */}
+      {/* Header sticky con botón publicar */}
       <div
         style={{
-          marginTop: "24px",
-          padding: "20px",
-          borderRadius: "var(--radius-lg)",
+          position: "sticky",
+          top: "60px",
+          zIndex: 50,
           background: "var(--bg-surface)",
-          border: "1px dashed var(--border-soft)",
-          textAlign: "center",
-          color: "var(--text-muted)",
-          fontSize: "13px",
+          borderBottom: "1px solid var(--border)",
+          padding: "12px 16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
         }}
       >
-        📋 Las publicaciones de precios se mostrarán aquí en el Sprint 2
+        <div>
+          <h1 style={{
+            fontSize: "18px",
+            fontWeight: "700",
+            color: "var(--text-primary)",
+            margin: 0,
+          }}>
+            Precios en tiempo real
+          </h1>
+          <p style={{
+            fontSize: "12px",
+            color: "var(--text-muted)",
+            margin: "2px 0 0",
+          }}>
+            {isAuthenticated ? "Comparte y descubre precios" : "Inicia sesión para participar"}
+          </p>
+        </div>
+
+        <Button
+          size="sm"
+          onClick={handlePublish}
+          style={{
+            whiteSpace: "nowrap",
+          }}
+        >
+          <PlusIcon /> Publicar
+        </Button>
+      </div>
+
+      {/* Aviso de email verification (solo para autenticados sin verificar) */}
+      {isAuthenticated && !user?.isVerified && (
+        <div style={{
+          margin: "12px 16px 0",
+          padding: "12px 16px",
+          borderRadius: "var(--radius-md)",
+          background: "rgba(251,191,36,0.1)",
+          border: "1px solid rgba(251,191,36,0.3)",
+          color: "#FBBF24",
+          fontSize: "13px",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "8px",
+        }}>
+          <span>⚠️</span>
+          <div>
+            <strong>Email no verificado</strong>
+            <div style={{ fontSize: "12px", marginTop: "2px" }}>
+              Confirma tu email en tu bandeja de entrada para poder publicar precios
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feed de publicaciones */}
+      <div style={{
+        flex: 1,
+        maxWidth: "600px",
+        margin: "0 auto",
+        width: "100%",
+        padding: "16px",
+        overflowY: "auto",
+      }}>
+        {mockPublications.length > 0 ? (
+          <>
+            {mockPublications.map((pub) => (
+              <PublicationCard
+                key={pub.id}
+                pub={pub}
+                isAuthenticated={isAuthenticated}
+                onLike={handleLike}
+                onReport={handleReport}
+              />
+            ))}
+            {/* Fin del feed */}
+            <div style={{
+              textAlign: "center",
+              padding: "40px 16px",
+              color: "var(--text-muted)",
+              fontSize: "13px",
+            }}>
+              <div style={{ fontSize: "32px", marginBottom: "8px" }}>🎉</div>
+              Has visto todas las publicaciones
+              {!isAuthenticated && (
+                <>
+                  <div style={{ marginTop: "16px" }}>
+                    <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>
+                      Inicia sesión para publicar
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          <div style={{
+            textAlign: "center",
+            padding: "60px 16px",
+            color: "var(--text-muted)",
+          }}>
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>📊</div>
+            <h2 style={{ fontSize: "16px", fontWeight: "600", color: "var(--text-primary)", marginBottom: "8px" }}>
+              No hay publicaciones aún
+            </h2>
+            <p style={{ fontSize: "13px", marginBottom: "20px" }}>
+              {isAuthenticated ? "¡Sé el primero en publicar un precio!" : "Inicia sesión para ver y compartir precios"}
+            </p>
+            {isAuthenticated && (
+              <Button onClick={handlePublish}>
+                <PlusIcon /> Publicar precio
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </main>
   );
