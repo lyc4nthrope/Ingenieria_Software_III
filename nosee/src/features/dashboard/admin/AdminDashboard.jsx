@@ -5,26 +5,24 @@
  * Gestión de usuarios, cambio de roles, estadísticas del sistema.
  *
  * UBICACIÓN: src/features/dashboard/admin/AdminDashboard.jsx
+ * 
+ * CAMBIOS (26-02-2026):
+ * ✅ Conectado a API real (getAllUsers, changeUserRole)
+ * ✅ Carga usuarios desde BD en useEffect
+ * ✅ Estados para loading y error
+ * ✅ Manejo de errores amigable
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { changeUserRole, getAllUsers } from '@/services/api/users.api';
 import { UserRoleEnum } from '@/types';
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const MOCK_USERS = [
-  { id: 1, name: 'María García',   email: 'maria@ex.co',   role: 'Usuario',    status: 'activo',   rep: 230, joined: '10 ene 2025' },
-  { id: 2, name: 'Carlos Ruiz',    email: 'carlos@ex.co',  role: 'Moderador',  status: 'activo',   rep: 890, joined: '05 dic 2024' },
-  { id: 3, name: 'Ana Pereira',    email: 'ana@ex.co',     role: 'Repartidor', status: 'activo',   rep: 120, joined: '22 feb 2025' },
-  { id: 4, name: 'Luis Tobón',     email: 'luis@ex.co',    role: 'Usuario',    status: 'baneado',  rep: 0,   joined: '01 mar 2025' },
-  { id: 5, name: 'Sofía Morales',  email: 'sofia@ex.co',   role: 'Moderador',  status: 'activo',   rep: 450, joined: '14 ene 2025' },
-];
+import { Spinner } from '@/components/ui/Spinner';
 
 const STATS = [
-  { label: 'Usuarios totales',   value: '1,284', delta: '+12%', icon: '◉' },
-  { label: 'Publicaciones hoy',  value: '342',   delta: '+8%',  icon: '◈' },
-  { label: 'Validaciones hoy',   value: '1,109', delta: '+21%', icon: '✓' },
-  { label: 'Reportes pendientes',value: '7',     delta: '-3',   icon: '⚠' },
+  { label: 'Usuarios totales',   value: '—', delta: '—', icon: '◉' },
+  { label: 'Publicaciones hoy',  value: '—',   delta: '—',  icon: '◈' },
+  { label: 'Validaciones hoy',   value: '—', delta: '—', icon: '✓' },
+  { label: 'Reportes pendientes',value: '—',     delta: '—',   icon: '⚠' },
 ];
 
 const ALL_ROLES = [UserRoleEnum.USUARIO, UserRoleEnum.MODERADOR, UserRoleEnum.ADMIN, UserRoleEnum.REPARTIDOR];
@@ -33,9 +31,54 @@ export default function AdminDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
-  const [users, setUsers] = useState(MOCK_USERS);
+  // ─── Estados ──────────────────────────────────────────────────────────────
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeSection, setActiveSection] = useState('overview');
+  const [changingRole, setChangingRole] = useState(null);
 
+  // ─── Cargar usuarios al montar ────────────────────────────────────────────
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await getAllUsers();
+      
+      if (result.success && result.data) {
+        // Mapear datos de BD a formato de tabla
+        const mappedUsers = result.data.map((u) => ({
+          id: u.id,
+          name: u.fullName || 'Sin nombre',
+          email: u.email,
+          role: u.role,
+          status: u.isActive ? 'activo' : 'baneado',
+          rep: u.reputationPoints || 0,
+          joined: new Date(u.createdAt).toLocaleDateString('es-CO', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          }),
+        }));
+        
+        setUsers(mappedUsers);
+      } else {
+        setError(result.error || 'No se pudieron cargar los usuarios');
+      }
+    } catch (err) {
+      console.error('Error cargando usuarios:', err);
+      setError('Error al conectar con el servidor');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── Cambiar rol de un usuario ─────────────────────────────────────────────
   const handleRoleChange = async (userId, newRole) => {
     const roleMap = {
       'Usuario': 1,
@@ -44,21 +87,32 @@ export default function AdminDashboard() {
       'Repartidor': 4,
     };
 
-    const { success, error } = await changeUserRole(userId, roleMap[newRole]);
+    setChangingRole(userId);
+    
+    try {
+      const result = await changeUserRole(userId, roleMap[newRole]);
 
-    if (success) {
-      // Refetch para actualizar la tabla
-      const { data: updatedUsers } = await getAllUsers();
-      if (updatedUsers) {
-        setUsers(updatedUsers);
+      if (result.success) {
+        // Actualizar la tabla localmente
+        setUsers(users.map(u => 
+          u.id === userId 
+            ? { ...u, role: newRole }
+            : u
+        ));
+      } else {
+        alert(`Error al cambiar rol: ${result.error || 'Error desconocido'}`);
       }
-    } else {
-      console.error('Error al cambiar rol:', error);
-      alert(`Error: ${error}`);
+    } catch (err) {
+      console.error('Error al cambiar rol:', err);
+      alert('Error al cambiar rol. Intenta de nuevo.');
+    } finally {
+      setChangingRole(null);
     }
   };
 
+  // ─── Toggle de ban (TODO: conectar a API cuando esté disponible) ──────────
   const handleBanToggle = (userId) => {
+    // Por ahora solo UI, ya que no hay endpoint de ban en users.api.js
     setUsers(users.map(u => 
       u.id === userId 
         ? { ...u, status: u.status === 'baneado' ? 'activo' : 'baneado' }
@@ -110,6 +164,35 @@ export default function AdminDashboard() {
       {/* ── Content ──────────────────────────────────────────────── */}
       <main style={s.main}>
 
+        {/* Error message */}
+        {error && (
+          <div style={{
+            padding: '12px 16px',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--error-soft)',
+            border: '1px solid rgba(248,113,113,0.25)',
+            color: 'var(--error)',
+            fontSize: '13px',
+            marginBottom: '20px',
+          }}>
+            ⚠️ {error}
+            <button 
+              onClick={loadUsers}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--error)',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                marginLeft: '12px',
+                fontWeight: '600',
+              }}
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+
         {/* Overview */}
         {activeSection === 'overview' && (
           <>
@@ -138,19 +221,39 @@ export default function AdminDashboard() {
             </div>
 
             {/* Recent users preview */}
-            <div style={s.section}>
-              <div style={s.sectionHead}>
-                <span style={s.sectionTitle}>Usuarios recientes</span>
-                <button style={s.linkBtn} onClick={() => setActiveSection('users')}>
-                  Ver todos →
-                </button>
+            {loading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                <Spinner size={32} />
               </div>
-              <UsersTable
-                users={users.slice(0, 3)}
-                onRoleChange={handleRoleChange}
-                onBanToggle={handleBanToggle}
-              />
-            </div>
+            ) : (
+              <div style={s.section}>
+                <div style={s.sectionHead}>
+                  <span style={s.sectionTitle}>
+                    Usuarios recientes ({users.length})
+                  </span>
+                  <button style={s.linkBtn} onClick={() => setActiveSection('users')}>
+                    Ver todos →
+                  </button>
+                </div>
+                {users.length > 0 ? (
+                  <UsersTable
+                    users={users.slice(0, 3)}
+                    onRoleChange={handleRoleChange}
+                    onBanToggle={handleBanToggle}
+                    changingRole={changingRole}
+                  />
+                ) : (
+                  <div style={{
+                    padding: '40px',
+                    textAlign: 'center',
+                    color: MUTED,
+                    fontSize: '14px',
+                  }}>
+                    No hay usuarios registrados aún
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 
@@ -159,13 +262,35 @@ export default function AdminDashboard() {
           <>
             <SectionHeader
               title="Gestión de usuarios"
-              sub={`${users.length} usuarios registrados`}
+              sub={loading ? 'Cargando...' : `${users.length} usuarios registrados`}
             />
-            <UsersTable
-              users={users}
-              onRoleChange={handleRoleChange}
-              onBanToggle={handleBanToggle}
-            />
+            
+            {loading ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <Spinner size={32} />
+                  <p style={{ marginTop: '16px', color: MUTED, fontSize: '14px' }}>
+                    Cargando usuarios...
+                  </p>
+                </div>
+              </div>
+            ) : users.length > 0 ? (
+              <UsersTable
+                users={users}
+                onRoleChange={handleRoleChange}
+                onBanToggle={handleBanToggle}
+                changingRole={changingRole}
+              />
+            ) : (
+              <div style={{
+                padding: '60px 20px',
+                textAlign: 'center',
+                color: MUTED,
+                fontSize: '14px',
+              }}>
+                No hay usuarios registrados aún
+              </div>
+            )}
           </>
         )}
 
@@ -179,7 +304,7 @@ export default function AdminDashboard() {
 }
 
 // ─── UsersTable ───────────────────────────────────────────────────────────────
-function UsersTable({ users, onRoleChange, onBanToggle }) {
+function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
   return (
     <div style={s.table}>
       <div style={s.tableHead}>
@@ -204,11 +329,17 @@ function UsersTable({ users, onRoleChange, onBanToggle }) {
               style={s.roleSelect}
               value={u.role}
               onChange={(e) => onRoleChange(u.id, e.target.value)}
+              disabled={changingRole === u.id}
             >
               {ALL_ROLES.map((r) => (
                 <option key={r} value={r}>{r}</option>
               ))}
             </select>
+            {changingRole === u.id && (
+              <span style={{ marginLeft: '8px', fontSize: '12px', color: ACCENT }}>
+                Guardando...
+              </span>
+            )}
           </div>
 
           {/* Reputación */}
@@ -233,6 +364,7 @@ function UsersTable({ users, onRoleChange, onBanToggle }) {
                 ...(u.status === 'baneado' ? s.actionBtnDanger : {}),
               }}
               onClick={() => onBanToggle(u.id)}
+              disabled={changingRole === u.id}
             >
               {u.status === 'baneado' ? 'Desbanear' : 'Banear'}
             </button>
