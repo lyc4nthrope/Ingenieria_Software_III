@@ -141,6 +141,7 @@ export async function getAllUsers() {
   return { success: true, data: data.map(row => mapDBUserToUI(row)) };
 }
 
+
 /**
  * Cambia el rol de un usuario (solo Admin).
  * @param {string} userId

@@ -8,6 +8,7 @@
  */
 import { useState } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { changeUserRole, getAllUsers } from '@/services/api/users.api';
 import { UserRoleEnum } from '@/types';
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -35,20 +36,34 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState(MOCK_USERS);
   const [activeSection, setActiveSection] = useState('overview');
 
-  const handleRoleChange = (userId, newRole) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
-    );
+  const handleRoleChange = async (userId, newRole) => {
+    const roleMap = {
+      'Usuario': 1,
+      'Moderador': 2,
+      'Admin': 3,
+      'Repartidor': 4,
+    };
+
+    const { success, error } = await changeUserRole(userId, roleMap[newRole]);
+
+    if (success) {
+      // Refetch para actualizar la tabla
+      const { data: updatedUsers } = await getAllUsers();
+      if (updatedUsers) {
+        setUsers(updatedUsers);
+      }
+    } else {
+      console.error('Error al cambiar rol:', error);
+      alert(`Error: ${error}`);
+    }
   };
 
   const handleBanToggle = (userId) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? { ...u, status: u.status === 'baneado' ? 'activo' : 'baneado' }
-          : u
-      )
-    );
+    setUsers(users.map(u => 
+      u.id === userId 
+        ? { ...u, status: u.status === 'baneado' ? 'activo' : 'baneado' }
+        : u
+    ));
   };
 
   return (
