@@ -69,7 +69,7 @@ export default function CallbackPage() {
                        CALLBACK_TYPE.UNKNOWN;
 
   // Derivar el estado y mensaje de error
-  const status = !isInitialized ? 'loading' : (urlError || !isAuthenticated && hash) ? 'error' : 'loading';
+  const status = urlError ? 'error' : 'loading';
   const errorMessage = urlError || null;
 
   useEffect(() => {
