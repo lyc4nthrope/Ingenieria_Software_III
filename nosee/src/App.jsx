@@ -5,9 +5,13 @@
  * ┌─────────────────────────┬──────────────────────────┬───────────┐
  * │ Ruta                    │ Componente               │ Protegida │
  * ├─────────────────────────┼──────────────────────────┼───────────┤
- * │ /                       │ HomePage                 │ ✅ Sí     │
+ * │ /                       │ RoleRouter               │ ✅ Sí     │
  * │ /perfil                 │ ProfilePage              │ ✅ Sí     │
  * │ /publicaciones          │ HomePage                 │ ✅ Sí     │
+ * │ /dashboard/user         │ UserDashboard            │ ✅ Sí     │
+ * │ /dashboard/admin        │ AdminDashboard           │ ✅ Sí     │
+ * │ /dashboard/moderator    │ ModeratorDashboard       │ ✅ Sí     │
+ * │ /dashboard/dealer       │ DealerDashboard          │ ✅ Sí     │
  * │ /login                  │ LoginPage                │ ❌ No     │
  * │ /registro               │ RegisterPage             │ ❌ No     │
  * │ /auth/callback          │ CallbackPage             │ ❌ No     │
@@ -34,11 +38,13 @@ import ForgotPasswordPage from "@/features/auth/pages/ForgotPasswordPage";
 import NewPasswordPage from "@/features/auth/pages/NewPasswordPage";
 import HomePage from "@/pages/HomePage";
 import ProfilePage from "@/features/auth/pages/ProfilePage";
+
+// FIX 1: nombres de import alineados con los nombres reales de cada archivo
 import RoleRouter from "@/router/RoleRouter";
-import UsuarioDashboard from "@/features/dashboard/user/UserDashboard";
+import UserDashboard from "@/features/dashboard/user/UserDashboard";
 import AdminDashboard from "@/features/dashboard/admin/AdminDashboard";
-import ModeradorDashboard from "@/features/dashboard/moderator/ModeratorDashboard";
-import RepartidorDashboard from "@/features/dashboard/dealer/Dealerashboard";
+import ModeratorDashboard from "@/features/dashboard/moderator/ModeratorDashboard";
+import DealerDashboard from "@/features/dashboard/dealer/DealerDashboard";
 
 function NotFoundPage() {
   return (
@@ -103,42 +109,20 @@ function AppContent() {
     >
       <Navbar />
       <Routes>
-        {/* Rutas públicas */}
+        {/* ── Rutas públicas ───────────────────────────────────── */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/registro" element={<RegisterPage />} />
         <Route path="/auth/callback" element={<CallbackPage />} />
         <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
         <Route path="/nueva-contrasena" element={<NewPasswordPage />} />
 
-        {/* Rutas protegidas */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <HomePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/perfil"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/publicaciones"
-          element={
-            <ProtectedRoute>
-              <HomePage />
-            </ProtectedRoute>
-          }
-        />
+        {/* ── Rutas protegidas ─────────────────────────────────── */}
 
-        <Route path="*" element={<NotFoundPage />} />
-
-        {/* Raíz protegida: detecta rol y redirige */}
+        {/*
+          FIX 2 + 3: la ruta "/" usa RoleRouter (redirige al dashboard según rol).
+          Se elimina el "/" duplicado que renderizaba HomePage, que hacía que
+          RoleRouter nunca se alcanzara.
+        */}
         <Route
           path="/"
           element={
@@ -148,7 +132,25 @@ function AppContent() {
           }
         />
 
-        {/* Dashboards */}
+        <Route
+          path="/perfil"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/publicaciones"
+          element={
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── Dashboards por rol ───────────────────────────────── */}
         <Route
           path="/dashboard/user"
           element={
@@ -181,6 +183,12 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+
+        {/*
+          FIX 4: wildcard al final para que no capture las rutas de los dashboards.
+          Antes estaba ANTES de los dashboards, bloqueándolos.
+        */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>
   );
