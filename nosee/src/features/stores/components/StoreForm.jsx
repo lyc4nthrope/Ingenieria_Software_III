@@ -45,19 +45,19 @@ export default function StoreForm() {
         {errors.type ? <div style={styles.error}>{errors.type}</div> : null}
       </div>
 
-      <div style={styles.group}>
-        <label style={styles.label}>Dirección / referencia</label>
-        <input
-          type="text"
-          value={formData.address}
-          onChange={(e) => updateField('address', e.target.value)}
-          placeholder="Ej: Calle 10 # 25-30"
-          style={styles.input}
-        />
-      </div>
-
       {isPhysical ? (
         <>
+          <div style={styles.group}>
+            <label style={styles.label}>Dirección / referencia</label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => updateField('address', e.target.value)}
+              placeholder="Ej: Calle 10 # 25-30"
+              style={styles.input}
+            />
+          </div>
+
           <StoreMapPicker
             latitude={formData.latitude}
             longitude={formData.longitude}
