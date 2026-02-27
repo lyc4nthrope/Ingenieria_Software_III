@@ -82,15 +82,6 @@ export const useGeoLocation = (options = {}) => {
     }
   }, []);
 
-  /**
-   * Auto-fetch al montar si está habilitado
-   */
-  useEffect(() => {
-    if (autoFetch && supported && navigator.geolocation) {
-      fetchLocation();
-    }
-  }, [autoFetch, supported, fetchLocation]);
-
   // ─── Funciones públicas ────────────────────────────────────────────────────
 
   /**
@@ -154,6 +145,15 @@ export const useGeoLocation = (options = {}) => {
     );
   }, [enableHighAccuracy, timeout, maximumAge]);
 
+   /**
+   * Auto-fetch al montar si está habilitado
+   */
+  useEffect(() => {
+    if (autoFetch && supported && navigator.geolocation) {
+      fetchLocation();
+    }
+  }, [autoFetch, supported, fetchLocation]);
+  
   /**
    * Reintentar obtener ubicación
    */

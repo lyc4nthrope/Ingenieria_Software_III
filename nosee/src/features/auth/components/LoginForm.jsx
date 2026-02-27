@@ -37,7 +37,7 @@ const EyeIcon = ({ open }) => open ? (
   </svg>
 );
 
-export default function LoginForm({ onSubmit, loading = false, error = null }) {
+export default function LoginForm({ onSubmit, loading = false, error = null, onResendConfirmation = null, emailForResend = '' }) {
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -91,6 +91,25 @@ export default function LoginForm({ onSubmit, loading = false, error = null }) {
         >
           {error}
         </div>
+      )}
+
+      {error && (error.toLowerCase().includes('confirma tu email') || error.toLowerCase().includes('email not confirmed')) && onResendConfirmation && emailForResend && (
+        <button
+          type="button"
+          onClick={() => onResendConfirmation(emailForResend)}
+          style={{
+            marginTop: '-8px',
+            alignSelf: 'flex-start',
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--accent)',
+            fontSize: '13px',
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          Reenviar email de confirmación
+        </button>
       )}
 
       <Input

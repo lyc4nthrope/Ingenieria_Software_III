@@ -37,6 +37,14 @@ const TagIcon = () => (
   </svg>
 );
 
+const StoreIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9l1.5-5h15L21 9"/>
+    <path d="M4 9h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>
+    <path d="M9 21v-6h6v6"/>
+  </svg>
+);
+
 export default function Navbar() {
   const user = useAuthStore(selectAuthUser);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
@@ -130,7 +138,10 @@ export default function Navbar() {
             <TagIcon />
             <span className="nav-label">Precios</span>
           </Link>
-
+          <Link to="/tiendas" style={navLinkStyle(isActive('/tiendas'))}>
+            <StoreIcon />
+            <span className="nav-label">Tiendas</span>
+          </Link>
           {/* Avatar → perfil */}
           <Link to="/perfil" style={avatarStyle} title="Mi perfil">
             {user?.avatarUrl ? (

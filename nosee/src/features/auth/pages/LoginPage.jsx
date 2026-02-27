@@ -4,10 +4,11 @@
  * Conecta LoginForm con authStore.login().
  * Redirige a la homepage pública "/" después del login exitoso.
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore, selectIsAuthenticated, selectIsInitialized, selectAuthStatus, selectAuthError } from "@/features/auth/store/authStore";
 import LoginForm from "@/features/auth/components/LoginForm";
+import { resendConfirmation } from "@/services/api/auth.api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -17,20 +18,24 @@ export default function LoginPage() {
   const error = useAuthStore(selectAuthError);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const isInitialized = useAuthStore(selectIsInitialized);
+  const [lastEmailAttempt, setLastEmailAttempt] = useState("");
 
   // Solo redirigir si ya terminó la inicialización y está logueado
   useEffect(() => {
     if (isInitialized && isAuthenticated) navigate("/", { replace: true });
-  }, [isInitialized, isAuthenticated, navigate]); // eslint-disable-line
+   }, [isInitialized, isAuthenticated, navigate]);
 
   const handleLogin = async (email, password) => {
     clearError();
+    setLastEmailAttempt(email);
     const result = await login(email, password);
     if (result.success) {
       navigate("/", { replace: true });
     }
   };
-
+  const handleResendConfirmation = async (email) => {
+    await resendConfirmation(email);
+  };
   return (
     <main
       style={{
@@ -90,6 +95,8 @@ export default function LoginPage() {
             onSubmit={handleLogin}
             loading={status === "loading"}
             error={error}
+            onResendConfirmation={handleResendConfirmation}
+            emailForResend={lastEmailAttempt}
           />
         </div>
       </div>

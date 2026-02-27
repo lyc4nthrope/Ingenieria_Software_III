@@ -5,7 +5,7 @@
  * Centraliza la configuración y conexión a Supabase
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, processLock } from "@supabase/supabase-js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
@@ -25,6 +25,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     flowType: "pkce",
+    // Evita timeouts de Navigator LockManager en algunos navegadores/escenarios multi-tab.
+    lock: processLock,
   },
 });
 

@@ -97,14 +97,28 @@ export const createPublication = async (data) => {
     }
 
     // Verificar que el usuario está verificado
+    const authEmailConfirmed = !!user.email_confirmed_at;
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('is_verified')
       .eq('id', user.id)
       .single();
 
-    if (userError || !userData?.is_verified) {
+    const profileVerified = !!userData?.is_verified;
+    if (userError && !authEmailConfirmed) {
       return { success: false, error: 'Debes verificar tu email para publicar' };
+    }
+
+    if (!profileVerified && !authEmailConfirmed) {
+      return { success: false, error: 'Debes verificar tu email para publicar' };
+    }
+
+    // Si auth ya confirma email pero users.is_verified está atrasado, intentamos sincronizar
+    if (authEmailConfirmed && !profileVerified) {
+      await supabase
+        .from('users')
+        .update({ is_verified: true })
+        .eq('id', user.id);
     }
 
     // Crear la publicación

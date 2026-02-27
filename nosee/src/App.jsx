@@ -168,7 +168,7 @@ function AppContent() {
       />
 
       <Route
-        path="/tiendas/nueva"
+        path="/tiendas"
         element={
           <ProtectedRoute>
             <CreateStorePage />
