@@ -3,6 +3,7 @@ import { useGeoLocation } from '@/features/publications/hooks';
 
 const MAP_WIDTH = 640;
 const MAP_HEIGHT = 280;
+const ENABLE_CLIENT_REVERSE_GEOCODE = import.meta.env.VITE_ENABLE_CLIENT_REVERSE_GEOCODE === 'true';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -24,6 +25,8 @@ function coordinatesToPoint(latitude, longitude, width, height) {
 }
 
 async function reverseGeocode(latitude, longitude) {
+  if (!ENABLE_CLIENT_REVERSE_GEOCODE) return '';
+
   try {
     const response = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=jsonv2`,
@@ -76,28 +79,43 @@ export default function StoreMapPicker({ latitude, longitude, onLocationChange, 
     onLocationChange({ latitude: nextLat, longitude: nextLon, address: '' });
   }, [hasLocation, geoLatitude, geoLongitude, latitude, longitude, onLocationChange]);
 
-  const applyLocation = async (nextLat, nextLon) => {
+  const setLocationWithoutGeocoding = (nextLat, nextLon) => {
+    onLocationChange({ latitude: nextLat, longitude: nextLon, address: '' });
+  };
+
+  const resolveAddressForCurrentPoint = async (nextLat, nextLon) => {
+    if (!ENABLE_CLIENT_REVERSE_GEOCODE) return;
+
     setResolvingAddress(true);
     const address = await reverseGeocode(nextLat, nextLon);
     setResolvingAddress(false);
 
-    onLocationChange({ latitude: nextLat, longitude: nextLon, address });
+    if (address) {
+      onLocationChange({ latitude: nextLat, longitude: nextLon, address });
+    }
   };
 
-  const applyFromClick = async (clientX, clientY, element) => {
+  const applyFromCoordinates = async (nextLat, nextLon, { resolveAddress = false } = {}) => {
+    setLatInput(String(nextLat));
+    setLonInput(String(nextLon));
+    setLocationWithoutGeocoding(nextLat, nextLon);
+
+    if (resolveAddress) {
+      await resolveAddressForCurrentPoint(nextLat, nextLon);
+    }
+  };
+
+  const applyFromClick = async (clientX, clientY, element, { resolveAddress = false } = {}) => {
     const rect = element.getBoundingClientRect();
     const x = clamp(clientX - rect.left, 0, rect.width);
     const y = clamp(clientY - rect.top, 0, rect.height);
 
     const { latitude: nextLat, longitude: nextLon } = pointToCoordinates(x, y, rect.width, rect.height);
-
-    setLatInput(String(nextLat));
-    setLonInput(String(nextLon));
-    await applyLocation(nextLat, nextLon);
+    await applyFromCoordinates(nextLat, nextLon, { resolveAddress });
   };
 
   const handleMapClick = async (event) => {
-    await applyFromClick(event.clientX, event.clientY, event.currentTarget);
+    await applyFromClick(event.clientX, event.clientY, event.currentTarget, { resolveAddress: true });
   };
 
   const handlePointerDown = (event) => {
@@ -108,13 +126,17 @@ export default function StoreMapPicker({ latitude, longitude, onLocationChange, 
 
   const handlePointerMove = async (event) => {
     if (!isDragging) return;
-    await applyFromClick(event.clientX, event.clientY, event.currentTarget);
+    await applyFromClick(event.clientX, event.clientY, event.currentTarget, { resolveAddress: false });
   };
 
-  const handlePointerUp = (event) => {
+  const handlePointerUp = async (event) => {
     if (!isDragging) return;
     setIsDragging(false);
     event.currentTarget.releasePointerCapture(event.pointerId);
+
+    if (Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))) {
+      await resolveAddressForCurrentPoint(Number(latitude), Number(longitude));
+    }
   };
 
   const applyManualCoordinates = async () => {
@@ -122,7 +144,7 @@ export default function StoreMapPicker({ latitude, longitude, onLocationChange, 
     const parsedLon = Number(lonInput);
     if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLon)) return;
 
-    await applyLocation(parsedLat, parsedLon);
+    await applyFromCoordinates(parsedLat, parsedLon, { resolveAddress: true });
   };
 
   const useCurrentLocation = async () => {
@@ -134,9 +156,7 @@ export default function StoreMapPicker({ latitude, longitude, onLocationChange, 
 
     const nextLat = Number(Number(geoLatitude).toFixed(6));
     const nextLon = Number(Number(geoLongitude).toFixed(6));
-    setLatInput(String(nextLat));
-    setLonInput(String(nextLon));
-    await applyLocation(nextLat, nextLon);
+    await applyFromCoordinates(nextLat, nextLon, { resolveAddress: true });
   };
 
   return (
@@ -192,7 +212,7 @@ export default function StoreMapPicker({ latitude, longitude, onLocationChange, 
       {resolvingAddress ? <div style={styles.helper}>Resolviendo dirección…</div> : null}
       {geoError ? <div style={styles.helper}>Geo: {geoError}</div> : null}
       <div style={styles.helper}>
-        Nota: se intentó integrar `react-leaflet`, pero la instalación del paquete está bloqueada en este entorno.
+        Reverse geocoding en cliente está deshabilitado por defecto para evitar CORS/429 de Nominatim.
       </div>
       {error ? <div style={styles.error}>{error}</div> : null}
     </div>
