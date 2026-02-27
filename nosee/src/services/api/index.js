@@ -12,3 +12,4 @@ export * as publicationsApi from './publications.api';
 // Agregar aquí más APIs a medida que se implementen:
 // export * as ordersApi from './orders.api';
 // export * as deliveryApi from './delivery.api';
+export * as storesApi from './stores.api';

@@ -57,6 +57,7 @@ import DealerDashboard from "@/features/dashboard/dealer/DealerDashboard";
 // Importar páginas de publicaciones
 import PublicationsPage from "@/features/publications/pages/PublicationsPage";
 import PublicationForm from "@/features/publications/components/PublicationForm";
+import CreateStorePage from "@/features/stores/pages/CreateStorePage";
 
 function NotFoundPage() {
   return (
@@ -162,6 +163,15 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <PublicationForm onSuccess={() => {}} />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/tiendas/nueva"
+        element={
+          <ProtectedRoute>
+            <CreateStorePage />
           </ProtectedRoute>
         }
       />
