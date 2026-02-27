@@ -3,7 +3,7 @@
  */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "@/features/auth/store/authStore";
+import { useAuthStore, selectIsInitialized, selectAuthStatus, selectAuthError } from "@/features/auth/store/authStore";
 import RegisterForm from "@/features/auth/components/RegisterForm";
 import { resendConfirmation } from "@/services/api/auth.api";
 
@@ -114,19 +114,19 @@ function VerificationView({ email, onResend }) {
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { register, status, error, clearError } = useAuthStore((s) => ({
-    register: s.register,
-    status: s.status,
-    error: s.error,
-    clearError: s.clearError,
-  }));
+  const register = useAuthStore((s) => s.register);
+  const clearError = useAuthStore((s) => s.clearError);
+  const status = useAuthStore(selectAuthStatus);
+  const error = useAuthStore(selectAuthError);
   const isAuthenticated = useAuthStore((s) => !!s.user && !!s.session);
+  const isInitialized = useAuthStore(selectIsInitialized);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
 
+  // Solo redirigir si ya terminó la inicialización y está logueado
   useEffect(() => {
-    if (isAuthenticated) navigate("/", { replace: true });
-  }, [isAuthenticated, navigate]); // eslint-disable-line
+    if (isInitialized && isAuthenticated) navigate("/", { replace: true });
+  }, [isInitialized, isAuthenticated, navigate]); // eslint-disable-line
 
   const handleRegister = async (email, password, metadata) => {
     clearError();
