@@ -99,7 +99,9 @@ export async function getSession() {
  */
 export async function resetPassword(email) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/auth/callback`,  // ✅ CORRECTO
+     // Agregamos flow=recovery para que el callback identifique el flujo incluso
+    // si Supabase no preserva `type=recovery` en la URL final.
+    redirectTo: `${window.location.origin}/auth/callback?flow=recovery`,
   });
 
   if (error) return { success: false, error: error.message };

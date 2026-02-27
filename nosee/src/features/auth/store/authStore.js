@@ -110,7 +110,9 @@ export const useAuthStore = create((set, get) => ({
     // actualizada cuando Supabase renueva el access_token automáticamente.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
+        // PASSWORD_RECOVERY se dispara al abrir el link de recuperación.
+        // Lo tratamos igual que SIGNED_IN para hidratar el store correctamente.
+        if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
           const profileResult = await usersApi.getUserProfile(session.user.id);
 
           const mappedUser = profileResult.success

@@ -61,12 +61,15 @@ export default function CallbackPage() {
 
   const urlError = searchParams.get('error_description') || hashParams.get('error_description');
   const urlType = searchParams.get('type') || hashParams.get('type');
+  const flow = searchParams.get('flow');
   const code = searchParams.get('code'); // PKCE flow
 
   // Derivar el tipo de callback
-  const callbackType = urlType === CALLBACK_TYPE.RECOVERY ? CALLBACK_TYPE.RECOVERY :
-                       urlType === CALLBACK_TYPE.SIGNUP ? CALLBACK_TYPE.SIGNUP :
-                       CALLBACK_TYPE.UNKNOWN;
+  const callbackType = (urlType === CALLBACK_TYPE.RECOVERY || flow === CALLBACK_TYPE.RECOVERY)
+    ? CALLBACK_TYPE.RECOVERY
+    : urlType === CALLBACK_TYPE.SIGNUP
+      ? CALLBACK_TYPE.SIGNUP
+      : CALLBACK_TYPE.UNKNOWN;
 
   // Derivar el estado y mensaje de error
   const status = urlError ? 'error' : 'loading';
@@ -92,18 +95,21 @@ export default function CallbackPage() {
     if (!isInitialized) return;
 
     if (isAuthenticated) {
-      const isRecovery = urlType === 'recovery';
+      const isRecovery = callbackType === CALLBACK_TYPE.RECOVERY;
       setTimeout(() => {
         navigate(isRecovery ? '/nueva-contrasena' : '/perfil', { replace: true });
       }, 1200);
     }
-  }, [isInitialized, isAuthenticated, urlType, navigate]);
+  }, [isInitialized, isAuthenticated, callbackType, navigate]);
 
   // ── También escuchar cambios directamente de Supabase ──
   // Por si el store tarda en reflejar el evento
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' && callbackType === CALLBACK_TYPE.RECOVERY) {
+const isRecoveryEvent = event === 'PASSWORD_RECOVERY';
+      const isRecoverySignIn = event === 'SIGNED_IN' && callbackType === CALLBACK_TYPE.RECOVERY;
+
+      if (isRecoveryEvent || isRecoverySignIn) {
         navigate('/nueva-contrasena', { replace: true });
       }
     });
