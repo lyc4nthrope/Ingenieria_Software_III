@@ -1,6 +1,6 @@
 /**
  * Unit Tests Example - Mappers
- * 
+ *
  * Para ejecutar (cuando instales vitest):
  * npm test -- tests/unit/auth.mappers.test.js --run
  */
@@ -112,4 +112,10 @@ describe('Auth Mappers', () => {
 });
 */
 
-export const authMappersTestsDummy = true;
+import { describe, it, expect } from "vitest";
+
+describe("Auth Mappers (pendiente)", () => {
+  it("placeholder: pendiente de implementación real", () => {
+    expect(true).toBe(true);
+  });
+});

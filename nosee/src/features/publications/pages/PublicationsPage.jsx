@@ -27,6 +27,68 @@ import Button from '@/components/ui/Button';
 import PriceSearchFilter from '@/features/publications/components/PriceSearchFilter';
 import PublicationCard from '@/features/publications/components/PublicationCard';
 
+const MOCK_BASE_TIME = Date.now();
+
+const MOCK_PUBLICATIONS = [
+  {
+    id: 1,
+    productName: 'Aceite Girasol 3L',
+    price: 18900,
+    currency: 'COP',
+    storeName: 'Éxito Downtown',
+    description: "Aceite de girasol marca D'Oleorico, 3 litros, excelente para cocina.",
+    photoUrl: 'https://via.placeholder.com/300x200?text=Aceite+Girasol',
+    author: {
+      id: 'user1',
+      name: 'María García',
+      email: 'maria@example.com',
+      avatar: 'https://via.placeholder.com/40?text=MG',
+    },
+    validations: 14,
+    reports: 0,
+    timestamp: new Date(MOCK_BASE_TIME - 2 * 60 * 60 * 1000), // hace 2 horas
+    status: 'validated',
+  },
+  {
+    id: 2,
+    productName: 'Leche Integral 1L',
+    price: 4200,
+    currency: 'COP',
+    storeName: 'Carrefour Centro Comercial',
+    description: 'Leche integral fresca, 1 litro, recién llegada.',
+    photoUrl: 'https://via.placeholder.com/300x200?text=Leche',
+    author: {
+      id: 'user2',
+      name: 'Juan Pérez',
+      email: 'juan@example.com',
+      avatar: 'https://via.placeholder.com/40?text=JP',
+    },
+    validations: 8,
+    reports: 0,
+    timestamp: new Date(MOCK_BASE_TIME - 4 * 60 * 60 * 1000), // hace 4 horas
+    status: 'validated',
+  },
+  {
+    id: 3,
+    productName: 'Queso Fresco 500g',
+    price: 15800,
+    currency: 'COP',
+    storeName: 'Éxito Quindío',
+    description: 'Queso fresco hecho en la región, 500g, excelente calidad.',
+    photoUrl: 'https://via.placeholder.com/300x200?text=Queso',
+    author: {
+      id: 'user3',
+      name: 'Ana López',
+      email: 'ana@example.com',
+      avatar: 'https://via.placeholder.com/40?text=AL',
+    },
+    validations: 3,
+    reports: 0,
+    timestamp: new Date(MOCK_BASE_TIME - 8 * 60 * 60 * 1000), // hace 8 horas
+    status: 'pending',
+  },
+];
+
 // Iconos SVG inline
 const SearchIcon = () => (
   <svg
@@ -99,8 +161,8 @@ export default function PublicationsPage() {
     distance: 50,
     sortBy: 'recent',
   });
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const loading = false;
 
   /**
    * Mock data - En producción vendrá de usePublications hook
@@ -109,65 +171,7 @@ export default function PublicationsPage() {
    * TODO: Integrar usePublications hook cuando esté listo
    * const { publications, loading, error, refetch } = usePublications(filters);
    */
-  const [publications] = useState([
-    {
-      id: 1,
-      productName: 'Aceite Girasol 3L',
-      price: 18900,
-      currency: 'COP',
-      storeName: 'Éxito Downtown',
-      description: 'Aceite de girasol marca D\'Oleorico, 3 litros, excelente para cocina.',
-      photoUrl: 'https://via.placeholder.com/300x200?text=Aceite+Girasol',
-      author: {
-        id: 'user1',
-        name: 'María García',
-        email: 'maria@example.com',
-        avatar: 'https://via.placeholder.com/40?text=MG',
-      },
-      validations: 14,
-      reports: 0,
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // hace 2 horas
-      status: 'validated',
-    },
-    {
-      id: 2,
-      productName: 'Leche Integral 1L',
-      price: 4200,
-      currency: 'COP',
-      storeName: 'Carrefour Centro Comercial',
-      description: 'Leche integral fresca, 1 litro, recién llegada.',
-      photoUrl: 'https://via.placeholder.com/300x200?text=Leche',
-      author: {
-        id: 'user2',
-        name: 'Juan Pérez',
-        email: 'juan@example.com',
-        avatar: 'https://via.placeholder.com/40?text=JP',
-      },
-      validations: 8,
-      reports: 0,
-      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // hace 4 horas
-      status: 'validated',
-    },
-    {
-      id: 3,
-      productName: 'Queso Fresco 500g',
-      price: 15800,
-      currency: 'COP',
-      storeName: 'Éxito Quindío',
-      description: 'Queso fresco hecho en la región, 500g, excelente calidad.',
-      photoUrl: 'https://via.placeholder.com/300x200?text=Queso',
-      author: {
-        id: 'user3',
-        name: 'Ana López',
-        email: 'ana@example.com',
-        avatar: 'https://via.placeholder.com/40?text=AL',
-      },
-      validations: 3,
-      reports: 0,
-      timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000), // hace 8 horas
-      status: 'pending',
-    },
-  ]);
+    const [publications] = useState(MOCK_PUBLICATIONS);
 
   // ─────────────────────────────────────────────────────────────
   // PASO 4: Funciones de manejo de eventos

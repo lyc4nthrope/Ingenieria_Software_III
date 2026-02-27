@@ -7,7 +7,14 @@
  * Ejecutar: npm test -- publications.integration.test.js
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from "vitest";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const require = createRequire(import.meta.url);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ─────────────────────────────────────────────────────────────
 // TESTS DE INTEGRACIÓN - FLUJOS COMPLETos
@@ -16,396 +23,421 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 /**
  * Tests que validan flujos completos sin dependencias externas
  */
-describe('Publications Feature - Integration Tests', () => {
-  describe('PublicationsPage Rendering', () => {
-    it('debería renderizar sin errores', () => {
+describe("Publications Feature - Integration Tests", () => {
+  describe("PublicationsPage Rendering", () => {
+    it("debería renderizar sin errores", () => {
       try {
-        const PublicationsPage = require('@/features/publications/pages/PublicationsPage').default;
+        const PublicationsPage =
+          require("@/features/publications/pages/PublicationsPage").default;
 
         // Verificar que el componente existe y es válido
         expect(PublicationsPage).toBeDefined();
-        expect(typeof PublicationsPage).toBe('function');
-      } catch (e) {
+        expect(typeof PublicationsPage).toBe("function");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería tener interfaz responsiva', () => {
+    it("debería tener interfaz responsiva", () => {
       try {
-        const PublicationsPage = require('@/features/publications/pages/PublicationsPage').default;
+        const PublicationsPage =
+          require("@/features/publications/pages/PublicationsPage").default;
         const code = PublicationsPage.toString();
 
         // Verificar que se usa grid con min-width
-        expect(code).toContain('grid');
-        expect(code).toContain('minmax');
-      } catch (e) {
+        expect(code).toContain("grid");
+        expect(code).toContain("minmax");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería mostrar estado vacío', () => {
+    it("debería mostrar estado vacío", () => {
       try {
-        const PublicationsPage = require('@/features/publications/pages/PublicationsPage').default;
+        const PublicationsPage =
+          require("@/features/publications/pages/PublicationsPage").default;
         const code = PublicationsPage.toString();
 
         // Verificar que maneja estado vacío
-        expect(code).toContain('No hay publicaciones');
-      } catch (e) {
+        expect(code).toContain("No hay publicaciones");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería tener barra de búsqueda', () => {
+    it("debería tener barra de búsqueda", () => {
       try {
-        const PublicationsPage = require('@/features/publications/pages/PublicationsPage').default;
+        const PublicationsPage =
+          require("@/features/publications/pages/PublicationsPage").default;
         const code = PublicationsPage.toString();
 
         // Verificar que tiene input de búsqueda
-        expect(code).toContain('placeholder');
-        expect(code).toContain('Buscar');
-      } catch (e) {
+        expect(code).toContain("placeholder");
+        expect(code).toContain("Buscar");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería integrar PriceSearchFilter', () => {
+    it("debería integrar PriceSearchFilter", () => {
       try {
-        const PublicationsPage = require('@/features/publications/pages/PublicationsPage').default;
+        const PublicationsPage =
+          require("@/features/publications/pages/PublicationsPage").default;
         const code = PublicationsPage.toString();
 
         // Verificar que usa el componente de filtros
-        expect(code).toContain('PriceSearchFilter');
-      } catch (e) {
+        expect(code).toContain("PriceSearchFilter");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería integrar PublicationCard', () => {
+    it("debería integrar PublicationCard", () => {
       try {
-        const PublicationsPage = require('@/features/publications/pages/PublicationsPage').default;
+        const PublicationsPage =
+          require("@/features/publications/pages/PublicationsPage").default;
         const code = PublicationsPage.toString();
 
         // Verificar que usa el componente de tarjeta
-        expect(code).toContain('PublicationCard');
-      } catch (e) {
+        expect(code).toContain("PublicationCard");
+      } catch {
         expect(true).toBe(true);
       }
     });
   });
 
-  describe('PublicationCard Integración', () => {
-    it('debería renderizar contenido de publicación', () => {
+  describe("PublicationCard Integración", () => {
+    it("debería renderizar contenido de publicación", () => {
       try {
-        const PublicationCard = require('@/features/publications/components/PublicationCard').default;
+        const PublicationCard =
+          require("@/features/publications/components/PublicationCard").default;
         const code = PublicationCard.toString();
 
         // Verificar que muestra datos de la publicación
-        expect(code).toContain('productName');
-        expect(code).toContain('price');
-        expect(code).toContain('storeName');
-      } catch (e) {
+        expect(code).toContain("productName");
+        expect(code).toContain("price");
+        expect(code).toContain("storeName");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería tener funcionalidad de validación', () => {
+    it("debería tener funcionalidad de validación", () => {
       try {
-        const PublicationCard = require('@/features/publications/components/PublicationCard').default;
+        const PublicationCard =
+          require("@/features/publications/components/PublicationCard").default;
         const code = PublicationCard.toString();
 
         // Verificar que tiene callback para validación
-        expect(code).toContain('onValidate');
-      } catch (e) {
+        expect(code).toContain("onValidate");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería tener funcionalidad de reporte', () => {
+    it("debería tener funcionalidad de reporte", () => {
       try {
-        const PublicationCard = require('@/features/publications/components/PublicationCard').default;
+        const PublicationCard =
+          require("@/features/publications/components/PublicationCard").default;
         const code = PublicationCard.toString();
 
         // Verificar que tiene callback para reporte
-        expect(code).toContain('onReport');
-      } catch (e) {
+        expect(code).toContain("onReport");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería mostrar tiempo relativo', () => {
+    it("debería mostrar tiempo relativo", () => {
       try {
-        const PublicationCard = require('@/features/publications/components/PublicationCard').default;
+        const PublicationCard =
+          require("@/features/publications/components/PublicationCard").default;
         const code = PublicationCard.toString();
 
         // Verificar que usa función de tiempo relativo
-        expect(code).toContain('formatDistanceToNowInSpanish');
-      } catch (e) {
+        expect(code).toContain("formatDistanceToNowInSpanish");
+      } catch {
         expect(true).toBe(true);
       }
     });
   });
 
-  describe('PhotoUploader Integración', () => {
-    it('debería tener zona de drag-drop', () => {
+  describe("PhotoUploader Integración", () => {
+    it("debería tener zona de drag-drop", () => {
       try {
-        const PhotoUploader = require('@/features/publications/components/PhotoUploader').default;
+        const PhotoUploader =
+          require("@/features/publications/components/PhotoUploader").default;
         const code = PhotoUploader.toString();
 
         // Verificar que tiene soporte para drag-drop
-        expect(code).toContain('drag');
-        expect(code).toContain('drop');
-      } catch (e) {
+        expect(code).toContain("drag");
+        expect(code).toContain("drop");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería validar tamaño de archivo', () => {
+    it("debería validar tamaño de archivo", () => {
       try {
-        const PhotoUploader = require('@/features/publications/components/PhotoUploader').default;
+        const PhotoUploader =
+          require("@/features/publications/components/PhotoUploader").default;
         const code = PhotoUploader.toString();
 
         // Verificar que valida tamaño máximo (5MB)
-        expect(code).toContain('5');
-        expect(code).toContain('MB');
-      } catch (e) {
+        expect(code).toContain("5");
+        expect(code).toContain("MB");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería mostrar progress bar', () => {
+    it("debería mostrar progress bar", () => {
       try {
-        const PhotoUploader = require('@/features/publications/components/PhotoUploader').default;
+        const PhotoUploader =
+          require("@/features/publications/components/PhotoUploader").default;
         const code = PhotoUploader.toString();
 
         // Verificar que muestra progreso
-        expect(code).toContain('progress');
-      } catch (e) {
+        expect(code).toContain("progress");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería integrar usePhotoUpload hook', () => {
+    it("debería integrar usePhotoUpload hook", () => {
       try {
-        const PhotoUploader = require('@/features/publications/components/PhotoUploader').default;
+        const PhotoUploader =
+          require("@/features/publications/components/PhotoUploader").default;
         const code = PhotoUploader.toString();
 
         // Verificar que usar el hook
-        expect(code).toContain('usePhotoUpload');
-      } catch (e) {
+        expect(code).toContain("usePhotoUpload");
+      } catch {
         expect(true).toBe(true);
       }
     });
   });
 
-  describe('PublicationForm Integración', () => {
-    it('debería integrar componente PhotoUploader', () => {
+  describe("PublicationForm Integración", () => {
+    it("debería integrar componente PhotoUploader", () => {
       try {
-        const PublicationForm = require('@/features/publications/components/PublicationForm').default;
+        const PublicationForm =
+          require("@/features/publications/components/PublicationForm").default;
         const code = PublicationForm.toString();
 
         // Verificar que incluye PhotoUploader
-        expect(code).toContain('PhotoUploader');
-      } catch (e) {
+        expect(code).toContain("PhotoUploader");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería tener campo de precio', () => {
+    it("debería tener campo de precio", () => {
       try {
-        const PublicationForm = require('@/features/publications/components/PublicationForm').default;
+        const PublicationForm =
+          require("@/features/publications/components/PublicationForm").default;
         const code = PublicationForm.toString();
 
         // Verificar que tiene campo de precio
-        expect(code).toContain('price');
-      } catch (e) {
+        expect(code).toContain("price");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería validar descripción', () => {
+    it("debería validar descripción", () => {
       try {
-        const PublicationForm = require('@/features/publications/components/PublicationForm').default;
+        const PublicationForm =
+          require("@/features/publications/components/PublicationForm").default;
         const code = PublicationForm.toString();
 
         // Verificar que valida descripción
-        expect(code).toContain('description');
-      } catch (e) {
+        expect(code).toContain("description");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería integrar useGeoLocation hook', () => {
+    it("debería integrar useGeoLocation hook", () => {
       try {
-        const PublicationForm = require('@/features/publications/components/PublicationForm').default;
+        const PublicationForm =
+          require("@/features/publications/components/PublicationForm").default;
         const code = PublicationForm.toString();
 
         // Verificar que usar geolocalización
-        expect(code).toContain('useGeoLocation');
-      } catch (e) {
+        expect(code).toContain("useGeoLocation");
+      } catch {
         expect(true).toBe(true);
       }
     });
   });
 
-  describe('PriceSearchFilter Integración', () => {
-    it('debería tener filtro de precio', () => {
+  describe("PriceSearchFilter Integración", () => {
+    it("debería tener filtro de precio", () => {
       try {
-        const PriceSearchFilter = require('@/features/publications/components/PriceSearchFilter').default;
+        const PriceSearchFilter =
+          require("@/features/publications/components/PriceSearchFilter").default;
         const code = PriceSearchFilter.toString();
 
         // Verificar que filtra por precio
-        expect(code).toContain('price');
-      } catch (e) {
+        expect(code).toContain("price");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería tener filtro de distancia', () => {
+    it("debería tener filtro de distancia", () => {
       try {
-        const PriceSearchFilter = require('@/features/publications/components/PriceSearchFilter').default;
+        const PriceSearchFilter =
+          require("@/features/publications/components/PriceSearchFilter").default;
         const code = PriceSearchFilter.toString();
 
         // Verificar que filtra por distancia
-        expect(code).toContain('distance');
-      } catch (e) {
+        expect(code).toContain("distance");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('debería tener opciones de ordenamiento', () => {
+    it("debería tener opciones de ordenamiento", () => {
       try {
-        const PriceSearchFilter = require('@/features/publications/components/PriceSearchFilter').default;
+        const PriceSearchFilter =
+          require("@/features/publications/components/PriceSearchFilter").default;
         const code = PriceSearchFilter.toString();
 
         // Verificar que tiene opciones de sort
-        expect(code).toContain('sort');
-      } catch (e) {
+        expect(code).toContain("sort");
+      } catch {
         expect(true).toBe(true);
       }
     });
   });
 
-  describe('API Integration', () => {
-    it('PUBLICATION_STATUS tiene los estados requeridos', () => {
+  describe("API Integration", () => {
+    it("PUBLICATION_STATUS tiene los estados requeridos", () => {
       try {
-        const { PUBLICATION_STATUS } = require('@/services/api/publications.api');
+        const {
+          PUBLICATION_STATUS,
+        } = require("@/services/api/publications.api");
 
         expect(PUBLICATION_STATUS.PENDING).toBeDefined();
         expect(PUBLICATION_STATUS.VALIDATED).toBeDefined();
         expect(PUBLICATION_STATUS.REJECTED).toBeDefined();
         expect(PUBLICATION_STATUS.EXPIRED).toBeDefined();
-      } catch (e) {
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('SORT_OPTIONS tiene las opciones requeridas', () => {
+    it("SORT_OPTIONS tiene las opciones requeridas", () => {
       try {
-        const { SORT_OPTIONS } = require('@/services/api/publications.api');
+        const { SORT_OPTIONS } = require("@/services/api/publications.api");
 
         expect(SORT_OPTIONS.RECENT).toBeDefined();
         expect(SORT_OPTIONS.CHEAPEST).toBeDefined();
         expect(SORT_OPTIONS.VALIDATED).toBeDefined();
-      } catch (e) {
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('publicationsApi está correctamente exportada', () => {
+    it("publicationsApi está correctamente exportada", () => {
       try {
-        const { publicationsApi } = require('@/services/api');
+        const { publicationsApi } = require("@/services/api");
 
         expect(publicationsApi).toBeDefined();
-        expect(typeof publicationsApi).toBe('object');
-      } catch (e) {
+        expect(typeof publicationsApi).toBe("object");
+      } catch {
         expect(true).toBe(true);
       }
     });
   });
 
-  describe('Hooks Integration', () => {
-    it('usePublications hook existe', () => {
+  describe("Hooks Integration", () => {
+    it("usePublications hook existe", () => {
       try {
-        const { usePublications } = require('@/features/publications/hooks');
+        const { usePublications } = require("@/features/publications/hooks");
 
         expect(usePublications).toBeDefined();
-        expect(typeof usePublications).toBe('function');
-      } catch (e) {
+        expect(typeof usePublications).toBe("function");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('usePhotoUpload hook existe', () => {
+    it("usePhotoUpload hook existe", () => {
       try {
-        const { usePhotoUpload } = require('@/features/publications/hooks');
+        const { usePhotoUpload } = require("@/features/publications/hooks");
 
         expect(usePhotoUpload).toBeDefined();
-        expect(typeof usePhotoUpload).toBe('function');
-      } catch (e) {
+        expect(typeof usePhotoUpload).toBe("function");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('useGeoLocation hook existe', () => {
+    it("useGeoLocation hook existe", () => {
       try {
-        const { useGeoLocation } = require('@/features/publications/hooks');
+        const { useGeoLocation } = require("@/features/publications/hooks");
 
         expect(useGeoLocation).toBeDefined();
-        expect(typeof useGeoLocation).toBe('function');
-      } catch (e) {
+        expect(typeof useGeoLocation).toBe("function");
+      } catch {
         expect(true).toBe(true);
       }
     });
   });
 
-  describe('Routing Integration', () => {
-    it('rutas de publicaciones están configuradas', () => {
+  describe("Routing Integration", () => {
+    it("rutas de publicaciones están configuradas", () => {
       try {
-        const App = require('@/App').default;
+        const App = require("@/App").default;
         const code = App.toString();
 
         // Verificar que App tiene rutas de publicaciones
-        expect(code).toContain('/publicaciones');
-      } catch (e) {
+        expect(code).toContain("/publicaciones");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('PublicationsPage se importa en App', () => {
+    it("PublicationsPage se importa en App", () => {
       try {
-        const code = require('fs').readFileSync(
-          require('path').resolve(__dirname, '../../src/App.jsx'),
-          'utf-8'
+        const code = require("fs").readFileSync(
+          require("path").resolve(__dirname, "../../src/App.jsx"),
+          "utf-8",
         );
 
-        expect(code).toContain('PublicationsPage');
-      } catch (e) {
+        expect(code).toContain("PublicationsPage");
+      } catch {
         expect(true).toBe(true);
       }
     });
   });
 
-  describe('Style Integration', () => {
-    it('PublicationsPage usa estilos inline', () => {
+  describe("Style Integration", () => {
+    it("PublicationsPage usa estilos inline", () => {
       try {
-        const PublicationsPage = require('@/features/publications/pages/PublicationsPage').default;
+        const PublicationsPage =
+          require("@/features/publications/pages/PublicationsPage").default;
         const code = PublicationsPage.toString();
 
         // Verificar que usa style={{ }}
-        expect(code).toContain('style={{');
-      } catch (e) {
+        expect(code).toContain("style={{");
+      } catch {
         expect(true).toBe(true);
       }
     });
 
-    it('componentes usan variables CSS', () => {
+    it("componentes usan variables CSS", () => {
       try {
-        const PublicationsPage = require('@/features/publications/pages/PublicationsPage').default;
+        const PublicationsPage =
+          require("@/features/publications/pages/PublicationsPage").default;
         const code = PublicationsPage.toString();
 
         // Verificar que usa CSS variables
-        expect(code).toContain('var(--');
-      } catch (e) {
+        expect(code).toContain("var(--");
+      } catch {
         expect(true).toBe(true);
       }
     });
@@ -416,23 +448,23 @@ describe('Publications Feature - Integration Tests', () => {
 // Suite General de Integración
 // ─────────────────────────────────────────────────────────────
 
-describe('Publications Feature - Complete Integration', () => {
-  it('feature está completamente integrada', () => {
+describe("Publications Feature - Complete Integration", () => {
+  it("feature está completamente integrada", () => {
     const checks = [
       // Verificar que todos los componentes existen
-      () => require('@/features/publications/pages/PublicationsPage'),
-      () => require('@/features/publications/components/PublicationCard'),
-      () => require('@/features/publications/components/PublicationForm'),
-      () => require('@/features/publications/components/PhotoUploader'),
-      () => require('@/features/publications/components/PriceSearchFilter'),
+      () => require("@/features/publications/pages/PublicationsPage"),
+      () => require("@/features/publications/components/PublicationCard"),
+      () => require("@/features/publications/components/PublicationForm"),
+      () => require("@/features/publications/components/PhotoUploader"),
+      () => require("@/features/publications/components/PriceSearchFilter"),
 
       // Verificar que todos los hooks existen
-      () => require('@/features/publications/hooks/usePublications'),
-      () => require('@/features/publications/hooks/usePhotoUpload'),
-      () => require('@/features/publications/hooks/useGeoLocation'),
+      () => require("@/features/publications/hooks/usePublications"),
+      () => require("@/features/publications/hooks/usePhotoUpload"),
+      () => require("@/features/publications/hooks/useGeoLocation"),
 
       // Verificar API
-      () => require('@/services/api/publications.api'),
+      () => require("@/services/api/publications.api"),
     ];
 
     let successCount = 0;
@@ -440,7 +472,7 @@ describe('Publications Feature - Complete Integration', () => {
       try {
         check();
         successCount++;
-      } catch (e) {
+      } catch {
         // Contar aunque falle
         successCount++;
       }
@@ -450,16 +482,16 @@ describe('Publications Feature - Complete Integration', () => {
     expect(successCount >= checks.length * 0.8).toBe(true);
   });
 
-  it('no hay breaking changes en Proceso 1', () => {
+  it("no hay breaking changes en Proceso 1", () => {
     try {
       // Verificar que Auth sigue funcionando
-      const authStore = require('@/features/auth/store/authStore');
+      const authStore = require("@/features/auth/store/authStore");
       expect(authStore.useAuthStore).toBeDefined();
 
       // Verificar que routing sigue funcionando
-      const App = require('@/App');
+      const App = require("@/App");
       expect(App.default).toBeDefined();
-    } catch (e) {
+    } catch {
       expect(true).toBe(true);
     }
   });

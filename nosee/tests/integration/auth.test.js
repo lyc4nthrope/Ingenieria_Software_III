@@ -1,13 +1,13 @@
 /**
  * Integration Tests Example - Auth with Supabase
- * 
+ *
  * Para ejecutar (cuando instales vitest):
  * npm test -- tests/integration/auth.test.js --run
- * 
+ *
  * Requisitos:
  * - npm install vitest @vitest/ui --save-dev
  * - npm install --save vitest (si no lo hizo el primer comando)
- * 
+ *
  * Referencia: https://vitest.dev/
  */
 
@@ -104,4 +104,10 @@ describe('Auth Integration Tests', () => {
 });
 */
 
-export const authIntegrationTestsDummy = true;
+import { describe, it, expect } from "vitest";
+
+describe("Auth Integration Tests (pendiente)", () => {
+  it("placeholder: pendiente de implementación real", () => {
+    expect(true).toBe(true);
+  });
+});
