@@ -38,15 +38,15 @@ export default function CreatePublicationPage() {
   }, []);
 
   if (loading) {
-    return (
-      <p style={{ padding: "16px" }}>Cargando formulario de publicación...</p>
-    );
+    return <p style={{ padding: "16px" }}>Cargando formulario de publicación...</p>;
   }
 
   return (
     <section style={{ padding: "24px 16px" }}>
       {error && (
-        <p style={{ color: "#ef4444", marginBottom: "12px" }}>{error}</p>
+        <p style={{ color: "#ef4444", marginBottom: "12px" }}>
+          {error}
+        </p>
       )}
 
       <PublicationForm

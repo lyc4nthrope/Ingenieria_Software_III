@@ -222,7 +222,7 @@ export const usePublications = (initialFilters = {}) => {
     }
   }, []);
 
-   /**
+  /**
    * Quitar validación (unvote) de una publicación
    */
   const unvotePublication = useCallback(async (publicationId) => {

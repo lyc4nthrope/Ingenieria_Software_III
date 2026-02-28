@@ -136,7 +136,7 @@ export default function Navbar() {
 
           <Link to="/publicaciones" style={navLinkStyle(isActive('/publicaciones'))}>
             <TagIcon />
-            <span className="nav-label">Precios</span>
+            <span className="nav-label">Productos</span>
           </Link>
           <Link to="/tiendas" style={navLinkStyle(isActive('/tiendas'))}>
             <StoreIcon />

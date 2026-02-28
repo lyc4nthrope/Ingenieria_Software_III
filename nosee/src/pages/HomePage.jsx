@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+
 
 import {
   useAuthStore,
@@ -217,13 +217,7 @@ export default function HomePage() {
       <section className="banner">
         <h1>Bienvenidos a NØSEE, plataforma colaborativa.</h1>
         <p>No sabes donde es más barato, te mostramos donde no ves.</p>
-        {isAuthenticated ? (
-          <Link className="card-action-button" to="/publicaciones/nueva">
-            Crear publicación
-          </Link>
-        ) : (
-          <p>Inicia sesión para crear y votar publicaciones.</p>
-        )}
+        <p>{isAuthenticated ? "Para crear una publicación, entra a Productos y pulsa Crear publicación." : "Inicia sesión para crear y votar publicaciones."}</p>
       </section>
 
       <div className="layout">

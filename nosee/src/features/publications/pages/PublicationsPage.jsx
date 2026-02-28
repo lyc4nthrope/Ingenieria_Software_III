@@ -126,7 +126,7 @@ export default function PublicationsPage() {
   // ─────────────────────────────────────────────────────────────
 
   /**
-   * Maneja clic en botón "Publicar precio"
+   * Maneja clic en botón "Crear publicacion"
    * Redirige al formulario de crear publicación
    */
   const handlePublish = () => {
@@ -228,7 +228,7 @@ export default function PublicationsPage() {
                 letterSpacing: "-0.02em",
               }}
             >
-              Precios
+              Productos
             </h1>
             <p
               style={{
@@ -238,11 +238,11 @@ export default function PublicationsPage() {
               }}
             >
               Busca y compara los mejores precios de productos en la región.
-              Ayuda a la comunidad publicando los precios que encuentres.
+              Ayuda a la comunidad compartiendo publicaciones útiles.
             </p>
           </div>
 
-          {/* Botón Publicar Precio */}
+          {/* Botón Crear publicacion */}
           <Button
             size="md"
             onClick={handlePublish}
@@ -250,7 +250,7 @@ export default function PublicationsPage() {
             title={!user?.isVerified ? "Verifica tu email primero" : ""}
           >
             <PlusIcon style={{ marginRight: "6px" }} />
-            Publicar precio
+            Crear publicación
           </Button>
         </div>
 
