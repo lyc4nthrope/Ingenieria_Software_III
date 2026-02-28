@@ -299,15 +299,19 @@ img {
   top: 10px;
   left: 10px;
   z-index: 1;
-  width: 18px;
-  height: 38px;
+  min-width: 22px;
+  height: 30px;
+  padding: 0 8px;
   border: none;
-  border-radius: 0;
+  border-radius: 12px;
   background: #ff7f73;
   color: #ffffff;
   font-weight: 800;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 

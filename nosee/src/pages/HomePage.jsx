@@ -38,6 +38,11 @@ const mockPublications = Array.from({ length: 9 }, (_, i) => ({
 
 function PublicationCard({ pub, isAuthenticated }) {
   const publicationImage = resolvePublicationPhoto(pub);
+
+  const handleImageError = (event) => {
+    event.currentTarget.src = FALLBACK_IMAGE;
+  };
+
   return (
     <article className="card">
       <div className="card-image-wrap">
@@ -50,9 +55,10 @@ function PublicationCard({ pub, isAuthenticated }) {
         </button>
         <img
           src={publicationImage}
-          alt={pub.productName}
+          alt=""
           className="card-image"
           loading="lazy"
+          onError={handleImageError}
         />
       </div>
 
