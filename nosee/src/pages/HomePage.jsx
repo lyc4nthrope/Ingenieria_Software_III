@@ -3,6 +3,29 @@ import {
   selectIsAuthenticated,
 } from "@/features/auth/store/authStore";
 
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const FALLBACK_IMAGE = "https://via.placeholder.com/400x300?text=Sin+foto";
+
+const isAbsoluteUrl = (value = "") => /^https?:\/\//i.test(value);
+
+const buildCloudinaryImageUrl = (publicId) => {
+  if (!publicId || !CLOUDINARY_CLOUD_NAME) return null;
+
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto,w_800/${publicId}`;
+};
+
+const resolvePublicationPhoto = (publication) => {
+  const candidate =
+    publication?.photo ||
+    publication?.photo_url ||
+    publication?.cloudinary_public_id;
+
+  if (!candidate) return FALLBACK_IMAGE;
+  if (isAbsoluteUrl(candidate)) return candidate;
+
+  return buildCloudinaryImageUrl(candidate) || FALLBACK_IMAGE;
+};
+
 const HeartIcon = () => (
   <svg
     width="16"
@@ -36,7 +59,7 @@ const mockPublications = Array.from({ length: 9 }, (_, i) => ({
   productName: "Producto ejemplo",
   price: 3000 + i * 500,
   store: "Tienda Demo",
-  photo: "https://via.placeholder.com/400x300",
+  photo: "simple",
   description: "Descripción corta del producto",
   likes: 10 + i,
   timestamp: "Hace 2 horas",
@@ -44,6 +67,7 @@ const mockPublications = Array.from({ length: 9 }, (_, i) => ({
 }));
 
 function PublicationCard({ pub, isAuthenticated }) {
+  const publicationImage = resolvePublicationPhoto(pub);
   return (
     <div className="card">
       {/* Header */}
@@ -60,7 +84,12 @@ function PublicationCard({ pub, isAuthenticated }) {
       </div>
 
       {/* Imagen */}
-      <img src={pub.photo} alt={pub.productName} className="card-image" />
+      <img
+        src={publicationImage}
+        alt={pub.productName}
+        className="card-image"
+        loading="lazy"
+      />
 
       {/* Acciones */}
       <div className="card-actions">
@@ -116,10 +145,6 @@ export default function HomePage() {
 
         {/* Ads */}
         <div className="ads">
-          <div className="ad-card">
-            <span>Anuncio</span>
-          </div>
-
           <div className="ad-card">
             <span>Anuncio</span>
           </div>

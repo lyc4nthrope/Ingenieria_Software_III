@@ -172,19 +172,22 @@ img {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 32px;
+  padding: 16px 20px;
   text-align: center;
-  margin-bottom: 32px;
+  margin: 0 0 24px;
+  width: 100%;
 }
 
 .banner h1 {
-  font-size: 22px;
-  margin-bottom: 8px;
+  font-size: 20px;
+  line-height: 1.25;
+  margin-bottom: 4px;
 }
 
 .banner p {
   color: var(--text-secondary);
   font-size: 14px;
+  line-height: 1.35;
 }
 
 .categories {
@@ -313,9 +316,10 @@ img {
 .ads {
   position: sticky;
   top: 100px;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
 }
 
 /* Tarjeta anuncio estilo mockup */
