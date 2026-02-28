@@ -144,7 +144,9 @@ const isRecoveryEvent = event === 'PASSWORD_RECOVERY';
               <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600' }}>
                 {callbackType === CALLBACK_TYPE.RECOVERY
                   ? 'Verificando tu solicitud...'
-                  : 'Confirmando tu cuenta...'
+                  : callbackType === CALLBACK_TYPE.SIGNUP
+                    ? 'Confirmando tu cuenta...'
+                    : 'Iniciando sesión...'
                 }
               </p>
               <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '6px' }}>
@@ -162,13 +164,15 @@ const isRecoveryEvent = event === 'PASSWORD_RECOVERY';
               <p style={{ color: 'var(--text-primary)', fontSize: '18px', fontWeight: '700' }}>
                 {callbackType === CALLBACK_TYPE.RECOVERY
                   ? '¡Identidad verificada!'
-                  : '¡Email confirmado!'
+                  : callbackType === CALLBACK_TYPE.SIGNUP
+                    ? '¡Email confirmado!'
+                    : '¡Bienvenido!'
                 }
               </p>
               <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '8px' }}>
                 {callbackType === CALLBACK_TYPE.RECOVERY
                   ? 'Redirigiendo para que ingreses tu nueva contraseña...'
-                  : 'Tu cuenta está activa. Redirigiendo a tu perfil...'
+                  : 'Redirigiendo a tu perfil...'
                 }
               </p>
             </div>
