@@ -411,6 +411,49 @@ export const validatePublication = async (publicationId) => {
   }
 };
 
+/**
+ * Quitar voto de una publicación (unvote)
+ *
+ * @param {number} publicationId - ID de la publicación
+ * @returns {Promise} { success, data, error }
+ */
+export const unvotePublication = async (publicationId) => {
+  try {
+    if (!publicationId) {
+      return { success: false, error: "ID de publicación requerido" };
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "Usuario no autenticado" };
+    }
+
+    const { data: deletedVote, error } = await supabase
+      .from("publication_votes")
+      .delete()
+      .eq("publication_id", publicationId)
+      .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (!deletedVote) {
+      return { success: false, error: "No habías votado esta publicación" };
+    }
+
+    return { success: true, data: deletedVote };
+  } catch (err) {
+    console.error("Error en unvotePublication:", err);
+    return { success: false, error: err.message };
+  }
+};
+
 // ─── 5️⃣ REPORTAR PUBLICACIÓN ───────────────────────────────────────────────────
 
 /**
@@ -508,6 +551,48 @@ export const searchProducts = async (query, limit = 10) => {
     return { success: true, data };
   } catch (err) {
     console.error("Error en searchProducts:", err);
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Obtener listado base de productos para el formulario de publicación
+ */
+export const getProducts = async (limit = 100) => {
+  try {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, name, category_id")
+      .order("name", { ascending: true })
+      .limit(limit);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: data || [] };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Obtener listado base de tiendas para el formulario de publicación
+ */
+export const getStores = async (limit = 100) => {
+  try {
+    const { data, error } = await supabase
+      .from("stores")
+      .select("id, name")
+      .order("name", { ascending: true })
+      .limit(limit);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: data || [] };
+  } catch (err) {
     return { success: false, error: err.message };
   }
 };
@@ -726,9 +811,12 @@ export default {
   getPublications,
   getPublicationDetail,
   validatePublication,
+  unvotePublication,
   reportPublication,
   searchProducts,
+  getProducts,
   searchStores,
+  getStores,
   updatePublication,
   deletePublication,
   PUBLICATION_STATUS,

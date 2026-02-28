@@ -222,6 +222,34 @@ export const usePublications = (initialFilters = {}) => {
     }
   }, []);
 
+   /**
+   * Quitar validación (unvote) de una publicación
+   */
+  const unvotePublication = useCallback(async (publicationId) => {
+    try {
+      const result = await publicationsApi.unvotePublication(publicationId);
+
+      if (result.success) {
+        setPublications((prev) =>
+          prev.map((pub) =>
+            pub.id === publicationId
+              ? {
+                  ...pub,
+                  validated_count: Math.max((pub.validated_count || 1) - 1, 0),
+                }
+              : pub,
+          ),
+        );
+      }
+
+      return result;
+    } catch (err) {
+      console.error('Error quitando voto de publicación:', err);
+      return { success: false, error: err.message };
+    }
+  }, []);
+
+
   /**
    * Reportar una publicación
    */
@@ -279,6 +307,7 @@ export const usePublications = (initialFilters = {}) => {
     addPublication,
     removePublication,
     validatePublication,
+    unvotePublication,
     reportPublication,
   };
 };
