@@ -114,6 +114,7 @@ export default function HomePage() {
             />
           ))}
         </div>
+
         <aside className="ads">
           <div className="ad-card">
             <span>Anuncio</span>

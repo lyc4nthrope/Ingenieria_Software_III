@@ -284,7 +284,7 @@ img {
 }
 
 .card-image-wrap {
-    position: relative;
+  position: relative;
   height: 160px;
   width: 100%;
   border-bottom: 1px solid var(--border);
@@ -392,11 +392,13 @@ img {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  align-self: stretch;
 }
 
 /* Tarjeta anuncio estilo mockup */
 .ad-card {
-  min-height: 240px;
+  min-height: 0;
+  flex: 1;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(100, 150, 255, 0.15);
 
@@ -418,4 +420,3 @@ img {
     inset 0 0 40px rgba(0, 0, 0, 0.6),
     0 0 25px rgba(0, 120, 255, 0.05);
 }
-
