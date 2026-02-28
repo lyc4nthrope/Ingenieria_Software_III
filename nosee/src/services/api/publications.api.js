@@ -219,7 +219,7 @@ export const getPublications = async (filters = {}) => {
         created_at,
         latitude,
         longitude,
-        validated_count:publication_votes(count),
+        validated_count,
         reported_count,
         user_id,
         users!price_publications_user_id_fkey (full_name, reputation_points),
