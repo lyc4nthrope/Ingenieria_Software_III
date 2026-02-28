@@ -213,7 +213,7 @@ img {
 
 .layout {
   display: grid;
-  grid-template-columns: 3fr 1fr;
+  grid-template-columns: minmax(0, 1fr) 200px;
   gap: 32px;
   align-items: start;
 }
@@ -317,14 +317,15 @@ img {
   position: sticky;
   top: 100px;
   width: 100%;
+  height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  justify-content: space-between;
 }
 
 /* Tarjeta anuncio estilo mockup */
 .ad-card {
-  height: 320px;
+  height: 260px;
   border-radius: 16px;
 
   background: linear-gradient(
