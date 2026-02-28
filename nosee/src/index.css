@@ -288,9 +288,27 @@ img {
 }
 
 .card-image-wrap {
+    position: relative;
   height: 160px;
   width: 100%;
   border-bottom: 1px solid var(--border);
+}
+
+.card-report-button {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  width: 18px;
+  height: 38px;
+  border: none;
+  border-radius: 0;
+  background: #ff7f73;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .card-image {

@@ -41,6 +41,13 @@ function PublicationCard({ pub, isAuthenticated }) {
   return (
     <article className="card">
       <div className="card-image-wrap">
+        <button
+          className="card-report-button"
+          type="button"
+          aria-label="Reportar publicación"
+        >
+          !
+        </button>
         <img
           src={publicationImage}
           alt={pub.productName}
@@ -77,7 +84,6 @@ export default function HomePage() {
 
   return (
     <div className="home-wrapper">
-
       <section className="banner">
         <h1>Bienvenidos a NØSEE, plataforma colaborativa.</h1>
         <p>No sabes donde es más barato, te mostramos donde no ves.</p>
