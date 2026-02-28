@@ -255,7 +255,7 @@ img {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(200px, 1fr);
+  grid-template-columns: minmax(0, 3.3fr) minmax(140px, 0.7fr);
   gap: 28px;
   align-items: start;
 }
@@ -285,7 +285,7 @@ img {
 
 .card-image-wrap {
   position: relative;
-  height: 160px;
+  height: 205px;
   width: 100%;
   border-bottom: 1px solid var(--border);
 }
