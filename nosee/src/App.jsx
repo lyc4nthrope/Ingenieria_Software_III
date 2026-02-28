@@ -22,11 +22,6 @@
  * │ *                       │ NotFoundPage             │ ❌ No     │
  * └─────────────────────────┴──────────────────────────┴───────────┘
  *
- * SOLUCIÓN APLICADA: Opción 3 - Layout con main semántico y flexible
- * ✅ Navbar sticky sin superposición
- * ✅ Contenido se adapta automáticamente
- * ✅ Responsive y escalable
- * ✅ Sem ántica HTML correcta
  */
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
