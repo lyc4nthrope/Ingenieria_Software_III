@@ -68,6 +68,24 @@ export async function signIn(email, password) {
   return { success: true, data };
 }
 
+
+/**
+ * Inicia sesión/registro con Google OAuth.
+ *
+ * Nota: Supabase gestiona el alta automática del usuario en el primer login.
+ */
+export async function signInWithGoogle() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data };
+}
+
 // ─── Logout ──────────────────────────────────────────────────────────────────
 
 export async function signOut() {

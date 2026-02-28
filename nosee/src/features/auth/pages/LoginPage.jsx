@@ -6,7 +6,13 @@
  */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore, selectIsAuthenticated, selectIsInitialized, selectAuthStatus, selectAuthError } from "@/features/auth/store/authStore";
+import {
+  useAuthStore,
+  selectIsAuthenticated,
+  selectIsInitialized,
+  selectAuthStatus,
+  selectAuthError,
+} from "@/features/auth/store/authStore";
 import LoginForm from "@/features/auth/components/LoginForm";
 import { resendConfirmation } from "@/services/api/auth.api";
 
@@ -14,6 +20,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const clearError = useAuthStore((s) => s.clearError);
+  const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
   const status = useAuthStore(selectAuthStatus);
   const error = useAuthStore(selectAuthError);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
@@ -23,7 +30,7 @@ export default function LoginPage() {
   // Solo redirigir si ya terminó la inicialización y está logueado
   useEffect(() => {
     if (isInitialized && isAuthenticated) navigate("/", { replace: true });
-   }, [isInitialized, isAuthenticated, navigate]);
+  }, [isInitialized, isAuthenticated, navigate]);
 
   const handleLogin = async (email, password) => {
     clearError();
@@ -35,6 +42,11 @@ export default function LoginPage() {
   };
   const handleResendConfirmation = async (email) => {
     await resendConfirmation(email);
+  };
+
+    const handleGoogleLogin = async () => {
+    clearError();
+    await loginWithGoogle();
   };
   return (
     <main
@@ -93,6 +105,7 @@ export default function LoginPage() {
         >
           <LoginForm
             onSubmit={handleLogin}
+            onGoogleLogin={handleGoogleLogin}
             loading={status === "loading"}
             error={error}
             onResendConfirmation={handleResendConfirmation}

@@ -179,6 +179,24 @@ export const useAuthStore = create((set, get) => ({
     return { success: true, error: null };
   },
 
+// ════════════════════════════════════════════════════════════════
+  // ACCIÓN: loginWithGoogle
+  // ════════════════════════════════════════════════════════════════
+  loginWithGoogle: async () => {
+    set({ status: AsyncStateEnum.LOADING, error: null });
+
+    const result = await authApi.signInWithGoogle();
+
+    if (!result.success) {
+      set({ status: AsyncStateEnum.ERROR, error: result.error });
+      return { success: false, error: result.error };
+    }
+
+    // OAuth redirige fuera de la app; mantenemos estado consistente.
+    set({ status: AsyncStateEnum.IDLE, error: null });
+    return { success: true, error: null };
+  },
+
 
   // ════════════════════════════════════════════════════════════════
   // ACCIÓN: register

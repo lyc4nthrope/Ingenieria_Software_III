@@ -37,7 +37,7 @@ const EyeIcon = ({ open }) => open ? (
   </svg>
 );
 
-export default function LoginForm({ onSubmit, loading = false, error = null, onResendConfirmation = null, emailForResend = '' }) {
+export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, error = null, onResendConfirmation = null, emailForResend = '' }) {
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -92,6 +92,23 @@ export default function LoginForm({ onSubmit, loading = false, error = null, onR
           {error}
         </div>
       )}
+
+            <Button
+        type="button"
+        fullWidth
+        size="lg"
+        variant="secondary"
+        onClick={onGoogleLogin}
+        disabled={loading}
+      >
+        Continuar con Google
+      </Button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>o con email</span>
+        <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+      </div>
 
       {error && (error.toLowerCase().includes('confirma tu email') || error.toLowerCase().includes('email not confirmed')) && onResendConfirmation && emailForResend && (
         <button

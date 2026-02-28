@@ -41,7 +41,7 @@ const passwordRules = [
   { label: 'Un número', test: (v) => /\d/.test(v) },
 ];
 
-export default function RegisterForm({ onSubmit, loading = false, error = null }) {
+export default function RegisterForm({ onSubmit, onGoogleRegister, loading = false, error = null }) {
   const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '' });
   const [fieldErrors, setFieldErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -89,6 +89,23 @@ export default function RegisterForm({ onSubmit, loading = false, error = null }
           {error}
         </div>
       )}
+
+            <Button
+        type="button"
+        fullWidth
+        size="lg"
+        variant="secondary"
+        onClick={onGoogleRegister}
+        disabled={loading}
+      >
+        Registrarme con Google
+      </Button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>o completa el formulario</span>
+        <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+      </div>
 
       <Input
         label="Nombre completo"

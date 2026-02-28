@@ -3,7 +3,12 @@
  */
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore, selectIsInitialized, selectAuthStatus, selectAuthError } from "@/features/auth/store/authStore";
+import {
+  useAuthStore,
+  selectIsInitialized,
+  selectAuthStatus,
+  selectAuthError,
+} from "@/features/auth/store/authStore";
 import RegisterForm from "@/features/auth/components/RegisterForm";
 import { resendConfirmation } from "@/services/api/auth.api";
 
@@ -116,6 +121,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const register = useAuthStore((s) => s.register);
   const clearError = useAuthStore((s) => s.clearError);
+  const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
   const status = useAuthStore(selectAuthStatus);
   const error = useAuthStore(selectAuthError);
   const isAuthenticated = useAuthStore((s) => !!s.user && !!s.session);
@@ -126,7 +132,7 @@ export default function RegisterPage() {
   // Solo redirigir si ya terminó la inicialización y está logueado
   useEffect(() => {
     if (isInitialized && isAuthenticated) navigate("/", { replace: true });
-  }, [isInitialized, isAuthenticated, navigate]); // eslint-disable-line
+  }, [isInitialized, isAuthenticated, navigate]);
 
   const handleRegister = async (email, password, metadata) => {
     clearError();
@@ -139,6 +145,11 @@ export default function RegisterPage() {
         navigate("/", { replace: true });
       }
     }
+  };
+
+    const handleGoogleRegister = async () => {
+    clearError();
+    await loginWithGoogle();
   };
 
   return (
@@ -204,6 +215,7 @@ export default function RegisterPage() {
           ) : (
             <RegisterForm
               onSubmit={handleRegister}
+              onGoogleRegister={handleGoogleRegister}
               loading={status === "loading"}
               error={error}
             />
