@@ -85,6 +85,7 @@ function PublicationCard({ pub, isAuthenticated }) {
   );
 }
 
+
 export default function HomePage() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
