@@ -92,7 +92,7 @@ export default function HomePage() {
         <button>Tecnología</button>
       </div>
 
-      <div className="layout">
+      <div className={`layout ${!isAuthenticated ? "layout--guest" : ""}`}>
         <div className="feed">
           {mockPublications.map((pub) => (
             <PublicationCard
@@ -103,7 +103,7 @@ export default function HomePage() {
           ))}
         </div>
 
-        <aside className="ads">
+        <aside className={`ads ${!isAuthenticated ? "ads--guest" : ""}`}>
           <div className="ad-card">
             <span>Anuncio</span>
           </div>

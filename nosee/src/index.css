@@ -260,6 +260,10 @@ img {
   align-items: start;
 }
 
+.layout--guest {
+  grid-template-columns: minmax(0, 3fr) minmax(160px, 0.7fr);
+}
+
 .feed {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -372,6 +376,10 @@ img {
   gap: 20px;
 }
 
+.ads--guest {
+  align-self: stretch;
+}
+
 /* Tarjeta anuncio estilo mockup */
 .ad-card {
   min-height: 240px;
@@ -396,4 +404,9 @@ img {
     inset 0 0 40px rgba(0, 0, 0, 0.6),
     0 0 25px rgba(0, 120, 255, 0.05);
 
+}
+
+.ads--guest .ad-card {
+  min-height: 0;
+  flex: 1;
 }
