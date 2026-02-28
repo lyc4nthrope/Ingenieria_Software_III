@@ -14,80 +14,21 @@
  * - Botón para crear nuevas publicaciones
  */
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 // State Management
-import { useAuthStore, selectAuthUser } from '@/features/auth/store/authStore';
+import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
 
 // Componentes UI compartidos
-import Button from '@/components/ui/Button';
+import Button from "@/components/ui/Button";
 
 // Componentes de publicaciones
-import PriceSearchFilter from '@/features/publications/components/PriceSearchFilter';
-import PublicationCard from '@/features/publications/components/PublicationCard';
+import PriceSearchFilter from "@/features/publications/components/PriceSearchFilter";
+import PublicationCard from "@/features/publications/components/PublicationCard";
 
-const MOCK_BASE_TIME = Date.now();
-
-const MOCK_PUBLICATIONS = [
-  {
-    id: 1,
-    productName: 'Aceite Girasol 3L',
-    price: 18900,
-    currency: 'COP',
-    storeName: 'Éxito Downtown',
-    description: "Aceite de girasol marca D'Oleorico, 3 litros, excelente para cocina.",
-    photoUrl: 'https://via.placeholder.com/300x200?text=Aceite+Girasol',
-    author: {
-      id: 'user1',
-      name: 'María García',
-      email: 'maria@example.com',
-      avatar: 'https://via.placeholder.com/40?text=MG',
-    },
-    validations: 14,
-    reports: 0,
-    timestamp: new Date(MOCK_BASE_TIME - 2 * 60 * 60 * 1000), // hace 2 horas
-    status: 'validated',
-  },
-  {
-    id: 2,
-    productName: 'Leche Integral 1L',
-    price: 4200,
-    currency: 'COP',
-    storeName: 'Carrefour Centro Comercial',
-    description: 'Leche integral fresca, 1 litro, recién llegada.',
-    photoUrl: 'https://via.placeholder.com/300x200?text=Leche',
-    author: {
-      id: 'user2',
-      name: 'Juan Pérez',
-      email: 'juan@example.com',
-      avatar: 'https://via.placeholder.com/40?text=JP',
-    },
-    validations: 8,
-    reports: 0,
-    timestamp: new Date(MOCK_BASE_TIME - 4 * 60 * 60 * 1000), // hace 4 horas
-    status: 'validated',
-  },
-  {
-    id: 3,
-    productName: 'Queso Fresco 500g',
-    price: 15800,
-    currency: 'COP',
-    storeName: 'Éxito Quindío',
-    description: 'Queso fresco hecho en la región, 500g, excelente calidad.',
-    photoUrl: 'https://via.placeholder.com/300x200?text=Queso',
-    author: {
-      id: 'user3',
-      name: 'Ana López',
-      email: 'ana@example.com',
-      avatar: 'https://via.placeholder.com/40?text=AL',
-    },
-    validations: 3,
-    reports: 0,
-    timestamp: new Date(MOCK_BASE_TIME - 8 * 60 * 60 * 1000), // hace 8 horas
-    status: 'pending',
-  },
-];
+import { usePublications } from "@/features/publications/hooks";
+import * as publicationsApi from "@/services/api/publications.api";
 
 // Iconos SVG inline
 const SearchIcon = () => (
@@ -154,24 +95,31 @@ export default function PublicationsPage() {
   // ─────────────────────────────────────────────────────────────
   // PASO 3: Estado local de la página
   // ─────────────────────────────────────────────────────────────
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
-    priceMin: 0,
-    priceMax: 1000000,
-    distance: 50,
-    sortBy: 'recent',
+    productName: "",
+    storeName: "",
+    minPrice: null,
+    maxPrice: null,
+    maxDistance: null,
+    sortBy: "recent",
   });
   const [error, setError] = useState(null);
-  const loading = false;
 
-  /**
-   * Mock data - En producción vendrá de usePublications hook
-   * Para facilitar testing visual, usamos datos estáticos por ahora
-   *
-   * TODO: Integrar usePublications hook cuando esté listo
-   * const { publications, loading, error, refetch } = usePublications(filters);
-   */
-    const [publications] = useState(MOCK_PUBLICATIONS);
+  const {
+    publications,
+    loading,
+    setFilters: setPublicationFilters,
+    clearFilters,
+    validatePublication,
+    reportPublication,
+    removePublication,
+  } = usePublications(filters);
+
+  const normalizedPublications = publications.map((publication) => ({
+    ...publication,
+    user: publication.user || publication.users || null,
+  }));
 
   // ─────────────────────────────────────────────────────────────
   // PASO 4: Funciones de manejo de eventos
@@ -183,10 +131,10 @@ export default function PublicationsPage() {
    */
   const handlePublish = () => {
     if (!user?.isVerified) {
-      setError('Debes verificar tu email antes de publicar');
+      setError("Debes verificar tu email antes de publicar");
       return;
     }
-    navigate('/publicaciones/nueva');
+    navigate("/publicaciones/nueva");
   };
 
   /**
@@ -195,8 +143,7 @@ export default function PublicationsPage() {
    */
   const handleSearch = (query) => {
     setSearchQuery(query);
-    // En producción: filtrar publicaciones por query
-    // setPublications(filteredResults);
+    setPublicationFilters({ productName: query });
   };
 
   /**
@@ -204,35 +151,41 @@ export default function PublicationsPage() {
    */
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
-    // En producción: refetch con nuevos filtros
-    // refetch(newFilters);
+    setPublicationFilters(newFilters);
   };
 
   /**
    * Maneja validación de publicación
    */
-  const handleValidatePublication = (publicationId) => {
-    // En producción: llamar a API
-    // validatePublication(publicationId);
-    console.log('Validar publicación:', publicationId);
+  const handleValidatePublication = async (publicationId) => {
+    const result = await validatePublication(publicationId);
+    if (!result.success) {
+      setError(result.error || "No se pudo validar la publicación");
+    }
   };
 
   /**
    * Maneja reporte de publicación
    */
-  const handleReportPublication = (publicationId, reason) => {
-    // En producción: llamar a API
-    // reportPublication(publicationId, reason);
-    console.log('Reportar publicación:', publicationId, reason);
+  const handleReportPublication = async (publicationId, reason) => {
+    const result = await reportPublication(publicationId, reason, "");
+    if (!result.success) {
+      setError(result.error || "No se pudo reportar la publicación");
+    }
   };
 
   /**
    * Maneja eliminación de publicación (solo si es autor)
    */
-  const handleDeletePublication = (publicationId) => {
-    // En producción: llamar a API
-    // deletePublication(publicationId);
-    console.log('Eliminar publicación:', publicationId);
+  const handleDeletePublication = async (publicationId) => {
+    const result = await publicationsApi.deletePublication(publicationId);
+
+    if (result.success) {
+      removePublication(publicationId);
+      return;
+    }
+
+    setError(result.error || "No se pudo eliminar la publicación");
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -243,45 +196,45 @@ export default function PublicationsPage() {
     <main
       style={{
         flex: 1,
-        padding: '28px 16px',
-        maxWidth: '1200px',
-        margin: '0 auto',
-        width: '100%',
+        padding: "28px 16px",
+        maxWidth: "1200px",
+        margin: "0 auto",
+        width: "100%",
       }}
     >
       {/* ─────────── SECCIÓN: Encabezado ─────────── */}
       <section
         style={{
-          marginBottom: '32px',
+          marginBottom: "32px",
         }}
       >
         <div
           style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: '16px',
-            marginBottom: '16px',
-            flexWrap: 'wrap',
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "16px",
+            marginBottom: "16px",
+            flexWrap: "wrap",
           }}
         >
           <div>
             <h1
               style={{
-                fontSize: '32px',
-                fontWeight: '800',
-                color: 'var(--text-primary)',
-                marginBottom: '8px',
-                letterSpacing: '-0.02em',
+                fontSize: "32px",
+                fontWeight: "800",
+                color: "var(--text-primary)",
+                marginBottom: "8px",
+                letterSpacing: "-0.02em",
               }}
             >
               Precios
             </h1>
             <p
               style={{
-                fontSize: '15px',
-                color: 'var(--text-secondary)',
-                lineHeight: '1.6',
+                fontSize: "15px",
+                color: "var(--text-secondary)",
+                lineHeight: "1.6",
               }}
             >
               Busca y compara los mejores precios de productos en la región.
@@ -294,9 +247,9 @@ export default function PublicationsPage() {
             size="md"
             onClick={handlePublish}
             disabled={!user?.isVerified}
-            title={!user?.isVerified ? 'Verifica tu email primero' : ''}
+            title={!user?.isVerified ? "Verifica tu email primero" : ""}
           >
-            <PlusIcon style={{ marginRight: '6px' }} />
+            <PlusIcon style={{ marginRight: "6px" }} />
             Publicar precio
           </Button>
         </div>
@@ -305,13 +258,13 @@ export default function PublicationsPage() {
         {!user?.isVerified && (
           <div
             style={{
-              padding: '12px 16px',
-              background: 'rgba(251,191,36,0.1)',
-              border: '1px solid rgba(251,191,36,0.3)',
-              borderRadius: 'var(--radius-md)',
-              color: '#FBBF24',
-              fontSize: '13px',
-              marginBottom: '16px',
+              padding: "12px 16px",
+              background: "rgba(251,191,36,0.1)",
+              border: "1px solid rgba(251,191,36,0.3)",
+              borderRadius: "var(--radius-md)",
+              color: "#FBBF24",
+              fontSize: "13px",
+              marginBottom: "16px",
             }}
           >
             ⚠️ Verifica tu email para publicar precios. Revisa tu bandeja de
@@ -323,13 +276,13 @@ export default function PublicationsPage() {
         {error && (
           <div
             style={{
-              padding: '12px 16px',
-              background: 'rgba(239,68,68,0.1)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: 'var(--radius-md)',
-              color: '#EF4444',
-              fontSize: '13px',
-              marginBottom: '16px',
+              padding: "12px 16px",
+              background: "rgba(239,68,68,0.1)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              borderRadius: "var(--radius-md)",
+              color: "#EF4444",
+              fontSize: "13px",
+              marginBottom: "16px",
             }}
           >
             {error}
@@ -340,18 +293,18 @@ export default function PublicationsPage() {
       {/* ─────────── SECCIÓN: Barra de búsqueda ─────────── */}
       <section
         style={{
-          marginBottom: '20px',
+          marginBottom: "20px",
         }}
       >
         <div
           style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-lg)',
-            padding: '14px 16px',
-            display: 'flex',
-            gap: '12px',
-            alignItems: 'center',
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
+            padding: "14px 16px",
+            display: "flex",
+            gap: "12px",
+            alignItems: "center",
           }}
         >
           <SearchIcon />
@@ -362,12 +315,12 @@ export default function PublicationsPage() {
             onChange={(e) => handleSearch(e.target.value)}
             style={{
               flex: 1,
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-primary)',
-              fontSize: '14px',
-              outline: 'none',
-              fontFamily: 'inherit',
+              background: "transparent",
+              border: "none",
+              color: "var(--text-primary)",
+              fontSize: "14px",
+              outline: "none",
+              fontFamily: "inherit",
             }}
           />
         </div>
@@ -376,20 +329,26 @@ export default function PublicationsPage() {
       {/* ─────────── SECCIÓN: Filtros ─────────── */}
       <section
         style={{
-          marginBottom: '32px',
+          marginBottom: "32px",
         }}
       >
         <PriceSearchFilter
           filters={filters}
           onFiltersChange={handleFilterChange}
-          onClearFilters={() =>
+          onClearFilters={() => {
             setFilters({
               priceMin: 0,
               priceMax: 1000000,
               distance: 50,
-              sortBy: 'recent',
-            })
-          }
+              productName: "",
+              storeName: "",
+              minPrice: null,
+              maxPrice: null,
+              maxDistance: null,
+              sortBy: "recent",
+            });
+            clearFilters();
+          }}
         />
       </section>
 
@@ -399,65 +358,67 @@ export default function PublicationsPage() {
           // Estado: Cargando
           <div
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '60px 20px',
-              color: 'var(--text-muted)',
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "60px 20px",
+              color: "var(--text-muted)",
             }}
           >
             <div
               style={{
-                width: '40px',
-                height: '40px',
-                border: '3px solid rgba(56,189,248,0.15)',
-                borderTop: '3px solid var(--accent, #38BDF8)',
-                borderRadius: '50%',
-                animation: 'spin 0.8s linear infinite',
-                marginBottom: '16px',
+                width: "40px",
+                height: "40px",
+                border: "3px solid rgba(56,189,248,0.15)",
+                borderTop: "3px solid var(--accent, #38BDF8)",
+                borderRadius: "50%",
+                animation: "spin 0.8s linear infinite",
+                marginBottom: "16px",
               }}
             />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <p style={{ fontSize: '14px' }}>Cargando publicaciones...</p>
+            <p style={{ fontSize: "14px" }}>Cargando publicaciones...</p>
           </div>
-        ) : publications.length === 0 ? (
+        ) : normalizedPublications.length === 0 ? (
           // Estado: Vacío
           <div
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '80px 20px',
-              color: 'var(--text-muted)',
-              textAlign: 'center',
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "80px 20px",
+              color: "var(--text-muted)",
+              textAlign: "center",
             }}
           >
             <EmptyIcon />
             <h2
               style={{
-                fontSize: '18px',
-                fontWeight: '600',
-                color: 'var(--text-secondary)',
-                marginTop: '16px',
-                marginBottom: '8px',
+                fontSize: "18px",
+                fontWeight: "600",
+                color: "var(--text-secondary)",
+                marginTop: "16px",
+                marginBottom: "8px",
               }}
             >
               No hay publicaciones
             </h2>
-            <p style={{ fontSize: '14px', maxWidth: '320px', lineHeight: '1.6' }}>
+            <p
+              style={{ fontSize: "14px", maxWidth: "320px", lineHeight: "1.6" }}
+            >
               No encontramos publicaciones que coincidan con tus filtros.
-              Intenta con otros términos o{' '}
+              Intenta con otros términos o{" "}
               <button
                 onClick={handlePublish}
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--accent)',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  textDecoration: 'underline',
+                  background: "none",
+                  border: "none",
+                  color: "var(--accent)",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  textDecoration: "underline",
                 }}
               >
                 sé el primero en publicar
@@ -469,13 +430,12 @@ export default function PublicationsPage() {
           // Estado: Con publicaciones
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: '20px',
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "20px",
             }}
           >
-            {publications.map((publication) => (
+            {normalizedPublications.map((publication) => (
               <PublicationCard
                 key={publication.id}
                 publication={publication}
@@ -489,14 +449,14 @@ export default function PublicationsPage() {
         )}
 
         {/* Indicador de "Cargar más" (para infinite scroll futuro) */}
-        {publications.length > 0 && !loading && (
+        {normalizedPublications.length > 0 && !loading && (
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'center',
-              marginTop: '32px',
-              paddingTop: '32px',
-              borderTop: '1px solid var(--border)',
+              display: "flex",
+              justifyContent: "center",
+              marginTop: "32px",
+              paddingTop: "32px",
+              borderTop: "1px solid var(--border)",
             }}
           >
             <Button
@@ -504,7 +464,7 @@ export default function PublicationsPage() {
               size="md"
               onClick={() => {
                 // En producción: loadMore()
-                console.log('Cargar más publicaciones');
+                console.log("Cargar más publicaciones");
               }}
             >
               Ver más publicaciones

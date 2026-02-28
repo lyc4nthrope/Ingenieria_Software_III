@@ -3,6 +3,8 @@ import {
   selectIsAuthenticated,
 } from "@/features/auth/store/authStore";
 
+import { usePublications } from "@/features/publications/hooks";
+
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const FALLBACK_IMAGE = "https://via.placeholder.com/400x300?text=Sin+foto";
 
@@ -25,16 +27,6 @@ const resolvePublicationPhoto = (publication) => {
 
   return buildCloudinaryImageUrl(candidate) || FALLBACK_IMAGE;
 };
-
-const mockPublications = Array.from({ length: 9 }, (_, i) => ({
-  id: i + 1,
-  productName: "Producto ejemplo",
-  price: 3000 + i * 500,
-  description: "Descripción corta del producto",
-  photo: "simple",
-  likes: 10 + i,
-  comments: 2 + i,
-}));
 
 function PublicationCard({ pub, isAuthenticated }) {
   const publicationImage = resolvePublicationPhoto(pub);
@@ -63,18 +55,20 @@ function PublicationCard({ pub, isAuthenticated }) {
       </div>
 
       <div className="card-body">
-        <div className="card-title">{pub.productName}</div>
+        <div className="card-title">{pub.product?.name || "Producto"}</div>
         <div className="card-price">${pub.price.toLocaleString()}</div>
-        <div className="card-description">{pub.description}</div>
+        <div className="card-description">
+          {pub.description || "Sin descripción"}
+        </div>
       </div>
 
       <div className="card-divider" />
 
       <div className="card-actions-row">
         <div className="card-indicators">
-          <span>{pub.likes}</span>
-          <span>{pub.comments}</span>
-          <span>Demo</span>
+          <span>{pub.validated_count || 0}</span>
+          <span>{pub.reported_count || 0}</span>
+          <span>{pub.store?.name || "Tienda"}</span>
         </div>
 
         <button className="card-action-button" disabled={!isAuthenticated}>
@@ -87,6 +81,7 @@ function PublicationCard({ pub, isAuthenticated }) {
 
 export default function HomePage() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const { publications, loading } = usePublications({ limit: 12 });
 
   return (
     <div className="home-wrapper">
@@ -106,13 +101,19 @@ export default function HomePage() {
 
       <div className="layout">
         <div className="feed">
-          {mockPublications.map((pub) => (
-            <PublicationCard
-              key={pub.id}
-              pub={pub}
-              isAuthenticated={isAuthenticated}
-            />
-          ))}
+          {loading ? (
+            <p>Cargando publicaciones...</p>
+          ) : publications.length === 0 ? (
+            <p>Aún no hay publicaciones. Cuando un usuario cree una, aparecerá aquí.</p>
+          ) : (
+            publications.map((pub) => (
+              <PublicationCard
+                key={pub.id}
+                pub={pub}
+                isAuthenticated={isAuthenticated}
+              />
+            ))
+          )}
         </div>
 
         <aside className="ads">
