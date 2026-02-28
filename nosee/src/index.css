@@ -314,18 +314,20 @@ img {
 
 /* Contenedor columna derecha */
 .ads {
+  --ads-gap: 20px;
   position: sticky;
   top: 100px;
   width: 100%;
   height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: var(--ads-gap);
 }
 
 /* Tarjeta anuncio estilo mockup */
 .ad-card {
-  height: 260px;
+  height: calc((100% - var(--ads-gap)) / 2);
+  flex: 0 0 calc((100% - var(--ads-gap)) / 2);
   border-radius: 16px;
 
   background: linear-gradient(
