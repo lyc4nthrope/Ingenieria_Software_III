@@ -222,8 +222,37 @@ export async function searchNearbyStores(
   }
 }
 
+/**
+ * Crea una tienda de forma simple (sin mapa ni evidencias).
+ * Usado desde el modal rápido dentro del formulario de publicaciones.
+ *
+ * @param {string} name
+ * @param {'physical'|'virtual'} type
+ * @param {string|null} address
+ * @param {string|null} websiteUrl
+ */
+export async function createStoreSimple(name, type = 'physical', address = null, websiteUrl = null) {
+  try {
+    const insert = { name: name.trim(), type };
+    if (type === 'physical' && address?.trim()) insert.address = address.trim();
+    if (type === 'virtual' && websiteUrl?.trim()) insert.website_url = websiteUrl.trim();
+
+    const { data, error } = await supabase
+      .from('stores')
+      .insert(insert)
+      .select('id, name, type, address')
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err.message || 'Error inesperado creando tienda' };
+  }
+}
+
 export default {
   createStore,
+  createStoreSimple,
   uploadStoreEvidence,
   searchNearbyStores,
 };

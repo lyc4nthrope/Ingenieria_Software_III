@@ -804,6 +804,23 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
  */
 export const _calculateDistance = calculateDistance;
 
+// ─── CREAR PRODUCTO ───────────────────────────────────────────────────────────
+
+/**
+ * Crear un producto nuevo si no existe en el catálogo.
+ * @param {string} name - Nombre del producto
+ */
+export async function createProduct(name) {
+  const { data, error } = await supabase
+    .from('products')
+    .insert({ name: name.trim() })
+    .select('id, name, category_id')
+    .single();
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data };
+}
+
 // ─── EXPORTAR TODO ────────────────────────────────────────────────────────────
 
 export default {
@@ -814,6 +831,7 @@ export default {
   unvotePublication,
   reportPublication,
   searchProducts,
+  createProduct,
   getProducts,
   searchStores,
   getStores,
