@@ -85,7 +85,6 @@ function PublicationCard({ pub, isAuthenticated }) {
   );
 }
 
-
 export default function HomePage() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
@@ -105,7 +104,7 @@ export default function HomePage() {
         <button>Tecnología</button>
       </div>
 
-      <div className={`layout ${!isAuthenticated ? "layout--guest" : ""}`}>
+      <div className="layout">
         <div className="feed">
           {mockPublications.map((pub) => (
             <PublicationCard
@@ -115,8 +114,7 @@ export default function HomePage() {
             />
           ))}
         </div>
-
-        <aside className={`ads ${!isAuthenticated ? "ads--guest" : ""}`}>
+        <aside className="ads">
           <div className="ad-card">
             <span>Anuncio</span>
           </div>
