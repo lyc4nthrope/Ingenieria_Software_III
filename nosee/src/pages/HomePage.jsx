@@ -77,13 +77,6 @@ export default function HomePage() {
 
   return (
     <div className="home-wrapper">
-      <header className="dashboard-header">
-        <div className="dashboard-logo">NØSEE</div>
-        <div className="dashboard-actions">
-          <button>INICIAR</button>
-          <button>REGISTRAR</button>
-        </div>
-      </header>
 
       <section className="banner">
         <h1>Bienvenidos a NØSEE, plataforma colaborativa.</h1>
@@ -115,9 +108,6 @@ export default function HomePage() {
             <span>Anuncio</span>
           </div>
 
-          <div className="ad-card">
-            <span>Anuncio</span>
-          </div>
           <div className="ad-card">
             <span>Anuncio</span>
           </div>
