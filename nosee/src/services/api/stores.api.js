@@ -10,6 +10,10 @@
 import { supabase } from '@/services/supabase.client';
 
 const DEFAULT_RADIUS_METERS = 150;
+const STORE_TYPE_ID = {
+  physical: 1,
+  virtual: 2,
+};
 
 /**
  * Convierte POINT(lon lat) -> { latitude, longitude }.
@@ -28,8 +32,36 @@ function parsePointText(pointText) {
   return { latitude, longitude };
 }
 
+function getUiTypeByStoreTypeId(storeTypeId) {
+  if (Number(storeTypeId) === STORE_TYPE_ID.physical) return 'physical';
+  if (Number(storeTypeId) === STORE_TYPE_ID.virtual) return 'virtual';
+  return null;
+}
+
+function resolveStoreTypeId(type) {
+  if (Number(type) === STORE_TYPE_ID.physical || String(type).toLowerCase() === 'physical') {
+    return { success: true, data: STORE_TYPE_ID.physical };
+  }
+
+  if (Number(type) === STORE_TYPE_ID.virtual || String(type).toLowerCase() === 'virtual') {
+    return { success: true, data: STORE_TYPE_ID.virtual };
+  }
+
+  return { success: false, error: 'Tipo de tienda inválido. Usa Tienda física o Tienda virtual' };
+}
+
 function degreesToRadians(degrees) {
   return (degrees * Math.PI) / 180;
+}
+
+async function getCurrentUserId() {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) return { success: false, error: userError.message };
+
+  const userId = userData?.user?.id;
+  if (!userId) return { success: false, error: 'Usuario no autenticado' };
+
+  return { success: true, data: userId };
 }
 
 /**
@@ -53,11 +85,15 @@ function getDistanceMeters(lat1, lon1, lat2, lon2) {
 }
 
 /**
- * Crea una tienda delegando reglas de negocio al RPC SQL.
+ * Crea una tienda.
+ *
+ * Se usa `store_type_id` directamente:
+ * - Tienda física  -> 1
+ * - Tienda virtual -> 2
  *
  * @param {Object} payload
  * @param {string} payload.name
- * @param {'physical'|'virtual'} payload.type
+ * @param {'physical'|'virtual'|1|2} payload.type
  * @param {string=} payload.address
  * @param {number=} payload.latitude
  * @param {number=} payload.longitude
@@ -76,23 +112,45 @@ export async function createStore(payload = {}) {
       distanceThresholdMeters = DEFAULT_RADIUS_METERS,
     } = payload;
 
-    const { data, error } = await supabase.rpc('create_store_with_validation', {
-      p_name: name,
-      p_type: type,
-      p_address: address,
-      p_latitude: latitude,
-      p_longitude: longitude,
-      p_website_url: websiteUrl,
-      p_distance_threshold_m: distanceThresholdMeters,
-    });
+    const userResult = await getCurrentUserId();
+    if (!userResult.success) return userResult;
 
-    if (error) return { success: false, error: error.message };
+    const storeTypeResult = resolveStoreTypeId(type);
+    if (!storeTypeResult.success) return storeTypeResult;
 
-    if (!data?.success) {
-      return { success: false, error: data?.error || 'No se pudo crear la tienda' };
+    const insertPayload = {
+      name: name?.trim(),
+      created_by: userResult.data,
+      store_type_id: storeTypeResult.data,
+      address: address?.trim() || null,
+      website_url: websiteUrl?.trim() || null,
+    };
+
+    if (Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))) {
+      const lat = Number(latitude);
+      const lon = Number(longitude);
+      insertPayload.location = `POINT(${lon} ${lat})`;
     }
 
-    return { success: true, data };
+    const { data: createdStore, error: insertError } = await supabase
+      .from('stores')
+      .insert(insertPayload)
+      .select('id, name, address, website_url, store_type_id, location')
+      .single();
+
+    if (insertError) return { success: false, error: insertError.message };
+
+    return {
+      success: true,
+      data: {
+        success: true,
+        store: {
+          ...createdStore,
+          type: getUiTypeByStoreTypeId(createdStore.store_type_id),
+        },
+        distance_threshold_m: distanceThresholdMeters,
+      },
+    };
   } catch (err) {
     return { success: false, error: err.message || 'Error inesperado creando tienda' };
   }
@@ -110,22 +168,20 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
     if (!storeId) return { success: false, error: 'storeId es obligatorio' };
     if (!imageUrl) return { success: false, error: 'imageUrl es obligatorio' };
 
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) return { success: false, error: userError.message };
+    const userResult = await getCurrentUserId();
+    if (!userResult.success) return userResult;
+    const userId = userResult.data;
 
-    const userId = userData?.user?.id;
-    if (!userId) return { success: false, error: 'Usuario no autenticado' };
-
-    // Verificar tipo de tienda (solo physical)
+    // Verificar tipo de tienda (solo física = 1)
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id, type')
+      .select('id, store_type_id')
       .eq('id', storeId)
       .single();
 
     if (storeError) return { success: false, error: storeError.message };
 
-    if (store?.type !== 'physical') {
+    if (Number(store?.store_type_id) !== STORE_TYPE_ID.physical) {
       return { success: false, error: 'Solo las tiendas físicas permiten evidencias' };
     }
 
@@ -150,8 +206,7 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
       })
       .select()
       .single();
-
-    if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: error.message };
 
     return { success: true, data };
   } catch (err) {
@@ -183,7 +238,7 @@ export async function searchNearbyStores(
 
     const { data, error } = await supabase
       .from('stores')
-      .select('id, name, type, address, website_url, location')
+      .select('id, name, store_type_id, address, website_url, location')
       .ilike('name', `%${name.trim()}%`)
       .limit(20);
 
@@ -206,6 +261,7 @@ export async function searchNearbyStores(
 
       return {
         ...store,
+        type: getUiTypeByStoreTypeId(store.store_type_id),
         latitude: point?.latitude ?? null,
         longitude: point?.longitude ?? null,
         distanceMeters,
@@ -227,24 +283,43 @@ export async function searchNearbyStores(
  * Usado desde el modal rápido dentro del formulario de publicaciones.
  *
  * @param {string} name
- * @param {'physical'|'virtual'} type
+ * @param {'physical'|'virtual'|1|2} type
  * @param {string|null} address
  * @param {string|null} websiteUrl
  */
 export async function createStoreSimple(name, type = 'physical', address = null, websiteUrl = null) {
   try {
-    const insert = { name: name.trim(), type };
-    if (type === 'physical' && address?.trim()) insert.address = address.trim();
-    if (type === 'virtual' && websiteUrl?.trim()) insert.website_url = websiteUrl.trim();
+    const userResult = await getCurrentUserId();
+    if (!userResult.success) return userResult;
+
+    const storeTypeResult = resolveStoreTypeId(type);
+    if (!storeTypeResult.success) return storeTypeResult;
+
+    const uiType = getUiTypeByStoreTypeId(storeTypeResult.data);
+    const insert = {
+      name: name.trim(),
+      created_by: userResult.data,
+      store_type_id: storeTypeResult.data,
+    };
+
+    if (uiType === 'physical' && address?.trim()) insert.address = address.trim();
+    if (uiType === 'virtual' && websiteUrl?.trim()) insert.website_url = websiteUrl.trim();
 
     const { data, error } = await supabase
       .from('stores')
       .insert(insert)
-      .select('id, name, type, address')
+      .select('id, name, address, website_url, store_type_id')
       .single();
 
     if (error) return { success: false, error: error.message };
-    return { success: true, data };
+
+    return {
+      success: true,
+      data: {
+        ...data,
+        type: getUiTypeByStoreTypeId(data.store_type_id),
+      },
+    };
   } catch (err) {
     return { success: false, error: err.message || 'Error inesperado creando tienda' };
   }

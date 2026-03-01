@@ -14,6 +14,11 @@
 import { useState } from 'react';
 import { createStoreSimple } from '@/services/api/stores.api';
 
+const STORE_TYPE_ID = {
+  physical: 1,
+  virtual: 2,
+};
+
 export default function StoreCreateModal({ initialName = '', onSuccess, onClose }) {
   const [name, setName]           = useState(initialName);
   const [type, setType]           = useState('physical');
@@ -35,7 +40,7 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
 
     const result = await createStoreSimple(
       name,
-      type,
+      STORE_TYPE_ID[type],
       type === 'physical' ? address : null,
       type === 'virtual'  ? websiteUrl : null,
     );

@@ -42,6 +42,7 @@ const VALIDATION = {
  * 
  * Requiere en .env.local:
  * VITE_CLOUDINARY_CLOUD_NAME=tu_cloud_name
+ * VITE_CLOUDINARY_UPLOAD_PRESET=tu_unsigned_preset
  * 
  * @returns {Object} { photoUrl, uploading, progress, error, upload, reset }
  * 
@@ -125,11 +126,22 @@ export const usePhotoUpload = () => {
           return { success: false, error };
         }
 
+        const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+        if (!uploadPreset) {
+          const error =
+            'Upload preset no configurado. Agrega VITE_CLOUDINARY_UPLOAD_PRESET a .env.local';
+          setError(error);
+          return { success: false, error };
+        }
+
+        const uploadFolder =
+          import.meta.env.VITE_CLOUDINARY_UPLOAD_FOLDER || 'nosee/publications';
+
         // Preparar FormData
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('upload_preset', 'nosee_publications');
-        formData.append('folder', 'nosee/publications');
+        formData.append('upload_preset', uploadPreset);
+        formData.append('folder', uploadFolder);
 
         setUploading(true);
 
@@ -164,7 +176,17 @@ export const usePhotoUpload = () => {
                 resolve({ success: false, error });
               }
             } else {
-              const error = `Error del servidor: ${xhr.status}`;
+              let cloudinaryError = '';
+              try {
+                const body = JSON.parse(xhr.responseText);
+                cloudinaryError = body?.error?.message || '';
+              } catch {
+                cloudinaryError = '';
+              }
+
+              const error = cloudinaryError
+                ? `Error de Cloudinary (${xhr.status}): ${cloudinaryError}`
+                : `Error del servidor: ${xhr.status}`;
               setError(error);
               setUploading(false);
               resolve({ success: false, error });
