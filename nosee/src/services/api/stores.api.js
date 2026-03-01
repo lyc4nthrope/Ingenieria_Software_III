@@ -10,23 +10,10 @@
 import { supabase } from '@/services/supabase.client';
 
 const DEFAULT_RADIUS_METERS = 150;
-const STORE_TYPE_NAME_BY_KEY = {
-  physical: 'physical',
-  virtual: 'virtual',
+const STORE_TYPE_ID = {
+  physical: 1,
+  virtual: 2,
 };
-
-let storeTypesCache = null;
-/*
-function isValidHttpsUrl(value) {
-  if (!value || typeof value !== 'string') return false;
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-*/
 
 /**
  * Convierte POINT(lon lat) -> { latitude, longitude }.
@@ -45,6 +32,24 @@ function parsePointText(pointText) {
   return { latitude, longitude };
 }
 
+function getUiTypeByStoreTypeId(storeTypeId) {
+  if (Number(storeTypeId) === STORE_TYPE_ID.physical) return 'physical';
+  if (Number(storeTypeId) === STORE_TYPE_ID.virtual) return 'virtual';
+  return null;
+}
+
+function resolveStoreTypeId(type) {
+  if (Number(type) === STORE_TYPE_ID.physical || String(type).toLowerCase() === 'physical') {
+    return { success: true, data: STORE_TYPE_ID.physical };
+  }
+
+  if (Number(type) === STORE_TYPE_ID.virtual || String(type).toLowerCase() === 'virtual') {
+    return { success: true, data: STORE_TYPE_ID.virtual };
+  }
+
+  return { success: false, error: 'Tipo de tienda inválido. Usa Tienda física o Tienda virtual' };
+}
+
 function degreesToRadians(degrees) {
   return (degrees * Math.PI) / 180;
 }
@@ -58,36 +63,6 @@ async function getCurrentUserId() {
 
   return { success: true, data: userId };
 }
-
-async function getStoreTypesMap() {
-  if (storeTypesCache) return { success: true, data: storeTypesCache };
-
-  const { data, error } = await supabase.from('store_types').select('id, name');
-  if (error) return { success: false, error: error.message };
-
-  const map = new Map((data || []).map((item) => [String(item.name || '').toLowerCase(), item.id]));
-  storeTypesCache = map;
-  return { success: true, data: map };
-}
-
-async function getStoreTypeId(type) {
-  const normalizedType = String(type || '').toLowerCase();
-  const typeName = STORE_TYPE_NAME_BY_KEY[normalizedType] || normalizedType;
-
-  const typesResult = await getStoreTypesMap();
-  if (!typesResult.success) return typesResult;
-
-  const id = typesResult.data.get(typeName);
-  if (!id) {
-    return {
-      success: false,
-      error: `No se encontró el tipo de tienda "${typeName}" en store_types`,
-    };
-  }
-
-  return { success: true, data: id };
-}
-
 
 /**
  * Distancia Haversine en metros.
@@ -110,11 +85,15 @@ function getDistanceMeters(lat1, lon1, lat2, lon2) {
 }
 
 /**
- * Crea una tienda delegando reglas de negocio al RPC SQL.
+ * Crea una tienda.
+ *
+ * Se usa `store_type_id` directamente:
+ * - Tienda física  -> 1
+ * - Tienda virtual -> 2
  *
  * @param {Object} payload
  * @param {string} payload.name
- * @param {'physical'|'virtual'} payload.type
+ * @param {'physical'|'virtual'|1|2} payload.type
  * @param {string=} payload.address
  * @param {number=} payload.latitude
  * @param {number=} payload.longitude
@@ -125,140 +104,51 @@ export async function createStore(payload = {}) {
   try {
     const {
       name,
-      type, // 1 = physical, 2 = virtual (coincide con enum en BD)
+      type,
       address = null,
       latitude = null,
       longitude = null,
       websiteUrl = null,
-      evidenceUrls = [],
       distanceThresholdMeters = DEFAULT_RADIUS_METERS,
     } = payload;
 
-    // Validaciones de cliente (mínimas)
-    if (!name || !String(name).trim()) {
-      return { success: false, error: 'El nombre de la tienda es obligatorio' };
-    }
-    // 1 = physical y 2 = virtual (coincide con enum en BD)
-    if (!['1', '2'].includes(type)) {
-      return { success: false, error: 'Tipo de tienda inválido. Usa physical o virtual' };
-    }
+    const userResult = await getCurrentUserId();
+    if (!userResult.success) return userResult;
 
-    if (type === '1' && (latitude === null || longitude === null)) {
-      return { success: false, error: 'Para tienda física la latitud y longitud son obligatorias' };
-    }
+    const storeTypeResult = resolveStoreTypeId(type);
+    if (!storeTypeResult.success) return storeTypeResult;
 
-    /*
-    if (type === '2' && !isValidHttpsUrl(websiteUrl)) {
-      return { success: false, error: 'Para tienda virtual la URL debe ser https:// válida' };
-    }
-    */
+    const insertPayload = {
+      name: name?.trim(),
+      created_by: userResult.data,
+      store_type_id: storeTypeResult.data,
+      address: address?.trim() || null,
+      website_url: websiteUrl?.trim() || null,
+    };
 
-    if (!Array.isArray(evidenceUrls)) {
-      return { success: false, error: 'evidenceUrls debe ser un arreglo' };
+    if (Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))) {
+      const lat = Number(latitude);
+      const lon = Number(longitude);
+      insertPayload.location = `POINT(${lon} ${lat})`;
     }
 
-    if (evidenceUrls.length > 3) {
-      return { success: false, error: 'Máximo 3 imágenes de evidencia por tienda' };
-    }
+    const { data: createdStore, error: insertError } = await supabase
+      .from('stores')
+      .insert(insertPayload)
+      .select('id, name, address, website_url, store_type_id, location')
+      .single();
 
-    if (type !== '1' && evidenceUrls.length > 0) {
-      return { success: false, error: 'Las evidencias solo aplican para tiendas físicas' };
-    }
-    /*
-    if (evidenceUrls.some((url) => !isValidHttpsUrl(url))) {
-      return { success: false, error: 'Todas las evidencias deben tener una URL https:// válida' };
-    }
-    */
-
-    const rpcResult = await supabase.rpc('create_store_with_validation', {
-      p_name: name,
-      p_store_type_id: parseInt(type),
-      p_address: address,
-      p_latitude: latitude,
-      p_longitude: longitude,
-      p_website_url: websiteUrl,
-      p_distance_threshold_m: distanceThresholdMeters,
-    });
-
-    const { data, error } = rpcResult;
-
-    // Compatibilidad: si el RPC no existe en BD, insertar directo en tabla stores.
-    if (error && String(error.message || '').toLowerCase().includes('create_store_with_validation')) {
-      const userResult = await getCurrentUserId();
-      if (!userResult.success) return userResult;
-
-      const typeResult = await getStoreTypeId(type);
-      if (!typeResult.success) return typeResult;
-
-      const insertPayload = {
-        name: name?.trim(),
-        created_by: userResult.data,
-        store_type_id: typeResult.data,
-        address: address?.trim() || null,
-        website_url: websiteUrl?.trim() || null,
-      };
-
-      if (Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))) {
-        const lat = Number(latitude);
-        const lon = Number(longitude);
-        insertPayload.location = `POINT(${lon} ${lat})`;
-      }
-
-      const { data: createdStore, error: insertError } = await supabase
-        .from('stores')
-        .insert(insertPayload)
-        .select('id, name, address, website_url, store_type_id, location')
-        .single();
-
-      if (insertError) return { success: false, error: insertError.message };
-
-      return {
-        success: true,
-        data: {
-          success: true,
-          store: createdStore,
-          distance_threshold_m: distanceThresholdMeters,
-        },
-      };
-    }
-
-    if (error) return { success: false, error: error.message };
-
-    if (!data?.success) {
-      return { success: false, error: data?.error || 'No se pudo crear la tienda' };
-    }
-
-    const createdStoreId = data?.store_id;
-
-    // Si no hay evidencias, devolver éxito inmediatamente
-    if (!createdStoreId || evidenceUrls.length === 0) {
-      return { success: true, data };
-    }
-
-    // Adjuntar evidencias una por una (uploadStoreEvidence también valida límite y tipo)
-    const evidenceResults = [];
-
-    for (const imageUrl of evidenceUrls) {
-      const evidenceResult = await uploadStoreEvidence(createdStoreId, imageUrl);
-      if (!evidenceResult.success) {
-        return {
-          success: false,
-          error: `Tienda creada pero falló la carga de evidencias: ${evidenceResult.error}`,
-          data: {
-            ...data,
-            evidenceResults,
-          },
-        };
-      }
-
-      evidenceResults.push(evidenceResult.data);
-    }
+    if (insertError) return { success: false, error: insertError.message };
 
     return {
       success: true,
       data: {
-        ...data,
-        evidences: evidenceResults,
+        success: true,
+        store: {
+          ...createdStore,
+          type: getUiTypeByStoreTypeId(createdStore.store_type_id),
+        },
+        distance_threshold_m: distanceThresholdMeters,
       },
     };
   } catch (err) {
@@ -282,10 +172,7 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
     if (!userResult.success) return userResult;
     const userId = userResult.data;
 
-   const storeTypeResult = await getStoreTypeId('physical');
-    if (!storeTypeResult.success) return storeTypeResult;
-
-    // Verificar tipo de tienda (solo physical)
+    // Verificar tipo de tienda (solo física = 1)
     const { data: store, error: storeError } = await supabase
       .from('stores')
       .select('id, store_type_id')
@@ -294,7 +181,7 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
 
     if (storeError) return { success: false, error: storeError.message };
 
-     if (store?.store_type_id !== storeTypeResult.data) {
+    if (Number(store?.store_type_id) !== STORE_TYPE_ID.physical) {
       return { success: false, error: 'Solo las tiendas físicas permiten evidencias' };
     }
 
@@ -319,8 +206,7 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
       })
       .select()
       .single();
-
-    if (error) return { success: false, error: error.message };
+  if (error) return { success: false, error: error.message };
 
     return { success: true, data };
   } catch (err) {
@@ -356,13 +242,6 @@ export async function searchNearbyStores(
       .ilike('name', `%${name.trim()}%`)
       .limit(20);
 
-      const storeTypesResult = await getStoreTypesMap();
-    if (!storeTypesResult.success) return storeTypesResult;
-
-    const typeById = new Map();
-    for (const [typeName, typeId] of storeTypesResult.data.entries()) {
-      typeById.set(typeId, typeName);
-    }
     if (error) return { success: false, error: error.message };
 
     const canFilterByDistance =
@@ -382,7 +261,7 @@ export async function searchNearbyStores(
 
       return {
         ...store,
-        type: typeById.get(store.store_type_id) || null,
+        type: getUiTypeByStoreTypeId(store.store_type_id),
         latitude: point?.latitude ?? null,
         longitude: point?.longitude ?? null,
         distanceMeters,
@@ -404,7 +283,7 @@ export async function searchNearbyStores(
  * Usado desde el modal rápido dentro del formulario de publicaciones.
  *
  * @param {string} name
- * @param {'physical'|'virtual'} type
+ * @param {'physical'|'virtual'|1|2} type
  * @param {string|null} address
  * @param {string|null} websiteUrl
  */
@@ -413,17 +292,18 @@ export async function createStoreSimple(name, type = 'physical', address = null,
     const userResult = await getCurrentUserId();
     if (!userResult.success) return userResult;
 
-    const typeResult = await getStoreTypeId(type);
-    if (!typeResult.success) return typeResult;
+    const storeTypeResult = resolveStoreTypeId(type);
+    if (!storeTypeResult.success) return storeTypeResult;
 
+    const uiType = getUiTypeByStoreTypeId(storeTypeResult.data);
     const insert = {
       name: name.trim(),
       created_by: userResult.data,
-      store_type_id: typeResult.data,
+      store_type_id: storeTypeResult.data,
     };
 
-    if (type === 'physical' && address?.trim()) insert.address = address.trim();
-    if (type === 'virtual' && websiteUrl?.trim()) insert.website_url = websiteUrl.trim();
+    if (uiType === 'physical' && address?.trim()) insert.address = address.trim();
+    if (uiType === 'virtual' && websiteUrl?.trim()) insert.website_url = websiteUrl.trim();
 
     const { data, error } = await supabase
       .from('stores')
@@ -437,7 +317,7 @@ export async function createStoreSimple(name, type = 'physical', address = null,
       success: true,
       data: {
         ...data,
-        type,
+        type: getUiTypeByStoreTypeId(data.store_type_id),
       },
     };
   } catch (err) {

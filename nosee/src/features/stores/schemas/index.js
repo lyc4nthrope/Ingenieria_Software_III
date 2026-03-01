@@ -3,8 +3,8 @@
  */
 
 export const StoreTypeEnum = {
-  PHYSICAL: 'physical',
-  VIRTUAL: 'virtual',
+  PHYSICAL: '1',
+  VIRTUAL: '2',
 };
 
 const ALLOWED_EVIDENCE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
