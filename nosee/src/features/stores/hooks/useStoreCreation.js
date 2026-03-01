@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { storesApi } from '@/services/api';
 import { StoreTypeEnum, validateStoreForm } from '@/features/stores/schemas';
 
@@ -32,7 +32,7 @@ export function useStoreCreation() {
     });
   };
 
-  const setLocation = ({ latitude, longitude, address }) => {
+  const setLocation = useCallback(({ latitude, longitude, address }) => {
     setFormData((prev) => ({
       ...prev,
       latitude,
@@ -44,7 +44,7 @@ export function useStoreCreation() {
       delete next.location;
       return next;
     });
-  };
+  }, []);
 
   const addEvidenceUrl = (url) => {
     if (!url) return;
@@ -117,13 +117,22 @@ export function useStoreCreation() {
     }
 
     const result = await storesApi.createStore(formData);
-    setIsSubmitting(false);
 
     if (!result.success) {
+      setIsSubmitting(false);
       setSubmitError(result.error || 'No se pudo crear la tienda');
       return result;
     }
 
+    // Guardar evidencias en store_evidences (solo tienda física)
+    const createdStoreId = result.data?.store?.id;
+    if (createdStoreId && formData.evidenceUrls.length > 0) {
+      for (const url of formData.evidenceUrls) {
+        await storesApi.uploadStoreEvidence(createdStoreId, url);
+      }
+    }
+
+    setIsSubmitting(false);
     setSubmitSuccess('Tienda creada exitosamente');
     setFormData(initialFormData);
     setErrors({});

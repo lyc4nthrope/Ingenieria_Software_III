@@ -52,7 +52,6 @@ function ensureLeafletLoaded() {
 }
 
 async function reverseGeocode(latitude, longitude) {
- 
   const url = new URL('https://nominatim.openstreetmap.org/reverse');
   url.searchParams.set('format', 'jsonv2');
   url.searchParams.set('lat', String(latitude));
@@ -117,6 +116,20 @@ export default function StoreMapPicker({
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
 
+  // ─── Refs para callbacks estables ────────────────────────────────────────────
+  // Guardamos la última versión de los callbacks en refs para que el efecto de
+  // inicialización del mapa use deps=[] y no destruya/recree el mapa en cada render.
+  const onLocationChangeRef = useRef(onLocationChange);
+  const onAddressChangeRef = useRef(onAddressChange);
+
+  useEffect(() => {
+    onLocationChangeRef.current = onLocationChange;
+  }, [onLocationChange]);
+
+  useEffect(() => {
+    onAddressChangeRef.current = onAddressChange;
+  }, [onAddressChange]);
+
   const {
     latitude: geoLatitude,
     longitude: geoLongitude,
@@ -128,32 +141,30 @@ export default function StoreMapPicker({
 
   const hasCoords = Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
 
-  const resolveAddressForCurrentPoint = useCallback(
-    async (nextLat, nextLon) => {
-      setLoadingAddress(true);
-      setStatus('Resolviendo dirección...');
-      try {
-        const resolvedAddress = await reverseGeocode(nextLat, nextLon);
-        onLocationChange({ latitude: nextLat, longitude: nextLon, address: resolvedAddress });
-        setStatus('Dirección actualizada desde la ubicación seleccionada.');
-      } catch (resolveError) {
-        setStatus(resolveError.message);
-      } finally {
-        setLoadingAddress(false);
-      }
-    },
-    [onLocationChange]
-  );
+  // resolveAddressForCurrentPoint usa la ref para no depender de onLocationChange
+  const resolveAddressForCurrentPoint = useCallback(async (nextLat, nextLon) => {
+    setLoadingAddress(true);
+    setStatus('Resolviendo dirección...');
+    try {
+      const resolvedAddress = await reverseGeocode(nextLat, nextLon);
+      onLocationChangeRef.current({ latitude: nextLat, longitude: nextLon, address: resolvedAddress });
+      setStatus('Dirección actualizada desde la ubicación seleccionada.');
+    } catch (resolveError) {
+      setStatus(resolveError.message);
+    } finally {
+      setLoadingAddress(false);
+    }
+  }, []); // sin deps: usa siempre la ref actualizada
 
   const setMarkerPosition = useCallback((nextLat, nextLon, { panTo = true } = {}) => {
     if (!mapInstanceRef.current || !markerRef.current) return;
-
     markerRef.current.setLatLng([nextLat, nextLon]);
     if (panTo) {
       mapInstanceRef.current.setView([nextLat, nextLon], mapInstanceRef.current.getZoom(), { animate: false });
     }
   }, []);
 
+  // ─── Inicialización del mapa — solo se ejecuta UNA VEZ ───────────────────────
   useEffect(() => {
     let mounted = true;
 
@@ -164,25 +175,26 @@ export default function StoreMapPicker({
         const L = await ensureLeafletLoaded();
         if (!mounted || !mapContainerRef.current) return;
 
-        const startLat = hasCoords ? Number(latitude) : DEFAULT_CENTER.latitude;
-        const startLon = hasCoords ? Number(longitude) : DEFAULT_CENTER.longitude;
+        // Leer los valores iniciales de los props via ref para no necesitarlos en deps
+        const initLat = Number.isFinite(Number(latitude)) ? Number(latitude) : DEFAULT_CENTER.latitude;
+        const initLon = Number.isFinite(Number(longitude)) ? Number(longitude) : DEFAULT_CENTER.longitude;
 
         const map = L.map(mapContainerRef.current, {
           zoomControl: true,
-        }).setView([startLat, startLon], DEFAULT_ZOOM);
+        }).setView([initLat, initLon], DEFAULT_ZOOM);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
           attribution: '&copy; OpenStreetMap contributors',
         }).addTo(map);
 
-        const marker = L.marker([startLat, startLon], { draggable: true }).addTo(map);
+        const marker = L.marker([initLat, initLon], { draggable: true }).addTo(map);
 
         map.on('click', async (event) => {
           const nextLat = Number(event.latlng.lat.toFixed(6));
           const nextLon = Number(event.latlng.lng.toFixed(6));
           marker.setLatLng([nextLat, nextLon]);
-          onLocationChange({ latitude: nextLat, longitude: nextLon, address: '' });
+          onLocationChangeRef.current({ latitude: nextLat, longitude: nextLon, address: '' });
           await resolveAddressForCurrentPoint(nextLat, nextLon);
         });
 
@@ -190,7 +202,7 @@ export default function StoreMapPicker({
           const nextPosition = marker.getLatLng();
           const nextLat = Number(nextPosition.lat.toFixed(6));
           const nextLon = Number(nextPosition.lng.toFixed(6));
-          onLocationChange({ latitude: nextLat, longitude: nextLon, address: '' });
+          onLocationChangeRef.current({ latitude: nextLat, longitude: nextLon, address: '' });
           await resolveAddressForCurrentPoint(nextLat, nextLon);
         });
 
@@ -212,27 +224,20 @@ export default function StoreMapPicker({
       }
       markerRef.current = null;
     };
-  }, [hasCoords, latitude, longitude, onLocationChange, resolveAddressForCurrentPoint]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    setLatInput(latitude ?? '');
-  }, [latitude]);
+  // ─── Sincronizar inputs con los props externos ────────────────────────────────
+  useEffect(() => { setLatInput(latitude ?? ''); }, [latitude]);
+  useEffect(() => { setLonInput(longitude ?? ''); }, [longitude]);
+  useEffect(() => { setAddressInput(address ?? ''); }, [address]);
 
-  useEffect(() => {
-    setLonInput(longitude ?? '');
-  }, [longitude]);
-
-  useEffect(() => {
-    setAddressInput(address ?? '');
-  }, [address]);
-
+  // ─── Mover el marcador cuando cambian las coordenadas externamente ────────────
   useEffect(() => {
     if (!hasCoords || !mapInstanceRef.current || !markerRef.current) return;
-    const nextLat = Number(latitude);
-    const nextLon = Number(longitude);
-    setMarkerPosition(nextLat, nextLon, { panTo: true });
+    setMarkerPosition(Number(latitude), Number(longitude), { panTo: true });
   }, [hasCoords, latitude, longitude, setMarkerPosition]);
 
+  // ─── Auto-centrar el mapa al obtener la ubicación del dispositivo (una vez) ──
   useEffect(() => {
     if (hasAutoCenteredCurrentLocation.current) return;
     if (!hasLocation) return;
@@ -240,13 +245,13 @@ export default function StoreMapPicker({
 
     const nextLat = Number(Number(geoLatitude).toFixed(6));
     const nextLon = Number(Number(geoLongitude).toFixed(6));
-
     if (!Number.isFinite(nextLat) || !Number.isFinite(nextLon)) return;
 
     hasAutoCenteredCurrentLocation.current = true;
     mapInstanceRef.current.setView([nextLat, nextLon], 17, { animate: true });
   }, [hasLocation, geoLatitude, geoLongitude]);
 
+  // ─── Inicializar formData con la ubicación del dispositivo (si no hay coords) ─
   useEffect(() => {
     if (hasInitializedWithGeo.current) return;
     if (!hasLocation) return;
@@ -254,16 +259,17 @@ export default function StoreMapPicker({
     hasInitializedWithGeo.current = true;
     const nextLat = Number(Number(geoLatitude).toFixed(6));
     const nextLon = Number(Number(geoLongitude).toFixed(6));
-    onLocationChange({ latitude: nextLat, longitude: nextLon, address: '' });
-  }, [hasLocation, hasCoords, geoLatitude, geoLongitude, onLocationChange]);
+    onLocationChangeRef.current({ latitude: nextLat, longitude: nextLon, address: '' });
+  }, [hasLocation, hasCoords, geoLatitude, geoLongitude]);
 
- const applyFromCoordinates = async (nextLat, nextLon, { resolveAddress = false } = {}) => {
+  // ─── Handlers de la UI ───────────────────────────────────────────────────────
+
+  const applyFromCoordinates = async (nextLat, nextLon, { resolveAddress = false } = {}) => {
     setLatInput(String(nextLat));
     setLonInput(String(nextLon));
-    onLocationChange({ latitude: nextLat, longitude: nextLon, address: '' });
+    onLocationChangeRef.current({ latitude: nextLat, longitude: nextLon, address: '' });
     setMarkerPosition(nextLat, nextLon);
-
-     if (resolveAddress) {
+    if (resolveAddress) {
       await resolveAddressForCurrentPoint(nextLat, nextLon);
     }
   };
@@ -275,7 +281,6 @@ export default function StoreMapPicker({
       setStatus('Ingresa latitud y longitud válidas.');
       return;
     }
-
     await applyFromCoordinates(parsedLat, parsedLon, { resolveAddress: true });
   };
 
@@ -285,14 +290,12 @@ export default function StoreMapPicker({
       setStatus('Escribe una dirección para buscarla.');
       return;
     }
-
     setLoadingAddress(true);
     setStatus('Buscando dirección...');
-
     try {
       const result = await geocodeAddress(query);
-      onAddressChange(result.address);
-      onLocationChange(result);
+      onAddressChangeRef.current(result.address);
+      onLocationChangeRef.current(result);
       setMarkerPosition(result.latitude, result.longitude);
       setStatus('Dirección encontrada y ubicación actualizada.');
     } catch (geocodeError) {
@@ -302,17 +305,17 @@ export default function StoreMapPicker({
     }
   };
 
+  // Botón "Usar mi ubicación actual" — usa la Promise de refetch para coordenadas frescas
   const useCurrentLocation = async () => {
-    await refetch();
-
-    if (!Number.isFinite(Number(geoLatitude)) || !Number.isFinite(Number(geoLongitude))) {
-      setStatus('No se pudo obtener tu ubicación actual.');
-      return;
+    try {
+      setStatus('Obteniendo ubicación...');
+      const { latitude: nextLat, longitude: nextLon } = await refetch();
+      const lat = Number(Number(nextLat).toFixed(6));
+      const lon = Number(Number(nextLon).toFixed(6));
+      await applyFromCoordinates(lat, lon, { resolveAddress: true });
+    } catch (locationError) {
+      setStatus(locationError.message || 'No se pudo obtener tu ubicación actual.');
     }
-
-    const nextLat = Number(Number(geoLatitude).toFixed(6));
-    const nextLon = Number(Number(geoLongitude).toFixed(6));
-    await applyFromCoordinates(nextLat, nextLon, { resolveAddress: true });
   };
 
   const osmUrl = hasCoords
@@ -331,7 +334,7 @@ export default function StoreMapPicker({
           onChange={(event) => {
             const nextAddress = event.target.value;
             setAddressInput(nextAddress);
-            onAddressChange(nextAddress);
+            onAddressChangeRef.current(nextAddress);
           }}
           style={styles.input}
         />

@@ -61,7 +61,9 @@ export default function StoreForm() {
           <StoreMapPicker
             latitude={formData.latitude}
             longitude={formData.longitude}
+            address={formData.address}
             onLocationChange={setLocation}
+            onAddressChange={(addr) => updateField('address', addr)}
             error={errors.location}
           />
 

@@ -155,11 +155,54 @@ export const useGeoLocation = (options = {}) => {
   }, [autoFetch, supported, fetchLocation]);
   
   /**
-   * Reintentar obtener ubicación
+   * Reintentar obtener ubicación. Retorna una Promise que resuelve con { latitude, longitude, accuracy }.
    */
   const refetch = useCallback(() => {
-    fetchLocation();
-  }, [fetchLocation]);
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocalización no soportada'));
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude: lat, longitude: lon, accuracy: acc } = position.coords;
+          setLatitude(lat);
+          setLongitude(lon);
+          setAccuracy(acc);
+          setLoading(false);
+          setError(null);
+          resolve({ latitude: lat, longitude: lon, accuracy: acc });
+        },
+        (err) => {
+          let errorMessage = 'Error desconocido al obtener ubicación';
+          switch (err.code) {
+            case err.PERMISSION_DENIED:
+              errorMessage = 'Permiso denegado. Habilita ubicación en los ajustes del navegador.';
+              break;
+            case err.POSITION_UNAVAILABLE:
+              errorMessage = 'Ubicación no disponible. Intenta en otro lugar.';
+              break;
+            case err.TIMEOUT:
+              errorMessage = 'Tiempo agotado obteniendo ubicación.';
+              break;
+            default:
+              errorMessage = err.message || errorMessage;
+          }
+          setError(errorMessage);
+          setLatitude(null);
+          setLongitude(null);
+          setAccuracy(null);
+          setLoading(false);
+          reject(new Error(errorMessage));
+        },
+        { enableHighAccuracy, timeout, maximumAge },
+      );
+    });
+  }, [enableHighAccuracy, timeout, maximumAge]);
 
   /**
    * Limpiar ubicación
