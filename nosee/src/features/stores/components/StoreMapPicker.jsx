@@ -143,7 +143,9 @@ export default function StoreMapPicker({
     refetch,
   } = useGeoLocation({ autoFetch: true, enableHighAccuracy: true });
 
-  const hasCoords = Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+  // null/undefined deben tratarse como "sin coordenadas" — Number(null)=0 pasa isFinite, por eso verificamos != null
+  const hasCoords = latitude != null && longitude != null
+    && Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
 
   // resolveAddressForCurrentPoint usa la ref para no depender de onLocationChange
   const resolveAddressForCurrentPoint = useCallback(async (nextLat, nextLon) => {
@@ -179,9 +181,10 @@ export default function StoreMapPicker({
         const L = await ensureLeafletLoaded();
         if (!mounted || !mapContainerRef.current) return;
 
-        // Leer los valores iniciales de los props via ref para no necesitarlos en deps
-        const initLat = Number.isFinite(Number(latitude)) ? Number(latitude) : DEFAULT_CENTER.latitude;
-        const initLon = Number.isFinite(Number(longitude)) ? Number(longitude) : DEFAULT_CENTER.longitude;
+        // Leer los valores iniciales de los props via ref para no necesitarlos en deps.
+        // Usamos != null para descartar null/undefined (Number(null)=0 pasaría isFinite incorrectamente).
+        const initLat = latitude != null && Number.isFinite(Number(latitude)) ? Number(latitude) : DEFAULT_CENTER.latitude;
+        const initLon = longitude != null && Number.isFinite(Number(longitude)) ? Number(longitude) : DEFAULT_CENTER.longitude;
 
         const map = L.map(mapContainerRef.current, {
           zoomControl: true,
