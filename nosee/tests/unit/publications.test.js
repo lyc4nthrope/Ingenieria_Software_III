@@ -7,7 +7,7 @@
  * Ejecutar: npm test -- publications.test.js
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -519,3 +519,61 @@ describe("Publications Feature - Integration Check", () => {
  * Cobertura:
  * npm test -- --coverage
  */
+
+// ─────────────────────────────────────────────────────────────
+// TESTS API: createProduct
+// ─────────────────────────────────────────────────────────────
+
+describe("publications.api.createProduct", () => {
+  it("retorna error si el nombre es inválido", async () => {
+    const fromMock = vi.fn();
+    const getUserMock = vi.fn();
+
+    vi.doMock("@/services/supabase.client", () => ({
+      supabase: {
+        from: fromMock,
+        auth: { getUser: getUserMock },
+      },
+    }));
+
+    const { createProduct } = await import("@/services/api/publications.api");
+    const result = await createProduct(" ");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("al menos 2 caracteres");
+
+    vi.resetModules();
+    vi.doUnmock("@/services/supabase.client");
+  });
+
+  it("evita duplicar productos y retorna el existente", async () => {
+    const maybeSingleMock = vi.fn().mockResolvedValue({
+      data: { id: 7, name: "Arroz", category_id: null },
+      error: null,
+    });
+
+    const limitMock = vi.fn(() => ({ maybeSingle: maybeSingleMock }));
+    const ilikeMock = vi.fn(() => ({ limit: limitMock }));
+    const selectMock = vi.fn(() => ({ ilike: ilikeMock }));
+
+    const fromMock = vi.fn().mockReturnValue({ select: selectMock });
+    const getUserMock = vi.fn();
+
+    vi.doMock("@/services/supabase.client", () => ({
+      supabase: {
+        from: fromMock,
+        auth: { getUser: getUserMock },
+      },
+    }));
+
+    const { createProduct } = await import("@/services/api/publications.api");
+    const result = await createProduct("arroz");
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ id: 7, name: "Arroz", category_id: null });
+    expect(fromMock).toHaveBeenCalledWith("products");
+
+    vi.resetModules();
+    vi.doUnmock("@/services/supabase.client");
+  });
+});

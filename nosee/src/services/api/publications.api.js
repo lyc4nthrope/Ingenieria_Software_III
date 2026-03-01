@@ -841,6 +841,7 @@ export const deletePublication = async (publicationId) => {
     console.error("Error en deletePublication:", err);
     return { success: false, error: err.message };
   }
+  
 };
 
 // ─── UTILIDADES ───────────────────────────────────────────────────────────────
@@ -877,13 +878,53 @@ export const _calculateDistance = calculateDistance;
  * @param {string} name - Nombre del producto
  */
 export async function createProduct(name) {
+  const normalizedName = String(name || "").trim();
+  if (!normalizedName || normalizedName.length < 2) {
+    return {
+      success: false,
+      error: "El nombre del producto debe tener al menos 2 caracteres",
+    };
+  }
+
+  const { data: existingProduct, error: existingError } = await supabase
+    .from("products")
+    .select("id, name, category_id")
+    .ilike("name", normalizedName)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    return { success: false, error: existingError.message };
+  }
+
+  // Si ya existe (case-insensitive), no creamos duplicado y retornamos el existente.
+  if (existingProduct) {
+    return { success: true, data: existingProduct };
+  }
+
   const { data, error } = await supabase
     .from("products")
-    .insert({ name: name.trim() })
+    .insert({ name: normalizedName })
     .select("id, name, category_id")
     .single();
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    if (error.code === "23505") {
+      const { data: duplicateProduct } = await supabase
+        .from("products")
+        .select("id, name, category_id")
+        .ilike("name", normalizedName)
+        .limit(1)
+        .maybeSingle();
+
+      if (duplicateProduct) {
+        return { success: true, data: duplicateProduct };
+      }
+    }
+
+    return { success: false, error: error.message };
+  }
+
   return { success: true, data };
 }
 

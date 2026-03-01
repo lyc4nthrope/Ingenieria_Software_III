@@ -1,16 +1,16 @@
-import { useState, useCallback } from 'react';
-import { storesApi } from '@/services/api';
-import { StoreTypeEnum, validateStoreForm } from '@/features/stores/schemas';
+import { useState, useCallback } from "react";
+import { storesApi } from "@/services/api";
+import { StoreTypeEnum, validateStoreForm } from "@/features/stores/schemas";
 
 const DUPLICATE_RADIUS_METERS = 150;
 
 const initialFormData = {
-  name: '',
+  name: "",
   type: StoreTypeEnum.PHYSICAL,
-  address: '',
+  address: "",
   latitude: null,
   longitude: null,
-  websiteUrl: '',
+  websiteUrl: "",
   evidenceUrls: [],
 };
 
@@ -18,16 +18,16 @@ export function useStoreCreation() {
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  const [submitSuccess, setSubmitSuccess] = useState('');
+  const [submitError, setSubmitError] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState("");
 
   const updateField = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => {
       const next = { ...prev };
       delete next[field];
-      if (field === 'latitude' || field === 'longitude') delete next.location;
-      if (field === 'name') delete next.name;
+      if (field === "latitude" || field === "longitude") delete next.location;
+      if (field === "name") delete next.name;
       return next;
     });
   };
@@ -49,7 +49,8 @@ export function useStoreCreation() {
   const addEvidenceUrl = (url) => {
     if (!url) return;
     setFormData((prev) => {
-      if (prev.evidenceUrls.length >= 3 || prev.evidenceUrls.includes(url)) return prev;
+      if (prev.evidenceUrls.length >= 3 || prev.evidenceUrls.includes(url))
+        return prev;
       return { ...prev, evidenceUrls: [...prev.evidenceUrls, url] };
     });
     setErrors((prev) => {
@@ -75,15 +76,24 @@ export function useStoreCreation() {
       formData.name,
       Number(formData.latitude),
       Number(formData.longitude),
-      DUPLICATE_RADIUS_METERS
+      DUPLICATE_RADIUS_METERS,
     );
 
     if (!result.success) {
-      return { success: false, error: result.error || 'No se pudo validar duplicados cercanos' };
+      return {
+        success: false,
+        error: result.error || "No se pudo validar duplicados cercanos",
+      };
     }
 
     const candidates = (result.data || []).filter(
-      (store) => String(store.name || '').trim().toLowerCase() === String(formData.name || '').trim().toLowerCase()
+      (store) =>
+        String(store.name || "")
+          .trim()
+          .toLowerCase() ===
+        String(formData.name || "")
+          .trim()
+          .toLowerCase(),
     );
 
     if (candidates.length > 0) {
@@ -98,13 +108,13 @@ export function useStoreCreation() {
   };
 
   const submit = async () => {
-    setSubmitError('');
-    setSubmitSuccess('');
+    setSubmitError("");
+    setSubmitSuccess("");
 
     const { isValid, errors: validationErrors } = validateStoreForm(formData);
     if (!isValid) {
       setErrors(validationErrors);
-      return { success: false, error: 'Corrige los errores del formulario' };
+      return { success: false, error: "Corrige los errores del formulario" };
     }
 
     setIsSubmitting(true);
@@ -120,20 +130,40 @@ export function useStoreCreation() {
 
     if (!result.success) {
       setIsSubmitting(false);
-      setSubmitError(result.error || 'No se pudo crear la tienda');
+      setSubmitError(result.error || "No se pudo crear la tienda");
       return result;
     }
 
     // Guardar evidencias en store_evidences (solo tienda física)
     const createdStoreId = result.data?.store?.id;
     if (createdStoreId && formData.evidenceUrls.length > 0) {
-      for (const url of formData.evidenceUrls) {
-        await storesApi.uploadStoreEvidence(createdStoreId, url);
+      const evidenceResults = await Promise.all(
+        formData.evidenceUrls.map((url) =>
+          storesApi.uploadStoreEvidence(createdStoreId, url),
+        ),
+      );
+
+      const failedEvidence = evidenceResults.find(
+        (response) => !response?.success,
+      );
+      if (failedEvidence) {
+        setIsSubmitting(false);
+        setSubmitError(
+          failedEvidence.error ||
+            "La tienda se creó, pero no se pudieron guardar todas las evidencias",
+        );
+        return {
+          success: false,
+          error:
+            failedEvidence.error ||
+            "No se pudieron guardar todas las evidencias",
+          data: result.data,
+        };
       }
     }
 
     setIsSubmitting(false);
-    setSubmitSuccess('Tienda creada exitosamente');
+    setSubmitSuccess("Tienda creada exitosamente");
     setFormData(initialFormData);
     setErrors({});
     return result;
@@ -151,8 +181,8 @@ export function useStoreCreation() {
     removeEvidenceUrl,
     submit,
     clearMessages: () => {
-      setSubmitError('');
-      setSubmitSuccess('');
+      setSubmitError("");
+      setSubmitSuccess("");
     },
   };
 }
