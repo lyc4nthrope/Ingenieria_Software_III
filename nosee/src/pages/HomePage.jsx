@@ -212,6 +212,7 @@ export default function HomePage() {
     await unvotePublication(publicationId);
   };
 
+  
   return (
     <div className="home-wrapper">
       <section className="banner">
