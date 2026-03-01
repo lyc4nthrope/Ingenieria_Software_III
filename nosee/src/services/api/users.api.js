@@ -9,11 +9,11 @@
  *   .select('*, roles(name)')
  * lo que retorna: { ..., roles: { name: 'Admin' } }
  *
- * NOTA ESQUEMA: la tabla public.users NO tiene columnas email ni avatar_url.
+ * NOTA ESQUEMA: la tabla public.users NO tiene columna email.
  * El email siempre se obtiene de auth.users vía supabase.auth.getUser().
  */
 
-import { supabase } from '@/services/supabase.client';
+import { supabase } from "@/services/supabase.client";
 
 // ─── Mapper BD → UI ───────────────────────────────────────────────────────────
 
@@ -29,23 +29,26 @@ import { supabase } from '@/services/supabase.client';
 export function mapDBUserToUI(data) {
   if (!data) return null;
   return {
-    id:               data.id,
-    fullName:         data.full_name ?? '',
-    email:            data.email    ?? '',   // Inyectado desde auth.users
-    roleId:           data.role_id,
-    role:             data.roles?.name ?? 'Usuario',
+    id: data.id,
+    fullName: data.full_name ?? "",
+    email: data.email ?? "", // Inyectado desde auth.users
+    roleId: data.role_id,
+    role: data.roles?.name ?? "Usuario",
     reputationPoints: data.reputation_points ?? 0,
-    isVerified:       data.is_verified  ?? false,
-    isActive:         data.is_active    ?? true,
-    createdAt:        data.created_at,
+    isVerified: data.is_verified ?? false,
+    isActive: data.is_active ?? true,
+    avatarUrl: data.avatar_url ?? "",
+    createdAt: data.created_at,
   };
 }
 
 // ─── Helper interno: obtener email de auth ────────────────────────────────────
 
 async function getAuthEmail() {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.email ?? '';
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.email ?? "";
 }
 
 // ─── Obtener perfil ───────────────────────────────────────────────────────────
@@ -58,9 +61,9 @@ async function getAuthEmail() {
  */
 export async function getUserProfile(userId) {
   const { data: profile, error } = await supabase
-    .from('users')
-    .select('*, roles(name)')
-    .eq('id', userId)
+    .from("users")
+    .select("*, roles(name)")
+    .eq("id", userId)
     .single();
 
   if (error) return { success: false, error: error.message };
@@ -84,12 +87,12 @@ export async function getUserProfile(userId) {
  */
 export async function createUserProfile(userId, fullName) {
   const { data, error } = await supabase
-    .from('users')
+    .from("users")
     .upsert(
       { id: userId, role_id: 1, full_name: fullName, is_verified: false },
-      { onConflict: 'id' }
+      { onConflict: "id" },
     )
-    .select('*, roles(name)')
+    .select("*, roles(name)")
     .single();
 
   if (error) return { success: false, error: error.message };
@@ -110,10 +113,10 @@ export async function createUserProfile(userId, fullName) {
  */
 export async function updateUserProfile(userId, updates) {
   const { data, error } = await supabase
-    .from('users')
+    .from("users")
     .update(updates)
-    .eq('id', userId)
-    .select('*, roles(name)')
+    .eq("id", userId)
+    .select("*, roles(name)")
     .single();
 
   if (error) return { success: false, error: error.message };
@@ -133,14 +136,13 @@ export async function updateUserProfile(userId, updates) {
  */
 export async function getAllUsers() {
   const { data, error } = await supabase
-    .from('users')
-    .select('*, roles(name)')
-    .order('created_at', { ascending: false });
+    .from("users")
+    .select("*, roles(name)")
+    .order("created_at", { ascending: false });
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data: data.map(row => mapDBUserToUI(row)) };
+  return { success: true, data: data.map((row) => mapDBUserToUI(row)) };
 }
-
 
 /**
  * Cambia el rol de un usuario (solo Admin).
@@ -149,10 +151,10 @@ export async function getAllUsers() {
  */
 export async function changeUserRole(userId, roleId) {
   const { data, error } = await supabase
-    .from('users')
+    .from("users")
     .update({ role_id: roleId })
-    .eq('id', userId)
-    .select('*, roles(name)')
+    .eq("id", userId)
+    .select("*, roles(name)")
     .single();
 
   if (error) return { success: false, error: error.message };

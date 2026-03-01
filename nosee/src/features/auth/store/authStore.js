@@ -169,6 +169,20 @@ export const useAuthStore = create((set, get) => ({
       ? profileResult.data
       : { id: result.data.user.id, email: result.data.user.email };
 
+      if (mappedUser?.isActive === false) {
+      await authApi.signOut();
+      set({
+        user: null,
+        session: null,
+        status: AsyncStateEnum.ERROR,
+        error: 'Tu cuenta está desactivada. Contacta a soporte.',
+      });
+      return {
+        success: false,
+        error: 'Tu cuenta está desactivada. Contacta a soporte.',
+      };
+    }
+
     set({
       user:    mappedUser,
       session: result.data.session,

@@ -11,7 +11,7 @@
  * - createPublication()      : Crear nueva publicación de precio
  * - getPublications()        : Obtener publicaciones con filtros
  * - getPublicationDetail()   : Obtener detalles de una publicación
- * - validatePublication()    : Upvote a una publicación
+ * - validatePublication()    : Votar (upvote/downvote) una publicación
  * - reportPublication()      : Reportar una publicación
  * - searchProducts()         : Autocomplete de productos
  * - searchStores()           : Autocomplete de tiendas + distancia
@@ -101,35 +101,54 @@ export const createPublication = async (data) => {
       return { success: false, error: "Usuario no autenticado" };
     }
 
-    // Verificar que el usuario está verificado
+    // Verificar estado del usuario (activo + verificado)
     const authEmailConfirmed = !!user.email_confirmed_at;
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("is_verified")
+      .select("is_verified, is_active")
       .eq("id", user.id)
       .single();
 
     const profileVerified = !!userData?.is_verified;
-    if (userError && !authEmailConfirmed) {
+    const profileActive = userData?.is_active !== false;
+
+    if (userError || !profileActive) {
+      return {
+        success: false,
+        error: "Tu cuenta no está habilitada para publicar",
+      };
+    }
+
+    if (!profileVerified || !authEmailConfirmed) {
       return {
         success: false,
         error: "Debes verificar tu email para publicar",
       };
     }
 
-    if (!profileVerified && !authEmailConfirmed) {
-      return {
-        success: false,
-        error: "Debes verificar tu email para publicar",
-      };
+    // Evitar duplicados del mismo usuario/producto/tienda en las últimas 24h
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: duplicatePublication, error: duplicateError } = await supabase
+      .from("price_publications")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("product_id", data.productId)
+      .eq("store_id", data.storeId)
+      .gte("created_at", since24h)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (duplicateError) {
+      return { success: false, error: duplicateError.message };
     }
 
-    // Si auth ya confirma email pero users.is_verified está atrasado, intentamos sincronizar
-    if (authEmailConfirmed && !profileVerified) {
-      await supabase
-        .from("users")
-        .update({ is_verified: true })
-        .eq("id", user.id);
+    if (duplicatePublication) {
+      return {
+        success: false,
+        error:
+          "Ya publicaste este producto en esta tienda durante las últimas 24 horas",
+      };
     }
 
     // Crear la publicación
@@ -145,7 +164,7 @@ export const createPublication = async (data) => {
         description: data.description || "",
         latitude: data.latitude,
         longitude: data.longitude,
-        status: "validated",
+        status: "pending",
       })
       .select()
       .single();
@@ -345,15 +364,15 @@ export const getPublicationDetail = async (publicationId) => {
   }
 };
 
-// ─── 4️⃣ VALIDAR PUBLICACIÓN (UPVOTE) ─────────────────────────────────────────
+// ─── 4️⃣ VOTAR PUBLICACIÓN (UPVOTE / DOWNVOTE) ───────────────────────────────
 
 /**
- * Upvote a una publicación (aumenta validated_count)
+ * Registrar voto sobre una publicación (upvote/downvote)
  *
  * Usar la tabla publication_votes:
  * - Cada usuario solo puede votar 1 vez por publicación
- * - Trigger automático incrementa validated_count
- * - Trigger automático suma puntos de reputación al autor
+ * - Soporta vote_type = 1 (upvote) y vote_type = -1 (downvote)
+ * - Actualiza reputación del autor de forma explícita como respaldo
  *
  * @param {number} publicationId - ID de la publicación
  *
@@ -362,10 +381,14 @@ export const getPublicationDetail = async (publicationId) => {
  * @example
  * const result = await validatePublication(123);
  */
-export const validatePublication = async (publicationId) => {
+export const validatePublication = async (publicationId, voteType = 1) => {
   try {
     if (!publicationId) {
       return { success: false, error: "ID de publicación requerido" };
+    }
+
+    if (![1, -1].includes(voteType)) {
+      return { success: false, error: "Tipo de voto inválido" };
     }
 
     // Obtener usuario actual
@@ -394,7 +417,7 @@ export const validatePublication = async (publicationId) => {
       .insert({
         publication_id: publicationId,
         user_id: user.id,
-        vote_type: 1, // 1 = upvote, -1 = downvote (implementar después)
+        vote_type: voteType,
       })
       .select()
       .single();
@@ -404,12 +427,55 @@ export const validatePublication = async (publicationId) => {
       return { success: false, error: error.message };
     }
 
+    // Actualizar reputación explícitamente como respaldo (si no existe trigger)
+    const { data: publicationData, error: publicationError } = await supabase
+      .from("price_publications")
+      .select("user_id")
+      .eq("id", publicationId)
+      .single();
+
+    if (publicationError) {
+      return { success: false, error: publicationError.message };
+    }
+
+    if (publicationData?.user_id) {
+      const reputationDelta = voteType === 1 ? 1 : -1;
+      const { error: reputationError } = await supabase.rpc(
+        "increment_user_reputation",
+        {
+          target_user_id: publicationData.user_id,
+          reputation_delta: reputationDelta,
+        },
+      );
+
+      if (reputationError) {
+        const { data: authorData, error: authorError } = await supabase
+          .from("users")
+          .select("reputation_points")
+          .eq("id", publicationData.user_id)
+          .single();
+
+        if (!authorError) {
+          await supabase
+            .from("users")
+            .update({
+              reputation_points:
+                (authorData?.reputation_points || 0) + reputationDelta,
+            })
+            .eq("id", publicationData.user_id);
+        }
+      }
+    }
+
     return { success: true, data: vote };
   } catch (err) {
     console.error("Error en validatePublication:", err);
     return { success: false, error: err.message };
   }
 };
+
+export const downvotePublication = async (publicationId) =>
+  validatePublication(publicationId, -1);
 
 /**
  * Quitar voto de una publicación (unvote)
@@ -812,9 +878,9 @@ export const _calculateDistance = calculateDistance;
  */
 export async function createProduct(name) {
   const { data, error } = await supabase
-    .from('products')
+    .from("products")
     .insert({ name: name.trim() })
-    .select('id, name, category_id')
+    .select("id, name, category_id")
     .single();
 
   if (error) return { success: false, error: error.message };
@@ -828,6 +894,7 @@ export default {
   getPublications,
   getPublicationDetail,
   validatePublication,
+  downvotePublication,
   unvotePublication,
   reportPublication,
   searchProducts,
