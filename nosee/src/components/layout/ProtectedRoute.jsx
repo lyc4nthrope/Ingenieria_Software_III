@@ -1,34 +1,37 @@
 /**
- * ProtectedRoute - Ruta protegida por autenticación
+ * ProtectedRoute - Ruta protegida por autenticación y opcionalmente por rol
  *
- * Si el usuario no está logueado, redirige a /login.
- * Si el store aún no se inicializó (verificando sesión guardada),
- * muestra un loader para evitar el "parpadeo" a la pantalla de login.
+ * Props:
+ *   allowedRoles?: string[]  — Si se indica, solo esos roles pueden acceder.
+ *                              Los demás son redirigidos a su propio dashboard.
  *
  * Uso en App.jsx:
  *   <Route path="/perfil" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+ *   <Route path="/dashboard/admin" element={<ProtectedRoute allowedRoles={['Admin']}><AdminDashboard /></ProtectedRoute>} />
  */
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import { PageLoader } from '@/components/ui/Spinner';
+import { getRolePath } from '@/utils/roleUtils';
 
-export default function ProtectedRoute({ children, redirectTo = '/login' }) {
+export default function ProtectedRoute({ children, redirectTo = '/login', allowedRoles }) {
   const isInitialized = useAuthStore(selectIsInitialized);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const user = useAuthStore((s) => s.user);
   const location = useLocation();
 
-  // La app aún está verificando si hay sesión guardada en localStorage
-  // No redirigimos todavía para evitar el parpadeo a login
   if (!isInitialized) {
     return <PageLoader message="Verificando sesión..." />;
   }
 
-  // No está logueado → redirigir a login
-  // Guardamos la ruta original en `state` para redirigir de vuelta después del login
   if (!isAuthenticated) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
-  // Está logueado → renderizar la ruta protegida
+  // Si se definieron roles permitidos y el usuario no los tiene → redirigir a su dashboard
+  if (allowedRoles && !allowedRoles.includes(user?.role)) {
+    return <Navigate to={getRolePath(user?.role)} replace />;
+  }
+
   return children;
 }

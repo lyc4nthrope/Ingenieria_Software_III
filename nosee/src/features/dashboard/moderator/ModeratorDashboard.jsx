@@ -10,45 +10,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
 
-const MOCK_REPORTS = [
-  {
-    id: 1,
-    type: 'Precio falso',
-    reporter: 'Juan M.',
-    reported: 'Carlos V.',
-    post: 'Pollo x kg — $2.000',
-    time: 'hace 5 min',
-    severity: 'alta',
-  },
-  {
-    id: 2,
-    type: 'Spam',
-    reporter: 'Laura C.',
-    reported: 'Unknown',
-    post: 'Ganhe dinheiro rápido…',
-    time: 'hace 18 min',
-    severity: 'media',
-  },
-  {
-    id: 3,
-    type: 'Contenido ofensivo',
-    reporter: 'Pedro A.',
-    reported: 'Roberto G.',
-    post: 'Comentario inapropiado en hilo',
-    time: 'hace 42 min',
-    severity: 'alta',
-  },
-  {
-    id: 4,
-    type: 'Precio duplicado',
-    reporter: 'Sofía R.',
-    reported: 'María T.',
-    post: 'Aceite 3L — $18.900',
-    time: 'hace 1h',
-    severity: 'baja',
-  },
-];
-
 const SEVERITY_COLORS = {
   alta:  { bg: '#F8717118', text: '#F87171' },
   media: { bg: '#FCD34D18', text: '#FCD34D' },
@@ -59,7 +20,7 @@ export default function ModeradorDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
-  const [reports, setReports] = useState(MOCK_REPORTS);
+  const [reports, setReports] = useState([]);
   const [activeTab, setActiveTab] = useState('reportes');
   const [resolved, setResolved] = useState([]);
 

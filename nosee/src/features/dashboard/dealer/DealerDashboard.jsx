@@ -9,45 +9,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
 
-const MOCK_ORDERS = [
-  {
-    id: 'PD-1042',
-    client: 'Isabel Montoya',
-    address: 'Cra 45 #32-18, Laureles',
-    items: ['Aceite x2', 'Arroz 5kg', 'Leche x6'],
-    total: 58600,
-    status: 'en_camino',
-    distance: '1.2 km',
-    time: 'hace 8 min',
-  },
-  {
-    id: 'PD-1041',
-    client: 'Roberto Suárez',
-    address: 'Cl 33 #80-55, Robledo',
-    items: ['Pollo entero'],
-    total: 19800,
-    status: 'comprando',
-    distance: '3.4 km',
-    time: 'hace 22 min',
-  },
-  {
-    id: 'PD-1040',
-    client: 'Diana López',
-    address: 'Av. El Poblado #14-90',
-    items: ['Huevos x30', 'Pan tajado', 'Detergente'],
-    total: 32400,
-    status: 'pendiente',
-    distance: '5.1 km',
-    time: 'hace 35 min',
-  },
-];
-
-const HISTORY = [
-  { id: 'PD-1038', client: 'Carlos M.', total: 44200, status: 'entregado', date: 'Hoy 09:12' },
-  { id: 'PD-1035', client: 'Ana R.',    total: 27800, status: 'entregado', date: 'Hoy 07:55' },
-  { id: 'PD-1031', client: 'Luis T.',   total: 61000, status: 'cancelado', date: 'Ayer 18:40' },
-];
-
 const STATUS_INFO = {
   pendiente:  { label: 'Pendiente',   color: '#60A5FA', bg: '#60A5FA18' },
   comprando:  { label: 'Comprando',   color: '#FCD34D', bg: '#FCD34D18' },
@@ -61,7 +22,8 @@ export default function RepartidorDashboard() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
-  const [orders, setOrders] = useState(MOCK_ORDERS);
+  const [orders, setOrders] = useState([]);
+  const history = [];
   const [activeTab, setActiveTab] = useState('activos');
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -81,7 +43,7 @@ export default function RepartidorDashboard() {
   };
 
   const activeOrders = orders.filter((o) => o.status !== 'entregado');
-  const earnings = HISTORY.filter(h => h.status === 'entregado')
+  const earnings = history.filter(h => h.status === 'entregado')
     .reduce((acc, h) => acc + h.total, 0);
 
   return (
@@ -125,7 +87,7 @@ export default function RepartidorDashboard() {
             <div style={r.qLabel}>Activos</div>
           </div>
           <div style={r.quickStat}>
-            <div style={r.qValue}>{HISTORY.filter(h => h.status === 'entregado').length}</div>
+            <div style={r.qValue}>{history.filter(h => h.status === 'entregado').length}</div>
             <div style={r.qLabel}>Hoy</div>
           </div>
           <div style={r.quickStat}>
@@ -186,7 +148,7 @@ export default function RepartidorDashboard() {
               <p style={r.headerSub}>Tus últimas entregas</p>
             </header>
             <div style={r.historyList}>
-              {HISTORY.map((h) => {
+              {history.map((h) => {
                 const si = STATUS_INFO[h.status];
                 return (
                   <div key={h.id} style={r.historyRow}>

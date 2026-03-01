@@ -15,6 +15,7 @@ import {
 } from "@/features/auth/store/authStore";
 import LoginForm from "@/features/auth/components/LoginForm";
 import { resendConfirmation } from "@/services/api/auth.api";
+import { getRolePath } from "@/utils/roleUtils";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -29,7 +30,10 @@ export default function LoginPage() {
 
   // Solo redirigir si ya terminó la inicialización y está logueado
   useEffect(() => {
-    if (isInitialized && isAuthenticated) navigate("/", { replace: true });
+    if (isInitialized && isAuthenticated) {
+      const user = useAuthStore.getState().user;
+      navigate(getRolePath(user?.role), { replace: true });
+    }
   }, [isInitialized, isAuthenticated, navigate]);
 
   const handleLogin = async (email, password) => {
@@ -37,7 +41,8 @@ export default function LoginPage() {
     setLastEmailAttempt(email);
     const result = await login(email, password);
     if (result.success) {
-      navigate("/", { replace: true });
+      const user = useAuthStore.getState().user;
+      navigate(getRolePath(user?.role), { replace: true });
     }
   };
   const handleResendConfirmation = async (email) => {

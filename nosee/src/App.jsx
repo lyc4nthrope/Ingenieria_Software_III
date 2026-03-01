@@ -193,7 +193,7 @@ function AppContent() {
       <Route
         path="/dashboard/admin"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['Admin']}>
             <AdminDashboard />
           </ProtectedRoute>
         }
@@ -201,7 +201,7 @@ function AppContent() {
       <Route
         path="/dashboard/moderator"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['Moderador', 'Admin']}>
             <ModeratorDashboard />
           </ProtectedRoute>
         }
@@ -209,7 +209,7 @@ function AppContent() {
       <Route
         path="/dashboard/dealer"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['Repartidor']}>
             <DealerDashboard />
           </ProtectedRoute>
         }

@@ -134,7 +134,7 @@ export default function AdminDashboard() {
             { key: 'overview', icon: '▦', label: 'Resumen' },
             { key: 'users',    icon: '◉', label: 'Usuarios' },
             { key: 'content',  icon: '◈', label: 'Contenido' },
-            { key: 'reports',  icon: '⚠', label: 'Reportes', badge: 7 },
+            { key: 'reports',  icon: '⚠', label: 'Reportes' },
             { key: 'config',   icon: '⚙', label: 'Config' },
           ].map((item) => (
             <button
@@ -388,7 +388,7 @@ function SectionHeader({ title, sub }) {
 function PlaceholderSection({ section }) {
   const labels = {
     content: { icon: '◈', title: 'Gestión de contenido', sub: 'Moderación de publicaciones y reportes activos' },
-    reports: { icon: '⚠', title: 'Reportes pendientes', sub: '7 reportes esperan revisión' },
+    reports: { icon: '⚠', title: 'Reportes pendientes', sub: 'Reportes de la comunidad pendientes de revisión' },
     config: { icon: '⚙', title: 'Configuración del sistema', sub: 'Parámetros globales de la plataforma' },
   };
   const info = labels[section];

@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 
-
 import {
   useAuthStore,
   selectIsAuthenticated,
 } from "@/features/auth/store/authStore";
 
 import { usePublications } from "@/features/publications/hooks";
+import { PriceSearchFilter } from "@/features/publications/components/PriceSearchFilter";
 import * as publicationsApi from "@/services/api/publications.api";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -16,7 +16,6 @@ const isAbsoluteUrl = (value = "") => /^https?:\/\//i.test(value);
 
 const buildCloudinaryImageUrl = (publicId) => {
   if (!publicId || !CLOUDINARY_CLOUD_NAME) return null;
-
   return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto,w_800/${publicId}`;
 };
 
@@ -28,15 +27,114 @@ const resolvePublicationPhoto = (publication) => {
 
   if (!candidate) return FALLBACK_IMAGE;
   if (isAbsoluteUrl(candidate)) return candidate;
-
   return buildCloudinaryImageUrl(candidate) || FALLBACK_IMAGE;
 };
 
+// ─── ReportModal ──────────────────────────────────────────────────────────────
+function ReportModal({ onClose, onSubmit }) {
+  const [reportType, setReportType] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!reportType || submitting) return;
+    setSubmitting(true);
+    await onSubmit(reportType);
+    setSubmitting(false);
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.7)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 1000,
+        padding: "16px",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#1e293b",
+          border: "1px solid #334155",
+          borderRadius: "12px",
+          padding: "24px",
+          width: "min(400px, 100%)",
+        }}
+      >
+        <h3
+          style={{
+            margin: "0 0 16px",
+            fontSize: "16px",
+            fontWeight: 600,
+            color: "#e2e8f0",
+          }}
+        >
+          Reportar publicación
+        </h3>
+        <label
+          style={{
+            display: "block",
+            fontSize: "13px",
+            color: "#94a3b8",
+            marginBottom: "6px",
+          }}
+        >
+          Motivo del reporte
+        </label>
+        <select
+          value={reportType}
+          onChange={(e) => setReportType(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            background: "#0f172a",
+            border: "1px solid #334155",
+            borderRadius: "6px",
+            color: "#e2e8f0",
+            fontSize: "14px",
+            marginBottom: "16px",
+          }}
+        >
+          <option value="">Seleccionar motivo...</option>
+          <option value="fake_price">Precio falso</option>
+          <option value="wrong_photo">Foto incorrecta</option>
+          <option value="spam">Spam</option>
+          <option value="offensive">Contenido ofensivo</option>
+        </select>
+        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+          <button className="card-action-button" onClick={onClose}>
+            Cancelar
+          </button>
+          <button
+            className="card-action-button"
+            onClick={handleSubmit}
+            disabled={!reportType || submitting}
+          >
+            {submitting ? "Enviando..." : "Reportar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── PublicationCard ──────────────────────────────────────────────────────────
 function PublicationCard({
   pub,
   isAuthenticated,
-  onVote,
+  currentUserId,
+  isVoted,
+  onValidate,
   onUnvote,
+  onReport,
+  onDelete,
   onOpenDetail,
 }) {
   const publicationImage = resolvePublicationPhoto(pub);
@@ -44,6 +142,10 @@ function PublicationCard({
   const handleImageError = (event) => {
     event.currentTarget.src = FALLBACK_IMAGE;
   };
+
+  const isAuthor =
+    currentUserId &&
+    (pub.user_id === currentUserId || pub.user?.id === currentUserId);
 
   return (
     <article className="card">
@@ -76,25 +178,33 @@ function PublicationCard({
           <span>🚩 {pub.reported_count || 0}</span>
           <span>{pub.store?.name || "Tienda"}</span>
         </div>
-        <div style={{ display: "flex", gap: 8, width: "100%" }}>
+        <div style={{ display: "flex", gap: 8, width: "100%", flexWrap: "wrap" }}>
           <button
             className="card-action-button"
-            onClick={() => onVote(pub.id)}
+            onClick={() =>
+              isVoted ? onUnvote(pub.id) : onValidate(pub.id)
+            }
             disabled={!isAuthenticated}
-            title={!isAuthenticated ? "Inicia sesión para votar" : "Votar"}
+            title={
+              !isAuthenticated
+                ? "Inicia sesión para votar"
+                : isVoted
+                ? "Quitar validación"
+                : "Validar precio"
+            }
           >
-            Vote
+            {isVoted ? "✓ Validado" : "✓ Validar"}
           </button>
 
           <button
             className="card-action-button"
-            onClick={() => onUnvote(pub.id)}
+            onClick={() => onReport(pub.id)}
             disabled={!isAuthenticated}
             title={
-              !isAuthenticated ? "Inicia sesión para quitar voto" : "Unvote"
+              !isAuthenticated ? "Inicia sesión para reportar" : "Reportar"
             }
           >
-            Unvote
+            🚩 Reportar
           </button>
 
           <button
@@ -103,12 +213,23 @@ function PublicationCard({
           >
             Ver más
           </button>
+
+          {isAuthor && (
+            <button
+              className="card-action-button"
+              onClick={() => onDelete(pub.id)}
+              title="Eliminar mi publicación"
+            >
+              🗑 Eliminar
+            </button>
+          )}
         </div>
       </div>
     </article>
   );
 }
 
+// ─── PublicationDetailModal ───────────────────────────────────────────────────
 function PublicationDetailModal({ publication, onClose }) {
   if (!publication) return null;
 
@@ -157,7 +278,6 @@ function PublicationDetailModal({ publication, onClose }) {
             objectFit: "cover",
           }}
         />
-
         <h2 style={{ marginTop: 12 }}>
           {publication.product?.name || "Producto"}
         </h2>
@@ -176,12 +296,26 @@ function PublicationDetailModal({ publication, onClose }) {
   );
 }
 
+// ─── HomePage ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
-  const { publications, loading, validatePublication, unvotePublication } =
-    usePublications({ limit: 12 });
+  const user = useAuthStore((s) => s.user);
+
+  const {
+    publications,
+    loading,
+    validatePublication,
+    unvotePublication,
+    reportPublication,
+    removePublication,
+    filters,
+    setFilters,
+    clearFilters,
+  } = usePublications({ limit: 12 });
 
   const [detailPublication, setDetailPublication] = useState(null);
+  const [votedIds, setVotedIds] = useState(new Set());
+  const [reportingId, setReportingId] = useState(null);
 
   const normalizedPublications = useMemo(
     () =>
@@ -204,25 +338,59 @@ export default function HomePage() {
     }
   };
 
-  const handleVote = async (publicationId) => {
+  const handleValidate = async (publicationId) => {
     await validatePublication(publicationId);
+    setVotedIds((prev) => new Set([...prev, publicationId]));
   };
 
   const handleUnvote = async (publicationId) => {
     await unvotePublication(publicationId);
+    setVotedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(publicationId);
+      return next;
+    });
   };
 
-  
+  const handleReport = (publicationId) => {
+    if (!isAuthenticated) return;
+    setReportingId(publicationId);
+  };
+
+  const handleReportSubmit = async (reportType) => {
+    if (!reportingId) return;
+    await reportPublication(reportingId, reportType, "");
+    setReportingId(null);
+  };
+
+  const handleDelete = async (publicationId) => {
+    if (!confirm("¿Eliminar esta publicación?")) return;
+    const result = await publicationsApi.deletePublication(publicationId);
+    if (result.success) {
+      removePublication(publicationId);
+    }
+  };
+
   return (
     <div className="home-wrapper">
       <section className="banner">
         <h1>Bienvenidos a NØSEE, plataforma colaborativa.</h1>
         <p>No sabes donde es más barato, te mostramos donde no ves.</p>
-        <p>{isAuthenticated ? "Para crear una publicación, entra a Productos y pulsa Crear publicación." : "Inicia sesión para crear y votar publicaciones."}</p>
+        <p>
+          {isAuthenticated
+            ? "Para crear una publicación, entra a Productos y pulsa Crear publicación."
+            : "Inicia sesión para crear y votar publicaciones."}
+        </p>
       </section>
 
       <div className="layout">
         <div className="feed">
+          <PriceSearchFilter
+            filters={filters}
+            onFiltersChange={setFilters}
+            onClearFilters={clearFilters}
+          />
+
           {loading ? (
             <p>Cargando publicaciones...</p>
           ) : normalizedPublications.length === 0 ? (
@@ -236,18 +404,32 @@ export default function HomePage() {
                 key={pub.id}
                 pub={pub}
                 isAuthenticated={isAuthenticated}
-                onVote={handleVote}
+                currentUserId={user?.id}
+                isVoted={votedIds.has(pub.id)}
+                onValidate={handleValidate}
                 onUnvote={handleUnvote}
+                onReport={handleReport}
+                onDelete={handleDelete}
                 onOpenDetail={handleOpenDetail}
               />
             ))
           )}
         </div>
       </div>
-      <PublicationDetailModal
-        publication={detailPublication}
-        onClose={() => setDetailPublication(null)}
-      />
+
+      {detailPublication && (
+        <PublicationDetailModal
+          publication={detailPublication}
+          onClose={() => setDetailPublication(null)}
+        />
+      )}
+
+      {reportingId && (
+        <ReportModal
+          onClose={() => setReportingId(null)}
+          onSubmit={handleReportSubmit}
+        />
+      )}
     </div>
   );
 }

@@ -20,13 +20,18 @@ const EditIcon = () => (
 );
 
 const RoleBadge = ({ role }) => {
+  // Las claves coinciden con UserRoleEnum: 'Admin', 'Moderador', 'Usuario', 'Repartidor'
   const colors = {
-    admin: { bg: 'rgba(251,191,36,0.15)', color: '#FBBF24', border: 'rgba(251,191,36,0.3)' },
-    moderator: { bg: 'rgba(167,139,250,0.15)', color: '#A78BFA', border: 'rgba(167,139,250,0.3)' },
-    user: { bg: 'var(--accent-soft)', color: 'var(--accent)', border: 'rgba(56,189,248,0.3)' },
+    Admin:       { bg: 'rgba(251,191,36,0.15)',  color: '#FBBF24', border: 'rgba(251,191,36,0.3)' },
+    Moderador:   { bg: 'rgba(167,139,250,0.15)', color: '#A78BFA', border: 'rgba(167,139,250,0.3)' },
+    Repartidor:  { bg: 'rgba(52,211,153,0.15)',  color: '#34D399', border: 'rgba(52,211,153,0.3)' },
+    Usuario:     { bg: 'var(--accent-soft)',      color: 'var(--accent)', border: 'rgba(56,189,248,0.3)' },
   };
-  const c = colors[role] || colors.user;
-  const labels = { admin: 'Administrador', moderator: 'Moderador', user: 'Usuario' };
+  const labels = {
+    Admin: 'Administrador', Moderador: 'Moderador',
+    Repartidor: 'Repartidor', Usuario: 'Usuario',
+  };
+  const c = colors[role] || colors.Usuario;
 
   return (
     <span style={{
@@ -134,16 +139,16 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
               </p>
             )}
 
-            {/* Stats placeholder */}
+            {/* Stats */}
             <div style={{
               display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
               gap: '1px', marginTop: '20px',
               background: 'var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden',
             }}>
               {[
-                { label: 'Publicaciones', value: '0' },
-                { label: 'Validaciones', value: '0' },
-                { label: 'Reputación', value: '0' },
+                { label: 'Publicaciones', value: user?.publicationsCount ?? 0 },
+                { label: 'Validaciones', value: user?.validationsCount ?? 0 },
+                { label: 'Reputación', value: user?.reputationPoints ?? 0 },
               ].map(stat => (
                 <div key={stat.label} style={{
                   padding: '14px', textAlign: 'center', background: 'var(--bg-elevated)',
