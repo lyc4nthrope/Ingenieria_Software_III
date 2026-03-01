@@ -10,6 +10,23 @@
 import { supabase } from '@/services/supabase.client';
 
 const DEFAULT_RADIUS_METERS = 150;
+const STORE_TYPE_NAME_BY_KEY = {
+  physical: 'physical',
+  virtual: 'virtual',
+};
+
+let storeTypesCache = null;
+/*
+function isValidHttpsUrl(value) {
+  if (!value || typeof value !== 'string') return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+*/
 
 /**
  * Convierte POINT(lon lat) -> { latitude, longitude }.
@@ -31,6 +48,46 @@ function parsePointText(pointText) {
 function degreesToRadians(degrees) {
   return (degrees * Math.PI) / 180;
 }
+
+async function getCurrentUserId() {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) return { success: false, error: userError.message };
+
+  const userId = userData?.user?.id;
+  if (!userId) return { success: false, error: 'Usuario no autenticado' };
+
+  return { success: true, data: userId };
+}
+
+async function getStoreTypesMap() {
+  if (storeTypesCache) return { success: true, data: storeTypesCache };
+
+  const { data, error } = await supabase.from('store_types').select('id, name');
+  if (error) return { success: false, error: error.message };
+
+  const map = new Map((data || []).map((item) => [String(item.name || '').toLowerCase(), item.id]));
+  storeTypesCache = map;
+  return { success: true, data: map };
+}
+
+async function getStoreTypeId(type) {
+  const normalizedType = String(type || '').toLowerCase();
+  const typeName = STORE_TYPE_NAME_BY_KEY[normalizedType] || normalizedType;
+
+  const typesResult = await getStoreTypesMap();
+  if (!typesResult.success) return typesResult;
+
+  const id = typesResult.data.get(typeName);
+  if (!id) {
+    return {
+      success: false,
+      error: `No se encontró el tipo de tienda "${typeName}" en store_types`,
+    };
+  }
+
+  return { success: true, data: id };
+}
+
 
 /**
  * Distancia Haversine en metros.
@@ -68,17 +125,54 @@ export async function createStore(payload = {}) {
   try {
     const {
       name,
-      type,
+      type, // 1 = physical, 2 = virtual (coincide con enum en BD)
       address = null,
       latitude = null,
       longitude = null,
       websiteUrl = null,
+      evidenceUrls = [],
       distanceThresholdMeters = DEFAULT_RADIUS_METERS,
     } = payload;
 
-    const { data, error } = await supabase.rpc('create_store_with_validation', {
+    // Validaciones de cliente (mínimas)
+    if (!name || !String(name).trim()) {
+      return { success: false, error: 'El nombre de la tienda es obligatorio' };
+    }
+    // 1 = physical y 2 = virtual (coincide con enum en BD)
+    if (!['1', '2'].includes(type)) {
+      return { success: false, error: 'Tipo de tienda inválido. Usa physical o virtual' };
+    }
+
+    if (type === '1' && (latitude === null || longitude === null)) {
+      return { success: false, error: 'Para tienda física la latitud y longitud son obligatorias' };
+    }
+
+    /*
+    if (type === '2' && !isValidHttpsUrl(websiteUrl)) {
+      return { success: false, error: 'Para tienda virtual la URL debe ser https:// válida' };
+    }
+    */
+
+    if (!Array.isArray(evidenceUrls)) {
+      return { success: false, error: 'evidenceUrls debe ser un arreglo' };
+    }
+
+    if (evidenceUrls.length > 3) {
+      return { success: false, error: 'Máximo 3 imágenes de evidencia por tienda' };
+    }
+
+    if (type !== '1' && evidenceUrls.length > 0) {
+      return { success: false, error: 'Las evidencias solo aplican para tiendas físicas' };
+    }
+    /*
+    if (evidenceUrls.some((url) => !isValidHttpsUrl(url))) {
+      return { success: false, error: 'Todas las evidencias deben tener una URL https:// válida' };
+    }
+    */
+
+    const rpcResult = await supabase.rpc('create_store_with_validation', {
       p_name: name,
-      p_type: type,
+      p_store_type_id: parseInt(type),
       p_address: address,
       p_latitude: latitude,
       p_longitude: longitude,
@@ -86,13 +180,87 @@ export async function createStore(payload = {}) {
       p_distance_threshold_m: distanceThresholdMeters,
     });
 
+    const { data, error } = rpcResult;
+
+    // Compatibilidad: si el RPC no existe en BD, insertar directo en tabla stores.
+    if (error && String(error.message || '').toLowerCase().includes('create_store_with_validation')) {
+      const userResult = await getCurrentUserId();
+      if (!userResult.success) return userResult;
+
+      const typeResult = await getStoreTypeId(type);
+      if (!typeResult.success) return typeResult;
+
+      const insertPayload = {
+        name: name?.trim(),
+        created_by: userResult.data,
+        store_type_id: typeResult.data,
+        address: address?.trim() || null,
+        website_url: websiteUrl?.trim() || null,
+      };
+
+      if (Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))) {
+        const lat = Number(latitude);
+        const lon = Number(longitude);
+        insertPayload.location = `POINT(${lon} ${lat})`;
+      }
+
+      const { data: createdStore, error: insertError } = await supabase
+        .from('stores')
+        .insert(insertPayload)
+        .select('id, name, address, website_url, store_type_id, location')
+        .single();
+
+      if (insertError) return { success: false, error: insertError.message };
+
+      return {
+        success: true,
+        data: {
+          success: true,
+          store: createdStore,
+          distance_threshold_m: distanceThresholdMeters,
+        },
+      };
+    }
+
     if (error) return { success: false, error: error.message };
 
     if (!data?.success) {
       return { success: false, error: data?.error || 'No se pudo crear la tienda' };
     }
 
-    return { success: true, data };
+    const createdStoreId = data?.store_id;
+
+    // Si no hay evidencias, devolver éxito inmediatamente
+    if (!createdStoreId || evidenceUrls.length === 0) {
+      return { success: true, data };
+    }
+
+    // Adjuntar evidencias una por una (uploadStoreEvidence también valida límite y tipo)
+    const evidenceResults = [];
+
+    for (const imageUrl of evidenceUrls) {
+      const evidenceResult = await uploadStoreEvidence(createdStoreId, imageUrl);
+      if (!evidenceResult.success) {
+        return {
+          success: false,
+          error: `Tienda creada pero falló la carga de evidencias: ${evidenceResult.error}`,
+          data: {
+            ...data,
+            evidenceResults,
+          },
+        };
+      }
+
+      evidenceResults.push(evidenceResult.data);
+    }
+
+    return {
+      success: true,
+      data: {
+        ...data,
+        evidences: evidenceResults,
+      },
+    };
   } catch (err) {
     return { success: false, error: err.message || 'Error inesperado creando tienda' };
   }
@@ -110,22 +278,23 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
     if (!storeId) return { success: false, error: 'storeId es obligatorio' };
     if (!imageUrl) return { success: false, error: 'imageUrl es obligatorio' };
 
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) return { success: false, error: userError.message };
+    const userResult = await getCurrentUserId();
+    if (!userResult.success) return userResult;
+    const userId = userResult.data;
 
-    const userId = userData?.user?.id;
-    if (!userId) return { success: false, error: 'Usuario no autenticado' };
+   const storeTypeResult = await getStoreTypeId('physical');
+    if (!storeTypeResult.success) return storeTypeResult;
 
     // Verificar tipo de tienda (solo physical)
     const { data: store, error: storeError } = await supabase
       .from('stores')
-      .select('id, type')
+      .select('id, store_type_id')
       .eq('id', storeId)
       .single();
 
     if (storeError) return { success: false, error: storeError.message };
 
-    if (store?.type !== 'physical') {
+     if (store?.store_type_id !== storeTypeResult.data) {
       return { success: false, error: 'Solo las tiendas físicas permiten evidencias' };
     }
 
@@ -183,10 +352,17 @@ export async function searchNearbyStores(
 
     const { data, error } = await supabase
       .from('stores')
-      .select('id, name, type, address, website_url, location')
+      .select('id, name, store_type_id, address, website_url, location')
       .ilike('name', `%${name.trim()}%`)
       .limit(20);
 
+      const storeTypesResult = await getStoreTypesMap();
+    if (!storeTypesResult.success) return storeTypesResult;
+
+    const typeById = new Map();
+    for (const [typeName, typeId] of storeTypesResult.data.entries()) {
+      typeById.set(typeId, typeName);
+    }
     if (error) return { success: false, error: error.message };
 
     const canFilterByDistance =
@@ -206,6 +382,7 @@ export async function searchNearbyStores(
 
       return {
         ...store,
+        type: typeById.get(store.store_type_id) || null,
         latitude: point?.latitude ?? null,
         longitude: point?.longitude ?? null,
         distanceMeters,
@@ -233,18 +410,36 @@ export async function searchNearbyStores(
  */
 export async function createStoreSimple(name, type = 'physical', address = null, websiteUrl = null) {
   try {
-    const insert = { name: name.trim(), type };
+    const userResult = await getCurrentUserId();
+    if (!userResult.success) return userResult;
+
+    const typeResult = await getStoreTypeId(type);
+    if (!typeResult.success) return typeResult;
+
+    const insert = {
+      name: name.trim(),
+      created_by: userResult.data,
+      store_type_id: typeResult.data,
+    };
+
     if (type === 'physical' && address?.trim()) insert.address = address.trim();
     if (type === 'virtual' && websiteUrl?.trim()) insert.website_url = websiteUrl.trim();
 
     const { data, error } = await supabase
       .from('stores')
       .insert(insert)
-      .select('id, name, type, address')
+      .select('id, name, address, website_url, store_type_id')
       .single();
 
     if (error) return { success: false, error: error.message };
-    return { success: true, data };
+
+    return {
+      success: true,
+      data: {
+        ...data,
+        type,
+      },
+    };
   } catch (err) {
     return { success: false, error: err.message || 'Error inesperado creando tienda' };
   }
