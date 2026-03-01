@@ -46,6 +46,10 @@ function ensureLeafletLoaded() {
     };
     script.onerror = () => reject(new Error('No se pudo cargar Leaflet desde CDN.'));
     document.body.appendChild(script);
+      }).catch((error) => {
+    // Permite reintentar la carga si falló por red/CDN en un intento previo.
+    window.__leafletLoaderPromise = null;
+    throw error;
   });
 
   return window.__leafletLoaderPromise;
@@ -189,6 +193,9 @@ export default function StoreMapPicker({
         }).addTo(map);
 
         const marker = L.marker([initLat, initLon], { draggable: true }).addTo(map);
+
+                // Evita el mapa en blanco cuando el contenedor cambia de layout al montar.
+        setTimeout(() => map.invalidateSize(), 0);
 
         map.on('click', async (event) => {
           const nextLat = Number(event.latlng.lat.toFixed(6));
