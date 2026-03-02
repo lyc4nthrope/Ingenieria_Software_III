@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   useAuthStore,
   selectIsAuthenticated,
 } from "@/features/auth/store/authStore";
 
-import { usePublications } from "@/features/publications/hooks";
+import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -303,11 +303,25 @@ export default function HomePage() {
   const {
     publications,
     loading,
+    setFilters,
     validatePublication,
     unvotePublication,
     reportPublication,
     removePublication,
   } = usePublications({ limit: 12 });
+
+  const { latitude, longitude } = useGeoLocation({ autoFetch: true });
+
+  useEffect(() => {
+    if (latitude == null || longitude == null) return;
+
+    setFilters({
+      latitude,
+      longitude,
+      maxDistance: 30,
+      sortBy: "recent",
+    });
+  }, [latitude, longitude, setFilters]);
 
   const [detailPublication, setDetailPublication] = useState(null);
   const [votedIds, setVotedIds] = useState(new Set());

@@ -42,6 +42,28 @@ export const SORT_OPTIONS = {
   CHEAPEST: "cheapest",
 };
 
+const hasCoordinates = (lat, lng) =>
+  Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
+
+const parseStoreLocation = (locationText) => {
+  if (typeof locationText !== "string") return { latitude: null, longitude: null };
+
+  const pointMatch = locationText.match(
+    /POINT\s*\(\s*([-+]?\d*\.?\d+)\s+([-+]?\d*\.?\d+)\s*\)/i,
+  );
+
+  if (!pointMatch) return { latitude: null, longitude: null };
+
+  const longitude = Number(pointMatch[1]);
+  const latitude = Number(pointMatch[2]);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return { latitude: null, longitude: null };
+  }
+
+  return { latitude, longitude };
+};
+
 // ─── 1️⃣ CREAR PUBLICACIÓN ────────────────────────────────────────────────────
 
 /**
@@ -239,7 +261,7 @@ export const getPublications = async (filters = {}) => {
         product_id,
         products (id, name, category_id),
         store_id,
-        stores (id, name, address, latitude, longitude)
+        stores (id, name, address, location)
         `,
       { count: "exact" },
     );
@@ -289,9 +311,22 @@ export const getPublications = async (filters = {}) => {
 
     // Filtro por distancia usando coordenadas de la tienda asociada.
     // Mantiene reutilizable el flujo para mostrar publicaciones cercanas.
-    let filteredData = data || [];
-    if (maxDistance && latitude && longitude) {
-      filteredData = filteredData
+    const withStoreCoordinates = (data || []).map((pub) => {
+      const storeCoordinates = parseStoreLocation(pub?.stores?.location);
+      return {
+        ...pub,
+        stores: pub?.stores
+          ? {
+              ...pub.stores,
+              ...storeCoordinates,
+            }
+          : pub?.stores,
+      };
+    });
+
+    let filteredData = withStoreCoordinates;
+    if (maxDistance && hasCoordinates(latitude, longitude)) {
+      filteredData = withStoreCoordinates
         .map((pub) => {
           const storeLat = pub?.stores?.latitude;
           const storeLng = pub?.stores?.longitude;
@@ -301,8 +336,8 @@ export const getPublications = async (filters = {}) => {
           }
 
           const distanceKm = calculateDistance(
-            latitude,
-            longitude,
+            Number(latitude),
+            Number(longitude),
             Number(storeLat),
             Number(storeLng),
           );
@@ -698,7 +733,7 @@ export const searchStores = async (
 
     const { data, error } = await supabase
       .from("stores")
-      .select("id, name, address, latitude, longitude")
+      .select("id, name, address, location")
       .ilike("name", `%${query}%`)
       .limit(limit);
 
@@ -708,12 +743,17 @@ export const searchStores = async (
     }
 
     // Filtro por distancia (client-side)
-    let filtered = data;
-    if (maxDistance && latitude && longitude) {
-      filtered = data.filter((store) => {
+    const storesWithCoordinates = (data || []).map((store) => ({
+      ...store,
+      ...parseStoreLocation(store.location),
+    }));
+
+    let filtered = storesWithCoordinates;
+    if (maxDistance && hasCoordinates(latitude, longitude)) {
+      filtered = storesWithCoordinates.filter((store) => {
         const distance = calculateDistance(
-          latitude,
-          longitude,
+          Number(latitude),
+          Number(longitude),
           store.latitude,
           store.longitude,
         );
