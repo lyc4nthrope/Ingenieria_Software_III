@@ -187,7 +187,6 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
 
     const userResult = await getCurrentUserId();
     if (!userResult.success) return userResult;
-    const userId = userResult.data;
 
     // Verificar tipo de tienda (solo física = 1)
     const { data: store, error: storeError } = await supabase
@@ -220,29 +219,17 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
       };
     }
 
-    // Compatibilidad con distintos nombres de columnas en BD.
-    // Algunos entornos usan `image_url`/`uploaded_by` y otros
-    // `evidence_url`/`created_by`. Probamos combinaciones válidas.
+    // Compatibilidad con nombres de URL distintos en BD.
+    // No enviamos columnas de autor (`created_by`/`uploaded_by`) porque
+    // varían entre entornos y pueden romper el insert con 42703.
     const candidatePayloads = [
       {
         store_id: storeId,
         image_url: imageUrl,
-        uploaded_by: userId,
-      },
-      {
-        store_id: storeId,
-        image_url: imageUrl,
-        created_by: userId,
       },
       {
         store_id: storeId,
         evidence_url: imageUrl,
-        uploaded_by: userId,
-      },
-      {
-        store_id: storeId,
-        evidence_url: imageUrl,
-        created_by: userId,
       },
     ];
 
