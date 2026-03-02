@@ -220,18 +220,70 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
       };
     }
 
-    const { data, error } = await supabase
-      .from("store_evidences")
-      .insert({
+    // Compatibilidad con distintos nombres de columnas en BD.
+    // Algunos entornos usan `image_url`/`uploaded_by` y otros
+    // `evidence_url`/`created_by`. Probamos combinaciones válidas.
+    const candidatePayloads = [
+      {
         store_id: storeId,
         image_url: imageUrl,
         uploaded_by: userId,
-      })
-      .select()
-      .single();
-    if (error) return { success: false, error: error.message };
+      },
+      {
+        store_id: storeId,
+        image_url: imageUrl,
+        created_by: userId,
+      },
+      {
+        store_id: storeId,
+        evidence_url: imageUrl,
+        uploaded_by: userId,
+      },
+      {
+        store_id: storeId,
+        evidence_url: imageUrl,
+        created_by: userId,
+      },
+    ];
 
-    return { success: true, data };
+    let insertedData = null;
+    let lastError = null;
+
+    for (const insertPayload of candidatePayloads) {
+      const { data, error } = await supabase
+        .from("store_evidences")
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (!error) {
+        insertedData = data;
+        lastError = null;
+        break;
+      }
+
+      lastError = error;
+
+      // Si no es error de columna inexistente, no tiene sentido reintentar.
+      const isMissingColumnError =
+        error?.code === "42703" ||
+        String(error?.message || "")
+          .toLowerCase()
+          .includes("column");
+
+      if (!isMissingColumnError) {
+        break;
+      }
+    }
+
+    if (!insertedData) {
+      return {
+        success: false,
+        error: lastError?.message || "No se pudo guardar la evidencia",
+      };
+    }
+
+    return { success: true, data: insertedData };
   } catch (err) {
     return {
       success: false,
@@ -300,8 +352,12 @@ export async function searchNearbyStores(
       };
     });
 
-const filtered = shouldFilterByDistance
-      ? mapped.filter((store) => store.distanceMeters === null || store.distanceMeters <= Number(radiusMeters))
+    const filtered = shouldFilterByDistance
+      ? mapped.filter(
+          (store) =>
+            store.distanceMeters === null ||
+            store.distanceMeters <= Number(radiusMeters),
+        )
       : mapped;
 
     return { success: true, data: filtered };
