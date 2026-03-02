@@ -152,20 +152,18 @@ export const createPublication = async (data) => {
     }
 
     // Crear la publicación
+    const payload = {
+      product_id: data.productId,
+      store_id: data.storeId,
+      user_id: user.id,
+      price: data.price,
+      photo_url: data.photoUrl,
+      description: data.description || "No hay descripción",
+    };
+
     const { data: publication, error } = await supabase
       .from("price_publications")
-      .insert({
-        product_id: data.productId,
-        store_id: data.storeId,
-        user_id: user.id,
-        price: data.price,
-        currency: data.currency || "COP",
-        photo_url: data.photoUrl,
-        description: data.description || "",
-        latitude: data.latitude,
-        longitude: data.longitude,
-        status: "pending",
-      })
+      .insert(payload)
       .select()
       .single();
 
@@ -231,21 +229,17 @@ export const getPublications = async (filters = {}) => {
       `
         id,
         price,
-        currency,
         photo_url,
         description,
-        status,
+        confidence_score,
+        is_active,
         created_at,
-        latitude,
-        longitude,
-        validated_count,
-        reported_count,
         user_id,
         users!price_publications_user_id_fkey (full_name, reputation_points),
         product_id,
         products (id, name, category_id),
         store_id,
-        stores (id, name, address)
+        stores (id, name, address, latitude, longitude)
         `,
       { count: "exact" },
     );
@@ -274,7 +268,7 @@ export const getPublications = async (filters = {}) => {
         query = query.order("price", { ascending: true });
         break;
       case "validated":
-        query = query.order("validated_count", { ascending: false });
+        query = query.order("confidence_score", { ascending: false });
         break;
       case "recent":
       default:
@@ -293,18 +287,29 @@ export const getPublications = async (filters = {}) => {
       return { success: false, error: error.message };
     }
 
-    // Filtro por distancia (client-side con PostGIS sería mejor)
-    let filteredData = data;
+    // Filtro por distancia usando coordenadas de la tienda asociada.
+    // Mantiene reutilizable el flujo para mostrar publicaciones cercanas.
+    let filteredData = data || [];
     if (maxDistance && latitude && longitude) {
-      filteredData = data.filter((pub) => {
-        const distance = calculateDistance(
-          latitude,
-          longitude,
-          pub.latitude,
-          pub.longitude,
-        );
-        return distance <= maxDistance;
-      });
+      filteredData = filteredData
+        .map((pub) => {
+          const storeLat = pub?.stores?.latitude;
+          const storeLng = pub?.stores?.longitude;
+
+          if (storeLat == null || storeLng == null) {
+            return { ...pub, distance_km: null };
+          }
+
+          const distanceKm = calculateDistance(
+            latitude,
+            longitude,
+            Number(storeLat),
+            Number(storeLng),
+          );
+
+          return { ...pub, distance_km: distanceKm };
+        })
+        .filter((pub) => pub.distance_km !== null && pub.distance_km <= maxDistance);
     }
 
     return {
@@ -628,7 +633,7 @@ export const getProducts = async (limit = 100) => {
   try {
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, category_id")
+      .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
       .order("name", { ascending: true })
       .limit(limit);
 
@@ -878,7 +883,12 @@ export const _calculateDistance = calculateDistance;
  * @param {string} name - Nombre del producto
  */
 export async function createProduct(name) {
-  const normalizedName = String(name || "").trim();
+  const normalizedName = String(name?.name || name || "").trim();
+  const categoryId = Number(name?.categoryId);
+  const unitTypeId = Number(name?.unitTypeId);
+  const brandId = Number(name?.brandId);
+  const brandName = String(name?.brandName || "").trim();
+  const baseQuantity = Number(name?.baseQuantity);
   if (!normalizedName || normalizedName.length < 2) {
     return {
       success: false,
@@ -886,9 +896,17 @@ export async function createProduct(name) {
     };
   }
 
+  if (!categoryId || !unitTypeId || !baseQuantity || baseQuantity <= 0) {
+    return {
+      success: false,
+      error:
+        "Debes indicar categoría, unidad de medida y cantidad base válida",
+    };
+  }
+
   const { data: existingProduct, error: existingError } = await supabase
     .from("products")
-    .select("id, name, category_id")
+    .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
     .ilike("name", normalizedName)
     .limit(1)
     .maybeSingle();
@@ -902,9 +920,41 @@ export async function createProduct(name) {
     return { success: true, data: existingProduct };
   }
 
+  let resolvedBrandId = brandId;
+  if (!resolvedBrandId && brandName) {
+    const { data: existingBrand, error: existingBrandError } = await supabase
+      .from("brands")
+      .select("id")
+      .ilike("name", brandName)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingBrandError) {
+      return { success: false, error: existingBrandError.message };
+    }
+
+    if (existingBrand) {
+      resolvedBrandId = existingBrand.id;
+    }
+  }
+
+  if (!resolvedBrandId) {
+    return {
+      success: false,
+      error: "Selecciona o registra una marca antes de crear el producto",
+    };
+  }
+
   const { data, error } = await supabase
     .from("products")
-    .insert({ name: normalizedName })
+    .insert({
+      name: normalizedName,
+      category_id: categoryId,
+      unit_type_id: unitTypeId,
+      brand_id: brandId,
+      base_quantity: baseQuantity,
+    })
+    .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
     .select("id, name, category_id")
     .single();
 
@@ -912,7 +962,7 @@ export async function createProduct(name) {
     if (error.code === "23505") {
       const { data: duplicateProduct } = await supabase
         .from("products")
-        .select("id, name, category_id")
+        .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
         .ilike("name", normalizedName)
         .limit(1)
         .maybeSingle();
@@ -927,6 +977,86 @@ export async function createProduct(name) {
 
   return { success: true, data };
 }
+
+export const createBrand = async (name) => {
+  const normalizedName = String(name || "").trim();
+  if (!normalizedName || normalizedName.length < 2) {
+    return {
+      success: false,
+      error: "El nombre de la marca debe tener al menos 2 caracteres",
+    };
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("brands")
+    .select("id, name")
+    .ilike("name", normalizedName)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    return { success: false, error: existingError.message };
+  }
+
+  if (existing) {
+    return { success: true, data: existing };
+  }
+
+  const { data, error } = await supabase
+    .from("brands")
+    .insert({ name: normalizedName })
+    .select("id, name")
+    .single();
+
+  if (error) {
+    if (error.code === "42501") {
+      return {
+        success: false,
+        error:
+          "No tienes permiso para registrar marcas. Solicita habilitar la política RLS de inserción en brands.",
+      };
+    }
+    return { success: false, error: error.message };
+  }
+
+  return { success: true, data };
+};
+
+export const getProductCategories = async () => {
+  const { data, error } = await supabase
+    .from("product_categories")
+    .select("id, name")
+    .order("name", { ascending: true });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data || [] };
+};
+
+export const getUnitTypes = async () => {
+  const { data, error } = await supabase
+    .from("unit_types")
+    .select("id, name, abbreviation, category")
+    .order("category", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data || [] };
+};
+
+export const searchBrands = async (query, limit = 10) => {
+  if (!query || query.length < 1) return { success: true, data: [] };
+
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id, name")
+    .ilike("name", `%${query}%`)
+    .order("name", { ascending: true })
+    .limit(limit);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data || [] };
+};
+
 
 // ─── EXPORTAR TODO ────────────────────────────────────────────────────────────
 
@@ -943,6 +1073,10 @@ export default {
   getProducts,
   searchStores,
   getStores,
+  getProductCategories,
+  getUnitTypes,
+  searchBrands,
+  createBrand,
   updatePublication,
   deletePublication,
   PUBLICATION_STATUS,

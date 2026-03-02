@@ -13,6 +13,7 @@ import { useState, useEffect, useRef } from "react";
 import { usePublications, useGeoLocation } from "@/features/publications/hooks";
 import PhotoUploader from "./PhotoUploader";
 import StoreCreateModal from "@/features/stores/components/StoreCreateModal";
+import ProductQuickCreateModal from "./ProductQuickCreateModal";
 import * as publicationsApi from "@/services/api/publications.api";
 import * as storesApi from "@/services/api/stores.api";
 
@@ -39,7 +40,7 @@ export function PublicationForm({ onSuccess }) {
   const [productResults, setProductResults] = useState([]);
   const [productSearching, setProductSearching] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
-  const [creatingProduct, setCreatingProduct] = useState(false);
+  const [showProductModal, setShowProductModal] = useState(false);
   const productTimerRef = useRef(null);
   const productWrapperRef = useRef(null);
 
@@ -106,15 +107,14 @@ export function PublicationForm({ onSuccess }) {
   };
 
   const handleCreateProduct = async () => {
-    if (!productQuery.trim() || creatingProduct) return;
-    setCreatingProduct(true);
-    const result = await publicationsApi.createProduct(productQuery.trim());
-    setCreatingProduct(false);
-    if (result.success) {
-      handleProductSelect(result.data);
-    } else {
-      setErrors((prev) => ({ ...prev, productId: result.error }));
-    }
+    if (!productQuery.trim()) return;
+    setShowProductDropdown(false);
+    setShowProductModal(true);
+  };
+
+  const handleProductCreated = (product) => {
+    handleProductSelect(product);
+    setShowProductModal(false);
   };
 
   const hasExactProductMatch = productResults.some(
@@ -203,13 +203,10 @@ export function PublicationForm({ onSuccess }) {
     try {
       const result = await publicationsApi.createPublication({
         productId: Number(formData.productId),
-        storeId: Number(formData.storeId),
+        storeId: formData.storeId,
         price: Number(formData.price),
-        currency: formData.currency,
         photoUrl: formData.photoUrl,
         description: formData.description,
-        latitude,
-        longitude,
       });
 
       if (result.success) {
@@ -302,9 +299,7 @@ export function PublicationForm({ onSuccess }) {
                       }}
                       onMouseDown={handleCreateProduct}
                     >
-                      {creatingProduct
-                        ? "Creando..."
-                        : `+ Crear "${productQuery.trim()}"`}
+                     {`+ Crear "${productQuery.trim()}"`}
                     </div>
                   )}
               </div>
@@ -427,6 +422,7 @@ export function PublicationForm({ onSuccess }) {
               value={formData.currency}
               onChange={(e) => handleInputChange("currency", e.target.value)}
               style={styles.select}
+              disabled
             >
               <option value="COP">COP (Pesos)</option>
               <option value="USD">USD (Dólares)</option>
@@ -488,6 +484,13 @@ export function PublicationForm({ onSuccess }) {
           initialName={storeQuery.trim()}
           onSuccess={handleStoreCreated}
           onClose={() => setShowStoreModal(false)}
+        />
+      )}
+      {showProductModal && (
+        <ProductQuickCreateModal
+          initialName={productQuery.trim()}
+          onSuccess={handleProductCreated}
+          onClose={() => setShowProductModal(false)}
         />
       )}
     </div>
