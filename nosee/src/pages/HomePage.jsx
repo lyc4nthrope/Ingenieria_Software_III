@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   useAuthStore,
@@ -315,34 +315,43 @@ export default function HomePage() {
   const [detailPublication, setDetailPublication] = useState(null);
   const [votedIds, setVotedIds] = useState(new Set());
   const [reportingId, setReportingId] = useState(null);
-  const initializedRef = useRef(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [lastLocationCoords, setLastLocationCoords] = useState(null);
 
+  // Initialize filters on mount - load recent publications regardless of location
   useEffect(() => {
-    // Evitar inicialización múltiple
-    if (initializedRef.current) return;
+    if (hasInitialized) return;
+    setHasInitialized(true);
 
-    if (latitude == null || longitude == null) {
-      // Reset filters when no location available
-      setFilters({
-        latitude: null,
-        longitude: null,
-        maxDistance: null,
-        sortBy: "recent",
-      });
-      return;
-    }
-
-    // Marcar como inicializado para evitar re-ejecución
-    initializedRef.current = true;
-
-    // Apply nearby filter only once when location is available
+    // Load with location if available, otherwise just load recent publications
     setFilters({
-      latitude,
-      longitude,
-      maxDistance: 30,
+      latitude: latitude || null,
+      longitude: longitude || null,
+      maxDistance: latitude && longitude ? 30 : null,
       sortBy: "recent",
     });
-  }, [latitude, longitude, setFilters]);
+  }, []);
+
+  // Update filters only if location becomes available AND changed significantly
+  useEffect(() => {
+    if (!hasInitialized) return;
+
+    const coordsKey = latitude && longitude ? `${latitude},${longitude}` : 'no-location';
+    if (lastLocationCoords === coordsKey) return; // No change
+
+    setLastLocationCoords(coordsKey);
+
+    // If we got location, update to search nearby
+    if (latitude && longitude) {
+      setFilters({
+        latitude,
+        longitude,
+        maxDistance: 30,
+        sortBy: "recent",
+      });
+    }
+    // If location was lost but we're still initialized, keep showing recent publications
+  }, [latitude, longitude, hasInitialized, lastLocationCoords, setFilters]);
 
   const normalizedPublications = useMemo(
     () =>
