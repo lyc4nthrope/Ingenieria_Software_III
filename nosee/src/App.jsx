@@ -23,7 +23,7 @@
  * └─────────────────────────┴──────────────────────────┴───────────┘
  *
  */
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import {
@@ -34,25 +34,26 @@ import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { PageLoader } from "@/components/ui/Spinner";
 
-import LoginPage from "@/features/auth/pages/LoginPage";
-import RegisterPage from "@/features/auth/pages/RegisterPage";
-import CallbackPage from "@/features/auth/pages/CallbackPage";
-import ForgotPasswordPage from "@/features/auth/pages/ForgotPasswordPage";
-import NewPasswordPage from "@/features/auth/pages/NewPasswordPage";
+// ── Carga eager: solo lo imprescindible para el primer render ──────────────
 import HomePage from "@/pages/HomePage";
-import ProfilePage from "@/features/auth/pages/ProfilePage";
 
-// FIX 1: nombres de import alineados con los nombres reales de cada archivo
-import RoleRouter from "@/router/RoleRouter";
-import UserDashboard from "@/features/dashboard/user/UserDashboard";
-import AdminDashboard from "@/features/dashboard/admin/AdminDashboard";
-import ModeratorDashboard from "@/features/dashboard/moderator/ModeratorDashboard";
-import DealerDashboard from "@/features/dashboard/dealer/DealerDashboard";
+// ── Carga diferida: el resto de páginas se separan en chunks propios ───────
+const LoginPage            = lazy(() => import("@/features/auth/pages/LoginPage"));
+const RegisterPage         = lazy(() => import("@/features/auth/pages/RegisterPage"));
+const CallbackPage         = lazy(() => import("@/features/auth/pages/CallbackPage"));
+const ForgotPasswordPage   = lazy(() => import("@/features/auth/pages/ForgotPasswordPage"));
+const NewPasswordPage      = lazy(() => import("@/features/auth/pages/NewPasswordPage"));
+const ProfilePage          = lazy(() => import("@/features/auth/pages/ProfilePage"));
 
-// Importar páginas de publicaciones
-import PublicationsPage from "@/features/publications/pages/PublicationsPage";
-import CreatePublicationPage from "@/features/publications/pages/CreatePublicationPage";
-import CreateStorePage from "@/features/stores/pages/CreateStorePage";
+const RoleRouter           = lazy(() => import("@/router/RoleRouter"));
+const UserDashboard        = lazy(() => import("@/features/dashboard/user/UserDashboard"));
+const AdminDashboard       = lazy(() => import("@/features/dashboard/admin/AdminDashboard"));
+const ModeratorDashboard   = lazy(() => import("@/features/dashboard/moderator/ModeratorDashboard"));
+const DealerDashboard      = lazy(() => import("@/features/dashboard/dealer/DealerDashboard"));
+
+const PublicationsPage     = lazy(() => import("@/features/publications/pages/PublicationsPage"));
+const CreatePublicationPage = lazy(() => import("@/features/publications/pages/CreatePublicationPage"));
+const CreateStorePage      = lazy(() => import("@/features/stores/pages/CreateStorePage"));
 
 function NotFoundPage() {
   return (
@@ -112,6 +113,7 @@ function AppContent() {
   }
 
   return (
+    <Suspense fallback={<PageLoader message="Cargando..." />}>
     <Routes>
       {/* ── Rutas públicas ───────────────────────────────────── */}
       <Route path="/login" element={<LoginPage />} />
@@ -221,6 +223,7 @@ function AppContent() {
       */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+    </Suspense>
   );
 }
 
