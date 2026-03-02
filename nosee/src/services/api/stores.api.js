@@ -219,54 +219,22 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
       };
     }
 
-    // Compatibilidad con nombres de URL distintos en BD.
-    // No enviamos columnas de autor (`created_by`/`uploaded_by`) porque
-    // varían entre entornos y pueden romper el insert con 42703.
-    const candidatePayloads = [
-      {
-        store_id: storeId,
-        image_url: imageUrl,
-      },
-      {
-        store_id: storeId,
-        evidence_url: imageUrl,
-      },
-    ];
+    const insertPayload = {
+      store_id: storeId,
+      image_url: imageUrl,
+      uploaded_by: userResult.data,
+    };
 
-    let insertedData = null;
-    let lastError = null;
+    const { data: insertedData, error: insertError } = await supabase
+      .from("store_evidences")
+      .insert(insertPayload)
+      .select()
+      .single();
 
-    for (const insertPayload of candidatePayloads) {
-      const { data, error } = await supabase
-        .from("store_evidences")
-        .insert(insertPayload)
-        .select()
-        .single();
-
-      if (!error) {
-        insertedData = data;
-        lastError = null;
-        break;
-      }
-
-      lastError = error;
-
-      // Si no es error de columna inexistente, no tiene sentido reintentar.
-      const isMissingColumnError =
-        error?.code === "42703" ||
-        String(error?.message || "")
-          .toLowerCase()
-          .includes("column");
-
-      if (!isMissingColumnError) {
-        break;
-      }
-    }
-
-    if (!insertedData) {
+    if (insertError || !insertedData) {
       return {
         success: false,
-        error: lastError?.message || "No se pudo guardar la evidencia",
+        error: insertError?.message || "No se pudo guardar la evidencia",
       };
     }
 
