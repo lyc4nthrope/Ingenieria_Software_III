@@ -35,6 +35,8 @@ export function mapDBUserToUI(data) {
     roleId: data.role_id,
     role: data.roles?.name ?? "Usuario",
     reputationPoints: data.reputation_points ?? 0,
+    publicationsCount: data.publicationsCount ?? 0,
+    validationsCount: data.validationsCount ?? 0,
     isVerified: data.is_verified ?? false,
     isActive: data.is_active ?? true,
     avatarUrl: data.avatar_url ?? "",
@@ -70,9 +72,29 @@ export async function getUserProfile(userId) {
 
   const email = await getAuthEmail();
 
+  // Contar publicaciones del usuario
+  const { data: userPubs } = await supabase
+    .from("price_publications")
+    .select("id")
+    .eq("user_id", userId);
+
+  const publicationsCount = userPubs?.length ?? 0;
+
+  // Contar validaciones recibidas (upvotes sobre las publicaciones del usuario)
+  let validationsCount = 0;
+  if (publicationsCount > 0) {
+    const pubIds = userPubs.map((p) => p.id);
+    const { count } = await supabase
+      .from("publication_votes")
+      .select("*", { count: "exact", head: true })
+      .in("publication_id", pubIds)
+      .eq("vote_type", 1);
+    validationsCount = count ?? 0;
+  }
+
   return {
     success: true,
-    data: mapDBUserToUI({ ...profile, email }),
+    data: mapDBUserToUI({ ...profile, email, publicationsCount, validationsCount }),
   };
 }
 

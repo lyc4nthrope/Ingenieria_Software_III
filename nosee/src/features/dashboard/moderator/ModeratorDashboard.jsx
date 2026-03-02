@@ -7,8 +7,23 @@
  *
  * UBICACIÓN: src/features/dashboard/moderador/ModeradorDashboard.jsx
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { supabase } from '@/services/supabase.client';
+
+const REPORT_TYPE_LABELS = {
+  fake_price:  'Precio falso',
+  wrong_photo: 'Foto incorrecta',
+  spam:        'Spam',
+  offensive:   'Contenido ofensivo',
+};
+
+const REPORT_SEVERITY = {
+  offensive:   'alta',
+  spam:        'media',
+  fake_price:  'media',
+  wrong_photo: 'baja',
+};
 
 const SEVERITY_COLORS = {
   alta:  { bg: '#F8717118', text: '#F87171' },
@@ -21,10 +36,85 @@ export default function ModeradorDashboard() {
   const logout = useAuthStore((s) => s.logout);
 
   const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('reportes');
   const [resolved, setResolved] = useState([]);
 
-  const handleResolve = (id, action) => {
+  useEffect(() => { fetchReports(); }, []);
+
+  const fetchReports = async () => {
+    setLoading(true);
+
+    // 1. Reportes pendientes
+    const { data: rawReports, error } = await supabase
+      .from('price_reports')
+      .select('id, report_type, description, created_at, publication_id, reporter_id')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error || !rawReports?.length) {
+      setLoading(false);
+      return;
+    }
+
+    // 2. Detalles de las publicaciones reportadas (producto + autor)
+    const pubIds = [...new Set(rawReports.map((r) => r.publication_id).filter(Boolean))];
+    const { data: publications } = await supabase
+      .from('price_publications')
+      .select('id, user_id, products(name), author:users!price_publications_user_id_fkey(full_name)')
+      .in('id', pubIds);
+
+    // 3. Nombres de los reportadores
+    const reporterIds = [...new Set(rawReports.map((r) => r.reporter_id).filter(Boolean))];
+    const { data: reporters } = await supabase
+      .from('users')
+      .select('id, full_name')
+      .in('id', reporterIds);
+
+    const pubMap      = Object.fromEntries((publications || []).map((p) => [p.id, p]));
+    const reporterMap = Object.fromEntries((reporters    || []).map((u) => [u.id, u]));
+
+    const mapped = rawReports.map((r) => {
+      const pub      = pubMap[r.publication_id];
+      const reporter = reporterMap[r.reporter_id];
+      return {
+        id:             r.id,
+        type:           REPORT_TYPE_LABELS[r.report_type] || r.report_type,
+        severity:       REPORT_SEVERITY[r.report_type]    || 'baja',
+        time:           new Date(r.created_at).toLocaleDateString('es-CO'),
+        post:           pub?.products?.name               || 'Publicación eliminada',
+        reporter:       reporter?.full_name               || 'Anónimo',
+        reported:       pub?.author?.full_name            || 'Desconocido',
+        publicationId:  r.publication_id,
+        reportedUserId: pub?.user_id,
+      };
+    });
+
+    setReports(mapped);
+    setLoading(false);
+  };
+
+  const handleResolve = async (id, action, report) => {
+    // Marcar el reporte como resuelto
+    await supabase
+      .from('price_reports')
+      .update({ status: 'resolved' })
+      .eq('id', id);
+
+    if (action === 'eliminado' && report.publicationId) {
+      await supabase
+        .from('price_publications')
+        .delete()
+        .eq('id', report.publicationId);
+    }
+
+    if (action === 'baneado' && report.reportedUserId) {
+      await supabase
+        .from('users')
+        .update({ is_active: false })
+        .eq('id', report.reportedUserId);
+    }
+
     setResolved((prev) => [...prev, { id, action }]);
     setReports((prev) => prev.filter((r) => r.id !== id));
   };
@@ -90,7 +180,12 @@ export default function ModeradorDashboard() {
               </div>
             </header>
 
-            {reports.length === 0 ? (
+            {loading ? (
+              <div style={st.emptyState}>
+                <span style={{ fontSize: 32 }}>⟳</span>
+                <p style={{ color: MUTED, marginTop: 8 }}>Cargando reportes...</p>
+              </div>
+            ) : reports.length === 0 ? (
               <EmptyState />
             ) : (
               <div style={st.reportList}>
@@ -160,19 +255,19 @@ function ReportCard({ report, onResolve }) {
       <div style={st.reportActions}>
         <button
           style={st.btnDelete}
-          onClick={() => onResolve(report.id, 'eliminado')}
+          onClick={() => onResolve(report.id, 'eliminado', report)}
         >
           🗑 Eliminar publicación
         </button>
         <button
           style={st.btnBan}
-          onClick={() => onResolve(report.id, 'baneado')}
+          onClick={() => onResolve(report.id, 'baneado', report)}
         >
           ⊗ Banear usuario
         </button>
         <button
           style={st.btnDismiss}
-          onClick={() => onResolve(report.id, 'descartado')}
+          onClick={() => onResolve(report.id, 'descartado', report)}
         >
           ↩ Descartar
         </button>

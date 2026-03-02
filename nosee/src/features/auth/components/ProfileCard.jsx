@@ -4,6 +4,7 @@
 import { useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { PhotoUploader } from "@/features/publications/components/PhotoUploader";
 
 const UserIcon = () => (
   <svg
@@ -342,16 +343,25 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
               disabled={loading}
             />
 
-            <Input
-              label="URL del avatar"
-              id="profile-avatar-url"
-              name="avatarUrl"
-              type="url"
-              value={form.avatarUrl}
-              onChange={handleChange}
-              placeholder="https://..."
-              disabled={loading}
-            />
+            <div>
+              <p style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-primary)", marginBottom: "8px" }}>
+                Foto de perfil
+              </p>
+              {form.avatarUrl && (
+                <div style={{ marginBottom: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
+                  <img
+                    src={form.avatarUrl}
+                    alt="Avatar actual"
+                    style={{ width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover", border: "2px solid var(--border)" }}
+                  />
+                  <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Avatar actual</span>
+                </div>
+              )}
+              <PhotoUploader
+                onUpload={(url) => setForm((prev) => ({ ...prev, avatarUrl: url }))}
+                disabled={loading}
+              />
+            </div>
 
             <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
               Email:{" "}

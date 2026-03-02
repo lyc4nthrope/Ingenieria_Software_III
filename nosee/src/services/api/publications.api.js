@@ -119,7 +119,7 @@ export const createPublication = async (data) => {
       };
     }
 
-    if (!profileVerified || !authEmailConfirmed) {
+    if (!profileVerified && !authEmailConfirmed) {
       return {
         success: false,
         error: "Debes verificar tu email para publicar",
