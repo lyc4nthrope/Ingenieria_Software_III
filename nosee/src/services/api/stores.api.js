@@ -232,9 +232,16 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
       .single();
 
     if (insertError || !insertedData) {
+      const rawMessage = String(insertError?.message || "");
+      const isTypeColumnSchemaMismatch =
+        insertError?.code === "42703" &&
+        rawMessage.toLowerCase().includes('column "type" does not exist');
+
       return {
         success: false,
-        error: insertError?.message || "No se pudo guardar la evidencia",
+        error: isTypeColumnSchemaMismatch
+          ? "No se pudo guardar la evidencia: la función/trigger de base de datos está desactualizada y usa la columna type en stores."
+          : insertError?.message || "No se pudo guardar la evidencia",
       };
     }
 
