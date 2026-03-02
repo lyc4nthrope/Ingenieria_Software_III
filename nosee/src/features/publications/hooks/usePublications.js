@@ -19,7 +19,7 @@
  * - react (useState, useEffect, useCallback)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import * as publicationsApi from '@/services/api/publications.api';
 
 /**
@@ -63,6 +63,8 @@ export const usePublications = (initialFilters = {}) => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+   const isMountedRef = useRef(true);
+  const activeRequestIdRef = useRef(0);
 
   // Filtros
   const [filters, setFilters] = useState({
@@ -78,6 +80,13 @@ export const usePublications = (initialFilters = {}) => {
     ...initialFilters,
   });
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // ─── Cargar publicaciones ──────────────────────────────────────────────────
 
   /**
@@ -86,9 +95,13 @@ export const usePublications = (initialFilters = {}) => {
    */
   const fetchPublications = useCallback(
     async (currentPage = 1) => {
+      const requestId = activeRequestIdRef.current + 1;
+      activeRequestIdRef.current = requestId;
       try {
-        setLoading(true);
-        setError(null);
+        if (isMountedRef.current) {
+          setLoading(true);
+          setError(null);
+        }
 
         // Agregar página a los filtros
         const queryFilters = {
@@ -98,6 +111,10 @@ export const usePublications = (initialFilters = {}) => {
 
         // Llamar a API
         const result = await publicationsApi.getPublications(queryFilters);
+
+        if (!isMountedRef.current || requestId !== activeRequestIdRef.current) {
+          return;
+        }
 
         if (result.success) {
           // Si es primera página, reemplazar todo; sino, agregar
@@ -112,12 +129,24 @@ export const usePublications = (initialFilters = {}) => {
           setPage(currentPage);
         } else {
           setError(result.error || 'Error cargando publicaciones');
+          if (currentPage === 1) {
+            setPublications([]);
+            setHasMore(false);
+            setTotalCount(0);
+          }
         }
       } catch (err) {
         console.error('Error en fetchPublications:', err);
+
+        if (!isMountedRef.current || requestId !== activeRequestIdRef.current) {
+          return;
+        }
+
         setError('Error inesperado al cargar publicaciones');
       } finally {
-        setLoading(false);
+        if (isMountedRef.current && requestId === activeRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [filters]
