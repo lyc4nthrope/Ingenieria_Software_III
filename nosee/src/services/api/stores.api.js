@@ -187,12 +187,11 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
 
     const userResult = await getCurrentUserId();
     if (!userResult.success) return userResult;
-    const userId = userResult.data;
 
     // Verificar tipo de tienda (solo física = 1)
     const { data: store, error: storeError } = await supabase
       .from("stores")
-      .select("id, store_type_id")
+      .select("id, store_type_id, created_by")
       .eq("id", storeId)
       .single();
 
@@ -202,6 +201,14 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
       return {
         success: false,
         error: "Solo las tiendas físicas permiten evidencias",
+      };
+    }
+
+
+    if (store?.created_by !== userResult.data) {
+      return {
+        success: false,
+        error: "Solo el creador de la tienda puede subir evidencias",
       };
     }
 
@@ -220,18 +227,33 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
       };
     }
 
-    const { data, error } = await supabase
+    const insertPayload = {
+      store_id: storeId,
+      image_url: imageUrl,
+      uploaded_by: userResult.data,
+    };
+
+    const { data: insertedData, error: insertError } = await supabase
       .from("store_evidences")
-      .insert({
-        store_id: storeId,
-        image_url: imageUrl,
-        uploaded_by: userId,
-      })
+      .insert(insertPayload)
       .select()
       .single();
-    if (error) return { success: false, error: error.message };
 
-    return { success: true, data };
+    if (insertError || !insertedData) {
+      const rawMessage = String(insertError?.message || "");
+      const isTypeColumnSchemaMismatch =
+        insertError?.code === "42703" &&
+        rawMessage.toLowerCase().includes('column "type" does not exist');
+
+      return {
+        success: false,
+        error: isTypeColumnSchemaMismatch
+          ? "No se pudo guardar la evidencia: la función/trigger de base de datos está desactualizada y usa la columna type en stores."
+          : insertError?.message || "No se pudo guardar la evidencia",
+      };
+    }
+
+    return { success: true, data: insertedData };
   } catch (err) {
     return {
       success: false,
@@ -300,8 +322,12 @@ export async function searchNearbyStores(
       };
     });
 
-const filtered = shouldFilterByDistance
-      ? mapped.filter((store) => store.distanceMeters === null || store.distanceMeters <= Number(radiusMeters))
+    const filtered = shouldFilterByDistance
+      ? mapped.filter(
+          (store) =>
+            store.distanceMeters === null ||
+            store.distanceMeters <= Number(radiusMeters),
+        )
       : mapped;
 
     return { success: true, data: filtered };
