@@ -45,10 +45,25 @@ export const SORT_OPTIONS = {
 const hasCoordinates = (lat, lng) =>
   Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
 
-const parseStoreLocation = (locationText) => {
-  if (typeof locationText !== "string") return { latitude: null, longitude: null };
+const parseStoreLocation = (locationValue) => {
+  if (!locationValue) return { latitude: null, longitude: null };
 
-  const pointMatch = locationText.match(
+  if (
+    typeof locationValue === "object" &&
+    Array.isArray(locationValue.coordinates) &&
+    locationValue.coordinates.length >= 2
+  ) {
+    const [longitude, latitude] = locationValue.coordinates;
+    if (Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))) {
+      return { latitude: Number(latitude), longitude: Number(longitude) };
+    }
+  }
+
+  if (typeof locationValue !== "string") {
+    return { latitude: null, longitude: null };
+  }
+
+  const pointMatch = locationValue.match(
     /POINT\s*\(\s*([-+]?\d*\.?\d+)\s+([-+]?\d*\.?\d+)\s*\)/i,
   );
 
@@ -63,6 +78,7 @@ const parseStoreLocation = (locationText) => {
 
   return { latitude, longitude };
 };
+
 
 // ─── 1️⃣ CREAR PUBLICACIÓN ────────────────────────────────────────────────────
 
@@ -271,11 +287,6 @@ export const getPublications = async (filters = {}) => {
       query = query.ilike("products.name", `%${productName}%`);
     }
 
-    // Filtro por nombre de tienda
-    if (storeName) {
-      query = query.ilike("stores.name", `%${storeName}%`);
-    }
-
     // Filtro por rango de precio
     if (minPrice !== null) {
       query = query.gte("price", minPrice);
@@ -298,7 +309,50 @@ export const getPublications = async (filters = {}) => {
         break;
     }
 
-    // Paginación
+    const shouldApplyDistanceFilter =
+      maxDistance !== null && hasCoordinates(latitude, longitude);
+    if (storeName && !shouldApplyDistanceFilter) {
+      query = query.ilike("stores.name", `%${storeName}%`);
+    }
+
+    if (shouldApplyDistanceFilter) {
+      const { data: storesData, error: storesError } = await supabase
+        .from("stores")
+        .select("id, name, location");
+
+      if (storesError) {
+        console.error("Error obteniendo tiendas para filtrar distancia:", storesError);
+        return { success: false, error: storesError.message };
+      }
+
+      const nearbyStoreIds = (storesData || [])
+        .filter((store) => {
+          if (storeName && !store.name?.toLowerCase().includes(storeName.toLowerCase())) {
+            return false;
+          }
+          const { latitude: storeLat, longitude: storeLng } = parseStoreLocation(
+            store.location,
+          );
+
+          if (!hasCoordinates(storeLat, storeLng)) return false;
+
+          const distanceKm = calculateDistance(
+            Number(latitude),
+            Number(longitude),
+            Number(storeLat),
+            Number(storeLng),
+          );
+
+         return distanceKm <= maxDistance;
+        })
+        .map((store) => store.id);
+
+      if (nearbyStoreIds.length === 0) {
+        return { success: true, data: [], count: 0, hasMore: false };
+      }
+
+      query = query.in("store_id", nearbyStoreIds);
+    }
     const offset = (page - 1) * limit;
     query = query.range(offset, offset + limit - 1);
 
@@ -309,11 +363,9 @@ export const getPublications = async (filters = {}) => {
       return { success: false, error: error.message };
     }
 
-    // Filtro por distancia usando coordenadas de la tienda asociada.
-    // Mantiene reutilizable el flujo para mostrar publicaciones cercanas.
-    const withStoreCoordinates = (data || []).map((pub) => {
+    const publicationsWithCoordinates = (data || []).map((pub) => {
       const storeCoordinates = parseStoreLocation(pub?.stores?.location);
-      return {
+      const publicationWithCoords = {
         ...pub,
         stores: pub?.stores
           ? {
@@ -322,36 +374,28 @@ export const getPublications = async (filters = {}) => {
             }
           : pub?.stores,
       };
+
+      if (!shouldApplyDistanceFilter) return publicationWithCoords;
+
+      if (!hasCoordinates(storeCoordinates.latitude, storeCoordinates.longitude)) {
+        return { ...publicationWithCoords, distance_km: null };
+      }
+
+      return {
+        ...publicationWithCoords,
+        distance_km: calculateDistance(
+          Number(latitude),
+          Number(longitude),
+          Number(storeCoordinates.latitude),
+          Number(storeCoordinates.longitude),
+        ),
+      };
     });
-
-    let filteredData = withStoreCoordinates;
-    if (maxDistance && hasCoordinates(latitude, longitude)) {
-      filteredData = withStoreCoordinates
-        .map((pub) => {
-          const storeLat = pub?.stores?.latitude;
-          const storeLng = pub?.stores?.longitude;
-
-          if (storeLat == null || storeLng == null) {
-            return { ...pub, distance_km: null };
-          }
-
-          const distanceKm = calculateDistance(
-            Number(latitude),
-            Number(longitude),
-            Number(storeLat),
-            Number(storeLng),
-          );
-
-          return { ...pub, distance_km: distanceKm };
-        })
-        .filter((pub) => pub.distance_km !== null && pub.distance_km <= maxDistance);
-    }
-
     return {
       success: true,
-      data: filteredData,
-      count: count,
-      hasMore: offset + limit < count,
+      data: publicationsWithCoordinates,
+      count: count ?? publicationsWithCoordinates.length,
+      hasMore: offset + limit < (count ?? publicationsWithCoordinates.length),
     };
   } catch (err) {
     console.error("Error en getPublications:", err);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useAuthStore,
@@ -312,9 +312,30 @@ export default function HomePage() {
 
   const { latitude, longitude } = useGeoLocation({ autoFetch: true });
 
-  useEffect(() => {
-    if (latitude == null || longitude == null) return;
+  const [detailPublication, setDetailPublication] = useState(null);
+  const [votedIds, setVotedIds] = useState(new Set());
+  const [reportingId, setReportingId] = useState(null);
+  const initializedRef = useRef(false);
 
+  useEffect(() => {
+    // Evitar inicialización múltiple
+    if (initializedRef.current) return;
+
+    if (latitude == null || longitude == null) {
+      // Reset filters when no location available
+      setFilters({
+        latitude: null,
+        longitude: null,
+        maxDistance: null,
+        sortBy: "recent",
+      });
+      return;
+    }
+
+    // Marcar como inicializado para evitar re-ejecución
+    initializedRef.current = true;
+
+    // Apply nearby filter only once when location is available
     setFilters({
       latitude,
       longitude,
@@ -322,10 +343,6 @@ export default function HomePage() {
       sortBy: "recent",
     });
   }, [latitude, longitude, setFilters]);
-
-  const [detailPublication, setDetailPublication] = useState(null);
-  const [votedIds, setVotedIds] = useState(new Set());
-  const [reportingId, setReportingId] = useState(null);
 
   const normalizedPublications = useMemo(
     () =>

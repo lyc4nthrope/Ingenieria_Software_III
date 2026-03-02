@@ -442,7 +442,7 @@ export default function PublicationsPage() {
                 onValidate={handleValidatePublication}
                 onReport={handleReportPublication}
                 onDelete={handleDeletePublication}
-                isAuthor={user?.id === publication.author.id}
+                isAuthor={user?.id === publication.user_id}
               />
             ))}
           </div>
