@@ -1,38 +1,56 @@
-import { useState, useCallback } from "react";
-import { storesApi } from "@/services/api";
-import { StoreTypeEnum, validateStoreForm } from "@/features/stores/schemas";
+import { useState } from 'react';
+import { storesApi } from '@/services/api';
+import { StoreTypeEnum, validateStoreForm } from '@/features/stores/schemas';
+import { uploadImageToCloudinary } from '@/services/cloudinary';
 
 const DUPLICATE_RADIUS_METERS = 150;
+const STORE_TYPE_ID = {
+  [StoreTypeEnum.PHYSICAL]: 1,
+  [StoreTypeEnum.VIRTUAL]: 2,
+};
 
 const initialFormData = {
-  name: "",
+  name: '',
   type: StoreTypeEnum.PHYSICAL,
-  address: "",
+  address: '',
   latitude: null,
   longitude: null,
-  websiteUrl: "",
-  evidenceUrls: [],
+  websiteUrl: '',
+  evidenceFiles: [],
 };
 
 export function useStoreCreation() {
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  const [submitSuccess, setSubmitSuccess] = useState("");
+  const [submitError, setSubmitError] = useState('');
+  const [submitSuccess, setSubmitSuccess] = useState('');
 
   const updateField = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      if (field === 'type' && value === StoreTypeEnum.VIRTUAL) {
+        return {
+          ...prev,
+          type: value,
+          address: '',
+          latitude: null,
+          longitude: null,
+          evidenceUrls: [],
+        };
+      }
+
+      return { ...prev, [field]: value };
+    });
     setErrors((prev) => {
       const next = { ...prev };
       delete next[field];
-      if (field === "latitude" || field === "longitude") delete next.location;
-      if (field === "name") delete next.name;
+      if (field === 'latitude' || field === 'longitude') delete next.location;
+      if (field === 'name') delete next.name;
       return next;
     });
   };
 
-  const setLocation = useCallback(({ latitude, longitude, address }) => {
+  const setLocation = ({ latitude, longitude, address }) => {
     setFormData((prev) => ({
       ...prev,
       latitude,
@@ -44,14 +62,18 @@ export function useStoreCreation() {
       delete next.location;
       return next;
     });
-  }, []);
+  };
 
-  const addEvidenceUrl = (url) => {
-    if (!url) return;
+  const addEvidenceFile = (file) => {
+    if (!file) return;
+    const evidence = {
+      id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    };
     setFormData((prev) => {
-      if (prev.evidenceUrls.length >= 3 || prev.evidenceUrls.includes(url))
-        return prev;
-      return { ...prev, evidenceUrls: [...prev.evidenceUrls, url] };
+     if (prev.evidenceFiles.length >= 3) return prev;
+      return { ...prev, evidenceFiles: [...prev.evidenceFiles, evidence] };
     });
     setErrors((prev) => {
       const next = { ...prev };
@@ -60,10 +82,10 @@ export function useStoreCreation() {
     });
   };
 
-  const removeEvidenceUrl = (url) => {
+  const removeEvidenceFile = (evidenceId) => {
     setFormData((prev) => ({
       ...prev,
-      evidenceUrls: prev.evidenceUrls.filter((item) => item !== url),
+      evidenceFiles: prev.evidenceFiles.filter((item) => item.id !== evidenceId),
     }));
   };
 
@@ -76,24 +98,15 @@ export function useStoreCreation() {
       formData.name,
       Number(formData.latitude),
       Number(formData.longitude),
-      DUPLICATE_RADIUS_METERS,
+      DUPLICATE_RADIUS_METERS
     );
 
     if (!result.success) {
-      return {
-        success: false,
-        error: result.error || "No se pudo validar duplicados cercanos",
-      };
+      return { success: false, error: result.error || 'No se pudo validar duplicados cercanos' };
     }
 
     const candidates = (result.data || []).filter(
-      (store) =>
-        String(store.name || "")
-          .trim()
-          .toLowerCase() ===
-        String(formData.name || "")
-          .trim()
-          .toLowerCase(),
+      (store) => String(store.name || '').trim().toLowerCase() === String(formData.name || '').trim().toLowerCase()
     );
 
     if (candidates.length > 0) {
@@ -108,13 +121,13 @@ export function useStoreCreation() {
   };
 
   const submit = async () => {
-    setSubmitError("");
-    setSubmitSuccess("");
+    setSubmitError('');
+    setSubmitSuccess('');
 
     const { isValid, errors: validationErrors } = validateStoreForm(formData);
     if (!isValid) {
       setErrors(validationErrors);
-      return { success: false, error: "Corrige los errores del formulario" };
+      return { success: false, error: 'Corrige los errores del formulario' };
     }
 
     setIsSubmitting(true);
@@ -126,44 +139,50 @@ export function useStoreCreation() {
       return duplicateCheck;
     }
 
-    const result = await storesApi.createStore(formData);
+    const result = await storesApi.createStore({
+      ...formData,
+      type: STORE_TYPE_ID[formData.type],
+    });
 
     if (!result.success) {
       setIsSubmitting(false);
-      setSubmitError(result.error || "No se pudo crear la tienda");
+      setSubmitError(result.error || 'No se pudo crear la tienda');
       return result;
     }
 
-    // Guardar evidencias en store_evidences (solo tienda física)
-    const createdStoreId = result.data?.store?.id;
-    if (createdStoreId && formData.evidenceUrls.length > 0) {
-      const evidenceResults = await Promise.all(
-        formData.evidenceUrls.map((url) =>
-          storesApi.uploadStoreEvidence(createdStoreId, url),
-        ),
-      );
+    const storeId = result?.data?.store?.id;
+    const evidenceUploadErrors = [];
 
-      const failedEvidence = evidenceResults.find(
-        (response) => !response?.success,
-      );
-      if (failedEvidence) {
-        setIsSubmitting(false);
-        setSubmitError(
-          failedEvidence.error ||
-            "La tienda se creó, pero no se pudieron guardar todas las evidencias",
+    if (storeId && formData.type === StoreTypeEnum.PHYSICAL && formData.evidenceFiles.length > 0) {
+      for (const evidence of formData.evidenceFiles) {
+        const uploadResult = await uploadImageToCloudinary(evidence.file, {
+          folder: 'nosee/stores/evidence',
+        });
+
+        if (!uploadResult.success) {
+          evidenceUploadErrors.push(uploadResult.error || 'No se pudo subir una evidencia');
+          continue;
+        }
+
+        const evidenceResult = await storesApi.uploadStoreEvidence(
+          storeId,
+          uploadResult.optimizedUrl || uploadResult.url
         );
-        return {
-          success: false,
-          error:
-            failedEvidence.error ||
-            "No se pudieron guardar todas las evidencias",
-          data: result.data,
-        };
+        if (!evidenceResult.success) {
+          evidenceUploadErrors.push(evidenceResult.error || 'No se pudo guardar una evidencia');
+        }
       }
     }
 
     setIsSubmitting(false);
-    setSubmitSuccess("Tienda creada exitosamente");
+
+    if (evidenceUploadErrors.length > 0) {
+      setSubmitSuccess('Tienda creada, pero algunas evidencias no se pudieron registrar');
+      setSubmitError(evidenceUploadErrors[0]);
+    } else {
+      setSubmitSuccess('Tienda creada exitosamente');
+    }
+    
     setFormData(initialFormData);
     setErrors({});
     return result;
@@ -177,12 +196,12 @@ export function useStoreCreation() {
     submitSuccess,
     updateField,
     setLocation,
-    addEvidenceUrl,
-    removeEvidenceUrl,
+    addEvidenceFile,
+    removeEvidenceFile,
     submit,
     clearMessages: () => {
-      setSubmitError("");
-      setSubmitSuccess("");
+      setSubmitError('');
+      setSubmitSuccess('');
     },
   };
 }

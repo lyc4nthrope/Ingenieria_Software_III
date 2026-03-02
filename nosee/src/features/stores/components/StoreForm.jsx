@@ -13,8 +13,8 @@ export default function StoreForm() {
     submitSuccess,
     updateField,
     setLocation,
-    addEvidenceUrl,
-    removeEvidenceUrl,
+    addEvidenceFile,
+    removeEvidenceFile,
     submit,
   } = useStoreCreation();
 
@@ -47,30 +47,20 @@ export default function StoreForm() {
 
       {isPhysical ? (
         <>
-          <div style={styles.group}>
-            <label style={styles.label}>Dirección / referencia</label>
-            <input
-              type="text"
-              value={formData.address}
-              onChange={(e) => updateField('address', e.target.value)}
-              placeholder="Ej: Calle 10 # 25-30"
-              style={styles.input}
-            />
-          </div>
 
           <StoreMapPicker
             latitude={formData.latitude}
             longitude={formData.longitude}
             address={formData.address}
             onLocationChange={setLocation}
-            onAddressChange={(addr) => updateField('address', addr)}
+            onAddressChange={(value) => updateField('address', value)}
             error={errors.location}
           />
 
           <StoreEvidenceUploader
-            evidenceUrls={formData.evidenceUrls}
-            onAddEvidence={addEvidenceUrl}
-            onRemoveEvidence={removeEvidenceUrl}
+            evidenceFiles={formData.evidenceFiles}
+            onAddEvidence={addEvidenceFile}
+            onRemoveEvidence={removeEvidenceFile}
             error={errors.evidenceUrls}
           />
         </>

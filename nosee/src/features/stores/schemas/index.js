@@ -31,6 +31,11 @@ function hasAllowedImageExtension(value) {
   }
 }
 
+function hasAllowedFileType(file) {
+  if (!file) return false;
+  return ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+}
+
 export const StoreValidation = {
   // Alias explícito solicitado por especificación
   storeName: (value) => Boolean(value && value.trim().length >= 3),
@@ -40,10 +45,14 @@ export const StoreValidation = {
     return Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
   },
   websiteUrl: (value) => isValidHttpsUrl(value),
-  evidence: (urls) => {
-    if (!Array.isArray(urls)) return false;
-    if (urls.length > 3) return false;
-    return urls.every((url) => hasAllowedImageExtension(url));
+  evidence: (evidences) => {
+    if (!Array.isArray(evidences)) return false;
+    if (evidences.length > 3) return false;
+    return evidences.every((item) => {
+      if (typeof item === 'string') return hasAllowedImageExtension(item);
+      if (item?.file) return hasAllowedFileType(item.file);
+      return false;
+    });
   },
   // Mantener alias backward-compatible
   evidenceUrls: (urls) => {
@@ -69,7 +78,7 @@ export function validateStoreForm(formData) {
       errors.location = 'Debes seleccionar una ubicación válida en el mapa';
     }
 
-    if (!StoreValidation.evidence(formData.evidenceUrls || [])) {
+    if (!StoreValidation.evidence(formData.evidenceFiles || [])) {
       errors.evidenceUrls =
         'Máximo 3 evidencias y solo formatos .jpg/.jpeg/.png/.webp (URL https://)';
     }
@@ -80,7 +89,7 @@ export function validateStoreForm(formData) {
       errors.websiteUrl = 'La URL de tienda virtual debe ser https:// válida';
     }
 
-    if ((formData.evidenceUrls || []).length > 0) {
+    if ((formData.evidenceFiles || []).length > 0) {
       errors.evidenceUrls = 'Las evidencias solo están permitidas para tiendas físicas';
     }
   }
