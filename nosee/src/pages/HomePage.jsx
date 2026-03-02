@@ -6,7 +6,6 @@ import {
 } from "@/features/auth/store/authStore";
 
 import { usePublications } from "@/features/publications/hooks";
-import { PriceSearchFilter } from "@/features/publications/components/PriceSearchFilter";
 import * as publicationsApi from "@/services/api/publications.api";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -308,9 +307,6 @@ export default function HomePage() {
     unvotePublication,
     reportPublication,
     removePublication,
-    filters,
-    setFilters,
-    clearFilters,
   } = usePublications({ limit: 12 });
 
   const [detailPublication, setDetailPublication] = useState(null);
@@ -376,21 +372,13 @@ export default function HomePage() {
       <section className="banner">
         <h1>Bienvenidos a NØSEE, plataforma colaborativa.</h1>
         <p>No sabes donde es más barato, te mostramos donde no ves.</p>
-        <p>
-          {isAuthenticated
-            ? "Para crear una publicación, entra a Productos y pulsa Crear publicación."
-            : "Inicia sesión para crear y votar publicaciones."}
-        </p>
+        {!isAuthenticated && (
+          <p>Inicia sesión para crear y votar publicaciones.</p>
+        )}
       </section>
 
       <div className="layout">
         <div className="feed">
-          <PriceSearchFilter
-            filters={filters}
-            onFiltersChange={setFilters}
-            onClearFilters={clearFilters}
-          />
-
           {loading ? (
             <p>Cargando publicaciones...</p>
           ) : normalizedPublications.length === 0 ? (
