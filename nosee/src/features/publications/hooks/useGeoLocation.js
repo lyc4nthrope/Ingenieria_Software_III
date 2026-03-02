@@ -23,7 +23,48 @@
  * - No funciona en navegadores sin soporte (muy raros)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+
+const LAST_LOCATION_STORAGE_KEY = 'nosee:last-known-location';
+
+const readStoredLocation = () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem(LAST_LOCATION_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed?.latitude === 'number' &&
+      typeof parsed?.longitude === 'number'
+    ) {
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('No se pudo leer la última ubicación guardada:', error);
+  }
+
+  return null;
+};
+
+const persistLocation = (location) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(
+      LAST_LOCATION_STORAGE_KEY,
+      JSON.stringify({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        accuracy: location.accuracy ?? null,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+  } catch (error) {
+    console.warn('No se pudo guardar la última ubicación:', error);
+  }
+};
 
 /**
  * Custom hook para obtener geolocalización del navegador
@@ -63,9 +104,10 @@ export const useGeoLocation = (options = {}) => {
 
   // ─── Estados ───────────────────────────────────────────────────────────────
 
-  const [latitude, setLatitude] = useState(null);
-  const [longitude, setLongitude] = useState(null);
-  const [accuracy, setAccuracy] = useState(null);
+  const storedLocationRef = useRef(readStoredLocation());
+  const [latitude, setLatitude] = useState(storedLocationRef.current?.latitude ?? null);
+  const [longitude, setLongitude] = useState(storedLocationRef.current?.longitude ?? null);
+  const [accuracy, setAccuracy] = useState(storedLocationRef.current?.accuracy ?? null);
   const [loading, setLoading] = useState(autoFetch);
   const [error, setError] = useState(null);
   const [supported, setSupported] = useState(true);
@@ -113,6 +155,7 @@ export const useGeoLocation = (options = {}) => {
         setAccuracy(acc);
         setLoading(false);
         setError(null);
+        persistLocation({ latitude: lat, longitude: lon, accuracy: acc });
       },
 
       // Error
@@ -135,10 +178,11 @@ export const useGeoLocation = (options = {}) => {
         }
 
         setError(errorMessage);
-        setLatitude(null);
-        setLongitude(null);
-        setAccuracy(null);
-        setLoading(false);
+        if (!storedLocationRef.current) {
+          setLatitude(null);
+          setLongitude(null);
+          setAccuracy(null);
+        }
       },
 
       options
@@ -175,6 +219,7 @@ export const useGeoLocation = (options = {}) => {
           setAccuracy(acc);
           setLoading(false);
           setError(null);
+          persistLocation({ latitude: lat, longitude: lon, accuracy: acc });
           resolve({ latitude: lat, longitude: lon, accuracy: acc });
         },
         (err) => {
@@ -193,9 +238,11 @@ export const useGeoLocation = (options = {}) => {
               errorMessage = err.message || errorMessage;
           }
           setError(errorMessage);
-          setLatitude(null);
-          setLongitude(null);
-          setAccuracy(null);
+          if (!storedLocationRef.current) {
+            setLatitude(null);
+            setLongitude(null);
+            setAccuracy(null);
+          }
           setLoading(false);
           reject(new Error(errorMessage));
         },

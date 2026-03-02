@@ -327,7 +327,7 @@ export default function HomePage() {
     setFilters({
       latitude: latitude || null,
       longitude: longitude || null,
-      maxDistance: latitude && longitude ? 30 : null,
+      maxDistance: latitude && longitude ? 3 : null,
       sortBy: "recent",
     });
   }, []);
@@ -346,7 +346,7 @@ export default function HomePage() {
       setFilters({
         latitude,
         longitude,
-        maxDistance: 30,
+        maxDistance: 3,
         sortBy: "recent",
       });
     }

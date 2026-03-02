@@ -311,6 +311,8 @@ export const getPublications = async (filters = {}) => {
 
     const shouldApplyDistanceFilter =
       maxDistance !== null && hasCoordinates(latitude, longitude);
+    let appliedDistanceKm = null;
+
     if (storeName && !shouldApplyDistanceFilter) {
       query = query.ilike("stores.name", `%${storeName}%`);
     }
@@ -325,33 +327,48 @@ export const getPublications = async (filters = {}) => {
         return { success: false, error: storesError.message };
       }
 
-      const nearbyStoreIds = (storesData || [])
-        .filter((store) => {
-          if (storeName && !store.name?.toLowerCase().includes(storeName.toLowerCase())) {
-            return false;
-          }
-          const { latitude: storeLat, longitude: storeLng } = parseStoreLocation(
-            store.location,
-          );
+      const searchDistancesKm = [Number(maxDistance), 10, 30].filter(
+        (distance, index, distances) =>
+          Number.isFinite(distance) && distance > 0 && distances.indexOf(distance) === index,
+      );
 
-          if (!hasCoordinates(storeLat, storeLng)) return false;
+      let nearbyStoreIds = [];
+      for (const distanceLimit of searchDistancesKm) {
+        nearbyStoreIds = (storesData || [])
+          .filter((store) => {
+            if (
+              storeName &&
+              !store.name?.toLowerCase().includes(storeName.toLowerCase())
+            ) {
+              return false;
+            }
 
-          const distanceKm = calculateDistance(
-            Number(latitude),
-            Number(longitude),
-            Number(storeLat),
-            Number(storeLng),
-          );
+            const { latitude: storeLat, longitude: storeLng } = parseStoreLocation(
+              store.location,
+            );
 
-         return distanceKm <= maxDistance;
-        })
-        .map((store) => store.id);
+            if (!hasCoordinates(storeLat, storeLng)) return false;
 
-      if (nearbyStoreIds.length === 0) {
-        return { success: true, data: [], count: 0, hasMore: false };
+            const distanceKm = calculateDistance(
+              Number(latitude),
+              Number(longitude),
+              Number(storeLat),
+              Number(storeLng),
+            );
+
+            return distanceKm <= distanceLimit;
+          })
+          .map((store) => store.id);
+
+        if (nearbyStoreIds.length > 0) {
+          appliedDistanceKm = distanceLimit;
+          break;
+        }
+      } 
+
+      if (nearbyStoreIds.length > 0) {
+        query = query.in("store_id", nearbyStoreIds);
       }
-
-      query = query.in("store_id", nearbyStoreIds);
     }
     const offset = (page - 1) * limit;
     query = query.range(offset, offset + limit - 1);
@@ -375,7 +392,7 @@ export const getPublications = async (filters = {}) => {
           : pub?.stores,
       };
 
-      if (!shouldApplyDistanceFilter) return publicationWithCoords;
+      if (!shouldApplyDistanceFilter || appliedDistanceKm === null) return publicationWithCoords;
 
       if (!hasCoordinates(storeCoordinates.latitude, storeCoordinates.longitude)) {
         return { ...publicationWithCoords, distance_km: null };
