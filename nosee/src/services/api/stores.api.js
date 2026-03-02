@@ -191,7 +191,7 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
     // Verificar tipo de tienda (solo física = 1)
     const { data: store, error: storeError } = await supabase
       .from("stores")
-      .select("id, store_type_id")
+      .select("id, store_type_id, created_by")
       .eq("id", storeId)
       .single();
 
@@ -201,6 +201,14 @@ export async function uploadStoreEvidence(storeId, imageUrl) {
       return {
         success: false,
         error: "Solo las tiendas físicas permiten evidencias",
+      };
+    }
+
+
+    if (store?.created_by !== userResult.data) {
+      return {
+        success: false,
+        error: "Solo el creador de la tienda puede subir evidencias",
       };
     }
 
