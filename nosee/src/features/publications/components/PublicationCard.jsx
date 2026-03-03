@@ -128,14 +128,13 @@ export function PublicationCard({
       <div style={styles.header}>
         <div style={styles.userInfo}>
           <div style={styles.avatar}>
-            {(publication.user?.full_name || publication.user_id || '?')
-              .toString()
+            {(publication.user?.full_name || 'U')
               .charAt(0)
               .toUpperCase()}
           </div>
           <div>
             <div style={styles.userName}>
-              {publication.user?.full_name || publication.user_id || 'Sin nombre'}
+              {publication.user?.full_name || 'Usuario'}
             </div>
             <div style={styles.timeAgo}>{timeAgo}</div>
           </div>
@@ -149,7 +148,7 @@ export function PublicationCard({
             {publication.product?.name || 'Producto desconocido'}
           </div>
           <div style={styles.storeName}>
-            🏪 {publication.store?.name || publication.store_id || 'Sin tienda'}
+            🏪 {publication.store?.name || 'Sin tienda'}
           </div>
         </div>
 
