@@ -121,6 +121,7 @@ export const useGeoLocation = (options = {}) => {
     if (!navigator.geolocation) {
       setSupported(false);
       setError('Tu navegador no soporta geolocalización');
+      setLoading(false);
     }
   }, []);
 
@@ -132,6 +133,7 @@ export const useGeoLocation = (options = {}) => {
   const fetchLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setError('Geolocalización no soportada');
+      setLoading(false);
       return;
     }
 
@@ -178,6 +180,7 @@ export const useGeoLocation = (options = {}) => {
         }
 
         setError(errorMessage);
+        setLoading(false);
         if (!storedLocationRef.current) {
           setLatitude(null);
           setLongitude(null);
@@ -204,6 +207,7 @@ export const useGeoLocation = (options = {}) => {
   const refetch = useCallback(() => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
+        setLoading(false);
         reject(new Error('Geolocalización no soportada'));
         return;
       }

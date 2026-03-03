@@ -9,7 +9,7 @@
  *              que abre StoreCreateModal encima del formulario.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { usePublications, useGeoLocation } from "@/features/publications/hooks";
 import PhotoUploader from "./PhotoUploader";
 import StoreCreateModal from "@/features/stores/components/StoreCreateModal";
@@ -42,6 +42,7 @@ export function PublicationForm({ onSuccess }) {
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const productTimerRef = useRef(null);
+  const productRequestIdRef = useRef(0);
   const productWrapperRef = useRef(null);
 
   // ─── Store autocomplete ────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ export function PublicationForm({ onSuccess }) {
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
   const [showStoreModal, setShowStoreModal] = useState(false);
   const storeTimerRef = useRef(null);
+  const storeRequestIdRef = useRef(0);
   const storeWrapperRef = useRef(null);
 
   // ─── Cerrar dropdowns al clickar fuera ────────────────────────────────────
@@ -73,6 +75,89 @@ export function PublicationForm({ onSuccess }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(productTimerRef.current);
+      clearTimeout(storeTimerRef.current);
+    };
+  }, []);
+
+  const performProductSearch = useCallback(async (rawQuery) => {
+    const query = String(rawQuery || "").trim();
+
+    if (!query || query.length < 2) {
+      setProductResults([]);
+      setProductSearching(false);
+      return;
+    }
+
+    const requestId = productRequestIdRef.current + 1;
+    productRequestIdRef.current = requestId;
+    setProductSearching(true);
+
+    try {
+      const result = await publicationsApi.searchProducts(query);
+      if (requestId !== productRequestIdRef.current) return;
+      setProductResults(result.success ? result.data : []);
+    } catch {
+      if (requestId !== productRequestIdRef.current) return;
+      setProductResults([]);
+    } finally {
+      if (requestId === productRequestIdRef.current) {
+        setProductSearching(false);
+      }
+    }
+  }, []);
+
+  const performStoreSearch = useCallback(async (rawQuery) => {
+    const query = String(rawQuery || "").trim();
+
+    if (!query || query.length < 2) {
+      setStoreResults([]);
+      setStoreSearching(false);
+      return;
+    }
+
+    const requestId = storeRequestIdRef.current + 1;
+    storeRequestIdRef.current = requestId;
+    setStoreSearching(true);
+
+    try {
+      const result = await storesApi.searchNearbyStores(
+        query,
+        latitude,
+        longitude,
+        null,
+      );
+      if (requestId !== storeRequestIdRef.current) return;
+      setStoreResults(result.success ? result.data : []);
+    } catch {
+      if (requestId !== storeRequestIdRef.current) return;
+      setStoreResults([]);
+    } finally {
+      if (requestId === storeRequestIdRef.current) {
+        setStoreSearching(false);
+      }
+    }
+  }, [latitude, longitude]);
+
+  useEffect(() => {
+    const handleTabActive = () => {
+      if (document.visibilityState !== "visible") return;
+      if (productQuery.trim().length >= 2) performProductSearch(productQuery);
+      if (storeQuery.trim().length >= 2) performStoreSearch(storeQuery);
+    };
+
+    window.addEventListener("focus", handleTabActive);
+    document.addEventListener("visibilitychange", handleTabActive);
+
+    return () => {
+      window.removeEventListener("focus", handleTabActive);
+      document.removeEventListener("visibilitychange", handleTabActive);
+    };
+  }, [productQuery, storeQuery, performProductSearch, performStoreSearch]);
+
   // ─── Producto: búsqueda debounced ─────────────────────────────────────────
   const handleProductQueryChange = (e) => {
     const val = e.target.value;
@@ -86,17 +171,9 @@ export function PublicationForm({ onSuccess }) {
       return;
     }
 
-    setProductSearching(true);
     setShowProductDropdown(true);
-    productTimerRef.current = setTimeout(async () => {
-      try {
-        const result = await publicationsApi.searchProducts(val.trim());
-        setProductResults(result.success ? result.data : []);
-      } catch {
-        setProductResults([]);
-      } finally {
-        setProductSearching(false);
-      }
+    productTimerRef.current = setTimeout(() => {
+      performProductSearch(val);
     }, 300);
   };
 
@@ -139,22 +216,9 @@ export function PublicationForm({ onSuccess }) {
       return;
     }
 
-    setStoreSearching(true);
     setShowStoreDropdown(true);
-    storeTimerRef.current = setTimeout(async () => {
-      try {
-        const result = await storesApi.searchNearbyStores(
-          val.trim(),
-          latitude,
-          longitude,
-          null,
-        );
-        setStoreResults(result.success ? result.data : []);
-      } catch {
-        setStoreResults([]);
-      } finally {
-        setStoreSearching(false);
-      }
+    storeTimerRef.current = setTimeout(() => {
+      performStoreSearch(val);
     }, 300);
   };
 

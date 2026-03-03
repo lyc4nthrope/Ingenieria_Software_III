@@ -119,6 +119,8 @@ export default function PublicationsPage() {
   const normalizedPublications = publications.map((publication) => ({
     ...publication,
     user: publication.user || publication.users || null,
+    product: publication.product || publication.products || null,
+    store: publication.store || publication.stores || null,
   }));
 
   // ─────────────────────────────────────────────────────────────

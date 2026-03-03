@@ -302,6 +302,8 @@ const s = {
     border: "1px solid #ddd",
     borderRadius: "8px",
     fontSize: "14px",
+     color: "#111827",
+    background: "#fff",
   },
   twoCols: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" },
   hint: { marginTop: "4px", color: "#666", fontSize: "12px" },

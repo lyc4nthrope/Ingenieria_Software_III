@@ -130,10 +130,14 @@ const hydrateRelatedPublicationData = async (publications = []) => {
   const storesById = {};
 
   if (missingUserIds.length > 0) {
-    const { data: usersData, error: usersError } = await supabase
-      .from("users")
-      .select("id, full_name, reputation_points")
-      .in("id", missingUserIds);
+    const { data: usersData, error: usersError } = await withTimeout(
+      supabase
+        .from("users")
+        .select("id, full_name, reputation_points")
+        .in("id", missingUserIds),
+      REQUEST_TIMEOUT_MS,
+      "Tiempo de espera agotado hidratando usuarios de publicaciones",
+    );
 
     if (usersError) {
       console.error("Error hidratando usuarios de publicaciones:", usersError);
@@ -145,10 +149,14 @@ const hydrateRelatedPublicationData = async (publications = []) => {
   }
 
   if (missingStoreIds.length > 0) {
-    const { data: storesData, error: storesError } = await supabase
-      .from("stores")
-      .select("id, name, address, location")
-      .in("id", missingStoreIds);
+    const { data: storesData, error: storesError } = await withTimeout(
+      supabase
+        .from("stores")
+        .select("id, name, address, location")
+        .in("id", missingStoreIds),
+      REQUEST_TIMEOUT_MS,
+      "Tiempo de espera agotado hidratando tiendas de publicaciones",
+    );
 
     if (storesError) {
       console.error("Error hidratando tiendas de publicaciones:", storesError);

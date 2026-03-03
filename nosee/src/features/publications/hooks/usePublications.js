@@ -21,6 +21,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as publicationsApi from '@/services/api/publications.api';
+import { debugPublications } from '@/utils/debugLogger';
+
+const REQUEST_GUARD_TIMEOUT_MS = 20000;
 
 /**
  * Custom hook para gestionar publicaciones de precios
@@ -97,6 +100,8 @@ export const usePublications = (initialFilters = {}) => {
     async (currentPage = 1) => {
       const requestId = activeRequestIdRef.current + 1;
       activeRequestIdRef.current = requestId;
+      const startedAt = Date.now();
+      let guardTimeoutId = null;
       try {
         if (isMountedRef.current) {
           setLoading(true);
@@ -109,6 +114,22 @@ export const usePublications = (initialFilters = {}) => {
           page: currentPage,
         };
 
+         debugPublications('fetch:start', {
+          requestId,
+          currentPage,
+          filters: queryFilters,
+        });
+
+        guardTimeoutId = setTimeout(() => {
+          if (!isMountedRef.current || requestId !== activeRequestIdRef.current) return;
+          debugPublications('fetch:guard-timeout', {
+            requestId,
+            elapsedMs: Date.now() - startedAt,
+          });
+          setError('La carga de publicaciones está tardando demasiado. Intenta nuevamente.');
+          setLoading(false);
+        }, REQUEST_GUARD_TIMEOUT_MS);
+
         // Llamar a API
         const result = await publicationsApi.getPublications(queryFilters);
 
@@ -117,6 +138,12 @@ export const usePublications = (initialFilters = {}) => {
         }
 
         if (result.success) {
+           debugPublications('fetch:success', {
+            requestId,
+            currentPage,
+            elapsedMs: Date.now() - startedAt,
+            results: result.data?.length || 0,
+          });
           // Si es primera página, reemplazar todo; sino, agregar
           if (currentPage === 1) {
             setPublications(result.data);
@@ -128,6 +155,12 @@ export const usePublications = (initialFilters = {}) => {
           setHasMore(result.hasMore || false);
           setPage(currentPage);
         } else {
+          debugPublications('fetch:api-error', {
+            requestId,
+            currentPage,
+            elapsedMs: Date.now() - startedAt,
+            error: result.error,
+          });
           setError(result.error || 'Error cargando publicaciones');
           if (currentPage === 1) {
             setPublications([]);
@@ -137,6 +170,12 @@ export const usePublications = (initialFilters = {}) => {
         }
       } catch (err) {
         console.error('Error en fetchPublications:', err);
+        debugPublications('fetch:exception', {
+          requestId,
+          currentPage,
+          elapsedMs: Date.now() - startedAt,
+          error: err?.message || String(err),
+        });
 
         if (!isMountedRef.current || requestId !== activeRequestIdRef.current) {
           return;
@@ -144,6 +183,7 @@ export const usePublications = (initialFilters = {}) => {
 
         setError('Error inesperado al cargar publicaciones');
       } finally {
+        if (guardTimeoutId) clearTimeout(guardTimeoutId);
         if (isMountedRef.current && requestId === activeRequestIdRef.current) {
           setLoading(false);
         }
@@ -160,6 +200,22 @@ export const usePublications = (initialFilters = {}) => {
   useEffect(() => {
     fetchPublications(1);
   }, [filters, fetchPublications]);
+
+  useEffect(() => {
+    const handleTabActive = () => {
+      if (document.visibilityState === 'visible') {
+        fetchPublications(1);
+      }
+    };
+
+    window.addEventListener('focus', handleTabActive);
+    document.addEventListener('visibilitychange', handleTabActive);
+
+    return () => {
+      window.removeEventListener('focus', handleTabActive);
+      document.removeEventListener('visibilitychange', handleTabActive);
+    };
+  }, [fetchPublications]);
 
   // ─── Funciones públicas ────────────────────────────────────────────────────
 
