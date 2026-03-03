@@ -653,12 +653,14 @@ const styles = {
   },
   dropdownState: {
     padding: "10px 12px",
-    fontSize: "12px",
-    color: "#999",
+    fontSize: "13px", // Aumentamos un punto para legibilidad
+    color: "#1a1a1a", // Un negro casi puro para máximo contraste
+    fontWeight: "500", // Un poco más de grosor para que se note
+    background: "#f9f9f9", // Un fondo sutilmente diferente ayuda a resaltar
   },
   dropdownSub: {
     fontSize: "11px",
-    color: "#888",
+    color: "#444", // Cambiamos de #888 a #444 (gris oscuro/negro)
   },
   dropdownDistance: {
     fontSize: "11px",
