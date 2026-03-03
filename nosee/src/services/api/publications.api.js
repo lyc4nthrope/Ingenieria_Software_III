@@ -79,6 +79,111 @@ const parseStoreLocation = (locationValue) => {
   return { latitude, longitude };
 };
 
+const hasUserIdentity = (candidate) =>
+  !!candidate && typeof candidate === "object" && !!(candidate.id || candidate.full_name);
+
+const hasStoreIdentity = (candidate) =>
+  !!candidate && typeof candidate === "object" && !!(candidate.id || candidate.name);
+
+const hydrateRelatedPublicationData = async (publications = []) => {
+  if (!Array.isArray(publications) || publications.length === 0) {
+    return publications;
+  }
+
+  const missingUserIds = [...new Set(
+    publications
+      .filter((publication) => {
+        const embeddedUser = publication?.user || publication?.users;
+        return !hasUserIdentity(embeddedUser) && publication?.user_id;
+      })
+      .map((publication) => publication.user_id),
+  )];
+
+  const missingStoreIds = [...new Set(
+    publications
+      .filter((publication) => {
+        const embeddedStore = publication?.store || publication?.stores;
+        return !hasStoreIdentity(embeddedStore) && publication?.store_id;
+      })
+      .map((publication) => publication.store_id),
+  )];
+
+  const usersById = {};
+  const storesById = {};
+
+  if (missingUserIds.length > 0) {
+    const { data: usersData, error: usersError } = await supabase
+      .from("users")
+      .select("id, full_name, reputation_points")
+      .in("id", missingUserIds);
+
+    if (usersError) {
+      console.error("Error hidratando usuarios de publicaciones:", usersError);
+    } else {
+      (usersData || []).forEach((userRow) => {
+        usersById[userRow.id] = userRow;
+      });
+    }
+  }
+
+  if (missingStoreIds.length > 0) {
+    const { data: storesData, error: storesError } = await supabase
+      .from("stores")
+      .select("id, name, address, location")
+      .in("id", missingStoreIds);
+
+    if (storesError) {
+      console.error("Error hidratando tiendas de publicaciones:", storesError);
+    } else {
+      (storesData || []).forEach((storeRow) => {
+        storesById[storeRow.id] = storeRow;
+      });
+    }
+  }
+
+  return publications.map((publication) => {
+    const embeddedUser = publication?.user || publication?.users || null;
+    const embeddedStore = publication?.store || publication?.stores || null;
+
+    return {
+      ...publication,
+      user: hasUserIdentity(embeddedUser)
+        ? embeddedUser
+        : usersById[publication.user_id] || null,
+      store: hasStoreIdentity(embeddedStore)
+        ? embeddedStore
+        : storesById[publication.store_id] || null,
+    };
+  });
+};
+
+
+const isAuthSessionError = (error) => {
+  const msg = String(error?.message || error || "").toLowerCase();
+  return (
+    msg.includes("jwt") ||
+    msg.includes("token") ||
+    msg.includes("session") ||
+    msg.includes("refresh") ||
+    msg.includes("expired") ||
+    msg.includes("invalid claim")
+  );
+};
+
+const runWithSessionRetry = async (operation) => {
+  const firstAttempt = await operation();
+
+  if (!firstAttempt?.error || !isAuthSessionError(firstAttempt.error)) {
+    return firstAttempt;
+  }
+
+  const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+  if (refreshError || !refreshData?.session) {
+    return firstAttempt;
+  }
+
+  return operation();
+};
 
 // ─── 1️⃣ CREAR PUBLICACIÓN ────────────────────────────────────────────────────
 
@@ -277,7 +382,7 @@ export const getPublications = async (filters = {}) => {
         product_id,
         product:products (id, name, category_id),
         store_id,
-        store:stores (id, name, address, location)
+        store:stores!price_publications_store_id_fkey (id, name, address, location)
         `,
       { count: "planned" },
     );
@@ -373,23 +478,29 @@ export const getPublications = async (filters = {}) => {
     const offset = (page - 1) * limit;
     query = query.range(offset, offset + limit - 1);
 
-    const { data, error, count } = await query;
+     const { data, error, count } = await runWithSessionRetry(() => query);
 
     if (error) {
       console.error("Error obteniendo publicaciones:", error);
       return { success: false, error: error.message };
     }
 
-    const publicationsWithCoordinates = (data || []).map((pub) => {
-     const storeCoordinates = parseStoreLocation(pub?.store?.location || pub?.stores?.location);
+    const publicationsWithRelations = await hydrateRelatedPublicationData(data || []);
+
+    const publicationsWithCoordinates = publicationsWithRelations.map((pub) => {
+      const storeCoordinates = parseStoreLocation(
+        pub?.store?.location || pub?.stores?.location,
+      );
+
       const publicationWithCoords = {
         ...pub,
+        user: pub?.user || pub?.users || null,
         store: (pub?.store || pub?.stores)
           ? {
-               ...(pub.store || pub.stores),
+              ...(pub.store || pub.stores),
               ...storeCoordinates,
             }
-          : (pub?.store || pub?.stores),
+          : null,
       };
 
       if (!shouldApplyDistanceFilter || appliedDistanceKm === null) return publicationWithCoords;
@@ -704,11 +815,14 @@ export const searchProducts = async (query, limit = 10) => {
       return { success: true, data: [] };
     }
 
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, category_id")
-      .ilike("name", `%${query}%`)
-      .limit(limit);
+    const executeSearch = () =>
+      supabase
+        .from("products")
+        .select("id, name, category_id")
+        .ilike("name", `%${query}%`)
+        .limit(limit);
+      
+    const { data, error } = await runWithSessionRetry(executeSearch);
 
     if (error) {
       console.error("Error buscando productos:", error);
@@ -792,11 +906,14 @@ export const searchStores = async (
       return { success: true, data: [] };
     }
 
-    const { data, error } = await supabase
-      .from("stores")
-      .select("id, name, address, location")
-      .ilike("name", `%${query}%`)
-      .limit(limit);
+    const executeSearch = () =>
+      supabase
+        .from("stores")
+        .select("id, name, address, location")
+        .ilike("name", `%${query}%`)
+        .limit(limit);
+
+    const { data, error } = await runWithSessionRetry(executeSearch);
 
     if (error) {
       console.error("Error buscando tiendas:", error);
