@@ -115,22 +115,28 @@ export const useAuthStore = create((set, get) => ({
         if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
           const currentUser = get().user;
 
-          // Si ya tenemos el mismo usuario cargado (ej: renovación de token en PKCE
-          // que dispara SIGNED_IN), solo actualizamos la sesión para evitar un
-          // round-trip innecesario a BD que puede interferir con otras queries.
-          if (currentUser?.id === session.user.id && get().status === AsyncStateEnum.SUCCESS) {
+          // Si ya tenemos este usuario cargado con un rol válido, solo actualizamos
+          // la sesión. Esto evita que una llamada concurrente a getUserProfile
+          // (iniciada mientras login() estaba en LOADING) sobreescriba al usuario
+          // correcto con un fallback sin rol.
+          if (currentUser?.id === session.user.id && (currentUser?.role || get().status === AsyncStateEnum.SUCCESS)) {
             set({ session });
             return;
           }
 
           const profileResult = await usersApi.getUserProfile(session.user.id);
 
-          const mappedUser = profileResult.success
-            ? profileResult.data
-            : { id: session.user.id, email: session.user.email };
+          // Si el fetch falla pero ya teníamos al usuario cargado, conservamos
+          // sus datos en lugar de sobrescribir con un objeto sin rol.
+          if (!profileResult.success) {
+            if (get().user?.id === session.user.id) {
+              set({ session });
+            }
+            return;
+          }
 
           set({
-            user:    mappedUser,
+            user:    profileResult.data,
             session,                     // ← token siempre fresco
             status:  AsyncStateEnum.SUCCESS,
             error:   null,

@@ -28,6 +28,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import { supabase } from '@/services/supabase.client';
+import { getRolePath } from '@/utils/roleUtils';
 
 // ── Spinner inline para no depender de importaciones que podrían no estar ──
 function Spinner() {
@@ -97,7 +98,12 @@ export default function CallbackPage() {
     if (isAuthenticated) {
       const isRecovery = callbackType === CALLBACK_TYPE.RECOVERY;
       setTimeout(() => {
-        navigate(isRecovery ? '/nueva-contrasena' : '/perfil', { replace: true });
+        if (isRecovery) {
+          navigate('/nueva-contrasena', { replace: true });
+        } else {
+          const user = useAuthStore.getState().user;
+          navigate(getRolePath(user?.role), { replace: true });
+        }
       }, 1200);
     }
   }, [isInitialized, isAuthenticated, callbackType, navigate]);
