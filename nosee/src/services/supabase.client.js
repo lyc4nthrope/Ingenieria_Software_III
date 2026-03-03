@@ -25,8 +25,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     flowType: "pkce",
-    // Evita timeouts de Navigator LockManager en algunos navegadores/escenarios multi-tab.
-    lock: processLock,
+    // En navegador dejamos el lock por defecto (Navigator LockManager).
+    // processLock está pensado para entornos no-browser y puede bloquear sesiones al cambiar de pestaña.
+    ...(typeof window === "undefined" ? { lock: processLock } : {}),
   },
 });
 

@@ -10,6 +10,23 @@
 import { supabase } from "@/services/supabase.client";
 
 const DEFAULT_RADIUS_METERS = 150;
+const REQUEST_TIMEOUT_MS = 12000;
+
+async function withTimeout(promise, timeoutMs = REQUEST_TIMEOUT_MS, timeoutMessage = "Tiempo de espera agotado") {
+  let timeoutId;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 const STORE_TYPE_ID = {
   physical: 1,
   virtual: 2,
@@ -284,11 +301,15 @@ export async function searchNearbyStores(
       return { success: true, data: [] };
     }
 
-    const { data, error } = await supabase
-      .from("stores")
-      .select("id, name, store_type_id, address, website_url, location")
-      .ilike("name", `%${name.trim()}%`)
-      .limit(20);
+    const { data, error } = await withTimeout(
+      supabase
+        .from("stores")
+        .select("id, name, store_type_id, address, website_url, location")
+        .ilike("name", `%${name.trim()}%`)
+        .limit(20),
+      REQUEST_TIMEOUT_MS,
+      "La búsqueda de tiendas tardó demasiado",
+    );
 
     if (error) return { success: false, error: error.message };
 

@@ -42,6 +42,24 @@ export const SORT_OPTIONS = {
   CHEAPEST: "cheapest",
 };
 
+const REQUEST_TIMEOUT_MS = 12000;
+
+const withTimeout = async (promise, timeoutMs = REQUEST_TIMEOUT_MS, timeoutMessage = "Tiempo de espera agotado") => {
+  let timeoutId;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 const hasCoordinates = (lat, lng) =>
   Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
 
@@ -171,18 +189,30 @@ const isAuthSessionError = (error) => {
 };
 
 const runWithSessionRetry = async (operation) => {
-  const firstAttempt = await operation();
+  const firstAttempt = await withTimeout(
+    operation(),
+    REQUEST_TIMEOUT_MS,
+    "La sesión tardó demasiado en responder",
+  );
 
   if (!firstAttempt?.error || !isAuthSessionError(firstAttempt.error)) {
     return firstAttempt;
   }
 
-  const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+  const { data: refreshData, error: refreshError } = await withTimeout(
+    supabase.auth.refreshSession(),
+    REQUEST_TIMEOUT_MS,
+    "No se pudo refrescar la sesión a tiempo",
+  );
   if (refreshError || !refreshData?.session) {
     return firstAttempt;
   }
 
-  return operation();
+  return withTimeout(
+    operation(),
+    REQUEST_TIMEOUT_MS,
+    "La sesión no se recuperó a tiempo",
+  );
 };
 
 // ─── 1️⃣ CREAR PUBLICACIÓN ────────────────────────────────────────────────────
@@ -367,9 +397,11 @@ export const getPublications = async (filters = {}) => {
       page = 1,
       limit = 20,
     } = filters;
+     const offset = (page - 1) * limit;
 
-    let query = supabase.from("price_publications").select(
-      `
+    const buildPublicationsQuery = (nearbyStoreIds) => {
+      let query = supabase.from("price_publications").select(
+        `
         id,
         price,
         photo_url,
@@ -384,43 +416,52 @@ export const getPublications = async (filters = {}) => {
         store_id,
         store:stores!price_publications_store_id_fkey (id, name, address, location)
         `,
-      { count: "planned" },
-    );
+        { count: "planned" },
+      );
 
-    // Filtro por nombre de producto
-    if (productName) {
-      query = query.ilike("products.name", `%${productName}%`);
-    }
+      // Filtro por nombre de producto
+      if (productName) {
+        query = query.ilike("products.name", `%${productName}%`);
+      }
 
-    // Filtro por rango de precio
-    if (minPrice !== null) {
-      query = query.gte("price", minPrice);
-    }
-    if (maxPrice !== null) {
-      query = query.lte("price", maxPrice);
-    }
+      // Filtro por rango de precio
+      if (minPrice !== null) {
+        query = query.gte("price", minPrice);
+      }
+      if (maxPrice !== null) {
+        query = query.lte("price", maxPrice);
+      }
 
-    // Ordenamiento
-    switch (sortBy) {
-      case "cheapest":
-        query = query.order("price", { ascending: true });
-        break;
-      case "validated":
-        query = query.order("confidence_score", { ascending: false });
-        break;
-      case "recent":
-      default:
-        query = query.order("created_at", { ascending: false });
-        break;
-    }
+      if (storeName && !shouldApplyDistanceFilter) {
+        query = query.ilike("stores.name", `%${storeName}%`);
+      }
+
+      if (Array.isArray(nearbyStoreIds) && nearbyStoreIds.length > 0) {
+        query = query.in("store_id", nearbyStoreIds);
+      }
+
+      // Ordenamiento
+      switch (sortBy) {
+        case "cheapest":
+          query = query.order("price", { ascending: true });
+          break;
+        case "validated":
+          query = query.order("confidence_score", { ascending: false });
+          break;
+        case "recent":
+        default:
+          query = query.order("created_at", { ascending: false });
+          break;
+      }
+
+      return query.range(offset, offset + limit - 1);
+    };
 
     const shouldApplyDistanceFilter =
       maxDistance !== null && hasCoordinates(latitude, longitude);
     let appliedDistanceKm = null;
 
-    if (storeName && !shouldApplyDistanceFilter) {
-      query = query.ilike("stores.name", `%${storeName}%`);
-    }
+    let nearbyStoreIds = [];
 
     if (shouldApplyDistanceFilter) {
       const { data: storesData, error: storesError } = await supabase
@@ -437,7 +478,6 @@ export const getPublications = async (filters = {}) => {
           Number.isFinite(distance) && distance > 0 && distances.indexOf(distance) === index,
       );
 
-      let nearbyStoreIds = [];
       for (const distanceLimit of searchDistancesKm) {
         nearbyStoreIds = (storesData || [])
           .filter((store) => {
@@ -470,15 +510,23 @@ export const getPublications = async (filters = {}) => {
           break;
         }
       } 
-
-      if (nearbyStoreIds.length > 0) {
-        query = query.in("store_id", nearbyStoreIds);
-      }
     }
-    const offset = (page - 1) * limit;
-    query = query.range(offset, offset + limit - 1);
 
-     const { data, error, count } = await runWithSessionRetry(() => query);
+    if (shouldApplyDistanceFilter && nearbyStoreIds.length === 0) {
+      return {
+        success: true,
+        data: [],
+        count: 0,
+        hasMore: false,
+      };
+    }
+
+     const nearbyStoreIdsForQuery = shouldApplyDistanceFilter ? nearbyStoreIds : null;
+
+    const { data, error, count } = await runWithSessionRetry(
+      () => buildPublicationsQuery(nearbyStoreIdsForQuery),
+      "getPublications",
+    );
 
     if (error) {
       console.error("Error obteniendo publicaciones:", error);
@@ -526,6 +574,18 @@ export const getPublications = async (filters = {}) => {
       hasMore: offset + limit < (count ?? publicationsWithCoordinates.length),
     };
   } catch (err) {
+    if (err?.code === "QUERY_TIMEOUT") {
+      console.error("Timeout en getPublications", {
+        operation: err.operation,
+        timeoutMs: err.timeoutMs,
+        supabaseHost: err.supabaseHost,
+        online: err.online,
+      });
+      return {
+        success: false,
+        error: `Timeout en ${err.operation}. Revisa conectividad y configuración de Supabase (${err.supabaseHost}).`,
+      };
+    }
     console.error("Error en getPublications:", err);
     return { success: false, error: err.message };
   }
@@ -822,7 +882,7 @@ export const searchProducts = async (query, limit = 10) => {
         .ilike("name", `%${query}%`)
         .limit(limit);
       
-    const { data, error } = await runWithSessionRetry(executeSearch);
+    const { data, error } = await runWithSessionRetry(executeSearch, "searchProducts");
 
     if (error) {
       console.error("Error buscando productos:", error);
@@ -831,6 +891,18 @@ export const searchProducts = async (query, limit = 10) => {
 
     return { success: true, data };
   } catch (err) {
+    if (err?.code === "QUERY_TIMEOUT") {
+      console.error("Timeout en searchProducts", {
+        operation: err.operation,
+        timeoutMs: err.timeoutMs,
+        supabaseHost: err.supabaseHost,
+        online: err.online,
+      });
+      return {
+        success: false,
+        error: `Timeout en ${err.operation}. Revisa conectividad y configuración de Supabase (${err.supabaseHost}).`,
+      };
+    }
     console.error("Error en searchProducts:", err);
     return { success: false, error: err.message };
   }
@@ -913,7 +985,7 @@ export const searchStores = async (
         .ilike("name", `%${query}%`)
         .limit(limit);
 
-    const { data, error } = await runWithSessionRetry(executeSearch);
+    const { data, error } = await runWithSessionRetry(executeSearch, "searchStores");
 
     if (error) {
       console.error("Error buscando tiendas:", error);
@@ -941,6 +1013,19 @@ export const searchStores = async (
 
     return { success: true, data: filtered };
   } catch (err) {
+    if (err?.code === "QUERY_TIMEOUT") {
+      console.error("Timeout en searchStores", {
+        operation: err.operation,
+        timeoutMs: err.timeoutMs,
+        supabaseHost: err.supabaseHost,
+        online: err.online,
+      });
+      return {
+        success: false,
+        error: `Timeout en ${err.operation}. Revisa conectividad y configuración de Supabase (${err.supabaseHost}).`,
+      };
+    }
+
     console.error("Error en searchStores:", err);
     return { success: false, error: err.message };
   }
