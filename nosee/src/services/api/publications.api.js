@@ -43,6 +43,7 @@ export const SORT_OPTIONS = {
 };
 
 const REQUEST_TIMEOUT_MS = 12000;
+const HYDRATION_TIMEOUT_MS = 3500;
 
 const withTimeout = async (promise, timeoutMs = REQUEST_TIMEOUT_MS, timeoutMessage = "Tiempo de espera agotado") => {
   let timeoutId;
@@ -129,51 +130,62 @@ const hydrateRelatedPublicationData = async (publications = []) => {
   const usersById = {};
   const storesById = {};
 
+   const hydrationTasks = [];
+  
   if (missingUserIds.length > 0) {
-    try {
-      const { data: usersData, error: usersError } = await withTimeout(
+       hydrationTasks.push(
+      withTimeout(
         supabase
           .from("users")
           .select("id, full_name, reputation_points")
           .in("id", missingUserIds),
-        REQUEST_TIMEOUT_MS,
+        HYDRATION_TIMEOUT_MS,
         "Tiempo de espera agotado hidratando usuarios de publicaciones",
-      );
+      )
+        .then(({ data: usersData, error: usersError }) => {
+          if (usersError) {
+            console.error("Error hidratando usuarios de publicaciones:", usersError);
+            return;
+          }
 
-    if (usersError) {
-        console.error("Error hidratando usuarios de publicaciones:", usersError);
-      } else {
-        (usersData || []).forEach((userRow) => {
-          usersById[userRow.id] = userRow;
-        });
-      }
-    } catch (hydrateUserError) {
-      console.error("Timeout/exception hidratando usuarios de publicaciones:", hydrateUserError);
-    }
+          (usersData || []).forEach((userRow) => {
+            usersById[userRow.id] = userRow;
+          });
+        })
+        .catch((hydrateUserError) => {
+          console.error("Timeout/exception hidratando usuarios de publicaciones:", hydrateUserError);
+        }),
+      );
   }
 
   if (missingStoreIds.length > 0) {
-    try {
-      const { data: storesData, error: storesError } = await withTimeout(
+      hydrationTasks.push(
+      withTimeout(
         supabase
           .from("stores")
           .select("id, name, address, location")
           .in("id", missingStoreIds),
-        REQUEST_TIMEOUT_MS,
+        HYDRATION_TIMEOUT_MS,
         "Tiempo de espera agotado hidratando tiendas de publicaciones",
-      );
+      )
+        .then(({ data: storesData, error: storesError }) => {
+          if (storesError) {
+            console.error("Error hidratando tiendas de publicaciones:", storesError);
+            return;
+          }
 
-   if (storesError) {
-        console.error("Error hidratando tiendas de publicaciones:", storesError);
-      } else {
-        (storesData || []).forEach((storeRow) => {
-          storesById[storeRow.id] = storeRow;
-        });
-      }
-    } catch (hydrateStoreError) {
-      console.error("Timeout/exception hidratando tiendas de publicaciones:", hydrateStoreError);
+          (storesData || []).forEach((storeRow) => {
+            storesById[storeRow.id] = storeRow;
+          });
+        })
+        .catch((hydrateStoreError) => {
+          console.error("Timeout/exception hidratando tiendas de publicaciones:", hydrateStoreError);
+        }),
+      );
     }
-  }
+    if (hydrationTasks.length > 0) {
+      await Promise.allSettled(hydrationTasks);
+    } 
 
   return publications.map((publication) => {
     const embeddedUser = publication?.user || publication?.users || null;

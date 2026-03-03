@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { usePublications, useGeoLocation } from "@/features/publications/hooks";
+import { useGeoLocation } from "@/features/publications/hooks";
 import PhotoUploader from "./PhotoUploader";
 import StoreCreateModal from "@/features/stores/components/StoreCreateModal";
 import ProductQuickCreateModal from "./ProductQuickCreateModal";
@@ -18,7 +18,6 @@ import * as publicationsApi from "@/services/api/publications.api";
 import * as storesApi from "@/services/api/stores.api";
 
 export function PublicationForm({ onSuccess }) {
-  const { addPublication } = usePublications();
   const { latitude, longitude } = useGeoLocation({ autoFetch: true });
 
   // ─── Form data ─────────────────────────────────────────────────────────────
@@ -285,7 +284,6 @@ export function PublicationForm({ onSuccess }) {
 
       if (result.success) {
         setSubmitSuccess(true);
-        addPublication(result.data);
         onSuccess?.(result.data);
         setFormData({
           productId: "",

@@ -100,7 +100,7 @@ export const usePublications = (initialFilters = {}) => {
    */
   const fetchPublications = useCallback(
     async (currentPage = 1) => {
-       if (inFlightRef.current) {
+      if (inFlightRef.current) {
         debugPublications('fetch:skipped-inflight', { currentPage });
         return;
       }
@@ -146,7 +146,8 @@ export const usePublications = (initialFilters = {}) => {
         }
 
         if (result.success) {
-           debugPublications('fetch:success', {
+           setError(null);
+          debugPublications('fetch:success', {
             requestId,
             currentPage,
             elapsedMs: Date.now() - startedAt,
@@ -214,7 +215,7 @@ export const usePublications = (initialFilters = {}) => {
   useEffect(() => {
     const handleTabActive = () => {
       if (document.visibilityState === 'visible') {
-        const elapsedSinceLastFetch = Date.now() - lastFetchAtRef.current;
+       const elapsedSinceLastFetch = Date.now() - lastFetchAtRef.current;
         if (elapsedSinceLastFetch < TAB_REFETCH_DEBOUNCE_MS) {
           debugPublications('fetch:skipped-tab-active-debounced', {
             elapsedSinceLastFetch,
