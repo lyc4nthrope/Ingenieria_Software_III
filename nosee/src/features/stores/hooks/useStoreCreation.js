@@ -132,60 +132,64 @@ export function useStoreCreation() {
 
     setIsSubmitting(true);
 
-    const duplicateCheck = await checkNearbyDuplicates();
-    if (!duplicateCheck.success) {
-      setIsSubmitting(false);
-      setSubmitError(duplicateCheck.error);
-      return duplicateCheck;
-    }
+   try {
+      const duplicateCheck = await checkNearbyDuplicates();
+      if (!duplicateCheck.success) {
+        setSubmitError(duplicateCheck.error);
+        return duplicateCheck;
+      }
 
-    const result = await storesApi.createStore({
-      ...formData,
-      type: STORE_TYPE_ID[formData.type],
-    });
+     const result = await storesApi.createStore({
+        ...formData,
+        type: STORE_TYPE_ID[formData.type],
+      });
 
-    if (!result.success) {
-      setIsSubmitting(false);
-      setSubmitError(result.error || 'No se pudo crear la tienda');
-      return result;
-    }
+        if (!result.success) {
+        setSubmitError(result.error || 'No se pudo crear la tienda');
+        return result;
+      }
 
-    const storeId = result?.data?.store?.id;
-    const evidenceUploadErrors = [];
+        const storeId = result?.data?.store?.id;
+      const evidenceUploadErrors = [];
 
-    if (storeId && formData.type === StoreTypeEnum.PHYSICAL && formData.evidenceFiles.length > 0) {
-      for (const evidence of formData.evidenceFiles) {
-        const uploadResult = await uploadImageToCloudinary(evidence.file, {
-          folder: 'nosee/stores/evidence',
-        });
+      if (storeId && formData.type === StoreTypeEnum.PHYSICAL && formData.evidenceFiles.length > 0) {
+        for (const evidence of formData.evidenceFiles) {
+          const uploadResult = await uploadImageToCloudinary(evidence.file, {
+            folder: 'nosee/stores/evidence',
+          });
 
-        if (!uploadResult.success) {
-          evidenceUploadErrors.push(uploadResult.error || 'No se pudo subir una evidencia');
-          continue;
-        }
+          if (!uploadResult.success) {
+            evidenceUploadErrors.push(uploadResult.error || 'No se pudo subir una evidencia');
+            continue;
+          }
 
-        const evidenceResult = await storesApi.uploadStoreEvidence(
-          storeId,
-          uploadResult.optimizedUrl || uploadResult.url
-        );
-        if (!evidenceResult.success) {
-          evidenceUploadErrors.push(evidenceResult.error || 'No se pudo guardar una evidencia');
+          const evidenceResult = await storesApi.uploadStoreEvidence(
+            storeId,
+            uploadResult.optimizedUrl || uploadResult.url
+          );
+          if (!evidenceResult.success) {
+            evidenceUploadErrors.push(evidenceResult.error || 'No se pudo guardar una evidencia');
+          }
         }
       }
-    }
+   if (evidenceUploadErrors.length > 0) {
+        setSubmitSuccess('Tienda creada, pero algunas evidencias no se pudieron registrar');
+        setSubmitError(evidenceUploadErrors[0]);
+      } else {
+        setSubmitSuccess('Tienda creada exitosamente');
+      }
 
-    setIsSubmitting(false);
-
-    if (evidenceUploadErrors.length > 0) {
-      setSubmitSuccess('Tienda creada, pero algunas evidencias no se pudieron registrar');
-      setSubmitError(evidenceUploadErrors[0]);
-    } else {
-      setSubmitSuccess('Tienda creada exitosamente');
-    }
-    
     setFormData(initialFormData);
-    setErrors({});
-    return result;
+      setErrors({});
+      return result;
+    } catch (error) {
+      const fallbackMessage = 'Error inesperado creando tienda';
+      setSubmitError(error?.message || fallbackMessage);
+      return { success: false, error: error?.message || fallbackMessage };
+    } finally {
+      setIsSubmitting(false);
+    }
+  
   };
 
   return {
