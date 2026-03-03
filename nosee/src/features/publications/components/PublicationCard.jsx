@@ -58,6 +58,7 @@ export function PublicationCard({
   onValidate,
   onReport,
   onDelete,
+  onViewMore,
 }) {
   // ─── Estados ───────────────────────────────────────────────────────────────
 
@@ -222,6 +223,13 @@ export function PublicationCard({
           disabled={isDeleting}
         >
           {isDeleting ? '...' : '🗑 Eliminar'}
+        </button>
+        
+        <button
+          style={{ ...styles.button, ...styles.buttonSecondary }}
+          onClick={() => onViewMore?.(publication.id)}
+        >
+          Ver más
         </button>
       </div>
 

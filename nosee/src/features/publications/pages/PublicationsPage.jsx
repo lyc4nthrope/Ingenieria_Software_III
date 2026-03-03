@@ -26,6 +26,7 @@ import Button from "@/components/ui/Button";
 // Componentes de publicaciones
 import PriceSearchFilter from "@/features/publications/components/PriceSearchFilter";
 import PublicationCard from "@/features/publications/components/PublicationCard";
+import PublicationDetailModal from "@/features/publications/components/PublicationDetailModal";
 
 import { usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
@@ -105,6 +106,8 @@ export default function PublicationsPage() {
     sortBy: "recent",
   });
   const [error, setError] = useState(null);
+  const [selectedPublication, setSelectedPublication] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const {
     publications,
@@ -188,6 +191,21 @@ export default function PublicationsPage() {
     }
 
     setError(result.error || "No se pudo eliminar la publicación");
+  };
+
+const handleViewMore = async (publicationId) => {
+    setDetailLoading(true);
+    setError(null);
+
+    const result = await publicationsApi.getPublicationDetail(publicationId);
+    if (!result.success) {
+      setError(result.error || "No se pudo cargar el detalle de la publicación");
+      setDetailLoading(false);
+      return;
+    }
+
+    setSelectedPublication(result.data);
+    setDetailLoading(false);
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -444,6 +462,7 @@ export default function PublicationsPage() {
                 onValidate={handleValidatePublication}
                 onReport={handleReportPublication}
                 onDelete={handleDeletePublication}
+                onViewMore={handleViewMore}
                 isAuthor={user?.id === publication.user_id}
               />
             ))}
@@ -474,6 +493,19 @@ export default function PublicationsPage() {
           </div>
         )}
       </section>
+
+      {detailLoading && (
+        <div style={{ marginTop: "16px", color: "var(--text-muted)", fontSize: "14px" }}>
+          Cargando detalle...
+        </div>
+      )}
+
+      {selectedPublication && (
+        <PublicationDetailModal
+          publication={selectedPublication}
+          onClose={() => setSelectedPublication(null)}
+        />
+      )}
     </main>
   );
 }

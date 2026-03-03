@@ -469,25 +469,29 @@ export const getPublications = async (filters = {}) => {
     } = filters;
      const offset = (page - 1) * limit;
 
+     const publicationListSelect = [
+      "id",
+      "price",
+      "photo_url",
+      "description",
+      "confidence_score",
+      "is_active",
+      "created_at",
+      "user_id",
+      "user:users!price_publications_user_id_fkey (id, full_name, reputation_points)",
+      "product_id",
+      "product:products (id, name, category_id, base_quantity, unit_type:unit_types (id, name, abbreviation))",
+      "store_id",
+      "store:stores!price_publications_store_id_fkey (id, name, address, location, store_type_id, website_url)",
+    ].join(",");
+
     const buildPublicationsQuery = (nearbyStoreIds, { withCount = true } = {}) => {
-      let query = supabase.from("price_publications").select(
-        `
-        id,
-        price,
-        photo_url,
-        description,
-        confidence_score,
-        is_active,
-        created_at,
-        user_id,
-        user:users!price_publications_user_id_fkey (id, full_name, reputation_points),
-        product_id,
-        product:products (id, name, category_id),
-        store_id,
-        store:stores!price_publications_store_id_fkey (id, name, address, location)
-        `,
-        withCount ? { count: "planned" } : undefined,
-      );
+      let query = supabase
+        .from("price_publications")
+        .select(
+          publicationListSelect,
+          withCount ? { count: "planned" } : undefined,
+        );
 
       // Filtro por nombre de producto
       if (productName) {
@@ -731,10 +735,9 @@ export const getPublicationDetail = async (publicationId) => {
         `
         *,
         user:users!price_publications_user_id_fkey (id, full_name, reputation_points),
-        product:products (id, name, description),
-        store:stores (id, name, address),
-        votes:publication_votes (id, vote_type, user_id),
-        reports:price_reports (id, report_type, status)
+        product:products (id, name, base_quantity, unit_type:unit_types (id, name, abbreviation)),
+        store:stores!price_publications_store_id_fkey (id, name, address, location, store_type_id, website_url),
+        votes:publication_votes (id, vote_type, user_id)
         `,
       )
       .eq("id", publicationId)
@@ -745,7 +748,27 @@ export const getPublicationDetail = async (publicationId) => {
       return { success: false, error: error.message };
     }
 
-    return { success: true, data };
+    let comments = [];
+    const { data: commentsData, error: commentsError } = await supabase
+      .from("publication_comments")
+      .select(
+        `
+          id,
+          content,
+          created_at,
+          user_id,
+          user:users!publication_comments_user_id_fkey (id, full_name)
+        `,
+      )
+      .eq("publication_id", publicationId)
+      .order("created_at", { ascending: false });
+
+    if (!commentsError) {
+      comments = commentsData || [];
+    }
+
+    return { success: true, data: { ...data, comments } };
+
   } catch (err) {
     console.error("Error en getPublicationDetail:", err);
     return { success: false, error: err.message };
@@ -948,13 +971,12 @@ export const reportPublication = async (
 
     // Crear el reporte
     const { data: report, error } = await supabase
-      .from("price_reports")
+      .from("reports")
       .insert({
         publication_id: publicationId,
-        reporter_id: user.id,
-        report_type: reportType,
-        description: description || "",
-        status: "pending",
+        reporter_user_id: user.id,
+        reason: description || `Tipo: ${reportType}`,
+        status: "PENDING",
       })
       .select()
       .single();
