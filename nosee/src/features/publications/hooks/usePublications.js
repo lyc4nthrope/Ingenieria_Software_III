@@ -1,5 +1,4 @@
-/**
- * usePublications.js
+ /*usePublications.js
  *
  * Hook personalizado para gestionar publicaciones de precios
  * 
@@ -25,6 +24,29 @@ import { debugPublications } from '@/utils/debugLogger';
 
 const REQUEST_GUARD_TIMEOUT_MS = 20000;
 const TAB_REFETCH_DEBOUNCE_MS = 1500;
+
+const areFiltersEqual = (a = {}, b = {}) => {
+  const keys = [
+    'productName',
+    'storeName',
+    'minPrice',
+    'maxPrice',
+    'maxDistance',
+    'latitude',
+    'longitude',
+    'sortBy',
+    'limit',
+  ];
+
+  return keys.every((key) => {
+    const left = a[key] ?? null;
+    const right = b[key] ?? null;
+    return left === right;
+  });
+};
+
+
+
 /**
  * Custom hook para gestionar publicaciones de precios
  * 
@@ -57,7 +79,7 @@ const TAB_REFETCH_DEBOUNCE_MS = 1500;
  *   sortBy: 'cheapest'
  * });
  */
-export const usePublications = (initialFilters = {}) => {
+export const usePublications = (initialFilters = {}, options = {}) => {
   // ─── Estados ───────────────────────────────────────────────────────────────
 
   const [publications, setPublications] = useState([]);
@@ -68,8 +90,10 @@ export const usePublications = (initialFilters = {}) => {
   const [totalCount, setTotalCount] = useState(0);
   const isMountedRef = useRef(true);
   const activeRequestIdRef = useRef(0);
+  const { refetchOnTabActive = false } = options;
   const inFlightRef = useRef(false);
   const lastFetchAtRef = useRef(0);
+  const publicationsCountRef = useRef(0);
 
   // Filtros
   const [filters, setFilters] = useState({
@@ -92,6 +116,10 @@ export const usePublications = (initialFilters = {}) => {
     };
   }, []);
 
+  useEffect(() => {
+    publicationsCountRef.current = publications.length;
+  }, [publications.length]);
+
   // ─── Cargar publicaciones ──────────────────────────────────────────────────
 
   /**
@@ -105,14 +133,17 @@ export const usePublications = (initialFilters = {}) => {
         return;
       }
 
-      const requestId = activeRequestIdRef.current + 1;
+       const requestId = activeRequestIdRef.current + 1;
       activeRequestIdRef.current = requestId;
       const startedAt = Date.now();
       let guardTimeoutId = null;
       try {
         inFlightRef.current = true;
         if (isMountedRef.current) {
-          setLoading(true);
+          const shouldShowLoading = currentPage !== 1 || publicationsCountRef.current === 0;
+          if (shouldShowLoading) {
+            setLoading(true);
+          }
           setError(null);
         }
 
@@ -146,7 +177,7 @@ export const usePublications = (initialFilters = {}) => {
         }
 
         if (result.success) {
-           setError(null);
+          setError(null);
           debugPublications('fetch:success', {
             requestId,
             currentPage,
@@ -171,7 +202,7 @@ export const usePublications = (initialFilters = {}) => {
             error: result.error,
           });
           setError(result.error || 'Error cargando publicaciones');
-          if (currentPage === 1) {
+          if (currentPage === 1 && publicationsCountRef.current === 0) {
             setPublications([]);
             setHasMore(false);
             setTotalCount(0);
@@ -213,9 +244,11 @@ export const usePublications = (initialFilters = {}) => {
   }, [filters, fetchPublications]);
 
   useEffect(() => {
+    if (!refetchOnTabActive) return;
+
     const handleTabActive = () => {
       if (document.visibilityState === 'visible') {
-       const elapsedSinceLastFetch = Date.now() - lastFetchAtRef.current;
+        const elapsedSinceLastFetch = Date.now() - lastFetchAtRef.current;
         if (elapsedSinceLastFetch < TAB_REFETCH_DEBOUNCE_MS) {
           debugPublications('fetch:skipped-tab-active-debounced', {
             elapsedSinceLastFetch,
@@ -233,7 +266,7 @@ export const usePublications = (initialFilters = {}) => {
       window.removeEventListener('focus', handleTabActive);
       document.removeEventListener('visibilitychange', handleTabActive);
     };
-  }, [fetchPublications]);
+  }, [fetchPublications, refetchOnTabActive]);
 
   // ─── Funciones públicas ────────────────────────────────────────────────────
 
@@ -241,19 +274,29 @@ export const usePublications = (initialFilters = {}) => {
    * Cambiar filtros (inicia búsqueda desde página 1)
    */
   const updateFilters = useCallback((newFilters) => {
-    setFilters((prev) => ({
-      ...prev,
-      ...newFilters,
-    }));
-    // Reset a página 1 cuando cambian filtros
-    setPage(1);
+    let didChange = false;
+
+    setFilters((prev) => {
+      const nextFilters = {
+        ...prev,
+        ...newFilters,
+      };
+
+      didChange = !areFiltersEqual(prev, nextFilters);
+      return didChange ? nextFilters : prev;
+    });
+
+    // Reset a página 1 solo cuando realmente cambian filtros
+    if (didChange) {
+      setPage(1);
+    }
   }, []);
 
   /**
    * Limpiar todos los filtros
    */
   const clearFilters = useCallback(() => {
-    setFilters({
+     const resetFilters = {
       productName: '',
       storeName: '',
       minPrice: null,
@@ -263,8 +306,17 @@ export const usePublications = (initialFilters = {}) => {
       longitude: null,
       sortBy: 'recent',
       limit: 20,
+       };
+
+    let didChange = false;
+    setFilters((prev) => {
+      didChange = !areFiltersEqual(prev, resetFilters);
+      return didChange ? resetFilters : prev;
     });
-    setPage(1);
+    
+    if (didChange) {
+      setPage(1);
+    }
   }, []);
 
   /**
