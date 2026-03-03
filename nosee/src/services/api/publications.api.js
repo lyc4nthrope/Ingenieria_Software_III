@@ -464,9 +464,13 @@ export const getPublications = async (filters = {}) => {
     let nearbyStoreIds = [];
 
     if (shouldApplyDistanceFilter) {
-      const { data: storesData, error: storesError } = await supabase
-        .from("stores")
-        .select("id, name, location");
+      const { data: storesData, error: storesError } = await withTimeout(
+        supabase
+          .from("stores")
+          .select("id, name, location"),
+        REQUEST_TIMEOUT_MS,
+        "Tiempo de espera agotado obteniendo tiendas cercanas",
+      );
 
       if (storesError) {
         console.error("Error obteniendo tiendas para filtrar distancia:", storesError);
