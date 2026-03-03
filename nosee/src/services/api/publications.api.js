@@ -998,7 +998,7 @@ export const searchProducts = async (query, limit = 10) => {
         .ilike("name", `%${query}%`)
         .limit(limit);
       
-    const { data, error } = await runWithSessionRetry(executeSearch, "searchProducts");
+    const { data, error } = await runWithSessionRetry(executeSearch, getAdaptiveRequestTimeout());
 
     if (error) {
       console.error("Error buscando productos:", error);
@@ -1101,7 +1101,7 @@ export const searchStores = async (
         .ilike("name", `%${query}%`)
         .limit(limit);
 
-    const { data, error } = await runWithSessionRetry(executeSearch, "searchStores");
+    const { data, error } = await runWithSessionRetry(executeSearch, getAdaptiveRequestTimeout());
 
     if (error) {
       console.error("Error buscando tiendas:", error);

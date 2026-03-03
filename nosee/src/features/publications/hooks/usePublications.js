@@ -25,6 +25,9 @@ import { debugPublications } from '@/utils/debugLogger';
 const REQUEST_GUARD_TIMEOUT_MS = 32000;
 const TAB_REFETCH_DEBOUNCE_MS = 1500;
 
+const shouldDeferFetchUntilVisible = () =>
+  typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
 const getRuntimeState = () => {
   if (typeof document === 'undefined') {
     return { visibilityState: 'server', online: null };
@@ -104,6 +107,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
   const activeRequestIdRef = useRef(0);
   const { refetchOnTabActive = false } = options;
   const inFlightRef = useRef(false);
+  const deferredFetchRef = useRef(null);
   const lastFetchAtRef = useRef(0);
   const publicationsCountRef = useRef(0);
 
@@ -140,6 +144,17 @@ export const usePublications = (initialFilters = {}, options = {}) => {
    */
   const fetchPublications = useCallback(
     async (currentPage = 1) => {
+      if (shouldDeferFetchUntilVisible()) {
+        deferredFetchRef.current = currentPage;
+        debugPublications('fetch:deferred-hidden-tab', {
+          currentPage,
+          runtime: getRuntimeState(),
+        });
+        return;
+      }
+
+      deferredFetchRef.current = null;
+
       if (inFlightRef.current) {
         debugPublications('fetch:skipped-inflight', { currentPage });
         return;
@@ -259,7 +274,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
     fetchPublications(1);
   }, [filters, fetchPublications]);
 
-   useEffect(() => {
+  useEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
     const syncLastVisibleAt = () => {
@@ -276,6 +291,32 @@ export const usePublications = (initialFilters = {}, options = {}) => {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const runDeferredFetchWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (deferredFetchRef.current === null) return;
+
+      const deferredPage = deferredFetchRef.current;
+      deferredFetchRef.current = null;
+
+      debugPublications('fetch:run-deferred-visible-tab', {
+        deferredPage,
+        runtime: getRuntimeState(),
+      });
+
+      fetchPublications(deferredPage);
+    };
+
+    document.addEventListener('visibilitychange', runDeferredFetchWhenVisible);
+    runDeferredFetchWhenVisible();
+
+    return () => {
+      document.removeEventListener('visibilitychange', runDeferredFetchWhenVisible);
+    };
+  }, [fetchPublications]);
+  
   useEffect(() => {
     if (!refetchOnTabActive) return;
     
