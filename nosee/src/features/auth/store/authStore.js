@@ -113,6 +113,16 @@ export const useAuthStore = create((set, get) => ({
         // PASSWORD_RECOVERY se dispara al abrir el link de recuperación.
         // Lo tratamos igual que SIGNED_IN para hidratar el store correctamente.
         if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
+          const currentUser = get().user;
+
+          // Si ya tenemos el mismo usuario cargado (ej: renovación de token en PKCE
+          // que dispara SIGNED_IN), solo actualizamos la sesión para evitar un
+          // round-trip innecesario a BD que puede interferir con otras queries.
+          if (currentUser?.id === session.user.id && get().status === AsyncStateEnum.SUCCESS) {
+            set({ session });
+            return;
+          }
+
           const profileResult = await usersApi.getUserProfile(session.user.id);
 
           const mappedUser = profileResult.success

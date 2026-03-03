@@ -195,6 +195,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
           });
           setError('La carga de publicaciones está tardando demasiado. Intenta nuevamente.');
           setLoading(false);
+          inFlightRef.current = false;
         }, REQUEST_GUARD_TIMEOUT_MS);
 
         // Llamar a API
@@ -306,7 +307,13 @@ export const usePublications = (initialFilters = {}, options = {}) => {
         runtime: getRuntimeState(),
       });
 
-      fetchPublications(deferredPage);
+      // Pequeño delay para que Supabase complete el refresh del token
+      // antes de hacer queries a la BD (evita carga lenta al volver al tab)
+      setTimeout(() => {
+        if (isMountedRef.current) {
+          fetchPublications(deferredPage);
+        }
+      }, 300);
     };
 
     document.addEventListener('visibilitychange', runDeferredFetchWhenVisible);

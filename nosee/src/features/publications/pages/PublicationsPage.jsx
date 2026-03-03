@@ -356,8 +356,8 @@ export default function PublicationsPage() {
 
       {/* ─────────── SECCIÓN: Listado de publicaciones ─────────── */}
       <section>
-        {loading ? (
-          // Estado: Cargando
+        {loading && normalizedPublications.length === 0 ? (
+          // Estado: Cargando (solo cuando no hay datos previos)
           <div
             style={{
               display: "flex",
@@ -382,7 +382,7 @@ export default function PublicationsPage() {
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             <p style={{ fontSize: "14px" }}>Cargando publicaciones...</p>
           </div>
-        ) : normalizedPublications.length === 0 ? (
+        ) : !loading && normalizedPublications.length === 0 ? (
           // Estado: Vacío
           <div
             style={{
