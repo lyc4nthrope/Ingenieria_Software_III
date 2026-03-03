@@ -22,8 +22,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as publicationsApi from '@/services/api/publications.api';
 import { debugPublications } from '@/utils/debugLogger';
 
-const REQUEST_GUARD_TIMEOUT_MS = 20000;
+const REQUEST_GUARD_TIMEOUT_MS = 32000;
 const TAB_REFETCH_DEBOUNCE_MS = 1500;
+
+const getRuntimeState = () => {
+  if (typeof document === 'undefined') {
+    return { visibilityState: 'server', online: null };
+  }
+
+  return {
+    visibilityState: document.visibilityState,
+    online: typeof navigator !== 'undefined' ? navigator.onLine : null,
+  };
+};
+
 
 const areFiltersEqual = (a = {}, b = {}) => {
   const keys = [
@@ -157,6 +169,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
           requestId,
           currentPage,
           filters: queryFilters,
+          runtime: getRuntimeState(),
         });
 
         guardTimeoutId = setTimeout(() => {
@@ -183,6 +196,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
             currentPage,
             elapsedMs: Date.now() - startedAt,
             results: result.data?.length || 0,
+            totalCount: result.count,
           });
           // Si es primera página, reemplazar todo; sino, agregar
           if (currentPage === 1) {
@@ -200,6 +214,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
             currentPage,
             elapsedMs: Date.now() - startedAt,
             error: result.error,
+            runtime: getRuntimeState(),
           });
           setError(result.error || 'Error cargando publicaciones');
           if (currentPage === 1 && publicationsCountRef.current === 0) {
@@ -215,6 +230,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
           currentPage,
           elapsedMs: Date.now() - startedAt,
           error: err?.message || String(err),
+          runtime: getRuntimeState(),
         });
 
         if (!isMountedRef.current || requestId !== activeRequestIdRef.current) {
@@ -243,8 +259,26 @@ export const usePublications = (initialFilters = {}, options = {}) => {
     fetchPublications(1);
   }, [filters, fetchPublications]);
 
+   useEffect(() => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    const syncLastVisibleAt = () => {
+      if (document.visibilityState === 'visible') {
+        window.__NOSEE_LAST_TAB_VISIBLE_AT__ = Date.now();
+      }
+    };
+
+    syncLastVisibleAt();
+    document.addEventListener('visibilitychange', syncLastVisibleAt);
+
+    return () => {
+      document.removeEventListener('visibilitychange', syncLastVisibleAt);
+    };
+  }, []);
+
   useEffect(() => {
     if (!refetchOnTabActive) return;
+    
 
     const handleTabActive = () => {
       if (document.visibilityState === 'visible') {

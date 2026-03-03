@@ -43,7 +43,34 @@ export const SORT_OPTIONS = {
 };
 
 const REQUEST_TIMEOUT_MS = 12000;
+const BACKGROUND_REQUEST_TIMEOUT_MS = 20000;
+const EXTENDED_RETRY_TIMEOUT_MS = 30000;
 const HYDRATION_TIMEOUT_MS = 3500;
+const FOREGROUND_GRACE_PERIOD_MS = 4000;
+
+const canUseBrowserApis = () => typeof window !== "undefined" && typeof document !== "undefined";
+
+const getRuntimeNetworkState = () => {
+  if (!canUseBrowserApis()) {
+    return { visibilityState: "server", online: null };
+  }
+
+  return {
+    visibilityState: document.visibilityState,
+    online: typeof navigator !== "undefined" ? navigator.onLine : null,
+  };
+};
+
+const getAdaptiveRequestTimeout = () => {
+  if (!canUseBrowserApis()) return REQUEST_TIMEOUT_MS;
+
+  const isHidden = document.visibilityState === "hidden";
+  const resumedRecently = Number(window.__NOSEE_LAST_TAB_VISIBLE_AT__ || 0);
+  const elapsedSinceResume = Date.now() - resumedRecently;
+  const isInResumeGracePeriod = elapsedSinceResume >= 0 && elapsedSinceResume < FOREGROUND_GRACE_PERIOD_MS;
+
+  return isHidden || isInResumeGracePeriod ? BACKGROUND_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+};
 
 const withTimeout = async (promise, timeoutMs = REQUEST_TIMEOUT_MS, timeoutMessage = "Tiempo de espera agotado") => {
   let timeoutId;
@@ -59,6 +86,11 @@ const withTimeout = async (promise, timeoutMs = REQUEST_TIMEOUT_MS, timeoutMessa
   } finally {
     clearTimeout(timeoutId);
   }
+};
+
+const isTimeoutMessage = (message = "") => {
+  const normalizedMessage = String(message || "").toLowerCase();
+  return normalizedMessage.includes("tardó demasiado") || normalizedMessage.includes("tiempo de espera agotado");
 };
 
 const hasCoordinates = (lat, lng) =>
@@ -216,10 +248,10 @@ const isAuthSessionError = (error) => {
   );
 };
 
-const runWithSessionRetry = async (operation) => {
+const runWithSessionRetry = async (operation, timeoutMs = getAdaptiveRequestTimeout()) => {
   const firstAttempt = await withTimeout(
     operation(),
-    REQUEST_TIMEOUT_MS,
+    timeoutMs,
     "La sesión tardó demasiado en responder",
   );
 
@@ -229,7 +261,7 @@ const runWithSessionRetry = async (operation) => {
 
   const { data: refreshData, error: refreshError } = await withTimeout(
     supabase.auth.refreshSession(),
-    REQUEST_TIMEOUT_MS,
+    timeoutMs,
     "No se pudo refrescar la sesión a tiempo",
   );
   if (refreshError || !refreshData?.session) {
@@ -238,7 +270,7 @@ const runWithSessionRetry = async (operation) => {
 
   return withTimeout(
     operation(),
-    REQUEST_TIMEOUT_MS,
+    timeoutMs,
     "La sesión no se recuperó a tiempo",
   );
 };
@@ -412,7 +444,17 @@ export const createPublication = async (data) => {
  * });
  */
 export const getPublications = async (filters = {}) => {
+  const startedAt = Date.now();
   try {
+    const runtimeStateAtStart = getRuntimeNetworkState();
+    console.info("[NØSEE:publications.api] getPublications:start", {
+      runtime: runtimeStateAtStart,
+      hasDistanceFilter: filters?.maxDistance !== null && filters?.maxDistance !== undefined,
+      hasCoords: hasCoordinates(filters?.latitude, filters?.longitude),
+      page: filters?.page ?? 1,
+      limit: filters?.limit ?? 20,
+    });
+
     const {
       productName = "",
       storeName = "",
@@ -427,7 +469,7 @@ export const getPublications = async (filters = {}) => {
     } = filters;
      const offset = (page - 1) * limit;
 
-    const buildPublicationsQuery = (nearbyStoreIds) => {
+    const buildPublicationsQuery = (nearbyStoreIds, { withCount = true } = {}) => {
       let query = supabase.from("price_publications").select(
         `
         id,
@@ -444,7 +486,7 @@ export const getPublications = async (filters = {}) => {
         store_id,
         store:stores!price_publications_store_id_fkey (id, name, address, location)
         `,
-        { count: "planned" },
+        withCount ? { count: "planned" } : undefined,
       );
 
       // Filtro por nombre de producto
@@ -555,17 +597,52 @@ export const getPublications = async (filters = {}) => {
 
      const nearbyStoreIdsForQuery = shouldApplyDistanceFilter ? nearbyStoreIds : null;
 
-    const { data, error, count } = await runWithSessionRetry(
-      () => buildPublicationsQuery(nearbyStoreIdsForQuery),
-      "getPublications",
+    const adaptiveTimeoutMs = getAdaptiveRequestTimeout();
+    console.info("[NØSEE:publications.api] publications-query:attempt", {
+      attempt: 1,
+      timeoutMs: adaptiveTimeoutMs,
+      withCount: true,
+      runtime: getRuntimeNetworkState(),
+    });
+
+    let publicationsResult = await runWithSessionRetry(
+      () => buildPublicationsQuery(nearbyStoreIdsForQuery, { withCount: true }),
+      adaptiveTimeoutMs,
     );
+
+    if (publicationsResult?.error && isTimeoutMessage(publicationsResult.error.message)) {
+      const runtimeState = getRuntimeNetworkState();
+      console.warn("Timeout en getPublications (primer intento)", {
+        runtimeState,
+        timeoutMs: adaptiveTimeoutMs,
+      });
+
+      console.info("[NØSEE:publications.api] publications-query:attempt", {
+        attempt: 2,
+        timeoutMs: EXTENDED_RETRY_TIMEOUT_MS,
+        withCount: false,
+        runtime: getRuntimeNetworkState(),
+      });
+
+      publicationsResult = await runWithSessionRetry(
+        () => buildPublicationsQuery(nearbyStoreIdsForQuery, { withCount: false }),
+        EXTENDED_RETRY_TIMEOUT_MS,
+      );
+    }
+
+    const { data, error, count } = publicationsResult;
 
     if (error) {
       console.error("Error obteniendo publicaciones:", error);
       return { success: false, error: error.message };
     }
 
+    const hydrationStartedAt = Date.now();
     const publicationsWithRelations = await hydrateRelatedPublicationData(data || []);
+    console.info("[NØSEE:publications.api] publications-hydration:done", {
+      elapsedMs: Date.now() - hydrationStartedAt,
+      rows: publicationsWithRelations.length,
+    });
 
     const publicationsWithCoordinates = publicationsWithRelations.map((pub) => {
       const storeCoordinates = parseStoreLocation(
@@ -606,6 +683,8 @@ export const getPublications = async (filters = {}) => {
       hasMore: offset + limit < (count ?? publicationsWithCoordinates.length),
     };
   } catch (err) {
+    const runtimeState = getRuntimeNetworkState();
+    console.error("Contexto runtime en getPublications:", runtimeState);
     if (err?.code === "QUERY_TIMEOUT") {
       console.error("Timeout en getPublications", {
         operation: err.operation,
@@ -618,6 +697,11 @@ export const getPublications = async (filters = {}) => {
         error: `Timeout en ${err.operation}. Revisa conectividad y configuración de Supabase (${err.supabaseHost}).`,
       };
     }
+    console.error("[NØSEE:publications.api] getPublications:failed", {
+      elapsedMs: Date.now() - startedAt,
+      runtime: runtimeState,
+      message: err?.message,
+    });
     console.error("Error en getPublications:", err);
     return { success: false, error: err.message };
   }
