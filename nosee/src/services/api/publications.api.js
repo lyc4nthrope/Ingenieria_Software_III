@@ -273,13 +273,13 @@ export const getPublications = async (filters = {}) => {
         is_active,
         created_at,
         user_id,
-        users!price_publications_user_id_fkey (full_name, reputation_points),
+        user:users!price_publications_user_id_fkey (id, full_name, reputation_points),
         product_id,
-        products (id, name, category_id),
+        product:products (id, name, category_id),
         store_id,
-        stores (id, name, address, location)
+        store:stores (id, name, address, location)
         `,
-      { count: "exact" },
+      { count: "planned" },
     );
 
     // Filtro por nombre de producto
@@ -327,7 +327,7 @@ export const getPublications = async (filters = {}) => {
         return { success: false, error: storesError.message };
       }
 
-      const searchDistancesKm = [Number(maxDistance), 10, 30].filter(
+      const searchDistancesKm = [Number(maxDistance)].filter(
         (distance, index, distances) =>
           Number.isFinite(distance) && distance > 0 && distances.indexOf(distance) === index,
       );
@@ -381,15 +381,15 @@ export const getPublications = async (filters = {}) => {
     }
 
     const publicationsWithCoordinates = (data || []).map((pub) => {
-      const storeCoordinates = parseStoreLocation(pub?.stores?.location);
+     const storeCoordinates = parseStoreLocation(pub?.store?.location || pub?.stores?.location);
       const publicationWithCoords = {
         ...pub,
-        stores: pub?.stores
+        store: (pub?.store || pub?.stores)
           ? {
-              ...pub.stores,
+               ...(pub.store || pub.stores),
               ...storeCoordinates,
             }
-          : pub?.stores,
+          : (pub?.store || pub?.stores),
       };
 
       if (!shouldApplyDistanceFilter || appliedDistanceKm === null) return publicationWithCoords;

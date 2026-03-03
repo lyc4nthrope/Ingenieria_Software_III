@@ -89,9 +89,14 @@ export function PublicationForm({ onSuccess }) {
     setProductSearching(true);
     setShowProductDropdown(true);
     productTimerRef.current = setTimeout(async () => {
-      const result = await publicationsApi.searchProducts(val.trim());
-      setProductResults(result.success ? result.data : []);
-      setProductSearching(false);
+      try {
+        const result = await publicationsApi.searchProducts(val.trim());
+        setProductResults(result.success ? result.data : []);
+      } catch {
+        setProductResults([]);
+      } finally {
+        setProductSearching(false);
+      }
     }, 300);
   };
 
@@ -137,14 +142,19 @@ export function PublicationForm({ onSuccess }) {
     setStoreSearching(true);
     setShowStoreDropdown(true);
     storeTimerRef.current = setTimeout(async () => {
-      const result = await storesApi.searchNearbyStores(
-        val.trim(),
-        latitude,
-        longitude,
-        null,
-      );
-      setStoreResults(result.success ? result.data : []);
-      setStoreSearching(false);
+      try {
+        const result = await storesApi.searchNearbyStores(
+          val.trim(),
+          latitude,
+          longitude,
+          null,
+        );
+        setStoreResults(result.success ? result.data : []);
+      } catch {
+        setStoreResults([]);
+      } finally {
+        setStoreSearching(false);
+      }
     }, 300);
   };
 
@@ -593,6 +603,9 @@ const styles = {
     fontSize: "13px",
     fontFamily: "inherit",
     background: "#fff",
+    color: "#111827",
+    WebkitTextFillColor: "#111827",
+    opacity: 1,
   },
   textarea: {
     padding: "10px 12px",
@@ -645,6 +658,8 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "2px",
+    color: "#111827",
+    background: "#ffffff",
   },
   dropdownCreate: {
     color: "#ff6b35",
@@ -660,7 +675,7 @@ const styles = {
   },
   dropdownSub: {
     fontSize: "11px",
-    color: "#444", // Cambiamos de #888 a #444 (gris oscuro/negro)
+    color: "#1a1a1a", // Cambiamos de #888 a #444 (gris oscuro/negro)
   },
   dropdownDistance: {
     fontSize: "11px",

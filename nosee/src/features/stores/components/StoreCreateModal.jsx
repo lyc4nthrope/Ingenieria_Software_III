@@ -38,17 +38,25 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
     setIsSubmitting(true);
     setError(null);
 
-    const result = await createStoreSimple(
-      name,
-      STORE_TYPE_ID[type],
-      type === 'physical' ? address : null,
-      type === 'virtual'  ? websiteUrl : null,
-    );
+     try {
+      const result = await createStoreSimple(
+        name,
+        STORE_TYPE_ID[type],
+        type === 'physical' ? address : null,
+        type === 'virtual'  ? websiteUrl : null,
+      );
 
-    setIsSubmitting(false);
+    if (!result.success) {
+        setError(result.error || 'No se pudo crear la tienda');
+        return;
+      }
 
-    if (!result.success) { setError(result.error); return; }
-    onSuccess(result.data);
+      onSuccess(result.data);
+    } catch (submitError) {
+      setError(submitError?.message || 'Error inesperado creando tienda');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Cerrar al hacer click en el overlay (no en la card)
