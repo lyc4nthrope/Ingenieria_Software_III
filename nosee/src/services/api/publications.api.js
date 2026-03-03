@@ -130,40 +130,48 @@ const hydrateRelatedPublicationData = async (publications = []) => {
   const storesById = {};
 
   if (missingUserIds.length > 0) {
-    const { data: usersData, error: usersError } = await withTimeout(
-      supabase
-        .from("users")
-        .select("id, full_name, reputation_points")
-        .in("id", missingUserIds),
-      REQUEST_TIMEOUT_MS,
-      "Tiempo de espera agotado hidratando usuarios de publicaciones",
-    );
+    try {
+      const { data: usersData, error: usersError } = await withTimeout(
+        supabase
+          .from("users")
+          .select("id, full_name, reputation_points")
+          .in("id", missingUserIds),
+        REQUEST_TIMEOUT_MS,
+        "Tiempo de espera agotado hidratando usuarios de publicaciones",
+      );
 
     if (usersError) {
-      console.error("Error hidratando usuarios de publicaciones:", usersError);
-    } else {
-      (usersData || []).forEach((userRow) => {
-        usersById[userRow.id] = userRow;
-      });
+        console.error("Error hidratando usuarios de publicaciones:", usersError);
+      } else {
+        (usersData || []).forEach((userRow) => {
+          usersById[userRow.id] = userRow;
+        });
+      }
+    } catch (hydrateUserError) {
+      console.error("Timeout/exception hidratando usuarios de publicaciones:", hydrateUserError);
     }
   }
 
   if (missingStoreIds.length > 0) {
-    const { data: storesData, error: storesError } = await withTimeout(
-      supabase
-        .from("stores")
-        .select("id, name, address, location")
-        .in("id", missingStoreIds),
-      REQUEST_TIMEOUT_MS,
-      "Tiempo de espera agotado hidratando tiendas de publicaciones",
-    );
+    try {
+      const { data: storesData, error: storesError } = await withTimeout(
+        supabase
+          .from("stores")
+          .select("id, name, address, location")
+          .in("id", missingStoreIds),
+        REQUEST_TIMEOUT_MS,
+        "Tiempo de espera agotado hidratando tiendas de publicaciones",
+      );
 
-    if (storesError) {
-      console.error("Error hidratando tiendas de publicaciones:", storesError);
-    } else {
-      (storesData || []).forEach((storeRow) => {
-        storesById[storeRow.id] = storeRow;
-      });
+   if (storesError) {
+        console.error("Error hidratando tiendas de publicaciones:", storesError);
+      } else {
+        (storesData || []).forEach((storeRow) => {
+          storesById[storeRow.id] = storeRow;
+        });
+      }
+    } catch (hydrateStoreError) {
+      console.error("Timeout/exception hidratando tiendas de publicaciones:", hydrateStoreError);
     }
   }
 

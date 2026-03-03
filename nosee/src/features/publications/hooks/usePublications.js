@@ -24,7 +24,7 @@ import * as publicationsApi from '@/services/api/publications.api';
 import { debugPublications } from '@/utils/debugLogger';
 
 const REQUEST_GUARD_TIMEOUT_MS = 20000;
-
+const TAB_REFETCH_DEBOUNCE_MS = 1500;
 /**
  * Custom hook para gestionar publicaciones de precios
  * 
@@ -66,8 +66,10 @@ export const usePublications = (initialFilters = {}) => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
-   const isMountedRef = useRef(true);
+  const isMountedRef = useRef(true);
   const activeRequestIdRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const lastFetchAtRef = useRef(0);
 
   // Filtros
   const [filters, setFilters] = useState({
@@ -98,11 +100,17 @@ export const usePublications = (initialFilters = {}) => {
    */
   const fetchPublications = useCallback(
     async (currentPage = 1) => {
+       if (inFlightRef.current) {
+        debugPublications('fetch:skipped-inflight', { currentPage });
+        return;
+      }
+
       const requestId = activeRequestIdRef.current + 1;
       activeRequestIdRef.current = requestId;
       const startedAt = Date.now();
       let guardTimeoutId = null;
       try {
+        inFlightRef.current = true;
         if (isMountedRef.current) {
           setLoading(true);
           setError(null);
@@ -114,7 +122,7 @@ export const usePublications = (initialFilters = {}) => {
           page: currentPage,
         };
 
-         debugPublications('fetch:start', {
+        debugPublications('fetch:start', {
           requestId,
           currentPage,
           filters: queryFilters,
@@ -187,6 +195,8 @@ export const usePublications = (initialFilters = {}) => {
         if (isMountedRef.current && requestId === activeRequestIdRef.current) {
           setLoading(false);
         }
+        inFlightRef.current = false;
+        lastFetchAtRef.current = Date.now();
       }
     },
     [filters]
@@ -204,6 +214,13 @@ export const usePublications = (initialFilters = {}) => {
   useEffect(() => {
     const handleTabActive = () => {
       if (document.visibilityState === 'visible') {
+        const elapsedSinceLastFetch = Date.now() - lastFetchAtRef.current;
+        if (elapsedSinceLastFetch < TAB_REFETCH_DEBOUNCE_MS) {
+          debugPublications('fetch:skipped-tab-active-debounced', {
+            elapsedSinceLastFetch,
+          });
+          return;
+        }
         fetchPublications(1);
       }
     };
