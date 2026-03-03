@@ -1,6 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useRef } from "react";
 
 const DEFAULT_VIRTUAL_IMAGE = "https://via.placeholder.com/1200x800?text=Tienda+virtual";
+const DEFAULT_CENTER = { latitude: 4.711, longitude: -74.0721 };
+const DEFAULT_ZOOM = 16;
+const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 
 const parseStoreLocation = (locationValue) => {
   if (!locationValue) return { latitude: null, longitude: null };
@@ -24,12 +28,112 @@ const parseStoreLocation = (locationValue) => {
     latitude: Number(pointMatch[2]),
   };
 };
+function getLeaflet() {
+  return window.L;
+}
 
-const getMapEmbedUrl = (latitude, longitude) => {
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  function ensureLeafletLoaded() {
+  if (getLeaflet()) return Promise.resolve(getLeaflet());
 
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.01}%2C${latitude - 0.01}%2C${longitude + 0.01}%2C${latitude + 0.01}&layer=mapnik&marker=${latitude}%2C${longitude}`;
-};
+  if (window.__leafletLoaderPromise) {
+    return window.__leafletLoaderPromise;
+  }
+
+  window.__leafletLoaderPromise = new Promise((resolve, reject) => {
+    if (!document.querySelector(`link[data-leaflet-css="${LEAFLET_CSS_URL}"]`)) {
+      const cssLink = document.createElement("link");
+      cssLink.rel = "stylesheet";
+      cssLink.href = LEAFLET_CSS_URL;
+      cssLink.dataset.leafletCss = LEAFLET_CSS_URL;
+      document.head.appendChild(cssLink);
+    }
+
+    const existingScript = document.querySelector(
+      `script[data-leaflet-js="${LEAFLET_JS_URL}"]`,
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(getLeaflet()));
+      existingScript.addEventListener("error", () =>
+        reject(new Error("No se pudo cargar Leaflet desde CDN.")),
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = LEAFLET_JS_URL;
+    script.async = true;
+    script.dataset.leafletJs = LEAFLET_JS_URL;
+    script.onload = () => resolve(getLeaflet());
+    script.onerror = () => reject(new Error("No se pudo cargar Leaflet desde CDN."));
+    document.body.appendChild(script);
+  }).catch((error) => {
+    window.__leafletLoaderPromise = null;
+    throw error;
+  });
+
+  return window.__leafletLoaderPromise;
+}
+
+function PublicationLocationMap({ latitude, longitude }) {
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeMap = async () => {
+      if (!mapContainerRef.current) return;
+
+      try {
+        const L = await ensureLeafletLoaded();
+        if (!mounted || !mapContainerRef.current) return;
+
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+
+        const hasCoordinates =
+          Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+        const markerLat = hasCoordinates ? Number(latitude) : DEFAULT_CENTER.latitude;
+        const markerLon = hasCoordinates ? Number(longitude) : DEFAULT_CENTER.longitude;
+
+        const map = L.map(mapContainerRef.current, {
+          zoomControl: true,
+          dragging: true,
+          scrollWheelZoom: false,
+          doubleClickZoom: true,
+        }).setView([markerLat, markerLon], DEFAULT_ZOOM);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "&copy; OpenStreetMap contributors",
+        }).addTo(map);
+
+        L.marker([markerLat, markerLon], { draggable: false }).addTo(map);
+
+        setTimeout(() => map.invalidateSize(), 0);
+        mapRef.current = map;
+      } catch {
+        // Si Leaflet falla, el mensaje de error ya se muestra fuera del mapa.
+      }
+    };
+
+    initializeMap();
+
+    return () => {
+      mounted = false;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [latitude, longitude]);
+
+  return <div ref={mapContainerRef} style={styles.map} aria-label="Mapa de ubicación de tienda" />;
+}
+
 
 export default function PublicationDetailModal({ publication, onClose }) {
   const votes = publication?.votes || [];
@@ -41,11 +145,8 @@ export default function PublicationDetailModal({ publication, onClose }) {
   const hasPhoto = !!publication?.photo_url && !isVirtualStore;
   const mainImage = hasPhoto ? publication.photo_url : DEFAULT_VIRTUAL_IMAGE;
   const { latitude, longitude } = parseStoreLocation(publication?.store?.location);
-
-  const mapEmbedUrl = useMemo(
-    () => getMapEmbedUrl(latitude, longitude),
-    [latitude, longitude],
-  );
+    const hasCoordinates =
+    Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
 
   return (
     <div style={styles.overlay} onClick={onClose}>
@@ -86,8 +187,8 @@ export default function PublicationDetailModal({ publication, onClose }) {
 
         <div>
           <h3 style={styles.sectionTitle}>Ubicación de la tienda</h3>
-          {mapEmbedUrl ? (
-            <iframe title="Mapa tienda" src={mapEmbedUrl} style={styles.map} loading="lazy" />
+           {hasCoordinates ? (
+            <PublicationLocationMap latitude={latitude} longitude={longitude} />
           ) : (
             <p style={styles.commentItem}>No hay coordenadas disponibles para esta tienda.</p>
           )}
@@ -108,6 +209,6 @@ const styles = {
   commentsBox: { border: "1px solid #e5e7eb", borderRadius: 8, padding: 10, margin: "12px 0" },
   sectionTitle: { margin: "4px 0 8px" },
   commentItem: { margin: "6px 0", color: "#555", fontSize: 14 },
-  map: { width: "100%", height: 260, border: "none", borderRadius: 8 },
+  map: { width: "100%", height: 260, border: "none", borderRadius: 8, overflow: "hidden" },
   linkButton: { display: "inline-block", marginBottom: 10, padding: "8px 10px", borderRadius: 6, background: "#ff6b35", color: "#fff", textDecoration: "none", fontSize: 14 },
 };
