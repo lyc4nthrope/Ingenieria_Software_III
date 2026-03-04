@@ -169,7 +169,6 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
               display: 'flex',
               alignItems: 'center',
             }}
-            tabIndex={-1}
             aria-label={showPassword ? tf.hidePassword : tf.showPassword}
           >
             <EyeIcon open={showPassword} />

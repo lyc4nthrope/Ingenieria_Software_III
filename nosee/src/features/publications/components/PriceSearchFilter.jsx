@@ -22,7 +22,7 @@
  * - Botón limpiar
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
@@ -52,6 +52,15 @@ export function PriceSearchFilter({
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState(filters);
+
+  // Sincronizar cuando el padre actualiza filters externamente
+  // (ej: barra de búsqueda superior cambia productName)
+  useEffect(() => {
+    setLocalFilters((prev) => {
+      const keys = ['productName', 'storeName', 'minPrice', 'maxPrice', 'maxDistance', 'sortBy'];
+      return keys.some((k) => prev[k] !== filters[k]) ? { ...filters } : prev;
+    });
+  }, [filters]);
 
   // Contar filtros activos
   const activeFiltersCount = Object.values(localFilters).filter(

@@ -147,19 +147,49 @@ export default function PublicationsPage() {
 
   /**
    * Maneja cambios en la búsqueda
-   * TODO: Implementar búsqueda real con debounce
    */
   const handleSearch = (query) => {
     setSearchQuery(query);
+    const newFilters = { ...filters, productName: query };
+    setFilters(newFilters);
     setPublicationFilters({ productName: query });
   };
 
   /**
-   * Maneja cambios en filtros
+   * Maneja cambios en filtros.
+   * Cuando cambia maxDistance, solicita geolocalización al navegador
+   * para pasar lat/lng al hook y activar el filtro de distancia en la API.
    */
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
-    setPublicationFilters(newFilters);
+
+    const distanceChanged = newFilters.maxDistance !== filters.maxDistance;
+
+    if (newFilters.maxDistance && distanceChanged) {
+      if (!navigator.geolocation) {
+        setError("Tu navegador no soporta geolocalización. No se puede aplicar el filtro de distancia.");
+        setPublicationFilters(newFilters);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          setPublicationFilters({
+            ...newFilters,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          });
+        },
+        () => {
+          setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.");
+          setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+        },
+      );
+    } else if (!newFilters.maxDistance && filters.maxDistance) {
+      // Se eliminó la distancia → limpiar coordenadas para no contaminar futuros filtros
+      setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+    } else {
+      setPublicationFilters(newFilters);
+    }
   };
 
   /**
@@ -361,9 +391,6 @@ const handleViewMore = async (publicationId) => {
           onFiltersChange={handleFilterChange}
           onClearFilters={() => {
             setFilters({
-              priceMin: 0,
-              priceMax: 1000000,
-              distance: 50,
               productName: "",
               storeName: "",
               minPrice: null,
@@ -371,6 +398,7 @@ const handleViewMore = async (publicationId) => {
               maxDistance: null,
               sortBy: "recent",
             });
+            setSearchQuery("");
             clearFilters();
           }}
         />

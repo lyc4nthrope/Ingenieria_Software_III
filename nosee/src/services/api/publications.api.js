@@ -479,6 +479,48 @@ export const getPublications = async (filters = {}) => {
     } = filters;
      const offset = (page - 1) * limit;
 
+    const shouldApplyDistanceFilter =
+      maxDistance !== null && hasCoordinates(latitude, longitude);
+
+    // Pre-filtro: IDs de productos cuyo nombre coincide con productName
+    let productIdFilter = null;
+    if (productName) {
+      const { data: matchingProducts, error: productSearchError } = await supabase
+        .from("products")
+        .select("id")
+        .ilike("name", `%${productName}%`);
+
+      if (productSearchError) {
+        return { success: false, error: productSearchError.message };
+      }
+
+      productIdFilter = (matchingProducts || []).map((p) => p.id);
+
+      if (productIdFilter.length === 0) {
+        return { success: true, data: [], count: 0, hasMore: false };
+      }
+    }
+
+    // Pre-filtro: IDs de tiendas cuyo nombre coincide con storeName
+    // (solo sin filtro de distancia, que ya maneja storeName client-side)
+    let storeNameFilter = null;
+    if (storeName && !shouldApplyDistanceFilter) {
+      const { data: matchingStores, error: storeSearchError } = await supabase
+        .from("stores")
+        .select("id")
+        .ilike("name", `%${storeName}%`);
+
+      if (storeSearchError) {
+        return { success: false, error: storeSearchError.message };
+      }
+
+      storeNameFilter = (matchingStores || []).map((s) => s.id);
+
+      if (storeNameFilter.length === 0) {
+        return { success: true, data: [], count: 0, hasMore: false };
+      }
+    }
+
      const publicationListSelect = [
       "id",
       "price",
@@ -503,9 +545,9 @@ export const getPublications = async (filters = {}) => {
           withCount ? { count: "planned" } : undefined,
         );
 
-      // Filtro por nombre de producto
-      if (productName) {
-        query = query.ilike("products.name", `%${productName}%`);
+      // Filtro por producto (IDs pre-filtrados por nombre)
+      if (productIdFilter !== null) {
+        query = query.in("product_id", productIdFilter);
       }
 
       // Filtro por rango de precio
@@ -516,10 +558,12 @@ export const getPublications = async (filters = {}) => {
         query = query.lte("price", maxPrice);
       }
 
-      if (storeName && !shouldApplyDistanceFilter) {
-        query = query.ilike("stores.name", `%${storeName}%`);
+      // Filtro por tienda (IDs pre-filtrados por nombre, sin filtro de distancia)
+      if (storeNameFilter !== null) {
+        query = query.in("store_id", storeNameFilter);
       }
 
+      // Filtro por tiendas cercanas (filtro de distancia)
       if (Array.isArray(nearbyStoreIds) && nearbyStoreIds.length > 0) {
         query = query.in("store_id", nearbyStoreIds);
       }
@@ -541,8 +585,6 @@ export const getPublications = async (filters = {}) => {
       return query.range(offset, offset + limit - 1);
     };
 
-    const shouldApplyDistanceFilter =
-      maxDistance !== null && hasCoordinates(latitude, longitude);
     let appliedDistanceKm = null;
 
     let nearbyStoreIds = [];

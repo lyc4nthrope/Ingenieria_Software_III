@@ -58,6 +58,10 @@ export function PublicationForm({ onSuccess }) {
   const storeRequestIdRef = useRef(0);
   const storeWrapperRef = useRef(null);
 
+  // ─── Índice activo para navegación por teclado ─────────────────────────────
+  const [activeProductIndex, setActiveProductIndex] = useState(-1);
+  const [activeStoreIndex, setActiveStoreIndex] = useState(-1);
+
   // ─── Cerrar dropdowns al clickar fuera ────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
@@ -206,6 +210,42 @@ export function PublicationForm({ onSuccess }) {
     (p) => p.name.toLowerCase() === productQuery.trim().toLowerCase(),
   );
 
+  // Opciones totales del dropdown de producto (resultados + opción crear si aplica)
+  const productOptions = [
+    ...productResults,
+    ...(!productResults.length && productQuery.trim().length >= 2 ? [] :
+      (!hasExactProductMatch && productQuery.trim().length >= 2 ? [{ __isCreate: true }] : [])),
+  ];
+  // Si hay resultados y no hay coincidencia exacta, se añade opción crear al final
+  const productDropdownItems = [
+    ...productResults,
+    ...(!hasExactProductMatch && !productResults.find(p => p.__isCreate) && productQuery.trim().length >= 2
+      ? [{ __isCreate: true }] : []),
+  ];
+
+  const handleProductKeyDown = (e) => {
+    if (!showProductDropdown) return;
+    const total = productDropdownItems.length;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveProductIndex((prev) => (prev + 1) % total);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveProductIndex((prev) => (prev - 1 + total) % total);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const item = productDropdownItems[activeProductIndex];
+      if (item) {
+        if (item.__isCreate) handleCreateProduct();
+        else handleProductSelect(item);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setShowProductDropdown(false);
+      setActiveProductIndex(-1);
+    }
+  };
+
   // ─── Tienda: búsqueda debounced ────────────────────────────────────────────
   const handleStoreQueryChange = (e) => {
     const val = e.target.value;
@@ -244,6 +284,40 @@ export function PublicationForm({ onSuccess }) {
   const hasExactStoreMatch = storeResults.some(
     (s) => s.name.toLowerCase() === storeQuery.trim().toLowerCase(),
   );
+
+  const storeDropdownItems = [
+    ...storeResults,
+    ...(!hasExactStoreMatch && productQuery.trim().length >= 2 ? [] :
+      (!hasExactStoreMatch && storeQuery.trim().length >= 2 ? [{ __isCreate: true }] : [])),
+  ];
+  // Simplificado:
+  const storeDropdownItemsFinal = [
+    ...storeResults,
+    ...(!hasExactStoreMatch && storeQuery.trim().length >= 2 ? [{ __isCreate: true }] : []),
+  ];
+
+  const handleStoreKeyDown = (e) => {
+    if (!showStoreDropdown) return;
+    const total = storeDropdownItemsFinal.length;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveStoreIndex((prev) => (prev + 1) % total);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveStoreIndex((prev) => (prev - 1 + total) % total);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const item = storeDropdownItemsFinal[activeStoreIndex];
+      if (item) {
+        if (item.__isCreate) { setShowStoreDropdown(false); setShowStoreModal(true); }
+        else handleStoreSelect(item);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setShowStoreDropdown(false);
+      setActiveStoreIndex(-1);
+    }
+  };
 
   // ─── Símbolo de moneda ─────────────────────────────────────────────────────
   const CURRENCY_SYMBOLS = { COP: '$', USD: 'US$', EUR: '€' };
@@ -320,25 +394,42 @@ export function PublicationForm({ onSuccess }) {
       <h2 style={styles.title}>{tf.title}</h2>
 
       {submitSuccess && (
-        <div style={styles.successAlert}>{tf.success}</div>
+        <div role="status" aria-live="polite" style={styles.successAlert}>{tf.success}</div>
       )}
-      {submitError && <div style={styles.errorAlert}>⚠ {submitError}</div>}
+      {submitError && (
+        <div role="alert" style={styles.errorAlert}>
+          <span aria-hidden="true">⚠ </span>{submitError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} style={styles.form}>
         {/* ── Producto ─────────────────────────────────────────────────────── */}
         <div style={styles.formGroup}>
-          <label style={styles.label}>
+          <label htmlFor="pub-product" style={styles.label}>
             {tf.productLabel} <span style={styles.required}>*</span>
           </label>
           <div ref={productWrapperRef} style={styles.autocompleteContainer}>
             <input
+              id="pub-product"
               type="text"
+              role="combobox"
+              aria-expanded={showProductDropdown}
+              aria-autocomplete="list"
+              aria-controls="pub-product-listbox"
+              aria-activedescendant={
+                activeProductIndex >= 0
+                  ? `pub-product-option-${activeProductIndex}`
+                  : undefined
+              }
+              aria-invalid={!!errors.productId}
+              aria-describedby={errors.productId ? "pub-product-error" : undefined}
               placeholder={tf.productPlaceholder}
               value={productQuery}
               onChange={handleProductQueryChange}
               onFocus={() =>
                 productQuery.length >= 2 && setShowProductDropdown(true)
               }
+              onKeyDown={handleProductKeyDown}
               style={{
                 ...styles.input,
                 ...(errors.productId ? styles.inputError : {}),
@@ -346,16 +437,27 @@ export function PublicationForm({ onSuccess }) {
             />
 
             {showProductDropdown && (
-              <div style={styles.dropdown}>
+              <div
+                id="pub-product-listbox"
+                role="listbox"
+                aria-label={tf.productLabel}
+                style={styles.dropdown}
+              >
                 {productSearching && (
                   <div style={styles.dropdownState}>{tf.searching}</div>
                 )}
 
                 {!productSearching &&
-                  productResults.map((p) => (
+                  productResults.map((p, i) => (
                     <div
                       key={p.id}
-                      style={styles.dropdownItem}
+                      id={`pub-product-option-${i}`}
+                      role="option"
+                      aria-selected={i === activeProductIndex}
+                      style={{
+                        ...styles.dropdownItem,
+                        ...(i === activeProductIndex ? styles.dropdownItemActive : {}),
+                      }}
                       onMouseDown={() => handleProductSelect(p)}
                     >
                       {p.name}
@@ -373,9 +475,13 @@ export function PublicationForm({ onSuccess }) {
                   productQuery.trim().length >= 2 &&
                   !hasExactProductMatch && (
                     <div
+                      id={`pub-product-option-${productResults.length}`}
+                      role="option"
+                      aria-selected={productResults.length === activeProductIndex}
                       style={{
                         ...styles.dropdownItem,
                         ...styles.dropdownCreate,
+                        ...(productResults.length === activeProductIndex ? styles.dropdownItemActive : {}),
                       }}
                       onMouseDown={handleCreateProduct}
                     >
@@ -390,24 +496,37 @@ export function PublicationForm({ onSuccess }) {
             <div style={styles.selectedBadge}>{tf.productSelected}</div>
           )}
           {errors.productId && (
-            <div style={styles.errorText}>{errors.productId}</div>
+            <div id="pub-product-error" role="alert" style={styles.errorText}>{errors.productId}</div>
           )}
         </div>
 
         {/* ── Tienda ───────────────────────────────────────────────────────── */}
         <div style={styles.formGroup}>
-          <label style={styles.label}>
+          <label htmlFor="pub-store" style={styles.label}>
             {tf.storeLabel} <span style={styles.required}>*</span>
           </label>
           <div ref={storeWrapperRef} style={styles.autocompleteContainer}>
             <input
+              id="pub-store"
               type="text"
+              role="combobox"
+              aria-expanded={showStoreDropdown}
+              aria-autocomplete="list"
+              aria-controls="pub-store-listbox"
+              aria-activedescendant={
+                activeStoreIndex >= 0
+                  ? `pub-store-option-${activeStoreIndex}`
+                  : undefined
+              }
+              aria-invalid={!!errors.storeId}
+              aria-describedby={errors.storeId ? "pub-store-error" : undefined}
               placeholder={tf.storePlaceholder}
               value={storeQuery}
               onChange={handleStoreQueryChange}
               onFocus={() =>
                 storeQuery.length >= 2 && setShowStoreDropdown(true)
               }
+              onKeyDown={handleStoreKeyDown}
               style={{
                 ...styles.input,
                 ...(errors.storeId ? styles.inputError : {}),
@@ -415,16 +534,27 @@ export function PublicationForm({ onSuccess }) {
             />
 
             {showStoreDropdown && (
-              <div style={styles.dropdown}>
+              <div
+                id="pub-store-listbox"
+                role="listbox"
+                aria-label={tf.storeLabel}
+                style={styles.dropdown}
+              >
                 {storeSearching && (
                   <div style={styles.dropdownState}>{tf.searching}</div>
                 )}
 
                 {!storeSearching &&
-                  storeResults.map((s) => (
+                  storeResults.map((s, i) => (
                     <div
                       key={s.id}
-                      style={styles.dropdownItem}
+                      id={`pub-store-option-${i}`}
+                      role="option"
+                      aria-selected={i === activeStoreIndex}
+                      style={{
+                        ...styles.dropdownItem,
+                        ...(i === activeStoreIndex ? styles.dropdownItemActive : {}),
+                      }}
                       onMouseDown={() => handleStoreSelect(s)}
                     >
                       <span>{s.name}</span>
@@ -452,9 +582,13 @@ export function PublicationForm({ onSuccess }) {
                   storeQuery.trim().length >= 2 &&
                   !hasExactStoreMatch && (
                     <div
+                      id={`pub-store-option-${storeResults.length}`}
+                      role="option"
+                      aria-selected={storeResults.length === activeStoreIndex}
                       style={{
                         ...styles.dropdownItem,
                         ...styles.dropdownCreate,
+                        ...(storeResults.length === activeStoreIndex ? styles.dropdownItemActive : {}),
                       }}
                       onMouseDown={() => {
                         setShowStoreDropdown(false);
@@ -472,22 +606,25 @@ export function PublicationForm({ onSuccess }) {
             <div style={styles.selectedBadge}>{tf.storeSelected}</div>
           )}
           {errors.storeId && (
-            <div style={styles.errorText}>{errors.storeId}</div>
+            <div id="pub-store-error" role="alert" style={styles.errorText}>{errors.storeId}</div>
           )}
         </div>
 
         {/* ── Precio + Moneda ───────────────────────────────────────────────── */}
         <div style={styles.row}>
           <div style={styles.formGroup}>
-            <label style={styles.label}>
+            <label htmlFor="pub-price" style={styles.label}>
               {tf.priceLabel} <span style={styles.required}>*</span>
             </label>
             <div style={styles.inputGroup}>
               <span style={styles.currencyPrefix}>{currencySymbol}</span>
               <input
+                id="pub-price"
                 type="number"
                 placeholder="0"
                 value={formData.price}
+                aria-invalid={!!errors.price}
+                aria-describedby={errors.price ? "pub-price-error" : undefined}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === "" || Number(val) >= 0) handleInputChange("price", val);
@@ -496,12 +633,13 @@ export function PublicationForm({ onSuccess }) {
                 min="0"
               />
             </div>
-            {errors.price && <div style={styles.errorText}>{errors.price}</div>}
+            {errors.price && <div id="pub-price-error" role="alert" style={styles.errorText}>{errors.price}</div>}
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>{tf.currencyLabel}</label>
+            <label htmlFor="pub-currency" style={styles.label}>{tf.currencyLabel}</label>
             <select
+              id="pub-currency"
               value={formData.currency}
               onChange={(e) => handleInputChange("currency", e.target.value)}
               style={styles.select}
@@ -515,17 +653,20 @@ export function PublicationForm({ onSuccess }) {
 
         {/* ── Descripción ───────────────────────────────────────────────────── */}
         <div style={styles.formGroup}>
-          <label style={styles.label}>{tf.descriptionLabel}</label>
+          <label htmlFor="pub-description" style={styles.label}>{tf.descriptionLabel}</label>
           <textarea
+            id="pub-description"
             placeholder={tf.descriptionPlaceholder}
             value={formData.description}
+            aria-invalid={!!errors.description}
+            aria-describedby={errors.description ? "pub-description-error" : undefined}
             onChange={(e) => handleInputChange("description", e.target.value)}
             maxLength={500}
             style={styles.textarea}
           />
           <div style={styles.charCount}>{formData.description.length}/500</div>
           {errors.description && (
-            <div style={styles.errorText}>{errors.description}</div>
+            <div id="pub-description-error" role="alert" style={styles.errorText}>{errors.description}</div>
           )}
         </div>
 
@@ -539,7 +680,7 @@ export function PublicationForm({ onSuccess }) {
             disabled={isSubmitting}
           />
           {errors.photoUrl && (
-            <div style={styles.errorText}>{errors.photoUrl}</div>
+            <div id="pub-photo-error" role="alert" style={styles.errorText}>{errors.photoUrl}</div>
           )}
         </div>
 
@@ -737,6 +878,11 @@ const styles = {
     color: "#ff6b35",
     fontWeight: 600,
     borderTop: "1px solid #eee",
+  },
+  dropdownItemActive: {
+    background: "#fff0eb",
+    outline: "2px solid #ff6b35",
+    outlineOffset: "-2px",
   },
   dropdownState: {
     padding: "10px 12px",
