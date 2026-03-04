@@ -60,7 +60,30 @@ const STRINGS = {
       reading: "Leyendo contenido de la página.",
       stopped: "Lectura detenida.",
       reset: "Ajustes de accesibilidad restablecidos.",
-      info: "Este menú incluye controles de texto, contraste, enlaces, imágenes y movimiento.",
+    },
+    infoPanel: {
+      title: "Acerca de este menú",
+      description:
+        "Este menú cumple con las pautas WCAG 2.1 nivel AA. Permite ajustar la apariencia y comportamiento de la página para mejorar tu experiencia de navegación.",
+      shortcutsTitle: "Atajos de teclado",
+      shortcuts: [
+        { keys: "Ctrl + U", action: "Abrir / cerrar este menú" },
+        { keys: "Escape", action: "Cerrar el menú" },
+      ],
+      featuresTitle: "Funciones disponibles",
+      features: [
+        "Contraste alto e inteligente",
+        "Escalado de texto (90 % – 160 %)",
+        "Espaciado y altura de línea",
+        "Fuente apta para dislexia",
+        "Resaltar enlaces",
+        "Ocultar imágenes",
+        "Detener animaciones",
+        "Cursor ampliado",
+        "Estructura de la página",
+        "Lectura en voz alta",
+      ],
+      closeInfo: "Cerrar información",
     },
   },
   "en-US": {
@@ -100,7 +123,30 @@ const STRINGS = {
       reading: "Reading page content.",
       stopped: "Reading stopped.",
       reset: "Accessibility settings reset.",
-      info: "This menu includes controls for text, contrast, links, images, and motion.",
+    },
+    infoPanel: {
+      title: "About this menu",
+      description:
+        "This menu complies with WCAG 2.1 Level AA guidelines. It lets you adjust the page's appearance and behavior to improve your browsing experience.",
+      shortcutsTitle: "Keyboard shortcuts",
+      shortcuts: [
+        { keys: "Ctrl + U", action: "Open / close this menu" },
+        { keys: "Escape", action: "Close the menu" },
+      ],
+      featuresTitle: "Available features",
+      features: [
+        "High and smart contrast",
+        "Text scaling (90 % – 160 %)",
+        "Text spacing and line height",
+        "Dyslexia-friendly font",
+        "Highlight links",
+        "Hide images",
+        "Pause animations",
+        "Bigger cursor",
+        "Page structure outline",
+        "Text-to-speech",
+      ],
+      closeInfo: "Close information",
     },
   },
 };
@@ -215,6 +261,7 @@ export default function AccessibilityMenu() {
   const [settings, setSettings] = useState(() => readStoredSettings());
   const [lang, setLang] = useState(() => readStoredLang());
   const [langOpen, setLangOpen] = useState(false);
+  const [infoVisible, setInfoVisible] = useState(false);
   const langRef = useRef(null);
 
   const t = STRINGS[lang];
@@ -362,7 +409,8 @@ export default function AccessibilityMenu() {
       key: "info",
       label: t.features.info,
       icon: "i",
-      onClick: () => announce(t.announces.info),
+      active: infoVisible,
+      onClick: () => setInfoVisible((prev) => !prev),
     },
     {
       key: "pageStructure",
@@ -474,6 +522,40 @@ export default function AccessibilityMenu() {
               </button>
             ))}
           </div>
+
+          {infoVisible && (
+            <div className="a11y-info-panel" role="region" aria-label={t.infoPanel.title}>
+              <div className="a11y-info-header">
+                <strong>{t.infoPanel.title}</strong>
+                <button
+                  type="button"
+                  className="a11y-info-close"
+                  onClick={() => setInfoVisible(false)}
+                  aria-label={t.infoPanel.closeInfo}
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="a11y-info-desc">{t.infoPanel.description}</p>
+
+              <p className="a11y-info-section-title">{t.infoPanel.shortcutsTitle}</p>
+              <ul className="a11y-info-shortcuts">
+                {t.infoPanel.shortcuts.map((s) => (
+                  <li key={s.keys}>
+                    <kbd>{s.keys}</kbd>
+                    <span>{s.action}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <p className="a11y-info-section-title">{t.infoPanel.featuresTitle}</p>
+              <ul className="a11y-info-features">
+                {t.infoPanel.features.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="a11y-actions-row">
             <button type="button" onClick={() => adjustFontSize(-1)}>
