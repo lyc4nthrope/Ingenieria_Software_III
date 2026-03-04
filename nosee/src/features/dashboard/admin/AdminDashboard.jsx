@@ -2,27 +2,92 @@
  * AdminDashboard.jsx
  *
  * Panel de control total del Admin de NØSEE.
- * Gestión de usuarios, cambio de roles, estadísticas del sistema.
+ * Gestión de usuarios, cambio de roles, estadísticas del sistema,
+ * moderación de publicaciones, revisión de reportes y configuración.
  *
  * UBICACIÓN: src/features/dashboard/admin/AdminDashboard.jsx
- * 
- * CAMBIOS (26-02-2026):
- * ✅ Conectado a API real (getAllUsers, changeUserRole)
- * ✅ Carga usuarios desde BD en useEffect
- * ✅ Estados para loading y error
- * ✅ Manejo de errores amigable
  */
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { changeUserRole, getAllUsers, updateUserStatus } from '@/services/api/users.api';
+import { getPublications, deletePublication } from '@/services/api/publications.api';
+import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
 
-const STATS = [
-  { label: 'Usuarios totales',   value: '—', delta: '—', icon: '◉' },
-  { label: 'Publicaciones hoy',  value: '—',   delta: '—',  icon: '◈' },
-  { label: 'Validaciones hoy',   value: '—', delta: '—', icon: '✓' },
-  { label: 'Reportes pendientes',value: '—',     delta: '—',   icon: '⚠' },
+// ─── Modal de confirmación de baneo ──────────────────────────────────────────
+function BanModal({ user, onConfirm, onCancel }) {
+  const isBanning = user.status === 'activo';
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000,
+    }}>
+      <div style={{
+        background: '#0F1724', border: '1px solid #1E2D4A', borderRadius: 14,
+        padding: '28px 32px', width: 420, maxWidth: '90vw',
+      }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#E8EDF8' }}>
+          {isBanning ? '⊗ Banear usuario' : '✓ Desbanear usuario'}
+        </h2>
+        <p style={{ margin: '0 0 20px', fontSize: 14, color: '#7B90BD' }}>
+          {isBanning
+            ? <>Vas a banear a <strong style={{ color: '#E8EDF8' }}>{user.name}</strong>. Su cuenta quedará bloqueada y <strong style={{ color: '#F87171' }}>todas sus publicaciones activas serán ocultadas</strong>.</>
+            : <>Vas a restaurar el acceso de <strong style={{ color: '#E8EDF8' }}>{user.name}</strong>. Podrá volver a iniciar sesión normalmente.</>
+          }
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onCancel}
+            style={{ background: 'none', border: '1px solid #1E2D4A', color: '#7B90BD', borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer' }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              background: isBanning ? '#F8717118' : '#34D39918',
+              border: `1px solid ${isBanning ? '#F87171' : '#34D399'}`,
+              color: isBanning ? '#F87171' : '#34D399',
+              borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer', fontWeight: 600,
+            }}
+          >
+            {isBanning ? 'Sí, banear' : 'Sí, desbanear'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Constantes de reportes (igual que ModeratorDashboard) ────────────────────
+const REPORT_TYPE_LABELS = {
+  fake_price:  'Precio falso',
+  wrong_photo: 'Foto incorrecta',
+  spam:        'Spam',
+  offensive:   'Contenido ofensivo',
+};
+const REPORT_SEVERITY = {
+  offensive:   'alta',
+  spam:        'media',
+  fake_price:  'media',
+  wrong_photo: 'baja',
+};
+const SEVERITY_COLORS = {
+  alta:  { bg: '#F8717118', text: '#F87171' },
+  media: { bg: '#FCD34D18', text: '#FCD34D' },
+  baja:  { bg: '#60A5FA18', text: '#60A5FA' },
+};
+
+// ─── Parámetros de reputación del sistema (documentados en el proyecto) ───────
+const REPUTATION_PARAMS = [
+  { param: 'Puntos por upvote recibido',       value: '+5',  note: 'Cuando otro usuario valida tu publicación' },
+  { param: 'Puntos por downvote recibido',      value: '-3',  note: 'Cuando otro usuario rechaza tu publicación' },
+  { param: 'Puntos por publicar precio',        value: '+2',  note: 'Al crear una nueva publicación de precio' },
+  { param: 'Umbral Usuario Verificado',         value: '10',  note: 'Mínimo de puntos para publicar sin restricciones' },
+  { param: 'Umbral para rol Moderador',         value: '500', note: 'Puntos mínimos para asignación automática' },
+  { param: 'Penalización por reporte aceptado', value: '-10', note: 'Cuando un reporte contra el usuario es validado' },
 ];
 
 const ALL_ROLES = [UserRoleEnum.USUARIO, UserRoleEnum.MODERADOR, UserRoleEnum.ADMIN, UserRoleEnum.REPARTIDOR];
@@ -30,108 +95,306 @@ const ALL_ROLES = [UserRoleEnum.USUARIO, UserRoleEnum.MODERADOR, UserRoleEnum.AD
 export default function AdminDashboard() {
   const logout = useAuthStore((s) => s.logout);
 
-  // ─── Estados ──────────────────────────────────────────────────────────────
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeSection, setActiveSection] = useState('overview');
-  const [changingRole, setChangingRole] = useState(null);
+  // ─── Estado global ────────────────────────────────────────────────────────
+  const [activeSection, setActiveSection]     = useState('overview');
+
+  // Usuarios
+  const [users, setUsers]                     = useState([]);
+  const [usersLoading, setUsersLoading]       = useState(true);
+  const [usersError, setUsersError]           = useState(null);
+  const [changingRole, setChangingRole]       = useState(null);
+  const [banModal, setBanModal]               = useState(null); // usuario objetivo del baneo
+
+  // Publicaciones
+  const [publications, setPublications]       = useState([]);
+  const [pubsLoading, setPubsLoading]         = useState(false);
+  const [pubsLoaded, setPubsLoaded]           = useState(false);
+  const [pubFilter, setPubFilter]             = useState('all');
+  const [deletingPub, setDeletingPub]         = useState(null);
+
+  // Reportes
+  const [reports, setReports]                 = useState([]);
+  const [reportsLoading, setReportsLoading]   = useState(false);
+  const [reportsLoaded, setReportsLoaded]     = useState(false);
+  const [reportFilter, setReportFilter]       = useState('pending');
+  const [resolvedCount, setResolvedCount]     = useState(0);
+
+  // Categorías (config)
+  const [categories, setCategories]           = useState([]);
+  const [catsLoading, setCatsLoading]         = useState(false);
+  const [catsLoaded, setCatsLoaded]           = useState(false);
+
+  // Stats
+  const [stats, setStats]                     = useState({
+    users: '—', pubs: '—', validations: '—', reports: '—',
+  });
 
   // ─── Cargar usuarios al montar ────────────────────────────────────────────
   useEffect(() => {
     loadUsers();
+    loadStats();
   }, []);
 
+  // Cargar datos de sección cuando se activa (lazy loading)
+  useEffect(() => {
+    if (activeSection === 'content'  && !pubsLoaded)     loadPublications();
+    if (activeSection === 'reports'  && !reportsLoaded)  loadReports();
+    if (activeSection === 'config'   && !catsLoaded)     loadCategories();
+  }, [activeSection]);
+
+  // ─── Stats reales ─────────────────────────────────────────────────────────
+  // Contamos directamente en Supabase para tener números en tiempo real.
+  const loadStats = async () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayISO = today.toISOString();
+
+    const [
+      { count: totalUsers },
+      { count: pubsToday },
+      { count: validationsToday },
+      { count: pendingReports },
+    ] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('price_publications').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
+      supabase.from('publication_votes').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
+      supabase.from('price_reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+    ]);
+
+    setStats({
+      users:       totalUsers       ?? '—',
+      pubs:        pubsToday        ?? '—',
+      validations: validationsToday ?? '—',
+      reports:     pendingReports   ?? '—',
+    });
+  };
+
+  // ─── Usuarios ─────────────────────────────────────────────────────────────
   const loadUsers = async () => {
-    setLoading(true);
-    setError(null);
-    
+    setUsersLoading(true);
+    setUsersError(null);
     try {
       const result = await getAllUsers();
-      
       if (result.success && result.data) {
-        // Mapear datos de BD a formato de tabla
-        const mappedUsers = result.data.map((u) => ({
-          id: u.id,
-          name: u.fullName || 'Sin nombre',
-          email: u.email,
-          role: u.role,
+        setUsers(result.data.map((u) => ({
+          id:     u.id,
+          name:   u.fullName || 'Sin nombre',
+          email:  u.email,
+          role:   u.role,
           status: u.isActive ? 'activo' : 'baneado',
-          rep: u.reputationPoints || 0,
-          joined: new Date(u.createdAt).toLocaleDateString('es-CO', { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
+          rep:    u.reputationPoints || 0,
+          joined: new Date(u.createdAt).toLocaleDateString('es-CO', {
+            year: 'numeric', month: 'short', day: 'numeric',
           }),
-        }));
-        
-        setUsers(mappedUsers);
+        })));
       } else {
-        setError(result.error || 'No se pudieron cargar los usuarios');
+        setUsersError(result.error || 'No se pudieron cargar los usuarios');
       }
-    } catch (err) {
-      console.error('Error cargando usuarios:', err);
-      setError('Error al conectar con el servidor');
+    } catch {
+      setUsersError('Error al conectar con el servidor');
     } finally {
-      setLoading(false);
+      setUsersLoading(false);
     }
   };
 
-  // ─── Cambiar rol de un usuario ─────────────────────────────────────────────
   const handleRoleChange = async (userId, newRole) => {
-    const roleMap = {
-      'Usuario': 1,
-      'Moderador': 2,
-      'Admin': 3,
-      'Repartidor': 4,
-    };
-
+    const roleMap = { 'Usuario': 1, 'Moderador': 2, 'Admin': 3, 'Repartidor': 4 };
     setChangingRole(userId);
-    
     try {
       const result = await changeUserRole(userId, roleMap[newRole]);
-
       if (result.success) {
-        // Actualizar la tabla localmente
-        setUsers(users.map(u => 
-          u.id === userId 
-            ? { ...u, role: newRole }
-            : u
-        ));
+        setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
       } else {
         alert(`Error al cambiar rol: ${result.error || 'Error desconocido'}`);
       }
-    } catch (err) {
-      console.error('Error al cambiar rol:', err);
+    } catch {
       alert('Error al cambiar rol. Intenta de nuevo.');
     } finally {
       setChangingRole(null);
     }
   };
 
-  // ─── Toggle de ban ────────────────────────────────────────────────────────
-  const handleBanToggle = async (userId) => {
+  // Abre el modal de confirmación
+  const handleBanToggle = (userId) => {
     const target = users.find(u => u.id === userId);
-    if (!target) return;
+    if (target) setBanModal(target);
+  };
 
-    const newIsActive = target.status === 'baneado';
+  // Ejecuta el baneo/desbaneo + desactiva publicaciones si es un baneo
+  const confirmBan = async () => {
+    const target = banModal;
+    setBanModal(null);
+    const isBanning  = target.status === 'activo';
+    const newIsActive = !isBanning;
 
     try {
-      const result = await updateUserStatus(userId, newIsActive);
-      if (result.success) {
-        setUsers(users.map(u =>
-          u.id === userId
-            ? { ...u, status: newIsActive ? 'activo' : 'baneado' }
-            : u
-        ));
-      } else {
-        alert(`Error al cambiar estado: ${result.error || 'Error desconocido'}`);
+      const result = await updateUserStatus(target.id, newIsActive);
+      if (!result.success) { alert(`Error: ${result.error}`); return; }
+
+      // Si es un baneo: ocultar todas sus publicaciones activas
+      if (isBanning) {
+        await supabase
+          .from('price_publications')
+          .update({ status: 'rejected' })
+          .eq('user_id', target.id)
+          .eq('status', 'active');
+
+        // Refrescar la lista de publicaciones si ya estaba cargada
+        if (pubsLoaded) {
+          setPublications(prev =>
+            prev.map(p => p.userId === target.id && p.status === 'active'
+              ? { ...p, status: 'rejected' }
+              : p
+            )
+          );
+        }
       }
-    } catch (err) {
-      console.error('Error al cambiar estado:', err);
-      alert('Error al cambiar estado. Intenta de nuevo.');
+
+      setUsers(prev =>
+        prev.map(u => u.id === target.id ? { ...u, status: isBanning ? 'baneado' : 'activo' } : u)
+      );
+    } catch {
+      alert('Error al cambiar estado.');
     }
   };
+
+  // ─── Publicaciones ────────────────────────────────────────────────────────
+  // Usamos getPublications() de la API existente. El admin puede eliminar
+  // cualquier publicación porque deletePublication() verifica role_id === 3.
+  const loadPublications = async () => {
+    setPubsLoading(true);
+    try {
+      const result = await getPublications({ limit: 100 });
+      if (result.success) {
+        setPublications(result.data || []);
+      }
+    } catch {
+      // silencioso, la tabla queda vacía
+    } finally {
+      setPubsLoading(false);
+      setPubsLoaded(true);
+    }
+  };
+
+  const handleDeletePublication = async (pubId) => {
+    if (!window.confirm('¿Eliminar esta publicación permanentemente?')) return;
+    setDeletingPub(pubId);
+    try {
+      const result = await deletePublication(pubId);
+      if (result.success) {
+        setPublications(prev => prev.filter(p => p.id !== pubId));
+        // Actualizar stat
+        setStats(prev => ({ ...prev, pubs: Math.max(0, (prev.pubs || 1) - 1) }));
+      } else {
+        alert(`Error al eliminar: ${result.error}`);
+      }
+    } catch {
+      alert('Error al eliminar la publicación.');
+    } finally {
+      setDeletingPub(null);
+    }
+  };
+
+  // ─── Reportes ─────────────────────────────────────────────────────────────
+  // Acceso directo a Supabase (igual que ModeratorDashboard).
+  // El admin puede ver todos los reportes (pending + resueltos) con filtro.
+  const loadReports = async () => {
+    setReportsLoading(true);
+    try {
+      const query = supabase
+        .from('price_reports')
+        .select('id, report_type, description, created_at, publication_id, reporter_id, status')
+        .order('created_at', { ascending: false });
+
+      const { data: rawReports, error } = reportFilter === 'all'
+        ? await query
+        : await query.eq('status', reportFilter);
+
+      if (error || !rawReports?.length) {
+        setReports([]);
+        return;
+      }
+
+      const pubIds     = [...new Set(rawReports.map(r => r.publication_id).filter(Boolean))];
+      const reporterIds = [...new Set(rawReports.map(r => r.reporter_id).filter(Boolean))];
+
+      const [{ data: publications }, { data: reporters }] = await Promise.all([
+        supabase
+          .from('price_publications')
+          .select('id, user_id, products(name), author:users!price_publications_user_id_fkey(full_name)')
+          .in('id', pubIds),
+        supabase.from('users').select('id, full_name').in('id', reporterIds),
+      ]);
+
+      const pubMap      = Object.fromEntries((publications || []).map(p => [p.id, p]));
+      const reporterMap = Object.fromEntries((reporters    || []).map(u => [u.id, u]));
+
+      setReports(rawReports.map(r => {
+        const pub      = pubMap[r.publication_id];
+        const reporter = reporterMap[r.reporter_id];
+        return {
+          id:             r.id,
+          status:         r.status,
+          type:           REPORT_TYPE_LABELS[r.report_type] || r.report_type,
+          severity:       REPORT_SEVERITY[r.report_type]    || 'baja',
+          time:           new Date(r.created_at).toLocaleDateString('es-CO'),
+          post:           pub?.products?.name               || 'Publicación eliminada',
+          reporter:       reporter?.full_name               || 'Anónimo',
+          reported:       pub?.author?.full_name            || 'Desconocido',
+          publicationId:  r.publication_id,
+          reportedUserId: pub?.user_id,
+        };
+      }));
+    } finally {
+      setReportsLoading(false);
+      setReportsLoaded(true);
+    }
+  };
+
+  // Recargar cuando cambia el filtro de reportes
+  useEffect(() => {
+    if (reportsLoaded) {
+      setReportsLoaded(false);
+      loadReports();
+    }
+  }, [reportFilter]);
+
+  const handleResolveReport = async (id, action, report) => {
+    await supabase.from('price_reports').update({ status: 'resolved' }).eq('id', id);
+
+    if (action === 'delete' && report.publicationId) {
+      await supabase.from('price_publications').delete().eq('id', report.publicationId);
+    }
+    if (action === 'ban' && report.reportedUserId) {
+      await supabase.from('users').update({ is_active: false }).eq('id', report.reportedUserId);
+    }
+
+    setReports(prev => prev.filter(r => r.id !== id));
+    setResolvedCount(n => n + 1);
+    setStats(prev => ({ ...prev, reports: Math.max(0, (prev.reports || 1) - 1) }));
+  };
+
+  // ─── Categorías (Config) ──────────────────────────────────────────────────
+  // Mostramos las categorías reales de la BD para que el admin vea la
+  // cobertura del catálogo. No hay tabla de config → es lectura informativa.
+  const loadCategories = async () => {
+    setCatsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('product_categories')
+        .select('id, name, products(count)')
+        .order('name');
+      setCategories(data || []);
+    } finally {
+      setCatsLoading(false);
+      setCatsLoaded(true);
+    }
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  const reportsBadge = typeof stats.reports === 'number' && stats.reports > 0
+    ? stats.reports
+    : reports.filter(r => r.status === 'pending').length || null;
 
   return (
     <div style={s.root}>
@@ -142,7 +405,7 @@ export default function AdminDashboard() {
             { key: 'overview', icon: '▦', label: 'Resumen' },
             { key: 'users',    icon: '◉', label: 'Usuarios' },
             { key: 'content',  icon: '◈', label: 'Contenido' },
-            { key: 'reports',  icon: '⚠', label: 'Reportes' },
+            { key: 'reports',  icon: '⚠', label: 'Reportes', badge: reportsBadge },
             { key: 'config',   icon: '⚙', label: 'Config' },
           ].map((item) => (
             <button
@@ -152,66 +415,31 @@ export default function AdminDashboard() {
             >
               <span style={s.navIcon}>{item.icon}</span>
               <span>{item.label}</span>
-              {item.badge && <span style={s.navBadge}>{item.badge}</span>}
+              {item.badge > 0 && <span style={s.navBadge}>{item.badge}</span>}
             </button>
           ))}
         </nav>
-
         <button style={s.logoutBtn} onClick={logout}>⏻ Salir</button>
       </aside>
 
-      {/* ── Content ──────────────────────────────────────────────── */}
+      {/* ── Contenido principal ───────────────────────────────────── */}
       <main style={s.main}>
 
-        {/* Error message */}
-        {error && (
-          <div style={{
-            padding: '12px 16px',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--error-soft)',
-            border: '1px solid rgba(248,113,113,0.25)',
-            color: 'var(--error)',
-            fontSize: '13px',
-            marginBottom: '20px',
-          }}>
-            ⚠️ {error}
-            <button 
-              onClick={loadUsers}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--error)',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                marginLeft: '12px',
-                fontWeight: '600',
-              }}
-            >
-              Reintentar
-            </button>
-          </div>
-        )}
-
-        {/* Overview */}
+        {/* ── OVERVIEW ─────────────────────────────────────────── */}
         {activeSection === 'overview' && (
           <>
-            <SectionHeader
-              title="Panel de control"
-              sub="Vista general de la plataforma NØSEE"
-            />
+            <SectionHeader title="Panel de control" sub="Vista general de la plataforma NØSEE" />
 
-            {/* Stats */}
             <div style={s.statsGrid}>
-              {STATS.map((stat) => (
+              {[
+                { label: 'Usuarios totales',    value: stats.users,       icon: '◉' },
+                { label: 'Publicaciones hoy',   value: stats.pubs,        icon: '◈' },
+                { label: 'Validaciones hoy',    value: stats.validations, icon: '✓' },
+                { label: 'Reportes pendientes', value: stats.reports,     icon: '⚠' },
+              ].map((stat) => (
                 <div key={stat.label} style={s.statCard}>
                   <div style={s.statTop}>
                     <span style={s.statIcon}>{stat.icon}</span>
-                    <span style={{
-                      ...s.statDelta,
-                      color: stat.delta.startsWith('+') ? ACCENT : '#F87171',
-                    }}>
-                      {stat.delta}
-                    </span>
                   </div>
                   <div style={s.statValue}>{stat.value}</div>
                   <div style={s.statLabel}>{stat.label}</div>
@@ -219,60 +447,42 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* Recent users preview */}
-            {loading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-                <Spinner size={32} />
+            {/* Preview de usuarios recientes */}
+            <div style={s.section}>
+              <div style={s.sectionHead}>
+                <span style={s.sectionTitle}>
+                  Usuarios recientes ({users.length})
+                </span>
+                <button style={s.linkBtn} onClick={() => setActiveSection('users')}>
+                  Ver todos →
+                </button>
               </div>
-            ) : (
-              <div style={s.section}>
-                <div style={s.sectionHead}>
-                  <span style={s.sectionTitle}>
-                    Usuarios recientes ({users.length})
-                  </span>
-                  <button style={s.linkBtn} onClick={() => setActiveSection('users')}>
-                    Ver todos →
-                  </button>
-                </div>
-                {users.length > 0 ? (
-                  <UsersTable
-                    users={users.slice(0, 3)}
-                    onRoleChange={handleRoleChange}
-                    onBanToggle={handleBanToggle}
-                    changingRole={changingRole}
-                  />
-                ) : (
-                  <div style={{
-                    padding: '40px',
-                    textAlign: 'center',
-                    color: MUTED,
-                    fontSize: '14px',
-                  }}>
-                    No hay usuarios registrados aún
-                  </div>
-                )}
-              </div>
-            )}
+              {usersLoading ? (
+                <LoadingState />
+              ) : users.length > 0 ? (
+                <UsersTable
+                  users={users.slice(0, 3)}
+                  onRoleChange={handleRoleChange}
+                  onBanToggle={handleBanToggle}
+                  changingRole={changingRole}
+                />
+              ) : (
+                <EmptyMsg text="No hay usuarios registrados aún" />
+              )}
+            </div>
           </>
         )}
 
-        {/* Users section */}
+        {/* ── USUARIOS ─────────────────────────────────────────── */}
         {activeSection === 'users' && (
           <>
             <SectionHeader
               title="Gestión de usuarios"
-              sub={loading ? 'Cargando...' : `${users.length} usuarios registrados`}
+              sub={usersLoading ? 'Cargando...' : `${users.length} usuarios registrados`}
             />
-            
-            {loading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <Spinner size={32} />
-                  <p style={{ marginTop: '16px', color: MUTED, fontSize: '14px' }}>
-                    Cargando usuarios...
-                  </p>
-                </div>
-              </div>
+            {usersError && <ErrorBar msg={usersError} onRetry={loadUsers} />}
+            {usersLoading ? (
+              <LoadingState label="Cargando usuarios..." />
             ) : users.length > 0 ? (
               <UsersTable
                 users={users}
@@ -281,23 +491,173 @@ export default function AdminDashboard() {
                 changingRole={changingRole}
               />
             ) : (
-              <div style={{
-                padding: '60px 20px',
-                textAlign: 'center',
-                color: MUTED,
-                fontSize: '14px',
-              }}>
-                No hay usuarios registrados aún
+              <EmptyMsg text="No hay usuarios registrados aún" />
+            )}
+          </>
+        )}
+
+        {/* ── CONTENIDO ────────────────────────────────────────── */}
+        {activeSection === 'content' && (
+          <>
+            <SectionHeader
+              title="Gestión de contenido"
+              sub="Publicaciones de precios en la plataforma — el admin puede eliminar cualquiera"
+            />
+
+            {/* Filtro por estado */}
+            <div style={s.filterRow}>
+              {[
+                { key: 'all',      label: 'Todas' },
+                { key: 'active',   label: 'Activas' },
+                { key: 'pending',  label: 'Pendientes' },
+                { key: 'expired',  label: 'Expiradas' },
+              ].map(f => (
+                <button
+                  key={f.key}
+                  style={{ ...s.filterBtn, ...(pubFilter === f.key ? s.filterBtnActive : {}) }}
+                  onClick={() => setPubFilter(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {pubsLoading ? (
+              <LoadingState label="Cargando publicaciones..." />
+            ) : (
+              <PublicationsTable
+                publications={publications.filter(p =>
+                  pubFilter === 'all' ? true : p.status === pubFilter
+                )}
+                onDelete={handleDeletePublication}
+                deletingId={deletingPub}
+              />
+            )}
+          </>
+        )}
+
+        {/* ── REPORTES ─────────────────────────────────────────── */}
+        {activeSection === 'reports' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+              <div>
+                <h1 style={s.headerTitle}>Reportes de la comunidad</h1>
+                <p style={s.headerSub}>
+                  {reports.length > 0
+                    ? `${reports.length} reportes • ${resolvedCount} resueltos en esta sesión`
+                    : resolvedCount > 0
+                      ? `Todo revisado — ${resolvedCount} resueltos en esta sesión`
+                      : 'Sin reportes en esta vista'}
+                </p>
+              </div>
+              {/* Filtro de estado */}
+              <div style={s.filterRow}>
+                {[
+                  { key: 'pending',  label: 'Pendientes' },
+                  { key: 'resolved', label: 'Resueltos' },
+                  { key: 'all',      label: 'Todos' },
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    style={{ ...s.filterBtn, ...(reportFilter === f.key ? s.filterBtnActive : {}) }}
+                    onClick={() => setReportFilter(f.key)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {reportsLoading ? (
+              <LoadingState label="Cargando reportes..." />
+            ) : reports.length === 0 ? (
+              <EmptyMsg text={reportFilter === 'pending' ? 'Sin reportes pendientes ✓' : 'No hay reportes en esta vista'} />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {reports.map(r => (
+                  <ReportCard
+                    key={r.id}
+                    report={r}
+                    showActions={r.status === 'pending'}
+                    onResolve={handleResolveReport}
+                  />
+                ))}
               </div>
             )}
           </>
         )}
 
-        {/* Other sections placeholder */}
-        {['content', 'reports', 'config'].includes(activeSection) && (
-          <PlaceholderSection section={activeSection} />
+        {/* ── CONFIG ───────────────────────────────────────────── */}
+        {activeSection === 'config' && (
+          <>
+            <SectionHeader
+              title="Configuración del sistema"
+              sub="Parámetros globales de la plataforma NØSEE"
+            />
+
+            {/* Parámetros de reputación */}
+            <div style={s.section}>
+              <div style={s.sectionHead}>
+                <span style={s.sectionTitle}>Sistema de reputación</span>
+                <span style={{ fontSize: 12, color: MUTED, padding: '3px 10px', background: `${ACCENT}15`, borderRadius: 6, color: ACCENT }}>
+                  Solo lectura
+                </span>
+              </div>
+              <div style={s.configCard}>
+                {REPUTATION_PARAMS.map(({ param, value, note }) => (
+                  <div key={param} style={s.configRow}>
+                    <div>
+                      <div style={s.configParam}>{param}</div>
+                      <div style={s.configNote}>{note}</div>
+                    </div>
+                    <span style={{
+                      ...s.configValue,
+                      color: value.startsWith('+') ? '#34D399' : value.startsWith('-') ? '#F87171' : ACCENT,
+                    }}>
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Categorías de productos */}
+            <div style={s.section}>
+              <div style={s.sectionHead}>
+                <span style={s.sectionTitle}>Categorías de productos</span>
+                {catsLoading
+                  ? <Spinner size={16} />
+                  : <span style={{ fontSize: 13, color: MUTED }}>{categories.length} categorías</span>
+                }
+              </div>
+              {catsLoading ? (
+                <LoadingState label="Cargando categorías..." />
+              ) : categories.length === 0 ? (
+                <EmptyMsg text="No hay categorías registradas" />
+              ) : (
+                <div style={s.configCard}>
+                  {categories.map(cat => (
+                    <div key={cat.id} style={s.configRow}>
+                      <div style={s.configParam}>{cat.name}</div>
+                      <span style={{ ...s.configValue, color: MUTED, fontSize: 13 }}>
+                        {cat.products?.[0]?.count ?? 0} productos
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
         )}
       </main>
+
+      {banModal && (
+        <BanModal
+          user={banModal}
+          onConfirm={confirmBan}
+          onCancel={() => setBanModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -313,7 +673,6 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
       </div>
       {users.map((u) => (
         <div key={u.id} style={s.tableRow}>
-          {/* Usuario */}
           <div style={s.td}>
             <div style={s.rowAvatar}>{u.name.charAt(0)}</div>
             <div>
@@ -321,8 +680,6 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
               <div style={s.rowEmail}>{u.email}</div>
             </div>
           </div>
-
-          {/* Rol selector */}
           <div style={s.td}>
             <select
               style={s.roleSelect}
@@ -335,33 +692,22 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
               ))}
             </select>
             {changingRole === u.id && (
-              <span style={{ marginLeft: '8px', fontSize: '12px', color: ACCENT }}>
-                Guardando...
-              </span>
+              <span style={{ marginLeft: 8, fontSize: 12, color: ACCENT }}>Guardando...</span>
             )}
           </div>
-
-          {/* Reputación */}
           <div style={{ ...s.td, ...s.tdNum }}>{u.rep}</div>
-
-          {/* Estado */}
           <div style={s.td}>
             <span style={{
               ...s.badge,
               background: u.status === 'activo' ? `${ACCENT}18` : '#F8717120',
-              color: u.status === 'activo' ? ACCENT : '#F87171',
+              color:      u.status === 'activo' ? ACCENT : '#F87171',
             }}>
               {u.status}
             </span>
           </div>
-
-          {/* Acciones */}
           <div style={s.td}>
             <button
-              style={{
-                ...s.actionBtn,
-                ...(u.status === 'baneado' ? s.actionBtnDanger : {}),
-              }}
+              style={{ ...s.actionBtn, ...(u.status === 'baneado' ? s.actionBtnDanger : {}) }}
               onClick={() => onBanToggle(u.id)}
               disabled={changingRole === u.id}
             >
@@ -374,7 +720,96 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── PublicationsTable ────────────────────────────────────────────────────────
+function PublicationsTable({ publications, onDelete, deletingId }) {
+  if (publications.length === 0) {
+    return <EmptyMsg text="No hay publicaciones en esta vista" />;
+  }
+  return (
+    <div style={s.table}>
+      <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 0.7fr' }}>
+        {['Producto', 'Tienda', 'Precio', 'Autor', 'Fecha', 'Acción'].map(h => (
+          <div key={h} style={s.th}>{h}</div>
+        ))}
+      </div>
+      {publications.map(p => (
+        <div key={p.id} style={{ ...s.tableRow, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 0.7fr' }}>
+          <div style={s.td}>
+            <div>
+              <div style={s.rowName}>{p.productName || p.product?.name || '—'}</div>
+              <StatusBadge status={p.status} />
+            </div>
+          </div>
+          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.storeName || p.store?.name || '—'}</div>
+          <div style={{ ...s.td, ...s.tdNum }}>
+            ${typeof p.price === 'number' ? p.price.toLocaleString('es-CO') : p.price || '—'}
+          </div>
+          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.authorName || p.user?.fullName || '—'}</div>
+          <div style={{ ...s.td, fontSize: 12, color: MUTED }}>
+            {p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-CO') : '—'}
+          </div>
+          <div style={s.td}>
+            <button
+              style={s.btnDelete}
+              onClick={() => onDelete(p.id)}
+              disabled={deletingId === p.id}
+            >
+              {deletingId === p.id ? '...' : '🗑'}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── ReportCard ───────────────────────────────────────────────────────────────
+function ReportCard({ report, showActions, onResolve }) {
+  const sev = SEVERITY_COLORS[report.severity] || SEVERITY_COLORS.baja;
+  return (
+    <article style={s.reportCard}>
+      <div style={s.reportTop}>
+        <span style={{ ...s.severityBadge, background: sev.bg, color: sev.text }}>
+          {report.severity?.toUpperCase()}
+        </span>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>{report.type}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: MUTED }}>{report.time}</span>
+        {!showActions && (
+          <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, background: '#34D39918', color: '#34D399', fontWeight: 700 }}>
+            RESUELTO
+          </span>
+        )}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+        {[
+          ['Publicación',       `"${report.post}"`],
+          ['Reportado por',     report.reporter],
+          ['Usuario denunciado',report.reported],
+        ].map(([label, value]) => (
+          <div key={label} style={{ display: 'flex', gap: 12, fontSize: 14 }}>
+            <span style={{ color: MUTED, width: 150, flexShrink: 0 }}>{label}</span>
+            <span style={{ color: TEXT }}>{value}</span>
+          </div>
+        ))}
+      </div>
+      {showActions && (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button style={s.btnDelete} onClick={() => onResolve(report.id, 'delete', report)}>
+            🗑 Eliminar publicación
+          </button>
+          <button style={s.btnBan} onClick={() => onResolve(report.id, 'ban', report)}>
+            ⊗ Banear usuario
+          </button>
+          <button style={s.btnDismiss} onClick={() => onResolve(report.id, 'dismiss', report)}>
+            ↩ Descartar
+          </button>
+        </div>
+      )}
+    </article>
+  );
+}
+
+// ─── Helpers UI ───────────────────────────────────────────────────────────────
 function SectionHeader({ title, sub }) {
   return (
     <header style={s.header}>
@@ -384,223 +819,121 @@ function SectionHeader({ title, sub }) {
   );
 }
 
-function PlaceholderSection({ section }) {
-  const labels = {
-    content: { icon: '◈', title: 'Gestión de contenido', sub: 'Moderación de publicaciones y reportes activos' },
-    reports: { icon: '⚠', title: 'Reportes pendientes', sub: 'Reportes de la comunidad pendientes de revisión' },
-    config: { icon: '⚙', title: 'Configuración del sistema', sub: 'Parámetros globales de la plataforma' },
+function StatusBadge({ status }) {
+  const map = {
+    active:   { bg: '#34D39918', color: '#34D399', label: 'activa' },
+    pending:  { bg: '#FCD34D18', color: '#FCD34D', label: 'pendiente' },
+    rejected: { bg: '#F8717118', color: '#F87171', label: 'rechazada' },
+    expired:  { bg: '#64748B18', color: '#64748B', label: 'expirada' },
   };
-  const info = labels[section];
+  const c = map[status] || map.pending;
   return (
-    <div style={s.placeholder}>
-      <span style={s.placeholderIcon}>{info.icon}</span>
-      <h2 style={s.placeholderTitle}>{info.title}</h2>
-      <p style={s.placeholderSub}>{info.sub}</p>
-      <div style={s.placeholderTag}>Próximamente</div>
+    <span style={{ ...s.badge, background: c.bg, color: c.color, fontSize: 10, marginTop: 2 }}>
+      {c.label}
+    </span>
+  );
+}
+
+function LoadingState({ label }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: 12 }}>
+      <Spinner size={28} />
+      {label && <p style={{ color: MUTED, fontSize: 14, margin: 0 }}>{label}</p>}
+    </div>
+  );
+}
+
+function EmptyMsg({ text }) {
+  return (
+    <div style={{ padding: '48px 20px', textAlign: 'center', color: MUTED, fontSize: 14 }}>
+      {text}
+    </div>
+  );
+}
+
+function ErrorBar({ msg, onRetry }) {
+  return (
+    <div style={{
+      padding: '12px 16px',
+      borderRadius: 'var(--radius-md, 8px)',
+      background: 'rgba(248,113,113,0.08)',
+      border: '1px solid rgba(248,113,113,0.25)',
+      color: '#F87171',
+      fontSize: 13,
+      marginBottom: 20,
+    }}>
+      ⚠️ {msg}
+      <button onClick={onRetry} style={{ background: 'none', border: 'none', color: '#F87171', cursor: 'pointer', textDecoration: 'underline', marginLeft: 12, fontWeight: 600 }}>
+        Reintentar
+      </button>
     </div>
   );
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
-const ACCENT   = '#FF6B35';   // naranja admin — poder, control
-const BG       = '#080C14';
-const SURFACE  = '#0F1724';
-const BORDER   = '#1E2D4A';
-const TEXT     = '#E8EDF8';
-const MUTED    = '#7B90BD';
+const ACCENT  = '#FF6B35';
+const BG      = '#080C14';
+const SURFACE = '#0F1724';
+const BORDER  = '#1E2D4A';
+const TEXT    = '#E8EDF8';
+const MUTED   = '#7B90BD';
 
 const s = {
-  root: {
-    display: 'flex',
-    minHeight: '100vh',
-    background: BG,
-    color: TEXT,
-    fontFamily: "'DM Sans', 'Inter', sans-serif",
-  },
-  sidebar: {
-    width: 224,
-    background: SURFACE,
-    borderRight: `1px solid ${BORDER}`,
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '24px 16px',
-    position: 'sticky',
-    top: 0,
-    height: '100vh',
-  },
-  nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
-  navItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '10px 12px',
-    borderRadius: 8,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: MUTED,
-    fontSize: 14,
-    fontWeight: 500,
-    textAlign: 'left',
-    transition: 'all 0.15s',
-  },
-  navActive: { background: `${ACCENT}18`, color: ACCENT },
-  navIcon: { fontSize: 16, width: 20, textAlign: 'center' },
-  navBadge: {
-    marginLeft: 'auto',
-    background: '#F87171',
-    color: '#fff',
-    borderRadius: 10,
-    padding: '1px 7px',
-    fontSize: 11,
-    fontWeight: 700,
-  },
-  userBlock: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '12px 8px',
-    borderTop: `1px solid ${BORDER}`,
-    marginTop: 'auto',
-    marginBottom: 12,
-  },
-  userAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: '50%',
-    background: `${ACCENT}25`,
-    color: ACCENT,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 700,
-    fontSize: 14,
-  },
-  userName: { fontSize: 13, fontWeight: 600, color: TEXT },
-  userRole: { fontSize: 11, color: MUTED },
-  logoutBtn: {
-    background: 'none',
-    border: `1px solid ${BORDER}`,
-    color: MUTED,
-    borderRadius: 8,
-    padding: '8px 12px',
-    cursor: 'pointer',
-    fontSize: 13,
-    textAlign: 'left',
-  },
+  root:    { display: 'flex', minHeight: '100vh', background: BG, color: TEXT, fontFamily: "'DM Sans', 'Inter', sans-serif" },
+  sidebar: { width: 224, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', padding: '24px 16px', position: 'sticky', top: 0, height: '100vh' },
+  nav:     { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
+  navItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 14, fontWeight: 500, textAlign: 'left', transition: 'all 0.15s' },
+  navActive:  { background: `${ACCENT}18`, color: ACCENT },
+  navIcon:    { fontSize: 16, width: 20, textAlign: 'center' },
+  navBadge:   { marginLeft: 'auto', background: '#F87171', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 },
+  logoutBtn:  { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 13, textAlign: 'left' },
 
-  main: { flex: 1, padding: '32px 40px' },
-  header: { marginBottom: 28 },
-  headerTitle: { fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' },
-  headerSub: { color: MUTED, fontSize: 14, margin: '4px 0 0' },
+  main:       { flex: 1, padding: '32px 40px', overflowY: 'auto' },
+  header:     { marginBottom: 28 },
+  headerTitle:{ fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' },
+  headerSub:  { color: MUTED, fontSize: 14, margin: '4px 0 0' },
 
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: 14,
-    marginBottom: 32,
-  },
-  statCard: {
-    background: SURFACE,
-    border: `1px solid ${BORDER}`,
-    borderRadius: 12,
-    padding: '18px 20px',
-  },
-  statTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  statIcon: { fontSize: 18, color: MUTED },
-  statDelta: { fontSize: 12, fontWeight: 600 },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 32 },
+  statCard:  { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '18px 20px' },
+  statTop:   { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  statIcon:  { fontSize: 18, color: MUTED },
   statValue: { fontSize: 28, fontWeight: 800, letterSpacing: '-1px', color: TEXT },
   statLabel: { fontSize: 12, color: MUTED, marginTop: 4 },
 
-  section: { marginTop: 32 },
+  section:     { marginTop: 32 },
   sectionHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: 600 },
-  linkBtn: { background: 'none', border: 'none', color: ACCENT, cursor: 'pointer', fontSize: 13, fontWeight: 600 },
+  sectionTitle:{ fontSize: 16, fontWeight: 600 },
+  linkBtn:     { background: 'none', border: 'none', color: ACCENT, cursor: 'pointer', fontSize: 13, fontWeight: 600 },
 
-  table: {
-    background: SURFACE,
-    border: `1px solid ${BORDER}`,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  tableHead: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr',
-    padding: '12px 20px',
-    borderBottom: `1px solid ${BORDER}`,
-    background: '#0A1020',
-  },
-  th: { fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
-  tableRow: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr',
-    padding: '14px 20px',
-    alignItems: 'center',
-    borderBottom: `1px solid ${BORDER}`,
-  },
-  td: { display: 'flex', alignItems: 'center', gap: 10 },
-  tdNum: { fontSize: 14, fontWeight: 600, color: ACCENT },
-  rowAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: '50%',
-    background: '#1C1C20',
-    color: MUTED,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 13,
-    fontWeight: 700,
-    flexShrink: 0,
-  },
-  rowName: { fontSize: 14, fontWeight: 500 },
-  rowEmail: { fontSize: 12, color: MUTED },
-  roleSelect: {
-    background: '#1C1C20',
-    border: `1px solid ${BORDER}`,
-    color: TEXT,
-    borderRadius: 6,
-    padding: '5px 10px',
-    fontSize: 13,
-    cursor: 'pointer',
-  },
-  badge: {
-    fontSize: 12,
-    fontWeight: 600,
-    borderRadius: 6,
-    padding: '3px 10px',
-    textTransform: 'capitalize',
-  },
-  actionBtn: {
-    background: 'none',
-    border: `1px solid ${BORDER}`,
-    color: MUTED,
-    borderRadius: 6,
-    padding: '5px 12px',
-    fontSize: 13,
-    cursor: 'pointer',
-  },
+  filterRow: { display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
+  filterBtn:  { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 7, padding: '6px 14px', fontSize: 13, cursor: 'pointer' },
+  filterBtnActive: { background: `${ACCENT}18`, borderColor: ACCENT, color: ACCENT },
+
+  table:     { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' },
+  tableHead: { display: 'grid', gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr', padding: '12px 20px', borderBottom: `1px solid ${BORDER}`, background: '#0A1020' },
+  th:        { fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
+  tableRow:  { display: 'grid', gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr', padding: '14px 20px', alignItems: 'center', borderBottom: `1px solid ${BORDER}` },
+  td:        { display: 'flex', alignItems: 'center', gap: 10 },
+  tdNum:     { fontSize: 14, fontWeight: 600, color: ACCENT },
+  rowAvatar: { width: 32, height: 32, borderRadius: '50%', background: '#1C1C20', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
+  rowName:   { fontSize: 14, fontWeight: 500 },
+  rowEmail:  { fontSize: 12, color: MUTED },
+  roleSelect:{ background: '#1C1C20', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 6, padding: '5px 10px', fontSize: 13, cursor: 'pointer' },
+  badge:     { fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '3px 10px', textTransform: 'capitalize' },
+  actionBtn: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 6, padding: '5px 12px', fontSize: 13, cursor: 'pointer' },
   actionBtnDanger: { borderColor: '#F87171', color: '#F87171' },
 
-  placeholder: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 400,
-    gap: 12,
-    color: MUTED,
-  },
-  placeholderIcon: { fontSize: 48 },
-  placeholderTitle: { fontSize: 20, fontWeight: 700, color: TEXT, margin: 0 },
-  placeholderSub: { fontSize: 14, margin: 0 },
-  placeholderTag: {
-    background: `${ACCENT}15`,
-    color: ACCENT,
-    borderRadius: 6,
-    padding: '4px 12px',
-    fontSize: 12,
-    fontWeight: 600,
-    marginTop: 8,
-  },
+  reportCard:    { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '18px 20px' },
+  reportTop:     { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 },
+  severityBadge: { fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '3px 8px', letterSpacing: '0.5px' },
+
+  btnDelete:  { background: '#F8717115', border: '1px solid #F87171', color: '#F87171', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
+  btnBan:     { background: '#FCD34D15', border: '1px solid #FCD34D', color: '#FCD34D', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
+  btnDismiss: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer' },
+
+  configCard: { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' },
+  configRow:  { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: `1px solid ${BORDER}` },
+  configParam:{ fontSize: 14, fontWeight: 500, color: TEXT },
+  configNote: { fontSize: 12, color: MUTED, marginTop: 2 },
+  configValue:{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px' },
 };
