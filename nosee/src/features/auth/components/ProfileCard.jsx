@@ -142,8 +142,8 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
         background: "var(--bg-surface)",
         border: "1px solid var(--border)",
         borderRadius: "var(--radius-xl)",
-        overflow: "hidden",
         animation: "fadeIn 0.3s ease",
+        position: "relative",
       }}
     >
       {/* Header con gradiente */}
@@ -152,42 +152,45 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
           height: "100px",
           background:
             "linear-gradient(135deg, rgba(56,189,248,0.15) 0%, rgba(14,165,233,0.05) 100%)",
-          position: "relative",
+          borderRadius: "var(--radius-xl) var(--radius-xl) 0 0",
         }}
       />
 
+      {/* Avatar flotante entre header y contenido */}
+      <div
+        style={{
+          position: "absolute",
+          top: "64px",
+          left: "24px",
+          width: "72px",
+          height: "72px",
+          borderRadius: "50%",
+          background: "var(--bg-elevated)",
+          border: "3px solid var(--bg-surface)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "24px",
+          fontWeight: "700",
+          color: "var(--accent)",
+          overflow: "hidden",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+          zIndex: 1,
+        }}
+      >
+        {user?.avatarUrl ? (
+          <img
+            src={user.avatarUrl}
+            alt={user.fullName || "Avatar"}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        ) : (
+          initials
+        )}
+      </div>
+
       {/* Contenido */}
-      <div style={{ padding: "0 24px 28px" }}>
-        {/* Avatar */}
-        <div
-          style={{
-            width: "72px",
-            height: "72px",
-            borderRadius: "50%",
-            background: "var(--bg-elevated)",
-            border: "3px solid var(--bg-surface)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "24px",
-            fontWeight: "700",
-            color: "var(--accent)",
-            marginTop: "-36px",
-            marginBottom: "14px",
-            overflow: "hidden",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
-          }}
-        >
-          {user?.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt={user.fullName || "Avatar"}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          ) : (
-            initials
-          )}
-        </div>
+      <div style={{ padding: "0 24px 28px", paddingTop: "50px" }}>
 
         {!editing ? (
           /* Vista de lectura */
