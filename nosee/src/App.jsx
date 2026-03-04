@@ -32,7 +32,9 @@ const DealerDashboard      = lazy(() => import("@/features/dashboard/dealer/Deal
 
 const PublicationsPage     = lazy(() => import("@/features/publications/pages/PublicationsPage"));
 const CreatePublicationPage = lazy(() => import("@/features/publications/pages/CreatePublicationPage"));
+const EditPublicationPage   = lazy(() => import("@/features/publications/pages/EditPublicationPage"));
 const CreateStorePage      = lazy(() => import("@/features/stores/pages/CreateStorePage"));
+const EditStorePage        = lazy(() => import("@/features/stores/pages/EditStorePage"));
 
 function NotFoundPage() {
   return (
@@ -143,11 +145,29 @@ function AppContent() {
         }
       />
 
-        <Route
+      <Route
+        path="/publicaciones/editar/:id"
+        element={
+          <ProtectedRoute>
+            <EditPublicationPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/tiendas/nueva"
         element={
           <ProtectedRoute>
             <CreateStorePage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/tiendas/editar/:id"
+        element={
+          <ProtectedRoute>
+            <EditStorePage />
           </ProtectedRoute>
         }
       />

@@ -1,29 +1,46 @@
 import StoreTypeSwitch from '@/features/stores/components/StoreTypeSwitch';
 import StoreMapPicker from '@/features/stores/components/StoreMapPicker';
 import StoreEvidenceUploader from '@/features/stores/components/StoreEvidenceUploader';
+import { Spinner } from '@/components/ui';
 import { StoreTypeEnum } from '@/features/stores/schemas';
 import { useStoreCreation } from '@/features/stores/hooks/useStoreCreation';
 
-export default function StoreForm() {
+export default function StoreForm({ 
+  mode = 'create',
+  storeId,
+  onSuccess 
+}) {
   const {
     formData,
     errors,
     isSubmitting,
     submitError,
     submitSuccess,
+    isLoading,
     updateField,
     setLocation,
     addEvidenceFile,
     removeEvidenceFile,
     submit,
-  } = useStoreCreation();
+  } = useStoreCreation({ storeId, mode });
 
   const isPhysical = formData.type === StoreTypeEnum.PHYSICAL;
 
   const onSubmit = async (event) => {
     event.preventDefault();
-    await submit();
+    const result = await submit();
+    if (result.success) {
+      onSuccess?.(result.data);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div style={styles.form} className="flex items-center justify-center min-h-96">
+        <Spinner />
+      </div>
+    );
+  }
 
   return (
     <form style={styles.form} onSubmit={onSubmit}>
@@ -83,7 +100,10 @@ export default function StoreForm() {
       {submitSuccess ? <div style={styles.alertSuccess}>✅ {submitSuccess}</div> : null}
 
       <button type="submit" style={styles.submit} disabled={isSubmitting}>
-        {isSubmitting ? 'Creando tienda...' : 'Crear tienda'}
+        {isSubmitting 
+          ? (mode === 'create' ? 'Creando tienda...' : 'Actualizando tienda...')
+          : (mode === 'create' ? 'Crear tienda' : 'Actualizar tienda')
+        }
       </button>
     </form>
   );

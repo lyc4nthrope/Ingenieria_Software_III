@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { storesApi } from '@/services/api';
 import { StoreTypeEnum, validateStoreForm } from '@/features/stores/schemas';
 import { uploadImageToCloudinary } from '@/services/cloudinary';
@@ -19,12 +19,40 @@ const initialFormData = {
   evidenceFiles: [],
 };
 
-export function useStoreCreation() {
+export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
+  const [isLoading, setIsLoading] = useState(mode === 'edit' && !!storeId);
+
+  // Cargar tienda si estamos editando
+  useEffect(() => {
+    if (mode === 'edit' && storeId) {
+      const loadStore = async () => {
+        const result = await storesApi.getStore(storeId);
+        if (result.success) {
+          const storeData = result.data;
+          setFormData({
+            name: storeData.name || '',
+            type: storeData.type === STORE_TYPE_ID[StoreTypeEnum.PHYSICAL] 
+              ? StoreTypeEnum.PHYSICAL 
+              : StoreTypeEnum.VIRTUAL,
+            address: storeData.address || '',
+            latitude: storeData.latitude || null,
+            longitude: storeData.longitude || null,
+            websiteUrl: storeData.websiteUrl || storeData.website_url || '',
+            evidenceFiles: [],
+          });
+        } else {
+          setSubmitError(result.error || 'No se pudo cargar la tienda');
+        }
+        setIsLoading(false);
+      };
+      loadStore();
+    }
+  }, [storeId, mode]);
 
   const updateField = (field, value) => {
     setFormData((prev) => {
@@ -90,6 +118,11 @@ export function useStoreCreation() {
   };
 
   const checkNearbyDuplicates = async () => {
+    // En modo edición, no validar duplicados (la tienda ya existe)
+    if (mode === 'edit') {
+      return { success: true };
+    }
+
     if (formData.type !== StoreTypeEnum.PHYSICAL) {
       return { success: true };
     }
@@ -132,27 +165,34 @@ export function useStoreCreation() {
 
     setIsSubmitting(true);
 
-   try {
+    try {
       const duplicateCheck = await checkNearbyDuplicates();
       if (!duplicateCheck.success) {
         setSubmitError(duplicateCheck.error);
         return duplicateCheck;
       }
 
-     const result = await storesApi.createStore({
+      const payload = {
         ...formData,
         type: STORE_TYPE_ID[formData.type],
-      });
+      };
 
-        if (!result.success) {
-        setSubmitError(result.error || 'No se pudo crear la tienda');
+      // Diferenciar entre create y update
+      const result = mode === 'create'
+        ? await storesApi.createStore(payload)
+        : await storesApi.updateStore(storeId, payload);
+
+      if (!result.success) {
+        const action = mode === 'create' ? 'crear' : 'actualizar';
+        setSubmitError(result.error || `No se pudo ${action} la tienda`);
         return result;
       }
 
-        const storeId = result?.data?.store?.id;
+      // Manejar evidencias solo en modo create/physical
+      const resultStoreId = result?.data?.store?.id || result?.data?.id;
       const evidenceUploadErrors = [];
 
-      if (storeId && formData.type === StoreTypeEnum.PHYSICAL && formData.evidenceFiles.length > 0) {
+      if (mode === 'create' && resultStoreId && formData.type === StoreTypeEnum.PHYSICAL && formData.evidenceFiles.length > 0) {
         for (const evidence of formData.evidenceFiles) {
           const uploadResult = await uploadImageToCloudinary(evidence.file, {
             folder: 'nosee/stores/evidence',
@@ -164,7 +204,7 @@ export function useStoreCreation() {
           }
 
           const evidenceResult = await storesApi.uploadStoreEvidence(
-            storeId,
+            resultStoreId,
             uploadResult.optimizedUrl || uploadResult.url
           );
           if (!evidenceResult.success) {
@@ -172,24 +212,30 @@ export function useStoreCreation() {
           }
         }
       }
-   if (evidenceUploadErrors.length > 0) {
-        setSubmitSuccess('Tienda creada, pero algunas evidencias no se pudieron registrar');
+
+      if (evidenceUploadErrors.length > 0) {
+        const action = mode === 'create' ? 'creada' : 'actualizada';
+        setSubmitSuccess(`Tienda ${action}, pero algunas evidencias no se pudieron registrar`);
         setSubmitError(evidenceUploadErrors[0]);
       } else {
-        setSubmitSuccess('Tienda creada exitosamente');
+        const action = mode === 'create' ? 'creada' : 'actualizada';
+        setSubmitSuccess(`Tienda ${action} exitosamente`);
       }
 
-    setFormData(initialFormData);
+      // Solo resetear en modo create
+      if (mode === 'create') {
+        setFormData(initialFormData);
+      }
+
       setErrors({});
       return result;
     } catch (error) {
-      const fallbackMessage = 'Error inesperado creando tienda';
+      const fallbackMessage = `Error inesperado ${mode === 'create' ? 'creando' : 'actualizando'} tienda`;
       setSubmitError(error?.message || fallbackMessage);
       return { success: false, error: error?.message || fallbackMessage };
     } finally {
       setIsSubmitting(false);
     }
-  
   };
 
   return {
@@ -198,6 +244,7 @@ export function useStoreCreation() {
     isSubmitting,
     submitError,
     submitSuccess,
+    isLoading,
     updateField,
     setLocation,
     addEvidenceFile,

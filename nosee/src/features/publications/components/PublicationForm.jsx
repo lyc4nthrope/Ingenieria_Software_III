@@ -7,32 +7,42 @@
  *   Tienda   → autocomplete con búsqueda en tiempo real.
  *              Si el nombre no existe → opción "Crear tienda [nombre]"
  *              que abre StoreCreateModal encima del formulario.
+ *
+ * Props:
+ *   - mode: 'create' | 'edit' (default: 'create')
+ *   - publicationId: string (required if mode='edit')
+ *   - onSuccess: function
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useGeoLocation } from "@/features/publications/hooks";
+import { usePublicationCreation } from "@/features/publications/hooks";
+import { Spinner } from "@/components/ui";
 import PhotoUploader from "./PhotoUploader";
 import StoreCreateModal from "@/features/stores/components/StoreCreateModal";
 import ProductQuickCreateModal from "./ProductQuickCreateModal";
 import * as publicationsApi from "@/services/api/publications.api";
 import * as storesApi from "@/services/api/stores.api";
 
-export function PublicationForm({ onSuccess }) {
-  const { latitude, longitude } = useGeoLocation({ autoFetch: true });
+export function PublicationForm({ 
+  mode = "create",
+  publicationId,
+  onSuccess 
+}) {
+  const {
+    formData,
+    errors,
+    isSubmitting,
+    submitError,
+    submitSuccess,
+    isLoading,
+    latitude,
+    longitude,
+    updateField,
+    submit,
+  } = usePublicationCreation({ publicationId, mode });
 
-  // ─── Form data ─────────────────────────────────────────────────────────────
-  const [formData, setFormData] = useState({
-    productId: "",
-    storeId: "",
-    price: "",
-    currency: "COP",
-    description: "",
-    photoUrl: "",
-  });
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  // Estado para autocompletes y modales
+  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(mode === 'create');
 
   // ─── Product autocomplete ──────────────────────────────────────────────────
   const [productQuery, setProductQuery] = useState("");
@@ -53,6 +63,15 @@ export function PublicationForm({ onSuccess }) {
   const storeTimerRef = useRef(null);
   const storeRequestIdRef = useRef(0);
   const storeWrapperRef = useRef(null);
+
+  // Cargar nombres iniciales cuando se cargan datos en modo edición
+  useEffect(() => {
+    if (!isLoading && !hasLoadedInitialData && formData.productId && formData.storeId) {
+      // En modo edición, los datos ya están cargados, inicializar queries
+      // La búsqueda de nombre completo debe venir del formData y ser buscada
+      setHasLoadedInitialData(true);
+    }
+  }, [isLoading, hasLoadedInitialData, formData.productId, formData.storeId]);
 
   // ─── Cerrar dropdowns al clickar fuera ────────────────────────────────────
   useEffect(() => {
@@ -161,7 +180,7 @@ export function PublicationForm({ onSuccess }) {
   const handleProductQueryChange = (e) => {
     const val = e.target.value;
     setProductQuery(val);
-    setFormData((prev) => ({ ...prev, productId: "" }));
+    updateField("productId", "");
     clearTimeout(productTimerRef.current);
 
     if (!val.trim() || val.length < 2) {
@@ -177,14 +196,9 @@ export function PublicationForm({ onSuccess }) {
   };
 
   const handleProductSelect = (product) => {
-    setFormData((prev) => ({ ...prev, productId: product.id }));
+    updateField("productId", String(product.id));
     setProductQuery(product.name);
     setShowProductDropdown(false);
-    setErrors((prev) => {
-      const n = { ...prev };
-      delete n.productId;
-      return n;
-    });
   };
 
   const handleCreateProduct = async () => {
@@ -206,7 +220,7 @@ export function PublicationForm({ onSuccess }) {
   const handleStoreQueryChange = (e) => {
     const val = e.target.value;
     setStoreQuery(val);
-    setFormData((prev) => ({ ...prev, storeId: "" }));
+    updateField("storeId", "");
     clearTimeout(storeTimerRef.current);
 
     if (!val.trim() || val.length < 2) {
@@ -222,14 +236,9 @@ export function PublicationForm({ onSuccess }) {
   };
 
   const handleStoreSelect = (store) => {
-    setFormData((prev) => ({ ...prev, storeId: store.id }));
+    updateField("storeId", store.id);
     setStoreQuery(store.name);
     setShowStoreDropdown(false);
-    setErrors((prev) => {
-      const n = { ...prev };
-      delete n.storeId;
-      return n;
-    });
   };
 
   const handleStoreCreated = (store) => {
@@ -247,76 +256,40 @@ export function PublicationForm({ onSuccess }) {
 
   // ─── Form helpers ──────────────────────────────────────────────────────────
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => {
-        const n = { ...prev };
-        delete n[field];
-        return n;
-      });
-    }
-  };
-
-  const validateForm = () => {
-    const e = {};
-    if (!formData.productId) e.productId = "Selecciona o crea un producto";
-    if (!formData.storeId) e.storeId = "Selecciona o crea una tienda";
-    if (!formData.price || Number(formData.price) <= 0)
-      e.price = "El precio debe ser mayor a 0";
-    if (!formData.photoUrl) e.photoUrl = "La foto es obligatoria";
-    if (formData.description?.length > 500)
-      e.description = "Máximo 500 caracteres";
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    updateField(field, value);
   };
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    setSubmitError(null);
-    setSubmitSuccess(false);
-    if (!validateForm()) return;
-
-    setIsSubmitting(true);
-    try {
-      const result = await publicationsApi.createPublication({
-        productId: Number(formData.productId),
-        storeId: formData.storeId,
-        price: Number(formData.price),
-        photoUrl: formData.photoUrl,
-        description: formData.description,
-      });
-
-      if (result.success) {
-        setSubmitSuccess(true);
-        onSuccess?.(result.data);
-        setFormData({
-          productId: "",
-          storeId: "",
-          price: "",
-          currency: "COP",
-          description: "",
-          photoUrl: "",
-        });
-        setProductQuery("");
-        setStoreQuery("");
-        setTimeout(() => setSubmitSuccess(false), 3000);
-      } else {
-        setSubmitError(result.error || "Error al crear publicación");
-      }
-    } catch (err) {
-      setSubmitError(err.message || "Error desconocido");
-    } finally {
-      setIsSubmitting(false);
+    const result = await submit();
+    if (result.success) {
+      onSuccess?.(result.data);
     }
   };
+
+  // Mostrar spinner mientras carga datos en modo edición
+  if (isLoading) {
+    return (
+      <div style={styles.container} className="flex items-center justify-center min-h-96">
+        <Spinner />
+      </div>
+    );
+  }
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Publicar Precio</h2>
+      <h2 style={styles.title}>
+        {mode === "edit" ? "Editar Publicación" : "Publicar Precio"}
+      </h2>
 
       {submitSuccess && (
-        <div style={styles.successAlert}>✓ Publicación creada exitosamente</div>
+        <div style={styles.successAlert}>
+          ✓{" "}
+          {mode === "edit"
+            ? "Publicación actualizada exitosamente"
+            : "Publicación creada exitosamente"}
+        </div>
       )}
       {submitError && <div style={styles.errorAlert}>⚠ {submitError}</div>}
 
@@ -552,7 +525,13 @@ export function PublicationForm({ onSuccess }) {
           style={{ ...styles.submitBtn, opacity: isSubmitting ? 0.7 : 1 }}
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Publicando..." : "Publicar Precio"}
+          {isSubmitting
+            ? mode === "edit"
+              ? "Actualizando..."
+              : "Publicando..."
+            : mode === "edit"
+            ? "Actualizar Precio"
+            : "Publicar Precio"}
         </button>
       </form>
 

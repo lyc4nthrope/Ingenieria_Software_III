@@ -417,6 +417,40 @@ export async function createStoreSimple(
   }
 }
 
+export async function getStore(storeId) {
+  if (!storeId) return { success: false, error: "storeId es obligatorio" };
+
+  try {
+    const { data: store, error } = await supabase
+      .from("stores")
+      .select("id, name, address, latitude, longitude, website_url, store_type_id, created_by")
+      .eq("id", storeId)
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    
+    const uiType = getUiTypeByStoreTypeId(store.store_type_id);
+
+    return {
+      success: true,
+      data: {
+        id: store.id,
+        name: store.name,
+        type: uiType,
+        address: store.address,
+        latitude: store.latitude,
+        longitude: store.longitude,
+        websiteUrl: store.website_url,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message || "Error obtainendo tienda",
+    };
+  }
+}
+
 export async function updateStore(storeId, updates = {}) {
   if (!storeId) return { success: false, error: "storeId es obligatorio" };
 
@@ -459,5 +493,6 @@ export default {
   createStoreSimple,
   uploadStoreEvidence,
   searchNearbyStores,
+  getStore,
   updateStore,
 };
