@@ -176,12 +176,12 @@ export async function changeUserRole(userId, roleId) {
     .from("users")
     .update({ role_id: roleId })
     .eq("id", userId)
-    .select("*, roles(name)")
-    .single();
+    .select("*, roles(name)");
 
   if (error) return { success: false, error: error.message };
+  if (!data?.length) return { success: false, error: 'Usuario no encontrado' };
 
   const email = await getAuthEmail();
 
-  return { success: true, data: mapDBUserToUI({ ...data, email }) };
+  return { success: true, data: mapDBUserToUI({ ...data[0], email }) };
 }
