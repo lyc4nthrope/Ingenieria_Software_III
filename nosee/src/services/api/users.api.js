@@ -198,3 +198,64 @@ export async function updateUserStatus(userId, isActive) {
   if (error) return { success: false, error: error.message };
   return { success: true };
 }
+
+/**
+ * Obtiene métricas principales para el resumen del dashboard Admin.
+ *
+ * Incluye:
+ * - Cantidad total de usuarios
+ * - Cantidad de publicaciones creadas hoy
+ * - Cantidad de reportes pendientes
+ * - Cantidad de validaciones (upvotes) hechas hoy
+ */
+export async function getAdminOverviewStats() {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const startIso = startOfToday.toISOString();
+
+  const [
+    usersCountResult,
+    publicationsTodayResult,
+    reportsPendingResult,
+    validationsTodayResult,
+  ] = await Promise.all([
+    supabase
+      .from("users")
+      .select("id", { count: "exact", head: true }),
+    supabase
+      .from("price_publications")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startIso),
+    supabase
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["PENDING", "pending"]),
+    supabase
+      .from("publication_votes")
+      .select("id", { count: "exact", head: true })
+      .eq("vote_type", 1)
+      .gte("created_at", startIso),
+  ]);
+
+  const firstError = [
+    usersCountResult.error,
+    publicationsTodayResult.error,
+    reportsPendingResult.error,
+    validationsTodayResult.error,
+  ].find(Boolean);
+
+  if (firstError) {
+    return { success: false, error: firstError.message };
+  }
+
+  return {
+    success: true,
+    data: {
+      totalUsers: usersCountResult.count ?? 0,
+      publicationsToday: publicationsTodayResult.count ?? 0,
+      pendingReports: reportsPendingResult.count ?? 0,
+      validationsToday: validationsTodayResult.count ?? 0,
+    },
+  };
+}

@@ -14,16 +14,21 @@
  */
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { changeUserRole, getAllUsers, updateUserStatus } from '@/services/api/users.api';
+import {
+  changeUserRole,
+  getAdminOverviewStats,
+  getAllUsers,
+  updateUserStatus,
+} from '@/services/api/users.api';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
 
-const STATS = [
-  { label: 'Usuarios totales',   value: '—', delta: '—', icon: '◉' },
-  { label: 'Publicaciones hoy',  value: '—',   delta: '—',  icon: '◈' },
-  { label: 'Validaciones hoy',   value: '—', delta: '—', icon: '✓' },
-  { label: 'Reportes pendientes',value: '—',     delta: '—',   icon: '⚠' },
-];
+const INITIAL_STATS = {
+  totalUsers: '—',
+  publicationsToday: '—',
+  validationsToday: '—',
+  pendingReports: '—',
+};
 
 const ALL_ROLES = [UserRoleEnum.USUARIO, UserRoleEnum.MODERADOR, UserRoleEnum.ADMIN, UserRoleEnum.REPARTIDOR];
 
@@ -34,13 +39,37 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [stats, setStats] = useState(INITIAL_STATS);
   const [activeSection, setActiveSection] = useState('overview');
   const [changingRole, setChangingRole] = useState(null);
+
+  const statCards = [
+    { label: 'Usuarios totales', value: stats.totalUsers, delta: 'Total', icon: '◉' },
+    { label: 'Publicaciones hoy', value: stats.publicationsToday, delta: 'Hoy', icon: '◈' },
+    { label: 'Validaciones hoy', value: stats.validationsToday, delta: 'Hoy', icon: '✓' },
+    { label: 'Reportes pendientes', value: stats.pendingReports, delta: 'Pendientes', icon: '⚠' },
+  ];
 
   // ─── Cargar usuarios al montar ────────────────────────────────────────────
   useEffect(() => {
     loadUsers();
+    loadOverviewStats();
   }, []);
+
+  const loadOverviewStats = async () => {
+    try {
+      const result = await getAdminOverviewStats();
+
+      if (result.success && result.data) {
+        setStats(result.data);
+      } else {
+        setError((prev) => prev || result.error || 'No se pudieron cargar las métricas del resumen');
+      }
+    } catch (err) {
+      console.error('Error cargando resumen admin:', err);
+      setError((prev) => prev || 'Error al conectar métricas del resumen');
+    }
+  };
 
   const loadUsers = async () => {
     setLoading(true);
@@ -202,13 +231,17 @@ export default function AdminDashboard() {
 
             {/* Stats */}
             <div style={s.statsGrid}>
-              {STATS.map((stat) => (
+               {statCards.map((stat) => (
                 <div key={stat.label} style={s.statCard}>
                   <div style={s.statTop}>
                     <span style={s.statIcon}>{stat.icon}</span>
                     <span style={{
                       ...s.statDelta,
-                      color: stat.delta.startsWith('+') ? ACCENT : '#F87171',
+                     color: stat.delta.startsWith('+')
+                        ? ACCENT
+                        : stat.delta.startsWith('-')
+                          ? '#F87171'
+                          : MUTED,
                     }}>
                       {stat.delta}
                     </span>
