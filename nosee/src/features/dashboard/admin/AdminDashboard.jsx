@@ -28,7 +28,6 @@ const STATS = [
 const ALL_ROLES = [UserRoleEnum.USUARIO, UserRoleEnum.MODERADOR, UserRoleEnum.ADMIN, UserRoleEnum.REPARTIDOR];
 
 export default function AdminDashboard() {
-  const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
   // ─── Estados ──────────────────────────────────────────────────────────────
@@ -144,15 +143,6 @@ export default function AdminDashboard() {
           ))}
         </nav>
 
-        <div style={s.userBlock}>
-          <div style={s.userAvatar}>
-            {user?.fullName?.charAt(0)?.toUpperCase() || 'A'}
-          </div>
-          <div>
-            <div style={s.userName}>{user?.fullName || 'Admin'}</div>
-            <div style={s.userRole}>Administrador</div>
-          </div>
-        </div>
         <button style={s.logoutBtn} onClick={logout}>⏻ Salir</button>
       </aside>
 

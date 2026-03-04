@@ -19,7 +19,6 @@ const STATUS_INFO = {
 };
 
 export default function RepartidorDashboard() {
-  const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
   const [orders, setOrders] = useState([]);
@@ -91,15 +90,6 @@ export default function RepartidorDashboard() {
           </div>
         </div>
 
-        <div style={r.userBlock}>
-          <div style={r.userAvatar}>
-            {user?.fullName?.charAt(0)?.toUpperCase() || 'R'}
-          </div>
-          <div>
-            <div style={r.userName}>{user?.fullName || 'Repartidor'}</div>
-            <div style={r.userRole}>Repartidor</div>
-          </div>
-        </div>
         <button style={r.logoutBtn} onClick={logout}>⏻ Salir</button>
       </aside>
 

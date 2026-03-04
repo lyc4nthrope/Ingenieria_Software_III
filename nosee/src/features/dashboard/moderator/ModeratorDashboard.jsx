@@ -32,7 +32,6 @@ const SEVERITY_COLORS = {
 };
 
 export default function ModeradorDashboard() {
-  const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
   const [reports, setReports] = useState([]);
@@ -143,15 +142,6 @@ export default function ModeradorDashboard() {
           ))}
         </nav>
 
-        <div style={st.userBlock}>
-          <div style={st.userAvatar}>
-            {user?.fullName?.charAt(0)?.toUpperCase() || 'M'}
-          </div>
-          <div>
-            <div style={st.userName}>{user?.fullName || 'Moderador'}</div>
-            <div style={st.userRole}>Moderador</div>
-          </div>
-        </div>
         <button style={st.logoutBtn} onClick={logout}>⏻ Salir</button>
       </aside>
 
