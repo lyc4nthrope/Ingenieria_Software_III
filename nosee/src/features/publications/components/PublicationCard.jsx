@@ -24,6 +24,7 @@
 
 import { useState } from 'react';
 import { formatDistanceToNowInSpanish } from '@/features/publications/utils/dateUtils';
+import ReportPublicationModal from '@/features/publications/components/ReportPublicationModal';
 
 /**
  * Componente: PublicationCard
@@ -64,7 +65,6 @@ export function PublicationCard({
 
   const [photoExpanded, setPhotoExpanded] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [reportType, setReportType] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -84,14 +84,13 @@ export function PublicationCard({
     }
   };
 
-  const handleReport = async () => {
-    if (!reportType || isReporting) return;
+  const handleReport = async ({ publicationId, reason, description, evidenceFile }) => {
+    if (!reason || isReporting) return;
 
     setIsReporting(true);
     try {
-      await onReport?.(publication.id, reportType);
+      await onReport?.(publicationId, { reason, description, evidenceFile });
       setShowReportModal(false);
-      setReportType('');
     } catch (err) {
       console.error('Error reportando:', err);
     } finally {
@@ -234,45 +233,11 @@ export function PublicationCard({
 
       {/* Modal: Reportar */}
       {showReportModal && (
-        <div style={styles.modal}>
-          <div style={styles.modalContent}>
-            <h3 style={styles.modalTitle}>Reportar publicación</h3>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Tipo de reporte:</label>
-              <select
-                value={reportType}
-                onChange={(e) => setReportType(e.target.value)}
-                style={styles.select}
-              >
-                <option value="">Seleccionar...</option>
-                <option value="fake_price">Precio falso</option>
-                <option value="wrong_photo">Foto incorrecta</option>
-                <option value="spam">Spam</option>
-                <option value="offensive">Contenido ofensivo</option>
-              </select>
-            </div>
-
-            <div style={styles.modalActions}>
-              <button
-                style={{ ...styles.button, ...styles.buttonSecondary }}
-                onClick={() => {
-                  setShowReportModal(false);
-                  setReportType('');
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                style={{ ...styles.button, ...styles.buttonDanger }}
-                onClick={handleReport}
-                disabled={!reportType || isReporting}
-              >
-                {isReporting ? 'Enviando...' : 'Reportar'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ReportPublicationModal
+          publicationId={publication.id}
+          onClose={() => setShowReportModal(false)}
+          onSubmit={handleReport}
+        />
       )}
 
       {/* Modal: Foto expandida */}
@@ -482,60 +447,6 @@ const styles = {
     background: '#fff3f3',
     color: '#d32f2f',
     border: '1px solid #ffcccc',
-  },
-
-  // Modal
-  modal: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-
-  modalContent: {
-    background: '#fff',
-    borderRadius: '8px',
-    padding: '20px',
-    maxWidth: '400px',
-    width: '90%',
-  },
-
-  modalTitle: {
-    fontSize: '16px',
-    fontWeight: 600,
-    marginBottom: '16px',
-    margin: 0,
-  },
-
-  formGroup: {
-    marginBottom: '16px',
-  },
-
-  label: {
-    display: 'block',
-    fontSize: '13px',
-    fontWeight: 600,
-    marginBottom: '6px',
-    color: '#333',
-  },
-
-  select: {
-    width: '100%',
-    padding: '8px',
-    borderRadius: '6px',
-    border: '1px solid #e0e0e0',
-    fontSize: '13px',
-  },
-
-  modalActions: {
-    display: 'flex',
-    gap: '8px',
   },
 
   // Photo modal

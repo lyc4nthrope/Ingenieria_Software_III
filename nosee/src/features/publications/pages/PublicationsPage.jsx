@@ -108,6 +108,7 @@ export default function PublicationsPage() {
   const [error, setError] = useState(null);
   const [selectedPublication, setSelectedPublication] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
   const {
     publications,
@@ -172,11 +173,29 @@ export default function PublicationsPage() {
   /**
    * Maneja reporte de publicación
    */
-  const handleReportPublication = async (publicationId, reason) => {
-    const result = await reportPublication(publicationId, reason, "");
-    if (!result.success) {
+  const handleReportPublication = async (publicationId, reportPayload) => {
+    console.log('[📋 PublicationsPage] Enviando reporte:', { publicationId, reportPayload });
+    
+    const result = await reportPublication(publicationId, reportPayload);
+    
+    console.log('[📋 PublicationsPage] Resultado:', result);
+    
+    if (result.success) {
+      setFeedback({
+        type: 'success',
+        message: result.message || '✅ Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE.'
+      });
+      setError(null);
+    } else {
+      setFeedback({
+        type: 'error',
+        message: result.message || result.error || '❌ Hubo un error al enviar el reporte. Intenta de nuevo.'
+      });
       setError(result.error || "No se pudo reportar la publicación");
     }
+    
+    // Auto-cerrar el feedback después de 5 segundos
+    setTimeout(() => setFeedback(null), 5000);
   };
 
   /**
@@ -505,6 +524,29 @@ const handleViewMore = async (publicationId) => {
           publication={selectedPublication}
           onClose={() => setSelectedPublication(null)}
         />
+      )}
+
+      {/* Feedback Toast */}
+      {feedback && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            padding: '16px 20px',
+            borderRadius: '8px',
+            background: feedback.type === 'success' ? '#10b981' : '#ef4444',
+            color: '#fff',
+            fontSize: '14px',
+            fontWeight: 600,
+            zIndex: 2000,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            maxWidth: '300px',
+            animation: 'slideInUp 0.3s ease-out',
+          }}
+        >
+          {feedback.message}
+        </div>
       )}
     </main>
   );

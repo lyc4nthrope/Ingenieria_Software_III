@@ -7,6 +7,7 @@ import {
 
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
+import ReportPublicationModal from "@/features/publications/components/ReportPublicationModal";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const FALLBACK_IMAGE = "https://via.placeholder.com/400x300?text=Sin+foto";
@@ -28,101 +29,6 @@ const resolvePublicationPhoto = (publication) => {
   if (isAbsoluteUrl(candidate)) return candidate;
   return buildCloudinaryImageUrl(candidate) || FALLBACK_IMAGE;
 };
-
-// ─── ReportModal ──────────────────────────────────────────────────────────────
-function ReportModal({ onClose, onSubmit }) {
-  const [reportType, setReportType] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!reportType || submitting) return;
-    setSubmitting(true);
-    await onSubmit(reportType);
-    setSubmitting(false);
-  };
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.7)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-        padding: "16px",
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "#1e293b",
-          border: "1px solid #334155",
-          borderRadius: "12px",
-          padding: "24px",
-          width: "min(400px, 100%)",
-        }}
-      >
-        <h3
-          style={{
-            margin: "0 0 16px",
-            fontSize: "16px",
-            fontWeight: 600,
-            color: "#e2e8f0",
-          }}
-        >
-          Reportar publicación
-        </h3>
-        <label
-          style={{
-            display: "block",
-            fontSize: "13px",
-            color: "#94a3b8",
-            marginBottom: "6px",
-          }}
-        >
-          Motivo del reporte
-        </label>
-        <select
-          value={reportType}
-          onChange={(e) => setReportType(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "8px 12px",
-            background: "#0f172a",
-            border: "1px solid #334155",
-            borderRadius: "6px",
-            color: "#e2e8f0",
-            fontSize: "14px",
-            marginBottom: "16px",
-          }}
-        >
-          <option value="">Seleccionar motivo...</option>
-          <option value="fake_price">Precio falso</option>
-          <option value="wrong_photo">Foto incorrecta</option>
-          <option value="spam">Spam</option>
-          <option value="offensive">Contenido ofensivo</option>
-        </select>
-        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-          <button className="card-action-button" onClick={onClose}>
-            Cancelar
-          </button>
-          <button
-            className="card-action-button"
-            onClick={handleSubmit}
-            disabled={!reportType || submitting}
-          >
-            {submitting ? "Enviando..." : "Reportar"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── PublicationCard ──────────────────────────────────────────────────────────
 function PublicationCard({
@@ -317,6 +223,7 @@ export default function HomePage() {
   const [reportingId, setReportingId] = useState(null);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [lastLocationCoords, setLastLocationCoords] = useState(null);
+  const [feedback, setFeedback] = useState(null);
 
   // Initialize filters on mount - load recent publications regardless of location
   useEffect(() => {
@@ -393,10 +300,32 @@ export default function HomePage() {
     setReportingId(publicationId);
   };
 
-  const handleReportSubmit = async (reportType) => {
+  const handleReportSubmit = async (reportPayload) => {
     if (!reportingId) return;
-    await reportPublication(reportingId, reportType, "");
+    
+    console.log('[📋 HomePage] Enviando reporte con payload:', reportPayload);
+    
+    const result = await reportPublication(reportingId, reportPayload);
+    
+    console.log('[📋 HomePage] Resultado del reporte:', result);
+    
     setReportingId(null);
+    
+    // Mostrar feedback al usuario
+    if (result.success) {
+      setFeedback({
+        type: 'success',
+        message: result.message || '✅ Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE.'
+      });
+    } else {
+      setFeedback({
+        type: 'error',
+        message: result.message || result.error || '❌ Hubo un error al enviar el reporte. Intenta de nuevo.'
+      });
+    }
+    
+    // Auto-cerrar el feedback después de 5 segundos
+    setTimeout(() => setFeedback(null), 5000);
   };
 
   const handleDelete = async (publicationId) => {
@@ -453,10 +382,34 @@ export default function HomePage() {
       )}
 
       {reportingId && (
-        <ReportModal
+       <ReportPublicationModal
+          publicationId={reportingId}
           onClose={() => setReportingId(null)}
           onSubmit={handleReportSubmit}
         />
+      )}
+
+      {/* Feedback Toast */}
+      {feedback && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            padding: '16px 20px',
+            borderRadius: '8px',
+            background: feedback.type === 'success' ? '#10b981' : '#ef4444',
+            color: '#fff',
+            fontSize: '14px',
+            fontWeight: 600,
+            zIndex: 2000,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            maxWidth: '300px',
+            animation: 'slideInUp 0.3s ease-out',
+          }}
+        >
+          {feedback.message}
+        </div>
       )}
     </div>
   );
