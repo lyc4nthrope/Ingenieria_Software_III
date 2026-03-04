@@ -7,46 +7,46 @@
  *
  * UBICACIÓN: src/features/dashboard/moderador/ModeradorDashboard.jsx
  */
-import { useState, useEffect } from 'react';
-import { supabase } from '@/services/supabase.client';
+import { useState, useEffect } from "react";
+import { supabase } from "@/services/supabase.client";
 
 const REPORT_TYPE_LABELS = {
-  fake_price:  'Precio falso',
-  wrong_photo: 'Foto incorrecta',
-  spam:        'Spam',
-  offensive:   'Contenido ofensivo',
+  fake_price: "Precio falso",
+  wrong_photo: "Foto incorrecta",
+  spam: "Spam",
+  offensive: "Contenido ofensivo",
 };
 
 const REPORT_SEVERITY = {
-  offensive:   'alta',
-  spam:        'media',
-  fake_price:  'media',
-  wrong_photo: 'baja',
+  offensive: "alta",
+  spam: "media",
+  fake_price: "media",
+  wrong_photo: "baja",
 };
 
 const SEVERITY_COLORS = {
-  alta:  { bg: '#F8717118', text: '#F87171' },
-  media: { bg: '#FCD34D18', text: '#FCD34D' },
-  baja:  { bg: '#60A5FA18', text: '#60A5FA' },
+  alta: { bg: "#F8717118", text: "#F87171" },
+  media: { bg: "#FCD34D18", text: "#FCD34D" },
+  baja: { bg: "#60A5FA18", text: "#60A5FA" },
 };
 
 export default function ModeradorDashboard() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('reportes');
+  const [activeTab, setActiveTab] = useState("reportes");
   const [resolved, setResolved] = useState([]);
-
-  useEffect(() => { fetchReports(); }, []);
 
   const fetchReports = async () => {
     setLoading(true);
 
     // 1. Reportes pendientes
     const { data: rawReports, error } = await supabase
-      .from('price_reports')
-      .select('id, report_type, description, created_at, publication_id, reporter_id')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false });
+      .from("price_reports")
+      .select(
+        "id, report_type, description, created_at, publication_id, reporter_id",
+      )
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
 
     if (error || !rawReports?.length) {
       setLoading(false);
@@ -54,34 +54,44 @@ export default function ModeradorDashboard() {
     }
 
     // 2. Detalles de las publicaciones reportadas (producto + autor)
-    const pubIds = [...new Set(rawReports.map((r) => r.publication_id).filter(Boolean))];
+    const pubIds = [
+      ...new Set(rawReports.map((r) => r.publication_id).filter(Boolean)),
+    ];
     const { data: publications } = await supabase
-      .from('price_publications')
-      .select('id, user_id, products(name), author:users!price_publications_user_id_fkey(full_name)')
-      .in('id', pubIds);
+      .from("price_publications")
+      .select(
+        "id, user_id, products(name), author:users!price_publications_user_id_fkey(full_name)",
+      )
+      .in("id", pubIds);
 
     // 3. Nombres de los reportadores
-    const reporterIds = [...new Set(rawReports.map((r) => r.reporter_id).filter(Boolean))];
+    const reporterIds = [
+      ...new Set(rawReports.map((r) => r.reporter_id).filter(Boolean)),
+    ];
     const { data: reporters } = await supabase
-      .from('users')
-      .select('id, full_name')
-      .in('id', reporterIds);
+      .from("users")
+      .select("id, full_name")
+      .in("id", reporterIds);
 
-    const pubMap      = Object.fromEntries((publications || []).map((p) => [p.id, p]));
-    const reporterMap = Object.fromEntries((reporters    || []).map((u) => [u.id, u]));
+    const pubMap = Object.fromEntries(
+      (publications || []).map((p) => [p.id, p]),
+    );
+    const reporterMap = Object.fromEntries(
+      (reporters || []).map((u) => [u.id, u]),
+    );
 
     const mapped = rawReports.map((r) => {
-      const pub      = pubMap[r.publication_id];
+      const pub = pubMap[r.publication_id];
       const reporter = reporterMap[r.reporter_id];
       return {
-        id:             r.id,
-        type:           REPORT_TYPE_LABELS[r.report_type] || r.report_type,
-        severity:       REPORT_SEVERITY[r.report_type]    || 'baja',
-        time:           new Date(r.created_at).toLocaleDateString('es-CO'),
-        post:           pub?.products?.name               || 'Publicación eliminada',
-        reporter:       reporter?.full_name               || 'Anónimo',
-        reported:       pub?.author?.full_name            || 'Desconocido',
-        publicationId:  r.publication_id,
+        id: r.id,
+        type: REPORT_TYPE_LABELS[r.report_type] || r.report_type,
+        severity: REPORT_SEVERITY[r.report_type] || "baja",
+        time: new Date(r.created_at).toLocaleDateString("es-CO"),
+        post: pub?.products?.name || "Publicación eliminada",
+        reporter: reporter?.full_name || "Anónimo",
+        reported: pub?.author?.full_name || "Desconocido",
+        publicationId: r.publication_id,
         reportedUserId: pub?.user_id,
       };
     });
@@ -90,25 +100,31 @@ export default function ModeradorDashboard() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    queueMicrotask(() => {
+      fetchReports();
+    });
+  }, []);
+
   const handleResolve = async (id, action, report) => {
     // Marcar el reporte como resuelto
     await supabase
-      .from('price_reports')
-      .update({ status: 'resolved' })
-      .eq('id', id);
+      .from("price_reports")
+      .update({ status: "resolved" })
+      .eq("id", id);
 
-    if (action === 'eliminado' && report.publicationId) {
+    if (action === "eliminado" && report.publicationId) {
       await supabase
-        .from('price_publications')
+        .from("price_publications")
         .delete()
-        .eq('id', report.publicationId);
+        .eq("id", report.publicationId);
     }
 
-    if (action === 'baneado' && report.reportedUserId) {
+    if (action === "baneado" && report.reportedUserId) {
       await supabase
-        .from('users')
+        .from("users")
         .update({ is_active: false })
-        .eq('id', report.reportedUserId);
+        .eq("id", report.reportedUserId);
     }
 
     setResolved((prev) => [...prev, { id, action }]);
@@ -123,13 +139,21 @@ export default function ModeradorDashboard() {
       <aside style={st.sidebar}>
         <nav style={st.nav}>
           {[
-            { key: 'reportes', icon: '⚑', label: 'Reportes', badge: pendingCount },
-            { key: 'feed',     icon: '◈', label: 'Feed' },
-            { key: 'historial',icon: '◎', label: 'Historial' },
+            {
+              key: "reportes",
+              icon: "⚑",
+              label: "Reportes",
+              badge: pendingCount,
+            },
+            { key: "feed", icon: "◈", label: "Feed" },
+            { key: "historial", icon: "◎", label: "Historial" },
           ].map((item) => (
             <button
               key={item.key}
-              style={{ ...st.navItem, ...(activeTab === item.key ? st.navActive : {}) }}
+              style={{
+                ...st.navItem,
+                ...(activeTab === item.key ? st.navActive : {}),
+              }}
               onClick={() => setActiveTab(item.key)}
             >
               <span style={st.navIcon}>{item.icon}</span>
@@ -138,14 +162,12 @@ export default function ModeradorDashboard() {
             </button>
           ))}
         </nav>
-
       </aside>
 
       {/* ── Main ─────────────────────────────────────────────────── */}
       <main style={st.main}>
-
         {/* Reportes pendientes */}
-        {activeTab === 'reportes' && (
+        {activeTab === "reportes" && (
           <>
             <header style={st.header}>
               <div>
@@ -153,7 +175,7 @@ export default function ModeradorDashboard() {
                 <p style={st.headerSub}>
                   {pendingCount > 0
                     ? `${pendingCount} reportes esperan revisión`
-                    : 'Todo al día ✓'}
+                    : "Todo al día ✓"}
                 </p>
               </div>
               <div style={st.resolvedCount}>
@@ -164,38 +186,43 @@ export default function ModeradorDashboard() {
             {loading ? (
               <div style={st.emptyState}>
                 <span style={{ fontSize: 32 }}>⟳</span>
-                <p style={{ color: MUTED, marginTop: 8 }}>Cargando reportes...</p>
+                <p style={{ color: MUTED, marginTop: 8 }}>
+                  Cargando reportes...
+                </p>
               </div>
             ) : reports.length === 0 ? (
               <EmptyState />
             ) : (
               <div style={st.reportList}>
                 {reports.map((r) => (
-                  <ReportCard
-                    key={r.id}
-                    report={r}
-                    onResolve={handleResolve}
-                  />
+                  <ReportCard key={r.id} report={r} onResolve={handleResolve} />
                 ))}
               </div>
             )}
           </>
         )}
 
-        {activeTab === 'feed' && (
+        {activeTab === "feed" && (
           <div style={st.placeholder}>
             <span style={st.placeholderIcon}>◈</span>
-            <h2 style={st.placeholderTitle}>Feed con controles de moderación</h2>
-            <p style={st.placeholderSub}>Ver todas las publicaciones con opciones para eliminar o banear contenido</p>
+            <h2 style={st.placeholderTitle}>
+              Feed con controles de moderación
+            </h2>
+            <p style={st.placeholderSub}>
+              Ver todas las publicaciones con opciones para eliminar o banear
+              contenido
+            </p>
             <div style={st.tag}>Próximamente</div>
           </div>
         )}
 
-        {activeTab === 'historial' && (
+        {activeTab === "historial" && (
           <div style={st.placeholder}>
             <span style={st.placeholderIcon}>◎</span>
             <h2 style={st.placeholderTitle}>Historial de acciones</h2>
-            <p style={st.placeholderSub}>Registro de todas las moderaciones realizadas por este moderador</p>
+            <p style={st.placeholderSub}>
+              Registro de todas las moderaciones realizadas por este moderador
+            </p>
             <div style={st.tag}>Próximamente</div>
           </div>
         )}
@@ -211,7 +238,9 @@ function ReportCard({ report, onResolve }) {
   return (
     <article style={st.reportCard}>
       <div style={st.reportTop}>
-        <span style={{ ...st.severityBadge, background: sev.bg, color: sev.text }}>
+        <span
+          style={{ ...st.severityBadge, background: sev.bg, color: sev.text }}
+        >
           {report.severity.toUpperCase()}
         </span>
         <span style={st.reportType}>{report.type}</span>
@@ -236,19 +265,19 @@ function ReportCard({ report, onResolve }) {
       <div style={st.reportActions}>
         <button
           style={st.btnDelete}
-          onClick={() => onResolve(report.id, 'eliminado', report)}
+          onClick={() => onResolve(report.id, "eliminado", report)}
         >
           🗑 Eliminar publicación
         </button>
         <button
           style={st.btnBan}
-          onClick={() => onResolve(report.id, 'baneado', report)}
+          onClick={() => onResolve(report.id, "baneado", report)}
         >
           ⊗ Banear usuario
         </button>
         <button
           style={st.btnDismiss}
-          onClick={() => onResolve(report.id, 'descartado', report)}
+          onClick={() => onResolve(report.id, "descartado", report)}
         >
           ↩ Descartar
         </button>
@@ -261,7 +290,14 @@ function EmptyState() {
   return (
     <div style={st.emptyState}>
       <span style={{ fontSize: 48 }}>✓</span>
-      <h2 style={{ fontSize: 20, fontWeight: 700, margin: '12px 0 6px', color: ACCENT }}>
+      <h2
+        style={{
+          fontSize: 20,
+          fontWeight: 700,
+          margin: "12px 0 6px",
+          color: ACCENT,
+        }}
+      >
         Sin reportes pendientes
       </h2>
       <p style={{ color: MUTED, fontSize: 14, margin: 0 }}>
@@ -272,18 +308,18 @@ function EmptyState() {
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
-const ACCENT  = '#A78BFA';   // violeta moderador — autoridad sutil
-const BG      = '#080C14';
-const SURFACE = '#0F1724';
-const BORDER  = '#1E2D4A';
-const TEXT    = '#E8EDF8';
-const MUTED   = '#7B90BD';
+const ACCENT = "#A78BFA"; // violeta moderador — autoridad sutil
+const BG = "#080C14";
+const SURFACE = "#0F1724";
+const BORDER = "#1E2D4A";
+const TEXT = "#E8EDF8";
+const MUTED = "#7B90BD";
 
 const st = {
   root: {
-    display: 'flex',
-    height: '100vh',
-    overflow: 'hidden',
+    display: "flex",
+    height: "100vh",
+    overflow: "hidden",
     background: BG,
     color: TEXT,
     fontFamily: "'DM Sans', 'Inter', sans-serif",
@@ -292,157 +328,188 @@ const st = {
     width: 220,
     background: SURFACE,
     borderRight: `1px solid ${BORDER}`,
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '24px 16px',
-    height: '100%',
+    display: "flex",
+    flexDirection: "column",
+    padding: "24px 16px",
+    height: "100%",
     flexShrink: 0,
   },
-  nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
+  nav: { display: "flex", flexDirection: "column", gap: 4, flex: 1 },
   navItem: {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     gap: 10,
-    padding: '10px 12px',
+    padding: "10px 12px",
     borderRadius: 8,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
+    background: "none",
+    border: "none",
+    cursor: "pointer",
     color: MUTED,
     fontSize: 14,
     fontWeight: 500,
-    textAlign: 'left',
-    transition: 'all 0.15s',
+    textAlign: "left",
+    transition: "all 0.15s",
   },
   navActive: { background: `${ACCENT}18`, color: ACCENT },
   navIcon: { fontSize: 16 },
   navBadge: {
-    marginLeft: 'auto',
-    background: '#F87171',
-    color: '#fff',
+    marginLeft: "auto",
+    background: "#F87171",
+    color: "#fff",
     borderRadius: 10,
-    padding: '1px 7px',
+    padding: "1px 7px",
     fontSize: 11,
     fontWeight: 700,
   },
   userBlock: {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     gap: 10,
-    padding: '12px 8px',
+    padding: "12px 8px",
     borderTop: `1px solid ${BORDER}`,
-    marginTop: 'auto',
+    marginTop: "auto",
     marginBottom: 12,
   },
   userAvatar: {
     width: 34,
     height: 34,
-    borderRadius: '50%',
+    borderRadius: "50%",
     background: `${ACCENT}20`,
     color: ACCENT,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     fontWeight: 700,
     fontSize: 14,
   },
   userName: { fontSize: 13, fontWeight: 600, color: TEXT },
   userRole: { fontSize: 11, color: MUTED },
 
-  main: { flex: 1, padding: '32px 40px', maxWidth: 760, overflowY: 'auto', height: '100%' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 },
-  headerTitle: { fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' },
-  headerSub: { color: MUTED, fontSize: 14, margin: '4px 0 0' },
+  main: {
+    flex: 1,
+    padding: "32px 40px",
+    maxWidth: 760,
+    overflowY: "auto",
+    height: "100%",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 28,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: 700,
+    margin: 0,
+    letterSpacing: "-0.5px",
+  },
+  headerSub: { color: MUTED, fontSize: 14, margin: "4px 0 0" },
   resolvedCount: {
     background: `${ACCENT}15`,
     color: ACCENT,
     borderRadius: 8,
-    padding: '8px 16px',
+    padding: "8px 16px",
     fontSize: 14,
     fontWeight: 600,
   },
 
-  reportList: { display: 'flex', flexDirection: 'column', gap: 14 },
+  reportList: { display: "flex", flexDirection: "column", gap: 14 },
   reportCard: {
     background: SURFACE,
     border: `1px solid ${BORDER}`,
     borderRadius: 12,
-    padding: '18px 20px',
+    padding: "18px 20px",
   },
-  reportTop: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 },
+  reportTop: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 14,
+  },
   severityBadge: {
     fontSize: 10,
     fontWeight: 700,
     borderRadius: 4,
-    padding: '3px 8px',
-    letterSpacing: '0.5px',
+    padding: "3px 8px",
+    letterSpacing: "0.5px",
   },
   reportType: { fontSize: 15, fontWeight: 600 },
-  reportTime: { marginLeft: 'auto', fontSize: 12, color: MUTED },
+  reportTime: { marginLeft: "auto", fontSize: 12, color: MUTED },
 
-  reportBody: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 },
-  reportRow: { display: 'flex', gap: 12, fontSize: 14 },
+  reportBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    marginBottom: 16,
+  },
+  reportRow: { display: "flex", gap: 12, fontSize: 14 },
   reportLabel: { color: MUTED, width: 140, flexShrink: 0 },
   reportValue: { color: TEXT },
 
-  reportActions: { display: 'flex', gap: 10, flexWrap: 'wrap' },
+  reportActions: { display: "flex", gap: 10, flexWrap: "wrap" },
   btnDelete: {
-    background: '#F8717115',
-    border: '1px solid #F87171',
-    color: '#F87171',
+    background: "#F8717115",
+    border: "1px solid #F87171",
+    color: "#F87171",
     borderRadius: 7,
-    padding: '7px 14px',
+    padding: "7px 14px",
     fontSize: 13,
-    cursor: 'pointer',
+    cursor: "pointer",
     fontWeight: 500,
   },
   btnBan: {
-    background: '#FCD34D15',
-    border: '1px solid #FCD34D',
-    color: '#FCD34D',
+    background: "#FCD34D15",
+    border: "1px solid #FCD34D",
+    color: "#FCD34D",
     borderRadius: 7,
-    padding: '7px 14px',
+    padding: "7px 14px",
     fontSize: 13,
-    cursor: 'pointer',
+    cursor: "pointer",
     fontWeight: 500,
   },
   btnDismiss: {
-    background: 'none',
+    background: "none",
     border: `1px solid ${BORDER}`,
     color: MUTED,
     borderRadius: 7,
-    padding: '7px 14px',
+    padding: "7px 14px",
     fontSize: 13,
-    cursor: 'pointer',
+    cursor: "pointer",
   },
 
   emptyState: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 400,
     color: MUTED,
     gap: 4,
   },
 
   placeholder: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 400,
     gap: 12,
     color: MUTED,
   },
   placeholderIcon: { fontSize: 48 },
   placeholderTitle: { fontSize: 20, fontWeight: 700, color: TEXT, margin: 0 },
-  placeholderSub: { fontSize: 14, margin: 0, textAlign: 'center', maxWidth: 360 },
+  placeholderSub: {
+    fontSize: 14,
+    margin: 0,
+    textAlign: "center",
+    maxWidth: 360,
+  },
   tag: {
     background: `${ACCENT}15`,
     color: ACCENT,
     borderRadius: 6,
-    padding: '4px 12px',
+    padding: "4px 12px",
     fontSize: 12,
     fontWeight: 600,
     marginTop: 8,

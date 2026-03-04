@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useId, useRef } from "react";
+import { useEffect, useMemo, useRef, useState, useId } from "react";
 
 import {
   useAuthStore,
@@ -375,13 +375,13 @@ export default function HomePage() {
   const [detailPublication, setDetailPublication] = useState(null);
   const [votedIds, setVotedIds] = useState(new Set());
   const [reportingId, setReportingId] = useState(null);
-  const [hasInitialized, setHasInitialized] = useState(false);
-  const [lastLocationCoords, setLastLocationCoords] = useState(null);
+  const hasInitializedRef = useRef(false);
+  const lastLocationCoordsRef = useRef(null);
 
   // Initialize filters on mount - load recent publications regardless of location
   useEffect(() => {
-    if (hasInitialized) return;
-    setHasInitialized(true);
+     if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
 
     // Load with location if available, otherwise just load recent publications
     setFilters({
@@ -390,17 +390,17 @@ export default function HomePage() {
       maxDistance: latitude && longitude ? 3 : null,
       sortBy: "recent",
     });
-  }, []);
+   }, [latitude, longitude, setFilters]);
 
   // Update filters only if location becomes available AND changed significantly
   useEffect(() => {
-    if (!hasInitialized) return;
+    if (!hasInitializedRef.current) return;
 
     const coordsKey =
       latitude && longitude ? `${latitude},${longitude}` : "no-location";
-    if (lastLocationCoords === coordsKey) return; // No change
+    if (lastLocationCoordsRef.current === coordsKey) return; // No change
 
-    setLastLocationCoords(coordsKey);
+    lastLocationCoordsRef.current = coordsKey;
 
     // If we got location, update to search nearby
     if (latitude && longitude) {
@@ -412,7 +412,7 @@ export default function HomePage() {
       });
     }
     // If location was lost but we're still initialized, keep showing recent publications
-  }, [latitude, longitude, hasInitialized, lastLocationCoords, setFilters]);
+  }, [latitude, longitude, setFilters]);
 
   const normalizedPublications = useMemo(
     () =>
@@ -481,7 +481,9 @@ export default function HomePage() {
       <div className="layout">
         <div className="feed">
           {loading ? (
-            <p role="status" aria-live="polite">Cargando publicaciones...</p>
+            <p role="status" aria-live="polite">
+              Cargando publicaciones...
+            </p>
           ) : normalizedPublications.length === 0 ? (
             <p>
               Aún no hay publicaciones. Cuando un usuario cree una, aparecerá
