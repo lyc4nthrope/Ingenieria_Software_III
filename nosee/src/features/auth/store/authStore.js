@@ -321,6 +321,38 @@ register: async (email, password, metadata = {}) => {
 
 
   // ════════════════════════════════════════════════════════════════
+  // ACCIÓN: deleteAccount
+  // ════════════════════════════════════════════════════════════════
+  /**
+   * Desactiva o elimina permanentemente la cuenta del usuario.
+   * @param {boolean} permanent - true = borrado total, false = solo desactivar
+   */
+  deleteAccount: async (permanent = false) => {
+    set({ status: AsyncStateEnum.LOADING, error: null });
+
+    const action = permanent
+      ? authApi.deleteAccountPermanent
+      : authApi.deactivateAccount;
+
+    const result = await action();
+
+    if (!result.success) {
+      set({ status: AsyncStateEnum.ERROR, error: result.error });
+      return { success: false, error: result.error };
+    }
+
+    await authApi.signOut();
+
+    set({
+      ...initialState,
+      isInitialized:            true,
+      _unsubscribeAuthListener: null,
+    });
+
+    return { success: true };
+  },
+
+  // ════════════════════════════════════════════════════════════════
   // ACCIÓN: clearError
   // ════════════════════════════════════════════════════════════════
   clearError: () => set({ error: null, status: AsyncStateEnum.IDLE }),

@@ -141,6 +141,36 @@ export async function updatePassword(newPassword) {
   return { success: true, data };
 }
 
+// ─── Eliminación / Desactivación de cuenta ────────────────────────────────────
+
+/**
+ * Desactiva la cuenta del usuario (is_active = false).
+ * Sus publicaciones permanecen visibles para la comunidad.
+ */
+export async function deactivateAccount() {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) return { success: false, error: 'No hay sesión activa' };
+
+  const { error } = await supabase
+    .from('users')
+    .update({ is_active: false })
+    .eq('id', user.id);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+/**
+ * Elimina permanentemente la cuenta y todos los datos del usuario.
+ * Llama a la función SQL delete_my_account() con SECURITY DEFINER.
+ * Funciona tanto para usuarios email/password como Google OAuth.
+ */
+export async function deleteAccountPermanent() {
+  const { error } = await supabase.rpc('delete_my_account');
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
 // ─── Listener de cambios de sesión ───────────────────────────────────────────
 
 /**
