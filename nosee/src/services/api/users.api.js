@@ -172,16 +172,29 @@ export async function getAllUsers() {
  * @param {number} roleId - 1=Usuario, 2=Moderador, 3=Admin, 4=Repartidor
  */
 export async function changeUserRole(userId, roleId) {
-  const { data, error } = await supabase
+  // No usamos .select() después del UPDATE porque la política RLS
+  // bloquea que el admin lea filas de otros usuarios, devolviendo 0 filas
+  // aunque el UPDATE haya tenido éxito.
+  const { error } = await supabase
     .from("users")
     .update({ role_id: roleId })
-    .eq("id", userId)
-    .select("*, roles(name)");
+    .eq("id", userId);
 
   if (error) return { success: false, error: error.message };
-  if (!data?.length) return { success: false, error: 'Usuario no encontrado' };
+  return { success: true };
+}
 
-  const email = await getAuthEmail();
+/**
+ * Activa o desactiva un usuario (ban/unban). Solo Admin.
+ * @param {string} userId
+ * @param {boolean} isActive - true = activo, false = baneado
+ */
+export async function updateUserStatus(userId, isActive) {
+  const { error } = await supabase
+    .from("users")
+    .update({ is_active: isActive })
+    .eq("id", userId);
 
-  return { success: true, data: mapDBUserToUI({ ...data[0], email }) };
+  if (error) return { success: false, error: error.message };
+  return { success: true };
 }

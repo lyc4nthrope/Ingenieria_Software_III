@@ -14,7 +14,7 @@
  */
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import { changeUserRole, getAllUsers } from '@/services/api/users.api';
+import { changeUserRole, getAllUsers, updateUserStatus } from '@/services/api/users.api';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
 
@@ -109,14 +109,28 @@ export default function AdminDashboard() {
     }
   };
 
-  // ─── Toggle de ban (TODO: conectar a API cuando esté disponible) ──────────
-  const handleBanToggle = (userId) => {
-    // Por ahora solo UI, ya que no hay endpoint de ban en users.api.js
-    setUsers(users.map(u => 
-      u.id === userId 
-        ? { ...u, status: u.status === 'baneado' ? 'activo' : 'baneado' }
-        : u
-    ));
+  // ─── Toggle de ban ────────────────────────────────────────────────────────
+  const handleBanToggle = async (userId) => {
+    const target = users.find(u => u.id === userId);
+    if (!target) return;
+
+    const newIsActive = target.status === 'baneado';
+
+    try {
+      const result = await updateUserStatus(userId, newIsActive);
+      if (result.success) {
+        setUsers(users.map(u =>
+          u.id === userId
+            ? { ...u, status: newIsActive ? 'activo' : 'baneado' }
+            : u
+        ));
+      } else {
+        alert(`Error al cambiar estado: ${result.error || 'Error desconocido'}`);
+      }
+    } catch (err) {
+      console.error('Error al cambiar estado:', err);
+      alert('Error al cambiar estado. Intenta de nuevo.');
+    }
   };
 
   return (
