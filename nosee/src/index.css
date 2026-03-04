@@ -287,6 +287,45 @@ img {
   gap: 20px;
 }
 
+/* ── Responsive (WCAG 1.4.10 Reflow) ───────────────────── */
+@media (max-width: 900px) {
+  .home-wrapper {
+    padding: 16px 20px 28px;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .feed {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+  }
+
+  .ads {
+    display: none;
+  }
+}
+
+@media (max-width: 540px) {
+  .home-wrapper {
+    padding: 12px 12px 24px;
+  }
+
+  .feed {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+
+  .banner h1 {
+    font-size: 22px;
+  }
+
+  .banner p {
+    font-size: 15px;
+  }
+}
+
 .card {
   background: var(--bg-surface);
   border: 1px solid var(--border);

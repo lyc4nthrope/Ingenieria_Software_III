@@ -13,6 +13,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
   // step: 'choose' | 'confirm-deactivate' | 'confirm-permanent'
   const [step, setStep] = useState('choose');
   const [mode, setMode] = useState(null); // 'deactivate' | 'permanent'
+  const titleId = 'delete-modal-title';
 
   const handleChoose = (chosen) => {
     setMode(chosen);
@@ -21,6 +22,13 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
 
   const handleConfirm = () => {
     onConfirm(mode === 'permanent');
+  };
+
+  const handleKeyDown = (e, chosen) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleChoose(chosen);
+    }
   };
 
   return (
@@ -34,6 +42,9 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--bg-surface)',
@@ -49,7 +60,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
         {step === 'choose' && (
           <>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 8px' }}>
+              <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 8px' }}>
                 ¿Qué quieres hacer con tu cuenta?
               </h2>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
@@ -58,8 +69,10 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
             </div>
 
             {/* Opción desactivar */}
-            <div
+            <button
+              type="button"
               onClick={() => handleChoose('deactivate')}
+              onKeyDown={(e) => handleKeyDown(e, 'deactivate')}
               style={{
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-md)',
@@ -67,6 +80,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 cursor: 'pointer',
                 display: 'flex', flexDirection: 'column', gap: '6px',
                 transition: 'border-color 0.15s',
+                background: 'none', textAlign: 'left', width: '100%',
               }}
               onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
               onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
@@ -78,11 +92,13 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 Tu cuenta se desactiva y no podrás iniciar sesión. Tus publicaciones
                 permanecerán visibles para seguir ayudando a la comunidad con precios reales.
               </span>
-            </div>
+            </button>
 
             {/* Opción eliminar permanente */}
-            <div
+            <button
+              type="button"
               onClick={() => handleChoose('permanent')}
+              onKeyDown={(e) => handleKeyDown(e, 'permanent')}
               style={{
                 border: '1px solid #fecaca',
                 borderRadius: 'var(--radius-md)',
@@ -90,6 +106,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 cursor: 'pointer',
                 display: 'flex', flexDirection: 'column', gap: '6px',
                 transition: 'border-color 0.15s',
+                background: 'none', textAlign: 'left', width: '100%',
               }}
               onMouseEnter={(e) => e.currentTarget.style.borderColor = '#ef4444'}
               onMouseLeave={(e) => e.currentTarget.style.borderColor = '#fecaca'}
@@ -101,9 +118,10 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 Se eliminan tu cuenta y <strong>todos tus datos</strong>: publicaciones,
                 votos, tiendas, historial. Esta acción es irreversible.
               </span>
-            </div>
+            </button>
 
             <button
+              type="button"
               onClick={onClose}
               style={{
                 alignSelf: 'flex-end', background: 'none', border: 'none',
@@ -119,7 +137,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
         {step === 'confirm-deactivate' && (
           <>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 8px' }}>
+              <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 8px' }}>
                 Confirmar desactivación
               </h2>
               <div style={{
@@ -169,7 +187,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
         {step === 'confirm-permanent' && (
           <>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#dc2626', margin: '0 0 8px' }}>
+              <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: '#dc2626', margin: '0 0 8px' }}>
                 ⚠️ Eliminación permanente
               </h2>
               <div style={{

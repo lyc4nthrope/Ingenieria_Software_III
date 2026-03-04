@@ -26,6 +26,7 @@ export default function Input({
 }) {
   const [focused, setFocused] = useState(false);
   const inputId = id || name;
+  const helperId = `${inputId}-helper`;
 
   const wrapperStyle = {
     display: 'flex',
@@ -85,7 +86,7 @@ export default function Input({
       {label && (
         <label htmlFor={inputId} style={labelStyle}>
           {label}
-          {required && <span style={{ color: 'var(--error)', marginLeft: '3px' }}>*</span>}
+          {required && <span aria-hidden="true" style={{ color: 'var(--error)', marginLeft: '3px' }}>*</span>}
         </label>
       )}
 
@@ -108,6 +109,8 @@ export default function Input({
           disabled={disabled}
           required={required}
           autoComplete={autoComplete}
+          aria-invalid={error ? 'true' : undefined}
+          aria-describedby={(error || helper) ? helperId : undefined}
           style={inputStyle}
           {...props}
         />
@@ -120,7 +123,9 @@ export default function Input({
       </div>
 
       {(error || helper) && (
-        <span style={helperStyle}>{error || helper}</span>
+        <span id={helperId} role={error ? 'alert' : undefined} style={helperStyle}>
+          {error || helper}
+        </span>
       )}
     </div>
   );

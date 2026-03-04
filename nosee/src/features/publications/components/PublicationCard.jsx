@@ -22,7 +22,7 @@
  * - Tiempo relativo
  */
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { formatDistanceToNowInSpanish } from '@/features/publications/utils/dateUtils';
 
 /**
@@ -68,6 +68,10 @@ export function PublicationCard({
   const [isValidating, setIsValidating] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const reportModalTitleId = useId();
+  const reportSelectId = useId();
+  const photoModalId = useId();
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -168,15 +172,20 @@ export function PublicationCard({
         {/* Foto */}
         {publication.photo_url && (
           <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={photoExpanded}
+            aria-label={`${photoExpanded ? 'Contraer' : 'Expandir'} foto de ${publication.product?.name || 'producto'}`}
             style={styles.photoContainer}
             onClick={() => setPhotoExpanded(!photoExpanded)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPhotoExpanded(!photoExpanded); } }}
           >
             <img
               src={publication.photo_url}
-              alt={publication.product?.name}
+              alt={publication.product?.name || 'Foto del producto'}
               style={styles.photo}
             />
-            <div style={styles.photoOverlay}>
+            <div aria-hidden="true" style={styles.photoOverlay}>
               <span style={styles.photoIcon}>🔍 Expandir</span>
             </div>
           </div>
@@ -202,6 +211,9 @@ export function PublicationCard({
       {/* Acciones */}
       <div style={styles.actions}>
         <button
+          type="button"
+          aria-label={`Validar publicación de ${publication.product?.name || 'producto'}`}
+          aria-busy={isValidating || undefined}
           style={{ ...styles.button, ...styles.buttonPrimary }}
           onClick={handleValidate}
           disabled={isValidating}
@@ -210,6 +222,8 @@ export function PublicationCard({
         </button>
 
         <button
+          type="button"
+          aria-label={`Reportar publicación de ${publication.product?.name || 'producto'}`}
           style={{ ...styles.button, ...styles.buttonSecondary }}
           onClick={() => setShowReportModal(true)}
         >
@@ -217,14 +231,19 @@ export function PublicationCard({
         </button>
 
         <button
+          type="button"
+          aria-label={`Eliminar publicación de ${publication.product?.name || 'producto'}`}
+          aria-busy={isDeleting || undefined}
           style={{ ...styles.button, ...styles.buttonDanger }}
           onClick={handleDelete}
           disabled={isDeleting}
         >
           {isDeleting ? '...' : '🗑 Eliminar'}
         </button>
-        
+
         <button
+          type="button"
+          aria-label={`Ver más detalles de ${publication.product?.name || 'producto'}`}
           style={{ ...styles.button, ...styles.buttonSecondary }}
           onClick={() => onViewMore?.(publication.id)}
         >
@@ -234,13 +253,21 @@ export function PublicationCard({
 
       {/* Modal: Reportar */}
       {showReportModal && (
-        <div style={styles.modal}>
-          <div style={styles.modalContent}>
-            <h3 style={styles.modalTitle}>Reportar publicación</h3>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={reportModalTitleId}
+          style={styles.modal}
+          onClick={() => { setShowReportModal(false); setReportType(''); }}
+        >
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <h3 id={reportModalTitleId} style={styles.modalTitle}>Reportar publicación</h3>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Tipo de reporte:</label>
+              <label htmlFor={reportSelectId} style={styles.label}>Tipo de reporte:</label>
               <select
+                id={reportSelectId}
+                autoFocus
                 value={reportType}
                 onChange={(e) => setReportType(e.target.value)}
                 style={styles.select}
@@ -255,6 +282,7 @@ export function PublicationCard({
 
             <div style={styles.modalActions}>
               <button
+                type="button"
                 style={{ ...styles.button, ...styles.buttonSecondary }}
                 onClick={() => {
                   setShowReportModal(false);
@@ -264,6 +292,8 @@ export function PublicationCard({
                 Cancelar
               </button>
               <button
+                type="button"
+                aria-busy={isReporting || undefined}
                 style={{ ...styles.button, ...styles.buttonDanger }}
                 onClick={handleReport}
                 disabled={!reportType || isReporting}
@@ -277,10 +307,31 @@ export function PublicationCard({
 
       {/* Modal: Foto expandida */}
       {photoExpanded && (
-        <div style={styles.photoModal} onClick={() => setPhotoExpanded(false)}>
+        <div
+          id={photoModalId}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Foto ampliada de ${publication.product?.name || 'producto'}`}
+          style={styles.photoModal}
+          onClick={() => setPhotoExpanded(false)}
+        >
+          <button
+            type="button"
+            aria-label="Cerrar foto ampliada"
+            onClick={() => setPhotoExpanded(false)}
+            style={{
+              position: 'absolute', top: '16px', right: '16px',
+              background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.3)',
+              color: '#fff', borderRadius: '50%', width: '36px', height: '36px',
+              fontSize: '18px', cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            ✕
+          </button>
           <img
             src={publication.photo_url}
-            alt={publication.product?.name}
+            alt={publication.product?.name || 'Foto del producto'}
             style={styles.photoModalImg}
           />
         </div>
@@ -335,7 +386,7 @@ const styles = {
 
   timeAgo: {
     fontSize: '12px',
-    color: '#999',
+    color: '#666',
     marginTop: '2px',
   },
 
@@ -377,7 +428,7 @@ const styles = {
 
   currency: {
     fontSize: '12px',
-    color: '#999',
+    color: '#555',
   },
 
   description: {
@@ -551,6 +602,7 @@ const styles = {
     justifyContent: 'center',
     zIndex: 1001,
     cursor: 'pointer',
+    position: 'fixed',
   },
 
   photoModalImg: {

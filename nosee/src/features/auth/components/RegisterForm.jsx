@@ -156,17 +156,21 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
           <button
             type="button"
             onClick={toggleShowPassword}
+            aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-muted)' }}
             disabled={loading}
           >
-            {showPassword ? '👁️' : '👁️‍🗨️'}
+            <span aria-hidden="true">{showPassword ? '👁️' : '👁️‍🗨️'}</span>
           </button>
         </div>
 
         {/* Indicador de fortaleza */}
         {form.password.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', gap: '4px' }}>
+          <div aria-live="polite" aria-atomic="true" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span className="sr-only">
+              {pwdStrength === 3 ? 'Contraseña segura' : pwdStrength === 2 ? 'Contraseña media' : 'Contraseña débil'}
+            </span>
+            <div aria-hidden="true" style={{ display: 'flex', gap: '4px' }}>
               {passwordRules.map((_, i) => (
                 <div key={i} style={{
                   flex: 1, height: '3px', borderRadius: '2px',
@@ -180,7 +184,7 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
                 const met = rule.test(form.password);
                 return (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: met ? 'var(--success)' : 'var(--text-muted)' }}>
-                    <span style={{ opacity: met ? 1 : 0.4 }}><CheckIcon /></span>
+                    <span aria-hidden="true" style={{ opacity: met ? 1 : 0.4 }}><CheckIcon /></span>
                     {rule.label}
                   </div>
                 );

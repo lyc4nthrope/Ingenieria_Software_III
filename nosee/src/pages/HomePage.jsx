@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useId } from "react";
+import { useEffect, useMemo, useState, useId, useRef } from "react";
 
 import {
   useAuthStore,
@@ -271,6 +271,11 @@ function PublicationCard({
 // ─── PublicationDetailModal ───────────────────────────────────────────────────
 function PublicationDetailModal({ publication, onClose }) {
   const titleId = useId();
+  const closeButtonRef = useRef(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     const handleEscape = (event) => {
@@ -313,6 +318,7 @@ function PublicationDetailModal({ publication, onClose }) {
         }}
       >
         <button
+          ref={closeButtonRef}
           onClick={onClose}
           type="button"
           aria-label="Cerrar detalle de publicación"
