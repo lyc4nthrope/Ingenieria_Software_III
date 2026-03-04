@@ -152,7 +152,6 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
           height: "100px",
           background:
             "linear-gradient(135deg, rgba(56,189,248,0.15) 0%, rgba(14,165,233,0.05) 100%)",
-          borderBottom: "1px solid var(--border)",
           position: "relative",
         }}
       />
