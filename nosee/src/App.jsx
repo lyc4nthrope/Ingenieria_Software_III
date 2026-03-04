@@ -33,6 +33,7 @@ import {
 import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { PageLoader } from "@/components/ui/Spinner";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // ── Carga eager: solo lo imprescindible para el primer render ──────────────
 import HomePage from "@/pages/HomePage";
@@ -270,7 +271,9 @@ export default function App() {
             overflow: "auto", // Permite scroll si el contenido es mayor
           }}
         >
-          <AppContent />
+          <ErrorBoundary>
+            <AppContent />
+          </ErrorBoundary>
         </main>
       </div>
     </BrowserRouter>
