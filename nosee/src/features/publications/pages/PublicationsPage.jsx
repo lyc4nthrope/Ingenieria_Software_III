@@ -296,6 +296,8 @@ const handleViewMore = async (publicationId) => {
         {/* Error message */}
         {error && (
           <div
+            role="alert"
+            aria-live="assertive"
             style={{
               padding: "12px 16px",
               background: "rgba(239,68,68,0.1)",
@@ -328,9 +330,10 @@ const handleViewMore = async (publicationId) => {
             alignItems: "center",
           }}
         >
-          <SearchIcon />
+          <SearchIcon aria-hidden="true" />
           <input
-            type="text"
+            type="search"
+            aria-label={tp.searchPlaceholder}
             placeholder={tp.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}

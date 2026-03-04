@@ -158,7 +158,7 @@ export function PublicationCard({
             {publication.product?.name || tc.unknownProduct}
           </div>
           <div style={styles.storeName}>
-            🏪 {publication.store?.name || tc.noStore}
+            <span aria-hidden="true">🏪 </span>{publication.store?.name || tc.noStore}
           </div>
         </div>
 
@@ -201,13 +201,13 @@ export function PublicationCard({
       {/* Stats: Validaciones y Reportes */}
       <div style={styles.stats}>
         <div style={styles.stat}>
-          <span style={styles.statIcon}>✓</span>
+          <span style={styles.statIcon} aria-hidden="true">✓</span>
           <span style={styles.statText}>
             {publication.validated_count || 0} {tc.validations}
           </span>
         </div>
         <div style={styles.stat}>
-          <span style={styles.statIcon}>⚠</span>
+          <span style={styles.statIcon} aria-hidden="true">⚠</span>
           <span style={styles.statText}>
             {publication.reported_count || 0} {tc.reports}
           </span>

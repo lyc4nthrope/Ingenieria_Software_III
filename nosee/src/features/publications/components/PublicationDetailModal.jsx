@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const DEFAULT_VIRTUAL_IMAGE = "https://via.placeholder.com/1200x800?text=Tienda+virtual";
@@ -311,6 +311,7 @@ function PublicationLocationMap({ latitude, longitude, storeName, td }) {
 export default function PublicationDetailModal({ publication, onClose }) {
   const { t } = useLanguage();
   const td = t.publicationDetail;
+  const titleId = useId();
 
   const votes = publication?.votes || [];
   const positiveVotes = votes.filter((vote) => Number(vote.vote_type) === 1).length;
@@ -325,9 +326,23 @@ export default function PublicationDetailModal({ publication, onClose }) {
     Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(event) => event.stopPropagation()}>
-        <button style={styles.closeButton} onClick={onClose}>✕</button>
+    <div style={styles.overlay} onClick={onClose} aria-hidden="true">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        style={styles.modal}
+        onClick={(event) => event.stopPropagation()}
+        aria-hidden="false"
+      >
+        <button
+          type="button"
+          style={styles.closeButton}
+          onClick={onClose}
+          aria-label={td.closeModal ?? "Cerrar"}
+        >
+          <span aria-hidden="true">✕</span>
+        </button>
 
         <img src={mainImage} alt={publication?.product?.name || td.noName} style={styles.image} />
 
@@ -337,7 +352,7 @@ export default function PublicationDetailModal({ publication, onClose }) {
           </a>
         )}
 
-        <h2 style={styles.title}>{publication?.product?.name || td.noName}</h2>
+        <h2 id={titleId} style={styles.title}>{publication?.product?.name || td.noName}</h2>
         <p style={styles.meta}>
           {td.unit} {publication?.product?.base_quantity || "-"} {publication?.product?.unit_type?.abbreviation || ""}
         </p>
@@ -346,7 +361,11 @@ export default function PublicationDetailModal({ publication, onClose }) {
         <p style={styles.meta}>
           {td.publishedBy} {publication?.user?.full_name || td.unknownUser} · {td.score} {publication?.user?.reputation_points ?? 0}
         </p>
-        <p style={styles.meta}>{td.votes} 👍 {positiveVotes} · 👎 {negativeVotes}</p>
+        <p style={styles.meta}>
+          {td.votes}{" "}
+          <span aria-hidden="true">👍</span> {positiveVotes} ·{" "}
+          <span aria-hidden="true">👎</span> {negativeVotes}
+        </p>
 
         <div style={styles.commentsBox}>
           <h3 style={styles.sectionTitle}>{td.comments}</h3>

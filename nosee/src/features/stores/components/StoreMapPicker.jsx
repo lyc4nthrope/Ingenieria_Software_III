@@ -426,6 +426,7 @@ export default function StoreMapPicker({
       <div style={styles.row}>
         <input
           type="text"
+          aria-label={tm.addressPlaceholder}
           value={addressInput}
           placeholder={tm.addressPlaceholder}
           onChange={(event) => {
@@ -437,6 +438,7 @@ export default function StoreMapPicker({
         />
         <button
           type="button"
+          aria-label={tm.searchBtn}
           onClick={applyAddressSearch}
           style={styles.button}
           disabled={loadingAddress}
@@ -445,7 +447,7 @@ export default function StoreMapPicker({
         </button>
       </div>
 
-      <div style={styles.map}>
+      <div style={styles.map} role="region" aria-label={tm.title}>
         <div ref={mapContainerRef} style={styles.mapCanvas} />
       </div>
 
@@ -453,6 +455,7 @@ export default function StoreMapPicker({
         <input
           type="number"
           step="any"
+          aria-label={tm.latPlaceholder}
           value={latInput}
           placeholder={tm.latPlaceholder}
           onChange={(event) => setLatInput(event.target.value)}
@@ -461,6 +464,7 @@ export default function StoreMapPicker({
         <input
           type="number"
           step="any"
+          aria-label={tm.lonPlaceholder}
           value={lonInput}
           placeholder={tm.lonPlaceholder}
           onChange={(event) => setLonInput(event.target.value)}
@@ -468,6 +472,7 @@ export default function StoreMapPicker({
         />
         <button
           type="button"
+          aria-label={tm.applyBtn}
           onClick={applyManualCoordinates}
           style={styles.button}
           disabled={loadingAddress}

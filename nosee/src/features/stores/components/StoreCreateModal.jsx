@@ -11,7 +11,7 @@
  *   onClose     {() => void}       - Cierra el modal sin crear
  */
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { createStoreSimple } from '@/services/api/stores.api';
 
 const STORE_TYPE_ID = {
@@ -26,6 +26,11 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError]         = useState(null);
+
+  const titleId      = useId();
+  const nameId       = useId();
+  const addressId    = useId();
+  const websiteUrlId = useId();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -65,40 +70,53 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
   };
 
   return (
-    <div style={s.overlay} onClick={handleOverlayClick}>
-      <div style={s.card}>
+    <div style={s.overlay} onClick={handleOverlayClick} aria-hidden="true">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        style={s.card}
+        aria-hidden="false"
+      >
         {/* Header */}
         <div style={s.header}>
-          <h3 style={s.title}>Nueva tienda</h3>
-          <button style={s.closeBtn} onClick={onClose} type="button" aria-label="Cerrar">✕</button>
+          <h3 id={titleId} style={s.title}>Nueva tienda</h3>
+          <button style={s.closeBtn} onClick={onClose} type="button" aria-label="Cerrar">
+            <span aria-hidden="true">✕</span>
+          </button>
         </div>
 
         <p style={s.hint}>
           Completa los datos básicos. Luego podrás agregar ubicación y fotos desde tu perfil.
         </p>
 
-        {error && <div style={s.errorBox}>{error}</div>}
+        {error && (
+          <div role="alert" style={s.errorBox}>{error}</div>
+        )}
 
         <form onSubmit={handleSubmit} style={s.form}>
           {/* Nombre */}
           <div style={s.group}>
-            <label style={s.label}>Nombre *</label>
+            <label htmlFor={nameId} style={s.label}>Nombre *</label>
             <input
+              id={nameId}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej: Supermercado Central"
               style={s.input}
+              aria-required="true"
               autoFocus
             />
           </div>
 
           {/* Tipo */}
           <div style={s.group}>
-            <label style={s.label}>Tipo *</label>
-            <div style={s.typeRow}>
+            <span id="store-type-label" style={s.label}>Tipo *</span>
+            <div role="group" aria-labelledby="store-type-label" style={s.typeRow}>
               <button
                 type="button"
+                aria-pressed={type === 'physical'}
                 style={{ ...s.typeBtn, ...(type === 'physical' ? s.typeBtnActive : {}) }}
                 onClick={() => setType('physical')}
               >
@@ -106,6 +124,7 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
               </button>
               <button
                 type="button"
+                aria-pressed={type === 'virtual'}
                 style={{ ...s.typeBtn, ...(type === 'virtual' ? s.typeBtnActive : {}) }}
                 onClick={() => setType('virtual')}
               >
@@ -117,8 +136,9 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
           {/* Dirección (solo física) */}
           {type === 'physical' && (
             <div style={s.group}>
-              <label style={s.label}>Dirección (opcional)</label>
+              <label htmlFor={addressId} style={s.label}>Dirección (opcional)</label>
               <input
+                id={addressId}
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
@@ -131,13 +151,15 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
           {/* URL (solo virtual) */}
           {type === 'virtual' && (
             <div style={s.group}>
-              <label style={s.label}>URL de la tienda *</label>
+              <label htmlFor={websiteUrlId} style={s.label}>URL de la tienda *</label>
               <input
+                id={websiteUrlId}
                 type="url"
                 value={websiteUrl}
                 onChange={(e) => setWebsiteUrl(e.target.value)}
                 placeholder="https://mitienda.com"
                 style={s.input}
+                aria-required="true"
               />
             </div>
           )}

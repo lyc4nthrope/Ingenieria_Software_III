@@ -2,14 +2,13 @@
  * App.jsx - Punto de entrada de la aplicación
  *
  */
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import {
   useAuthStore,
   selectIsInitialized,
 } from "@/features/auth/store/authStore";
-import { useEffect, useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { PageLoader } from "@/components/ui/Spinner";
@@ -51,6 +50,9 @@ const CreatePublicationPage = lazy(
 );
 const CreateStorePage = lazy(
   () => import("@/features/stores/pages/CreateStorePage"),
+);
+const StoresPage = lazy(
+  () => import("@/features/stores/pages/StoresPage"),
 );
 
 function NotFoundPage() {
@@ -176,7 +178,7 @@ function AppContent() {
           path="/tiendas"
           element={
             <ProtectedRoute>
-              <CreateStorePage />
+              <StoresPage />
             </ProtectedRoute>
           }
         />
@@ -223,16 +225,21 @@ function RoleChangeToast() {
   const { t } = useLanguage();
   const [visible, setVisible] = useState(false);
 
+  const dismiss = useCallback(() => {
+    setVisible(false);
+    setTimeout(clearRoleNotification, 300);
+  }, [clearRoleNotification]);
+
   useEffect(() => {
-    if (notification) {
-      setVisible(true);
-      const timer = setTimeout(() => {
-        setVisible(false);
-        setTimeout(clearRoleNotification, 300);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification, clearRoleNotification]);
+    if (!notification) return;
+    // setTimeout evita llamar setState síncronamente en el cuerpo del efecto
+    const showTimer = setTimeout(() => setVisible(true), 0);
+    const hideTimer = setTimeout(dismiss, 5000);
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, [notification, dismiss]);
 
   if (!notification) return null;
 
@@ -264,7 +271,8 @@ function RoleChangeToast() {
       <span aria-hidden="true">🔔</span>
       <span>{t.app.roleChangePrefix} {notification}</span>
       <button
-        onClick={() => { setVisible(false); setTimeout(clearRoleNotification, 300); }}
+        type="button"
+        onClick={dismiss}
         aria-label={t.app.closeNotification}
         style={{
           background: 'none',

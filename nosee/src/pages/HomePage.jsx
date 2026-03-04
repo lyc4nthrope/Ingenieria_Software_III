@@ -142,10 +142,11 @@ function ReportModal({ onClose, onSubmit }) {
         <div
           style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}
         >
-          <button className="card-action-button" onClick={onClose}>
+          <button type="button" className="card-action-button" onClick={onClose}>
             {th.cancel}
           </button>
           <button
+            type="button"
             className="card-action-button"
             onClick={handleSubmit}
             disabled={!reportType || submitting}
@@ -211,8 +212,8 @@ function PublicationCard({
         style={{ flexDirection: "column", gap: 8 }}
       >
         <div className="card-indicators" style={{ width: "100%" }}>
-          <span>✅ {pub.validated_count || 0}</span>
-          <span>🚩 {pub.reported_count || 0}</span>
+          <span><span aria-hidden="true">✅ </span>{pub.validated_count || 0}</span>
+          <span><span aria-hidden="true">🚩 </span>{pub.reported_count || 0}</span>
           <span>{pub.store?.name || th.store}</span>
         </div>
         <div
@@ -478,7 +479,7 @@ export default function HomePage() {
               {th.loading}
             </p>
           ) : normalizedPublications.length === 0 ? (
-            <p>{th.noPublications}</p>
+            <p role="status" aria-live="polite">{th.noPublications}</p>
           ) : (
             normalizedPublications.map((pub) => (
               <PublicationCard

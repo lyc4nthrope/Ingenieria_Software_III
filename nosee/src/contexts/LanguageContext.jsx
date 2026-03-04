@@ -394,6 +394,16 @@ export const TRANSLATIONS = {
       maxLabel: (val) => `Máx $${val}`,
     },
 
+    // ── Tiendas ───────────────────────────────────────────────────────────────
+    storesPage: {
+      title: "Tiendas",
+      subtitle: "Explora las tiendas registradas por la comunidad.",
+      createBtn: "Crear tienda",
+      createBtnLabel: "Crear nueva tienda",
+      empty: "Aún no hay tiendas registradas.",
+      comingSoon: "El listado de tiendas estará disponible próximamente.",
+    },
+
     // ── Crear tienda ──────────────────────────────────────────────────────────
     createStore: {
       title: "🏪 Crear tienda",
@@ -453,6 +463,7 @@ export const TRANSLATIONS = {
 
     // ── Detalle de publicación ────────────────────────────────────────────────
     publicationDetail: {
+      closeModal: "Cerrar detalle de publicación",
       noName: "Producto sin nombre",
       unit: "Unidad:",
       noDescription: "No hay descripción",
@@ -1072,6 +1083,16 @@ export const TRANSLATIONS = {
       maxLabel: (val) => `Max $${val}`,
     },
 
+    // ── Stores ────────────────────────────────────────────────────────────────
+    storesPage: {
+      title: "Stores",
+      subtitle: "Explore stores registered by the community.",
+      createBtn: "Create store",
+      createBtnLabel: "Create new store",
+      empty: "No stores registered yet.",
+      comingSoon: "The stores list will be available soon.",
+    },
+
     // ── Create store ──────────────────────────────────────────────────────────
     createStore: {
       title: "🏪 Create store",
@@ -1131,6 +1152,7 @@ export const TRANSLATIONS = {
 
     // ── Publication detail ────────────────────────────────────────────────────
     publicationDetail: {
+      closeModal: "Close publication detail",
       noName: "Unnamed product",
       unit: "Unit:",
       noDescription: "No description available",
