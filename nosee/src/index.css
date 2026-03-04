@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap");
+/* Google Fonts se carga desde index.html con <link> para evitar bloqueo de render */
 
 /* ── Design Tokens ──────────────────────────────────── */
 :root {
@@ -682,7 +682,7 @@ html {
 .a11y-hide-images img,
 .a11y-hide-images svg,
 .a11y-hide-images video {
-  visibility: hidden !important;
+  display: none !important;
 }
 
 .a11y-text-spacing body,
@@ -691,6 +691,12 @@ html {
 .a11y-text-spacing label,
 .a11y-text-spacing a,
 .a11y-text-spacing span,
+.a11y-text-spacing h1,
+.a11y-text-spacing h2,
+.a11y-text-spacing h3,
+.a11y-text-spacing h4,
+.a11y-text-spacing h5,
+.a11y-text-spacing h6,
 .a11y-text-spacing input,
 .a11y-text-spacing button,
 .a11y-text-spacing textarea {
@@ -755,4 +761,59 @@ html {
   .a11y-actions-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── WCAG 2.3.3: respetar preferencia del SO sin necesidad del menú ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Dropdown de selección de idioma ─────────────────── */
+.a11y-lang-wrapper {
+  position: relative;
+}
+
+.a11y-lang-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  border-radius: 10px;
+  border: 1px solid #bac3d3;
+  background: #edf0f4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 20;
+}
+
+.a11y-lang-menu button {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 14px;
+  text-align: left;
+  font-weight: 600;
+  color: #101214;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #bac3d3;
+}
+
+.a11y-lang-menu button:last-child {
+  border-bottom: none;
+}
+
+.a11y-lang-menu button:hover {
+  background: #d8dce4;
+}
+
+.a11y-lang-menu button[aria-selected="true"] {
+  background: #3564ad;
+  color: #fff;
 }
