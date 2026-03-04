@@ -12,6 +12,7 @@ import {
   selectIsInitialized,
 } from "@/features/auth/store/authStore";
 import { UserRoleEnum } from "@/types";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Íconos SVG inline (no dependencias externas)
 const HomeIcon = () => (
@@ -28,23 +29,6 @@ const HomeIcon = () => (
   >
     <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
     <polyline points="9,22 9,12 15,12 15,22" />
-  </svg>
-);
-
-const UserIcon = () => (
-  <svg
-    aria-hidden="true"
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
   </svg>
 );
 
@@ -102,6 +86,9 @@ const StoreIcon = () => (
 );
 
 export default function Navbar() {
+  const { t } = useLanguage();
+  const tn = t.nav;
+
   const user = useAuthStore(selectAuthUser);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const isInitialized = useAuthStore(selectIsInitialized);
@@ -112,15 +99,9 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path;
 
   const DASHBOARD_CONFIG = {
-    [UserRoleEnum.ADMIN]: { label: "Panel Admin", path: "/dashboard/admin" },
-    [UserRoleEnum.MODERADOR]: {
-      label: "Moderación",
-      path: "/dashboard/moderator",
-    },
-    [UserRoleEnum.REPARTIDOR]: {
-      label: "Mis Pedidos",
-      path: "/dashboard/dealer",
-    },
+    [UserRoleEnum.ADMIN]: { label: tn.panelAdmin, path: "/dashboard/admin" },
+    [UserRoleEnum.MODERADOR]: { label: tn.moderation, path: "/dashboard/moderator" },
+    [UserRoleEnum.REPARTIDOR]: { label: tn.myOrders, path: "/dashboard/dealer" },
   };
   const dashboardConfig = user?.role ? DASHBOARD_CONFIG[user.role] : null;
 
@@ -129,13 +110,12 @@ export default function Navbar() {
     navigate("/");
   };
 
-  // Estilo de la barra superior (desktop)
   const navStyle = {
     position: "sticky",
     top: 0,
     zIndex: 100,
     height: "60px",
-    background: "rgba(8, 12, 20, 0.85)",
+    background: "var(--nav-bg)",
     backdropFilter: "blur(12px)",
     borderBottom: "1px solid var(--border)",
     display: "flex",
@@ -183,7 +163,6 @@ export default function Navbar() {
     overflow: "hidden",
   };
 
-  // Iniciales del usuario
   const initials = user?.fullName
     ? user.fullName
         .split(" ")
@@ -194,7 +173,7 @@ export default function Navbar() {
     : user?.email?.[0]?.toUpperCase() || "U";
 
   return (
-    <nav style={navStyle} aria-label="Navegación principal">
+    <nav style={navStyle} aria-label={tn.label}>
       {/* Logo */}
       <Link to="/" style={logoStyle}>
         NØ<span style={{ color: "var(--text-secondary)" }}>SEE</span>
@@ -202,14 +181,13 @@ export default function Navbar() {
 
       {!isInitialized ? null : isAuthenticated ? (
         <>
-          {/* Nav links */}
           <Link
             to="/"
             style={navLinkStyle(isActive("/"))}
             aria-current={isActive("/") ? "page" : undefined}
           >
             <HomeIcon />
-            <span className="nav-label">Inicio</span>
+            <span className="nav-label">{tn.home}</span>
           </Link>
 
           <Link
@@ -218,18 +196,18 @@ export default function Navbar() {
             aria-current={isActive("/publicaciones") ? "page" : undefined}
           >
             <TagIcon />
-            <span className="nav-label">Productos</span>
+            <span className="nav-label">{tn.products}</span>
           </Link>
+
           <Link
             to="/tiendas"
             style={navLinkStyle(isActive("/tiendas"))}
             aria-current={isActive("/tiendas") ? "page" : undefined}
           >
             <StoreIcon />
-            <span className="nav-label">Tiendas</span>
+            <span className="nav-label">{tn.stores}</span>
           </Link>
 
-          {/* Botón de dashboard solo para Moderador, Admin y Repartidor */}
           {dashboardConfig && (
             <Link
               to={dashboardConfig.path}
@@ -240,12 +218,11 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* Avatar → perfil */}
           <Link
             to="/perfil"
             style={avatarStyle}
-            title="Mi perfil"
-            aria-label="Ir a mi perfil"
+            title={tn.myProfile}
+            aria-label={tn.myProfile}
           >
             {user?.avatarUrl ? (
               <img
@@ -258,11 +235,10 @@ export default function Navbar() {
             )}
           </Link>
 
-          {/* Logout */}
           <button
             onClick={handleLogout}
-            title="Cerrar sesión"
-            aria-label="Cerrar sesión"
+            title={tn.logout}
+            aria-label={tn.logout}
             type="button"
             style={{
               display: "flex",
@@ -292,7 +268,7 @@ export default function Navbar() {
       ) : (
         <>
           <Link to="/login" style={navLinkStyle(isActive("/login"))}>
-            Iniciar sesión
+            {tn.login}
           </Link>
           <Link
             to="/registro"
@@ -304,7 +280,7 @@ export default function Navbar() {
               padding: "6px 16px",
             }}
           >
-            Registrarse
+            {tn.register}
           </Link>
         </>
       )}

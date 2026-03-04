@@ -43,6 +43,54 @@
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-xl: 24px;
+
+  /* Navbar */
+  --nav-bg: rgba(8, 12, 20, 0.85);
+}
+
+/* ── Modo día (WCAG 1.4.3 Contrast) ─────────────────── */
+.a11y-light-mode {
+  --bg-base: #f0f4f9;
+  --bg-surface: #ffffff;
+  --bg-elevated: #e4ecf6;
+  --bg-hover: #d6e3f0;
+  --border: #c2d1e8;
+  --border-soft: #adc0da;
+  --text-primary: #0d1420;
+  --text-secondary: #2d4e7a;
+  --text-muted: #5a7a9a;
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-soft: rgba(2, 132, 199, 0.12);
+  --accent-glow: rgba(2, 132, 199, 0.25);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
+  --nav-bg: rgba(240, 244, 249, 0.92);
+}
+
+/* Ajustes específicos modo día para elementos con colores hardcodeados */
+.a11y-light-mode .ad-card {
+  background: linear-gradient(
+    145deg,
+    rgba(200, 220, 245, 0.8),
+    rgba(220, 235, 255, 0.9)
+  );
+  border-color: rgba(80, 140, 210, 0.25);
+  color: #1e4a80;
+  box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.5), 0 0 25px rgba(0, 100, 200, 0.05);
+}
+
+.a11y-light-mode ::-webkit-scrollbar-track {
+  background: var(--bg-elevated);
+}
+
+.a11y-light-mode ::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+}
+
+.a11y-light-mode ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 /* ── Reset ──────────────────────────────────────────── */

@@ -14,6 +14,7 @@ import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { PageLoader } from "@/components/ui/Spinner";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AccessibilityMenu from "@/components/layout/AccessibilityMenu";
+import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 
 // ── Carga eager: solo lo imprescindible para el primer render ──────────────
 import HomePage from "@/pages/HomePage";
@@ -52,6 +53,7 @@ const CreateStorePage = lazy(
 );
 
 function NotFoundPage() {
+  const { t } = useLanguage();
   return (
     <main
       style={{
@@ -76,7 +78,7 @@ function NotFoundPage() {
         404
       </h1>
       <p style={{ color: "var(--text-secondary)", fontSize: "15px" }}>
-        Página no encontrada
+        {t.app.notFound}
       </p>
       <a
         href="/"
@@ -90,7 +92,7 @@ function NotFoundPage() {
           textDecoration: "none",
         }}
       >
-        Volver al inicio
+        {t.app.backHome}
       </a>
     </main>
   );
@@ -214,42 +216,51 @@ function AppContent() {
   );
 }
 
+function AppShell() {
+  const { t } = useLanguage();
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--bg-base)",
+      }}
+    >
+      <a href="#main-content" className="skip-link">
+        {t.app.skipToContent}
+      </a>
+
+      {/* Navbar sticky en la parte superior */}
+      <Navbar />
+
+      {/* Main semántico que crece para llenar el espacio disponible */}
+      <main
+        id="main-content"
+        tabIndex={-1}
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "auto",
+        }}
+      >
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
+      </main>
+
+      <AccessibilityMenu />
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          background: "var(--bg-base)",
-        }}
-      >
-        <a href="#main-content" className="skip-link">
-          Saltar al contenido principal
-        </a>
-
-        {/* Navbar sticky en la parte superior */}
-        <Navbar />
-
-        {/* Main semántico que crece para llenar el espacio disponible */}
-        <main
-          id="main-content"
-          tabIndex={-1}
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "auto", // Permite scroll si el contenido es mayor
-          }}
-        >
-          <ErrorBoundary>
-            <AppContent />
-          </ErrorBoundary>
-        </main>
-        
-        <AccessibilityMenu />
-      </div>
+      <LanguageProvider>
+        <AppShell />
+      </LanguageProvider>
     </BrowserRouter>
   );
 }

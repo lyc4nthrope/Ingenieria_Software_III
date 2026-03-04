@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // Íconos
 const MailIcon = () => (
@@ -38,6 +39,9 @@ const EyeIcon = ({ open }) => open ? (
 );
 
 export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, error = null, onResendConfirmation = null, emailForResend = '' }) {
+  const { t } = useLanguage();
+  const tf = t.loginForm;
+
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -45,7 +49,6 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
-    // Limpiar error del campo cuando el usuario escribe
     if (fieldErrors[name]) {
       setFieldErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -53,9 +56,9 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
 
   const validate = () => {
     const errors = {};
-    if (!form.email) errors.email = 'El email es requerido';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Email inválido';
-    if (!form.password) errors.password = 'La contraseña es requerida';
+    if (!form.email) errors.email = tf.emailRequired;
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = tf.emailInvalid;
+    if (!form.password) errors.password = tf.passwordRequired;
     return errors;
   };
 
@@ -75,7 +78,6 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
       noValidate
       style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
     >
-      {/* Error global del servidor */}
       {error && (
         <div
           role="alert"
@@ -93,7 +95,7 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
         </div>
       )}
 
-            <Button
+      <Button
         type="button"
         fullWidth
         size="lg"
@@ -101,12 +103,12 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
         onClick={onGoogleLogin}
         disabled={loading}
       >
-        Continuar con Google
+        {tf.googleLogin}
       </Button>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>o con email</span>
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{tf.orEmail}</span>
         <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
       </div>
 
@@ -125,18 +127,18 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
             padding: 0,
           }}
         >
-          Reenviar email de confirmación
+          {tf.resendConfirmation}
         </button>
       )}
 
       <Input
-        label="Correo electrónico"
+        label={tf.emailLabel}
         id="login-email"
         name="email"
         type="email"
         value={form.email}
         onChange={handleChange}
-        placeholder="tucorreo@ejemplo.com"
+        placeholder={tf.emailPlaceholder}
         error={fieldErrors.email}
         iconLeft={<MailIcon />}
         autoComplete="email"
@@ -145,7 +147,7 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
       />
 
       <Input
-        label="Contraseña"
+        label={tf.passwordLabel}
         id="login-password"
         name="password"
         type={showPassword ? 'text' : 'password'}
@@ -168,7 +170,7 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
               alignItems: 'center',
             }}
             tabIndex={-1}
-            aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            aria-label={showPassword ? tf.hidePassword : tf.showPassword}
           >
             <EyeIcon open={showPassword} />
           </button>
@@ -178,13 +180,12 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
         disabled={loading}
       />
 
-      {/* Olvidé contraseña */}
       <div style={{ textAlign: 'right', marginTop: '-10px' }}>
         <Link
           to="/recuperar-contrasena"
           style={{ fontSize: '13px', color: 'var(--accent)', textDecoration: 'none' }}
         >
-          ¿Olvidaste tu contraseña?
+          {tf.forgotPassword}
         </Link>
       </div>
 
@@ -196,17 +197,16 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
         size="lg"
         style={{ marginTop: '4px' }}
       >
-        {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+        {loading ? tf.loggingIn : tf.loginButton}
       </Button>
 
-      {/* Registro */}
       <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
-        ¿No tienes cuenta?{' '}
+        {tf.noAccount}{' '}
         <Link
           to="/registro"
           style={{ color: 'var(--accent)', fontWeight: '500', textDecoration: 'none' }}
         >
-          Regístrate gratis
+          {tf.registerFree}
         </Link>
       </p>
     </form>

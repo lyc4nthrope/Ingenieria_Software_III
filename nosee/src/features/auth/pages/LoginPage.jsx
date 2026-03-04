@@ -16,8 +16,10 @@ import {
 import LoginForm from "@/features/auth/components/LoginForm";
 import { resendConfirmation } from "@/services/api/auth.api";
 import { getRolePath } from "@/utils/roleUtils";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const clearError = useAuthStore((s) => s.clearError);
@@ -92,10 +94,10 @@ export default function LoginPage() {
               marginBottom: "6px",
             }}
           >
-            Bienvenido de nuevo
+            {t.loginPage.title}
           </h1>
           <p style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-            Compara precios con tu comunidad
+            {t.loginPage.subtitle}
           </p>
         </div>
 

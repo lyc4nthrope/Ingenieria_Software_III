@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLanguage, LANG_OPTIONS } from "@/contexts/LanguageContext";
 
 const STORAGE_KEY = "nosee-accessibility-settings";
-const LANG_KEY = "nosee-accessibility-lang";
 const FONT_STEP = 0.1;
 const MIN_FONT_SCALE = 0.9;
 const MAX_FONT_SCALE = 1.6;
@@ -19,142 +19,8 @@ const defaultSettings = {
   lineHeightBoost: false,
   textAlignLeft: false,
   pageStructure: false,
+  lightMode: false,
 };
-
-// ── Traducciones ─────────────────────────────────────────────────────────────
-const STRINGS = {
-  "es-MX": {
-    speechLang: "es-MX",
-    triggerTitle: "Abrir menú de accesibilidad (Ctrl+U)",
-    triggerLabel: "Abrir menú de accesibilidad",
-    panelLabel: "Menú de accesibilidad",
-    title: "Menú De Accesibilidad (CTRL+U)",
-    closeLabel: "Cerrar menú",
-    langButtonLabel: "🇨🇴 Español (Colombia) ▸",
-    widgetLabel: "XL Widget de gran tamaño",
-    fontSizeLabel: (pct) => `Tamaño actual de texto: ${pct}`,
-    toolsLabel: "Herramientas de accesibilidad",
-    prefsLabel: "Preferencias principales",
-    decreaseText: "Reducir texto",
-    stopReadingLabel: "Detener lectura",
-    resetLabel: "Restablecer ajustes",
-    features: {
-      readPage: "Leer página",
-      highContrast: "Contraste +",
-      smartContrast: "Contraste inteligente",
-      highlightLinks: "Resaltar enlaces",
-      biggerText: "Agrandar texto",
-      textSpacing: "Espaciado de texto",
-      pauseAnimations: "Detener animaciones",
-      hideImages: "Ocultar imágenes",
-      readableFont: "Apto para dislexia",
-      cursor: "Cursor",
-      info: "Información",
-      pageStructure: "Estructura de la página",
-      lineHeight: "Altura de la línea",
-      textAlignLeft: "Texto alineado",
-    },
-    announces: {
-      notAvailable: "La lectura en voz no está disponible en este navegador.",
-      noContent: "No hay contenido disponible para leer.",
-      reading: "Leyendo contenido de la página.",
-      stopped: "Lectura detenida.",
-      reset: "Ajustes de accesibilidad restablecidos.",
-    },
-    infoPanel: {
-      title: "Acerca de este menú",
-      description:
-        "Este menú cumple con las pautas WCAG 2.1 nivel AA. Permite ajustar la apariencia y comportamiento de la página para mejorar tu experiencia de navegación.",
-      shortcutsTitle: "Atajos de teclado",
-      shortcuts: [
-        { keys: "Ctrl + U", action: "Abrir / cerrar este menú" },
-        { keys: "Escape", action: "Cerrar el menú" },
-      ],
-      featuresTitle: "Funciones disponibles",
-      features: [
-        "Contraste alto e inteligente",
-        "Escalado de texto (90 % – 160 %)",
-        "Espaciado y altura de línea",
-        "Fuente apta para dislexia",
-        "Resaltar enlaces",
-        "Ocultar imágenes",
-        "Detener animaciones",
-        "Cursor ampliado",
-        "Estructura de la página",
-        "Lectura en voz alta",
-      ],
-      closeInfo: "Cerrar información",
-    },
-  },
-  "en-US": {
-    speechLang: "en-US",
-    triggerTitle: "Open accessibility menu (Ctrl+U)",
-    triggerLabel: "Open accessibility menu",
-    panelLabel: "Accessibility menu",
-    title: "Accessibility Menu (CTRL+U)",
-    closeLabel: "Close menu",
-    langButtonLabel: "🇺🇸 English (USA) ▸",
-    widgetLabel: "XL Large widget",
-    fontSizeLabel: (pct) => `Current text size: ${pct}`,
-    toolsLabel: "Accessibility tools",
-    prefsLabel: "Main preferences",
-    decreaseText: "Decrease text",
-    stopReadingLabel: "Stop reading",
-    resetLabel: "Reset settings",
-    features: {
-      readPage: "Read page",
-      highContrast: "High contrast",
-      smartContrast: "Smart contrast",
-      highlightLinks: "Highlight links",
-      biggerText: "Bigger text",
-      textSpacing: "Text spacing",
-      pauseAnimations: "Pause animations",
-      hideImages: "Hide images",
-      readableFont: "Dyslexia friendly",
-      cursor: "Cursor",
-      info: "Information",
-      pageStructure: "Page structure",
-      lineHeight: "Line height",
-      textAlignLeft: "Align text left",
-    },
-    announces: {
-      notAvailable: "Text-to-speech is not available in this browser.",
-      noContent: "No content available to read.",
-      reading: "Reading page content.",
-      stopped: "Reading stopped.",
-      reset: "Accessibility settings reset.",
-    },
-    infoPanel: {
-      title: "About this menu",
-      description:
-        "This menu complies with WCAG 2.1 Level AA guidelines. It lets you adjust the page's appearance and behavior to improve your browsing experience.",
-      shortcutsTitle: "Keyboard shortcuts",
-      shortcuts: [
-        { keys: "Ctrl + U", action: "Open / close this menu" },
-        { keys: "Escape", action: "Close the menu" },
-      ],
-      featuresTitle: "Available features",
-      features: [
-        "High and smart contrast",
-        "Text scaling (90 % – 160 %)",
-        "Text spacing and line height",
-        "Dyslexia-friendly font",
-        "Highlight links",
-        "Hide images",
-        "Pause animations",
-        "Bigger cursor",
-        "Page structure outline",
-        "Text-to-speech",
-      ],
-      closeInfo: "Close information",
-    },
-  },
-};
-
-const LANG_OPTIONS = [
-  { code: "es-MX", label: "🇨🇴 Español (Colombia)" },
-  { code: "en-US", label: "🇺🇸 English (USA)" },
-];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function applyAccessibilitySettings(settings) {
@@ -171,6 +37,7 @@ function applyAccessibilitySettings(settings) {
   root.classList.toggle("a11y-line-height", settings.lineHeightBoost);
   root.classList.toggle("a11y-text-align-left", settings.textAlignLeft);
   root.classList.toggle("a11y-page-structure", settings.pageStructure);
+  root.classList.toggle("a11y-light-mode", settings.lightMode);
 }
 
 function readStoredSettings() {
@@ -189,15 +56,6 @@ function readStoredSettings() {
     };
   } catch {
     return defaultSettings;
-  }
-}
-
-function readStoredLang() {
-  try {
-    const raw = window.localStorage.getItem(LANG_KEY);
-    return raw && STRINGS[raw] ? raw : "es-MX";
-  } catch {
-    return "es-MX";
   }
 }
 
@@ -257,26 +115,20 @@ function AccessibilityIcon() {
 
 // ── Componente principal ─────────────────────────────────────────────────────
 export default function AccessibilityMenu() {
+  const { lang, setLang, t } = useLanguage();
+  const ta = t.a11y;
+
   const [isOpen, setIsOpen] = useState(false);
   const [settings, setSettings] = useState(() => readStoredSettings());
-  const [lang, setLang] = useState(() => readStoredLang());
   const [langOpen, setLangOpen] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
   const langRef = useRef(null);
-
-  const t = STRINGS[lang];
 
   // Persistir ajustes y aplicarlos al DOM
   useEffect(() => {
     applyAccessibilitySettings(settings);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
-
-  // Persistir idioma y actualizar el atributo lang del documento
-  useEffect(() => {
-    window.localStorage.setItem(LANG_KEY, lang);
-    document.documentElement.lang = lang;
-  }, [lang]);
 
   // Cerrar dropdown de idioma al hacer clic fuera
   useEffect(() => {
@@ -326,9 +178,9 @@ export default function AccessibilityMenu() {
   };
 
   const resetSettings = () => {
-    stopReading(t.announces);
+    stopReading(ta.announces);
     setSettings(defaultSettings);
-    announce(t.announces.reset);
+    announce(ta.announces.reset);
   };
 
   const selectLang = (code) => {
@@ -339,96 +191,103 @@ export default function AccessibilityMenu() {
   const featureItems = [
     {
       key: "readPage",
-      label: t.features.readPage,
+      label: ta.features.readPage,
       icon: "🔊",
-      onClick: () => readPage(t.speechLang, t.announces),
+      onClick: () => readPage(ta.speechLang, ta.announces),
     },
     {
       key: "highContrast",
-      label: t.features.highContrast,
+      label: ta.features.highContrast,
       icon: "◐",
       active: settings.highContrast,
       onClick: () => toggleSetting("highContrast"),
     },
     {
       key: "smartContrast",
-      label: t.features.smartContrast,
+      label: ta.features.smartContrast,
       icon: "◑",
       active: settings.smartContrast,
       onClick: () => toggleSetting("smartContrast"),
     },
     {
       key: "highlightLinks",
-      label: t.features.highlightLinks,
+      label: ta.features.highlightLinks,
       icon: "🔗",
       active: settings.highlightLinks,
       onClick: () => toggleSetting("highlightLinks"),
     },
     {
       key: "biggerText",
-      label: t.features.biggerText,
+      label: ta.features.biggerText,
       icon: "Tt",
       onClick: () => adjustFontSize(1),
     },
     {
       key: "textSpacing",
-      label: t.features.textSpacing,
+      label: ta.features.textSpacing,
       icon: "↔",
       active: settings.textSpacing,
       onClick: () => toggleSetting("textSpacing"),
     },
     {
       key: "pauseAnimations",
-      label: t.features.pauseAnimations,
+      label: ta.features.pauseAnimations,
       icon: "◌",
       active: settings.pauseAnimations,
       onClick: () => toggleSetting("pauseAnimations"),
     },
     {
       key: "hideImages",
-      label: t.features.hideImages,
+      label: ta.features.hideImages,
       icon: "🖼",
       active: settings.hideImages,
       onClick: () => toggleSetting("hideImages"),
     },
     {
       key: "readableFont",
-      label: t.features.readableFont,
+      label: ta.features.readableFont,
       icon: "Df",
       active: settings.readableFont,
       onClick: () => toggleSetting("readableFont"),
     },
     {
       key: "biggerCursor",
-      label: t.features.cursor,
+      label: ta.features.cursor,
       icon: "🖱",
       active: settings.biggerCursor,
       onClick: () => toggleSetting("biggerCursor"),
     },
     {
+      key: "lightMode",
+      label: ta.features.lightMode,
+      icon: settings.lightMode ? "🌙" : "☀️",
+      active: settings.lightMode,
+      onClick: () => toggleSetting("lightMode"),
+    },
+    {
       key: "info",
-      label: t.features.info,
+      label: ta.features.info,
       icon: "i",
       active: infoVisible,
       onClick: () => setInfoVisible((prev) => !prev),
     },
     {
       key: "pageStructure",
-      label: t.features.pageStructure,
+      label: ta.features.pageStructure,
       icon: "☰",
       active: settings.pageStructure,
       onClick: () => toggleSetting("pageStructure"),
     },
     {
       key: "lineHeightBoost",
-      label: t.features.lineHeight,
+      label: ta.features.lineHeight,
       icon: "↕",
       active: settings.lineHeightBoost,
       onClick: () => toggleSetting("lineHeightBoost"),
     },
     {
       key: "textAlignLeft",
-      label: t.features.textAlignLeft,
+      label: ta.features.textAlignLeft,
       icon: "≣",
       active: settings.textAlignLeft,
       onClick: () => toggleSetting("textAlignLeft"),
@@ -436,29 +295,29 @@ export default function AccessibilityMenu() {
   ];
 
   return (
-    <div className="a11y-widget" role="complementary" aria-label={t.panelLabel}>
+    <div className="a11y-widget" role="complementary" aria-label={ta.panelLabel}>
       <button
         type="button"
         className="a11y-logo-trigger"
         aria-expanded={isOpen}
         aria-controls="a11y-panel"
         onClick={() => setIsOpen((prev) => !prev)}
-        title={t.triggerTitle}
+        title={ta.triggerTitle}
       >
         <AccessibilityIcon />
-        <span className="sr-only">{t.triggerLabel}</span>
+        <span className="sr-only">{ta.triggerLabel}</span>
       </button>
 
       {isOpen && (
-        <section id="a11y-panel" className="a11y-panel" aria-label={t.panelLabel}>
+        <section id="a11y-panel" className="a11y-panel" aria-label={ta.panelLabel}>
           <header className="a11y-panel-header">
-            <h2>{t.title}</h2>
-            <button type="button" onClick={() => setIsOpen(false)} aria-label={t.closeLabel}>
+            <h2>{ta.title}</h2>
+            <button type="button" onClick={() => setIsOpen(false)} aria-label={ta.closeLabel}>
               ✕
             </button>
           </header>
 
-          <div className="a11y-toolbar-row" aria-label={t.prefsLabel}>
+          <div className="a11y-toolbar-row" aria-label={ta.prefsLabel}>
             {/* Selector de idioma */}
             <div className="a11y-lang-wrapper" ref={langRef}>
               <button
@@ -467,10 +326,10 @@ export default function AccessibilityMenu() {
                 aria-haspopup="listbox"
                 onClick={() => setLangOpen((prev) => !prev)}
               >
-                {t.langButtonLabel}
+                {ta.langButtonLabel}
               </button>
               {langOpen && (
-                <div className="a11y-lang-menu" role="listbox" aria-label={t.panelLabel}>
+                <div className="a11y-lang-menu" role="listbox" aria-label={ta.panelLabel}>
                   {LANG_OPTIONS.map((opt) => (
                     <button
                       key={opt.code}
@@ -486,9 +345,9 @@ export default function AccessibilityMenu() {
               )}
             </div>
 
-            {/* Widget de tamaño — sin cambios funcionales */}
+            {/* Widget de tamaño */}
             <div className="a11y-size-widget">
-              <span>{t.widgetLabel}</span>
+              <span>{ta.widgetLabel}</span>
               <button
                 type="button"
                 className={settings.fontScale >= 1.2 ? "is-on" : ""}
@@ -504,9 +363,9 @@ export default function AccessibilityMenu() {
             </div>
           </div>
 
-          <p className="a11y-font-indicator">{t.fontSizeLabel(fontPercent)}</p>
+          <p className="a11y-font-indicator">{ta.fontSizeLabel(fontPercent)}</p>
 
-          <div className="a11y-grid" role="group" aria-label={t.toolsLabel}>
+          <div className="a11y-grid" role="group" aria-label={ta.toolsLabel}>
             {featureItems.map((item) => (
               <button
                 key={item.key}
@@ -524,23 +383,23 @@ export default function AccessibilityMenu() {
           </div>
 
           {infoVisible && (
-            <div className="a11y-info-panel" role="region" aria-label={t.infoPanel.title}>
+            <div className="a11y-info-panel" role="region" aria-label={ta.infoPanel.title}>
               <div className="a11y-info-header">
-                <strong>{t.infoPanel.title}</strong>
+                <strong>{ta.infoPanel.title}</strong>
                 <button
                   type="button"
                   className="a11y-info-close"
                   onClick={() => setInfoVisible(false)}
-                  aria-label={t.infoPanel.closeInfo}
+                  aria-label={ta.infoPanel.closeInfo}
                 >
                   ✕
                 </button>
               </div>
-              <p className="a11y-info-desc">{t.infoPanel.description}</p>
+              <p className="a11y-info-desc">{ta.infoPanel.description}</p>
 
-              <p className="a11y-info-section-title">{t.infoPanel.shortcutsTitle}</p>
+              <p className="a11y-info-section-title">{ta.infoPanel.shortcutsTitle}</p>
               <ul className="a11y-info-shortcuts">
-                {t.infoPanel.shortcuts.map((s) => (
+                {ta.infoPanel.shortcuts.map((s) => (
                   <li key={s.keys}>
                     <kbd>{s.keys}</kbd>
                     <span>{s.action}</span>
@@ -548,9 +407,9 @@ export default function AccessibilityMenu() {
                 ))}
               </ul>
 
-              <p className="a11y-info-section-title">{t.infoPanel.featuresTitle}</p>
+              <p className="a11y-info-section-title">{ta.infoPanel.featuresTitle}</p>
               <ul className="a11y-info-features">
-                {t.infoPanel.features.map((f) => (
+                {ta.infoPanel.features.map((f) => (
                   <li key={f}>{f}</li>
                 ))}
               </ul>
@@ -559,13 +418,13 @@ export default function AccessibilityMenu() {
 
           <div className="a11y-actions-row">
             <button type="button" onClick={() => adjustFontSize(-1)}>
-              {t.decreaseText}
+              {ta.decreaseText}
             </button>
-            <button type="button" onClick={() => stopReading(t.announces)}>
-              {t.stopReadingLabel}
+            <button type="button" onClick={() => stopReading(ta.announces)}>
+              {ta.stopReadingLabel}
             </button>
             <button type="button" className="a11y-reset" onClick={resetSettings}>
-              {t.resetLabel}
+              {ta.resetLabel}
             </button>
           </div>
         </section>

@@ -7,12 +7,14 @@ import { useAuthStore, selectAuthUser, selectAuthStatus } from '@/features/auth/
 import ProfileCard from '@/features/auth/components/ProfileCard';
 import Button from '@/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ─── Modal de eliminación de cuenta ──────────────────────────────────────────
 function DeleteAccountModal({ onClose, onConfirm, loading }) {
-  // step: 'choose' | 'confirm-deactivate' | 'confirm-permanent'
+  const { t } = useLanguage();
+  const tp = t.profile;
   const [step, setStep] = useState('choose');
-  const [mode, setMode] = useState(null); // 'deactivate' | 'permanent'
+  const [mode, setMode] = useState(null);
   const titleId = 'delete-modal-title';
 
   const handleChoose = (chosen) => {
@@ -61,14 +63,13 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
           <>
             <div>
               <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 8px' }}>
-                ¿Qué quieres hacer con tu cuenta?
+                {tp.deleteModalTitle}
               </h2>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                Tus publicaciones ayudan a la comunidad a encontrar mejores precios.
+                {tp.deleteModalSubtitle}
               </p>
             </div>
 
-            {/* Opción desactivar */}
             <button
               type="button"
               onClick={() => handleChoose('deactivate')}
@@ -86,15 +87,13 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
               onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
             >
               <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                🔒 Desactivar mi cuenta
+                {tp.deactivateTitle}
               </span>
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                Tu cuenta se desactiva y no podrás iniciar sesión. Tus publicaciones
-                permanecerán visibles para seguir ayudando a la comunidad con precios reales.
+                {tp.deactivateDesc}
               </span>
             </button>
 
-            {/* Opción eliminar permanente */}
             <button
               type="button"
               onClick={() => handleChoose('permanent')}
@@ -112,11 +111,10 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
               onMouseLeave={(e) => e.currentTarget.style.borderColor = '#fecaca'}
             >
               <span style={{ fontSize: '14px', fontWeight: '600', color: '#dc2626' }}>
-                🗑 Eliminar cuenta permanentemente
+                {tp.permanentTitle}
               </span>
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                Se eliminan tu cuenta y <strong>todos tus datos</strong>: publicaciones,
-                votos, tiendas, historial. Esta acción es irreversible.
+                {tp.permanentDesc}
               </span>
             </button>
 
@@ -128,7 +126,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 fontSize: '13px', color: 'var(--text-muted)', cursor: 'pointer',
               }}
             >
-              Cancelar
+              {tp.cancel}
             </button>
           </>
         )}
@@ -138,7 +136,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
           <>
             <div>
               <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 8px' }}>
-                Confirmar desactivación
+                {tp.confirmDeactivateTitle}
               </h2>
               <div style={{
                 background: 'var(--bg-elevated)',
@@ -147,11 +145,9 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 padding: '14px 16px',
                 fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6,
               }}>
-                ℹ️ Tu cuenta quedará desactivada y no podrás iniciar sesión.
+                {tp.confirmDeactivateInfo}
                 <br /><br />
-                <strong style={{ color: 'var(--text-primary)' }}>Tus publicaciones seguirán visibles</strong> para
-                ayudar a la comunidad a comparar precios reales. Nadie sabrá que tu
-                cuenta está desactivada.
+                <strong style={{ color: 'var(--text-primary)' }}>{tp.confirmDeactivateDetail}</strong>
               </div>
             </div>
 
@@ -164,7 +160,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                   fontSize: '13px', color: 'var(--text-secondary)', cursor: 'pointer',
                 }}
               >
-                Atrás
+                {tp.back}
               </button>
               <button
                 onClick={handleConfirm}
@@ -177,7 +173,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                   opacity: loading ? 0.7 : 1,
                 }}
               >
-                {loading ? 'Procesando...' : 'Sí, desactivar mi cuenta'}
+                {loading ? tp.processing : tp.confirmDeactivate}
               </button>
             </div>
           </>
@@ -188,7 +184,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
           <>
             <div>
               <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: '#dc2626', margin: '0 0 8px' }}>
-                ⚠️ Eliminación permanente
+                {tp.permanentModalTitle}
               </h2>
               <div style={{
                 background: '#fef2f2',
@@ -197,14 +193,11 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 padding: '14px 16px',
                 fontSize: '13px', color: '#7f1d1d', lineHeight: 1.6,
               }}>
-                Esta acción <strong>no se puede deshacer</strong>. Se eliminarán
-                permanentemente:
+                {tp.permanentWarning}
                 <ul style={{ margin: '8px 0 0', paddingLeft: '18px' }}>
-                  <li>Tu cuenta y acceso</li>
-                  <li>Todas tus publicaciones de precios</li>
-                  <li>Tus votos y reportes</li>
-                  <li>Tus tiendas creadas y sus evidencias</li>
-                  <li>Tu historial completo</li>
+                  {tp.permanentItems.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -218,7 +211,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                   fontSize: '13px', color: 'var(--text-secondary)', cursor: 'pointer',
                 }}
               >
-                Atrás
+                {tp.back}
               </button>
               <button
                 onClick={handleConfirm}
@@ -231,7 +224,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                   opacity: loading ? 0.7 : 1,
                 }}
               >
-                {loading ? 'Eliminando...' : 'Sí, eliminar todo permanentemente'}
+                {loading ? tp.deleting : tp.confirmPermanent}
               </button>
             </div>
           </>
@@ -244,6 +237,8 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
 
 // ─── ProfilePage ──────────────────────────────────────────────────────────────
 export default function ProfilePage() {
+  const { t } = useLanguage();
+  const tp = t.profile;
   const user = useAuthStore(selectAuthUser);
   const status = useAuthStore(selectAuthStatus);
   const { updateProfile, logout, deleteAccount } = useAuthStore();
@@ -275,13 +270,12 @@ export default function ProfilePage() {
       padding: '28px 16px',
       width: '100%',
     }}>
-      {/* Breadcrumb / Título */}
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text-primary)' }}>
-          Mi perfil
+          {tp.title}
         </h1>
         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-          Gestiona tu información personal
+          {tp.subtitle}
         </p>
       </div>
 
@@ -301,15 +295,15 @@ export default function ProfilePage() {
         padding: '20px 24px',
       }}>
         <h2 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '14px' }}>
-          Seguridad y sesión
+          {tp.securityTitle}
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <Button variant="secondary" size="md" onClick={() => navigate('/recuperar-contrasena')}>
-            Cambiar contraseña
+            {tp.changePassword}
           </Button>
           <Button variant="danger" size="md" onClick={handleLogout} loading={status === 'loading'}>
-            Cerrar sesión
+            {tp.logout}
           </Button>
         </div>
       </div>
@@ -323,11 +317,10 @@ export default function ProfilePage() {
         padding: '20px 24px',
       }}>
         <h2 style={{ fontSize: '15px', fontWeight: '600', color: '#dc2626', marginBottom: '6px' }}>
-          Zona peligrosa
+          {tp.dangerZoneTitle}
         </h2>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
-          Puedes desactivar tu cuenta o eliminarla permanentemente.
-          Si tienes publicaciones, te explicaremos qué pasa con ellas antes de confirmar.
+          {tp.dangerZoneDesc}
         </p>
 
         {deleteError && (
@@ -354,7 +347,7 @@ export default function ProfilePage() {
             cursor: 'pointer',
           }}
         >
-          Eliminar cuenta
+          {tp.deleteAccount}
         </button>
       </div>
 
