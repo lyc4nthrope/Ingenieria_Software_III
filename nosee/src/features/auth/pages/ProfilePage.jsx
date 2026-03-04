@@ -2,11 +2,14 @@
  * ProfilePage - Página de perfil del usuario autenticado
  * Ruta protegida: solo accesible si hay sesión activa.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthStore, selectAuthUser, selectAuthStatus } from '@/features/auth/store/authStore';
 import ProfileCard from '@/features/auth/components/ProfileCard';
 import Button from '@/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
+import { getUserProfileActivity, updateOwnReport } from '@/services/api/users.api';
+import { updatePublication, updateProduct } from '@/services/api/publications.api';
+import { updateStore } from '@/services/api/stores.api';
 
 // ─── Modal de eliminación de cuenta ──────────────────────────────────────────
 function DeleteAccountModal({ onClose, onConfirm, loading }) {
@@ -224,6 +227,207 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
   );
 }
 
+
+
+function ProfileActivitySection({ user }) {
+  const [activity, setActivity] = useState({ publications: [], products: [], stores: [], reports: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [savingId, setSavingId] = useState(null);
+
+  const loadActivity = async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    setError(null);
+    const result = await getUserProfileActivity(user.id);
+    if (!result.success) {
+      setError(result.error || 'No se pudo cargar tu actividad');
+    } else {
+      setActivity(result.data);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadActivity();
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleEditPublication = async (publication) => {
+    const nextPrice = window.prompt('Nuevo precio', publication.price);
+    if (nextPrice === null) return;
+    const nextDescription = window.prompt('Nueva descripción', publication.description || '');
+    if (nextDescription === null) return;
+
+    setSavingId(`pub-${publication.id}`);
+    const result = await updatePublication(publication.id, {
+      price: Number(nextPrice),
+      description: nextDescription,
+    });
+    setSavingId(null);
+
+    if (!result.success) {
+      alert(result.error || 'No se pudo actualizar la publicación');
+      return;
+    }
+    loadActivity();
+  };
+
+  const handleEditProduct = async (product) => {
+    const nextName = window.prompt('Nuevo nombre de producto', product.name || '');
+    if (nextName === null) return;
+
+    setSavingId(`product-${product.id}`);
+    const result = await updateProduct(product.id, { name: nextName });
+    setSavingId(null);
+
+    if (!result.success) {
+      alert(result.error || 'No se pudo actualizar el producto');
+      return;
+    }
+    loadActivity();
+  };
+
+  const handleEditStore = async (store) => {
+    const nextName = window.prompt('Nuevo nombre de tienda', store.name || '');
+    if (nextName === null) return;
+    const nextAddress = window.prompt('Nueva dirección', store.address || '');
+    if (nextAddress === null) return;
+    const nextWebsite = window.prompt('Nuevo sitio web', store.website_url || '');
+    if (nextWebsite === null) return;
+
+    setSavingId(`store-${store.id}`);
+    const result = await updateStore(store.id, {
+      name: nextName,
+      address: nextAddress,
+      websiteUrl: nextWebsite,
+    });
+    setSavingId(null);
+
+    if (!result.success) {
+      alert(result.error || 'No se pudo actualizar la tienda');
+      return;
+    }
+    loadActivity();
+  };
+
+  const handleEditReport = async (report) => {
+    const nextReason = window.prompt('Nueva razón del reporte', report.reason || 'other');
+    if (nextReason === null) return;
+    const nextDescription = window.prompt('Nueva descripción', report.description || '');
+    if (nextDescription === null) return;
+
+    setSavingId(`report-${report.id}`);
+    const result = await updateOwnReport(report.id, user.id, {
+      reason: nextReason,
+      description: nextDescription,
+    });
+    setSavingId(null);
+
+    if (!result.success) {
+      alert(result.error || 'No se pudo actualizar el reporte');
+      return;
+    }
+    loadActivity();
+  };
+
+  const sectionStyle = {
+    marginTop: '20px',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-xl)',
+    padding: '20px 24px',
+  };
+
+  const itemStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: '8px',
+    padding: '10px 0',
+    borderBottom: '1px solid var(--border)',
+  };
+
+  const list = (title, rows, renderText, onEdit, keyPrefix) => (
+    <div style={{ marginTop: '16px' }}>
+      <h3 style={{ fontSize: '14px', color: 'var(--text-primary)', margin: '0 0 8px' }}>{title} ({rows.length})</h3>
+      {rows.length === 0 ? (
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>Sin registros</p>
+      ) : (
+        rows.map((row) => (
+          <div key={`${keyPrefix}-${row.id}`} style={itemStyle}>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{renderText(row)}</div>
+            <button
+              onClick={() => onEdit(row)}
+              disabled={savingId === `${keyPrefix}-${row.id}`}
+              style={{
+                border: '1px solid var(--border)',
+                background: 'none',
+                borderRadius: 'var(--radius-sm)',
+                padding: '4px 10px',
+                fontSize: '12px',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+              }}
+            >
+              {savingId === `${keyPrefix}-${row.id}` ? 'Guardando...' : 'Modificar'}
+            </button>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
+  return (
+    <div style={sectionStyle}>
+      <h2 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}>
+        Mi actividad publicada
+      </h2>
+      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
+        Aquí puedes ver y modificar tus publicaciones de precios, productos, tiendas y reportes.
+      </p>
+
+      {loading && <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Cargando actividad...</p>}
+      {error && <p style={{ fontSize: '13px', color: '#dc2626' }}>⚠️ {error}</p>}
+
+      {!loading && !error && (
+        <>
+          {list(
+            'Publicaciones de precios',
+            activity.publications || [],
+            (publication) => `${publication.product?.name || 'Producto'} en ${publication.store?.name || 'Tienda'} · $${Number(publication.price || 0).toLocaleString()}`,
+            handleEditPublication,
+            'pub',
+          )}
+
+          {list(
+            'Productos creados / usados',
+            activity.products || [],
+            (product) => product.name || 'Producto sin nombre',
+            handleEditProduct,
+            'product',
+          )}
+
+          {list(
+            'Tiendas creadas',
+            activity.stores || [],
+            (store) => `${store.name}${store.address ? ` · ${store.address}` : ''}`,
+            handleEditStore,
+            'store',
+          )}
+
+          {list(
+            'Reportes enviados',
+            activity.reports || [],
+            (report) => `${report.reason} · ${report.status || 'PENDING'}`,
+            handleEditReport,
+            'report',
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── ProfilePage ──────────────────────────────────────────────────────────────
 export default function ProfilePage() {
   const user = useAuthStore(selectAuthUser);
@@ -273,6 +477,8 @@ export default function ProfilePage() {
         onUpdate={updateProfile}
         loading={status === 'loading'}
       />
+
+      <ProfileActivitySection user={user} />
 
       {/* Sección de seguridad */}
       <div style={{

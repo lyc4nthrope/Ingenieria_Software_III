@@ -308,6 +308,126 @@ export async function getAdminReports() {
  * @param {string} reportId
  * @param {Object} payload
  */
+
+/**
+ * Resumen de actividad propia del usuario para el perfil.
+ */
+export async function getUserProfileActivity(userId) {
+  try {
+    const [publicationsResult, storesResult, reportsResult, createdProductsResult] = await Promise.all([
+      supabase
+        .from("price_publications")
+        .select(`
+          id,
+          price,
+          description,
+          created_at,
+          product:products(id, name),
+          store:stores(id, name)
+        `)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("stores")
+        .select("id, name, address, website_url, store_type_id, created_at")
+        .eq("created_by", userId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("reports")
+        .select("id, publication_id, reason, description, status, created_at")
+        .eq("reporter_user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("products")
+        .select("id, name, created_by, created_at")
+        .eq("created_by", userId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ]);
+
+    const productsByCreatorUnsupported = createdProductsResult.error?.code === "42703";
+
+    let products = createdProductsResult.data || [];
+    if (productsByCreatorUnsupported) {
+      const { data: fallbackProducts, error: fallbackError } = await supabase
+        .from("price_publications")
+        .select("product:products(id, name)")
+        .eq("user_id", userId)
+        .limit(100);
+
+      if (fallbackError) return { success: false, error: fallbackError.message };
+
+      const uniques = new Map();
+      (fallbackProducts || []).forEach((row) => {
+        const product = row?.product;
+        if (product?.id && !uniques.has(product.id)) uniques.set(product.id, product);
+      });
+      products = Array.from(uniques.values());
+    }
+
+    const firstError = [
+      publicationsResult.error,
+      storesResult.error,
+      reportsResult.error,
+      productsByCreatorUnsupported ? null : createdProductsResult.error,
+    ].find(Boolean);
+
+    if (firstError) return { success: false, error: firstError.message };
+
+    return {
+      success: true,
+      data: {
+        publications: publicationsResult.data || [],
+        stores: storesResult.data || [],
+        reports: reportsResult.data || [],
+        products,
+        productsByCreatorUnsupported,
+      },
+    };
+  } catch (err) {
+    return { success: false, error: err.message || "No se pudo cargar la actividad" };
+  }
+}
+
+/**
+ * Editar un reporte propio.
+ */
+export async function updateOwnReport(reportId, userId, updates = {}) {
+  if (!reportId) return { success: false, error: "ID de reporte requerido" };
+
+  const { data: report, error: reportError } = await supabase
+    .from("reports")
+    .select("id, reporter_user_id")
+    .eq("id", reportId)
+    .single();
+
+  if (reportError) return { success: false, error: reportError.message };
+  if (report?.reporter_user_id !== userId) {
+    return { success: false, error: "Solo puedes editar tus propios reportes" };
+  }
+
+  const safeUpdates = {};
+  if (typeof updates.reason === "string") safeUpdates.reason = updates.reason;
+  if (typeof updates.description === "string") safeUpdates.description = updates.description;
+
+  if (Object.keys(safeUpdates).length === 0) {
+    return { success: false, error: "No hay cambios para guardar" };
+  }
+
+  const { data, error } = await supabase
+    .from("reports")
+    .update(safeUpdates)
+    .eq("id", reportId)
+    .select("id, publication_id, reason, description, status, created_at")
+    .single();
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data };
+}
+
 export async function updateReportReview(reportId, payload) {
   const { error } = await supabase
     .from("reports")

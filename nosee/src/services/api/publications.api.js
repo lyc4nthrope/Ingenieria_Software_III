@@ -1618,6 +1618,31 @@ export async function createProduct(name) {
   return { success: true, data };
 }
 
+export async function updateProduct(productId, updates = {}) {
+  if (!productId) return { success: false, error: "ID de producto requerido" };
+
+  const safeUpdates = {};
+  if (typeof updates.name === "string") safeUpdates.name = updates.name.trim();
+  if (updates.categoryId !== undefined) safeUpdates.category_id = Number(updates.categoryId);
+  if (updates.unitTypeId !== undefined) safeUpdates.unit_type_id = Number(updates.unitTypeId);
+  if (updates.brandId !== undefined) safeUpdates.brand_id = Number(updates.brandId);
+  if (updates.baseQuantity !== undefined) safeUpdates.base_quantity = Number(updates.baseQuantity);
+
+  if (Object.keys(safeUpdates).length === 0) {
+    return { success: false, error: "No hay campos para actualizar" };
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    .update(safeUpdates)
+    .eq("id", productId)
+    .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
+    .single();
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data };
+}
+
 export const createBrand = async (name) => {
   const normalizedName = String(name || "").trim();
   if (!normalizedName || normalizedName.length < 2) {
@@ -1718,6 +1743,7 @@ export default {
   getUnitTypes,
   searchBrands,
   createBrand,
+  updateProduct,
   updatePublication,
   deletePublication,
   PUBLICATION_STATUS,
