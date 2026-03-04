@@ -50,11 +50,6 @@ export default function RepartidorDashboard() {
     <div style={r.root}>
       {/* ── Sidebar ───────────────────────────────────────────────── */}
       <aside style={r.sidebar}>
-        <div style={r.logo}>
-          <span style={r.logoText}>NØSEE</span>
-          <span style={r.logoBadge}>REP</span>
-        </div>
-
         {/* Estado online */}
         <div style={r.onlineBox}>
           <span style={r.onlineDot} />
@@ -240,11 +235,11 @@ function OrderCard({ order, onAdvance, onSelect, selected }) {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const ACCENT  = '#34D399';   // verde operaciones — movimiento, acción
-const BG      = '#090C0A';
-const SURFACE = '#0F1410';
-const BORDER  = '#1A201B';
-const TEXT    = '#E8EAED';
-const MUTED   = '#6B7870';
+const BG      = '#080C14';
+const SURFACE = '#0F1724';
+const BORDER  = '#1E2D4A';
+const TEXT    = '#E8EDF8';
+const MUTED   = '#7B90BD';
 
 const r = {
   root: {
@@ -264,18 +259,6 @@ const r = {
     position: 'sticky',
     top: 0,
     height: '100vh',
-  },
-  logo: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, paddingLeft: 8 },
-  logoText: { fontSize: 22, fontWeight: 800, color: ACCENT, letterSpacing: '-1px' },
-  logoBadge: {
-    fontSize: 10,
-    background: `${ACCENT}20`,
-    color: ACCENT,
-    borderRadius: 4,
-    padding: '2px 6px',
-    fontWeight: 700,
-    letterSpacing: '1px',
-    textTransform: 'uppercase',
   },
   onlineBox: {
     display: 'flex',
@@ -392,7 +375,7 @@ const r = {
 
   orderItems: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
   itemChip: {
-    background: '#1A201B',
+    background: '#1A2540',
     border: `1px solid ${BORDER}`,
     borderRadius: 5,
     padding: '3px 10px',

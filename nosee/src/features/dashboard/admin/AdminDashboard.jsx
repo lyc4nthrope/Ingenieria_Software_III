@@ -124,11 +124,6 @@ export default function AdminDashboard() {
     <div style={s.root}>
       {/* ── Sidebar ──────────────────────────────────────────────── */}
       <aside style={s.sidebar}>
-        <div style={s.logo}>
-          <span style={s.logoText}>NØSEE</span>
-          <span style={s.logoBadge}>Admin</span>
-        </div>
-
         <nav style={s.nav}>
           {[
             { key: 'overview', icon: '▦', label: 'Resumen' },
@@ -404,11 +399,11 @@ function PlaceholderSection({ section }) {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const ACCENT   = '#FF6B35';   // naranja admin — poder, control
-const BG       = '#0A0A0C';
-const SURFACE  = '#111114';
-const BORDER   = '#1C1C20';
-const TEXT     = '#E8EAED';
-const MUTED    = '#666870';
+const BG       = '#080C14';
+const SURFACE  = '#0F1724';
+const BORDER   = '#1E2D4A';
+const TEXT     = '#E8EDF8';
+const MUTED    = '#7B90BD';
 
 const s = {
   root: {
@@ -428,24 +423,6 @@ const s = {
     position: 'sticky',
     top: 0,
     height: '100vh',
-  },
-  logo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 36,
-    paddingLeft: 8,
-  },
-  logoText: { fontSize: 22, fontWeight: 800, color: ACCENT, letterSpacing: '-1px' },
-  logoBadge: {
-    fontSize: 10,
-    background: `${ACCENT}25`,
-    color: ACCENT,
-    borderRadius: 4,
-    padding: '2px 6px',
-    fontWeight: 700,
-    letterSpacing: '1px',
-    textTransform: 'uppercase',
   },
   nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
   navItem: {
@@ -547,7 +524,7 @@ const s = {
     gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr',
     padding: '12px 20px',
     borderBottom: `1px solid ${BORDER}`,
-    background: '#0D0D10',
+    background: '#0A1020',
   },
   th: { fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
   tableRow: {

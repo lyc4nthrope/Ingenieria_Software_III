@@ -125,11 +125,6 @@ export default function ModeradorDashboard() {
     <div style={st.root}>
       {/* ── Sidebar ───────────────────────────────────────────────── */}
       <aside style={st.sidebar}>
-        <div style={st.logo}>
-          <span style={st.logoText}>NØSEE</span>
-          <span style={st.logoBadge}>MOD</span>
-        </div>
-
         <nav style={st.nav}>
           {[
             { key: 'reportes', icon: '⚑', label: 'Reportes', badge: pendingCount },
@@ -292,11 +287,11 @@ function EmptyState() {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const ACCENT  = '#A78BFA';   // violeta moderador — autoridad sutil
-const BG      = '#0B0B0E';
-const SURFACE = '#111116';
-const BORDER  = '#1A1A22';
-const TEXT    = '#E8EAED';
-const MUTED   = '#6B7080';
+const BG      = '#080C14';
+const SURFACE = '#0F1724';
+const BORDER  = '#1E2D4A';
+const TEXT    = '#E8EDF8';
+const MUTED   = '#7B90BD';
 
 const st = {
   root: {
@@ -316,18 +311,6 @@ const st = {
     position: 'sticky',
     top: 0,
     height: '100vh',
-  },
-  logo: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 36, paddingLeft: 8 },
-  logoText: { fontSize: 22, fontWeight: 800, color: ACCENT, letterSpacing: '-1px' },
-  logoBadge: {
-    fontSize: 10,
-    background: `${ACCENT}20`,
-    color: ACCENT,
-    borderRadius: 4,
-    padding: '2px 6px',
-    fontWeight: 700,
-    letterSpacing: '1px',
-    textTransform: 'uppercase',
   },
   nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
   navItem: {

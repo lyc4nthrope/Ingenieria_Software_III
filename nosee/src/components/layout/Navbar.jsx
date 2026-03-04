@@ -155,12 +155,7 @@ export default function Navbar() {
           {dashboardConfig && (
             <Link
               to={dashboardConfig.path}
-              style={{
-                ...navLinkStyle(isActive(dashboardConfig.path)),
-                background: isActive(dashboardConfig.path) ? 'var(--accent-soft)' : 'var(--bg-elevated)',
-                border: '1px solid var(--border-soft)',
-                fontWeight: '600',
-              }}
+              style={navLinkStyle(isActive(dashboardConfig.path))}
             >
               {dashboardConfig.label}
             </Link>
