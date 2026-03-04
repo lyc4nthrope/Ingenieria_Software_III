@@ -259,7 +259,7 @@ export default function AccessibilityMenu() {
     },
     {
       key: "lightMode",
-      label: ta.features.lightMode,
+      label: settings.lightMode ? ta.features.nightMode : ta.features.lightMode,
       icon: settings.lightMode ? "🌙" : "☀️",
       active: settings.lightMode,
       onClick: () => toggleSetting("lightMode"),

@@ -3,8 +3,12 @@ import StoreMapPicker from "@/features/stores/components/StoreMapPicker";
 import StoreEvidenceUploader from "@/features/stores/components/StoreEvidenceUploader";
 import { StoreTypeEnum } from "@/features/stores/schemas";
 import { useStoreCreation } from "@/features/stores/hooks/useStoreCreation";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function StoreForm() {
+  const { t } = useLanguage();
+  const tf = t.storeForm;
+
   const {
     formData,
     errors,
@@ -29,7 +33,7 @@ export default function StoreForm() {
     <form style={styles.form} onSubmit={onSubmit} noValidate>
       <div style={styles.group}>
         <label htmlFor="store-name" style={styles.label}>
-          Nombre de la tienda <span style={styles.required}>*</span>
+          {tf.nameLabel} <span style={styles.required}>*</span>
         </label>
         <input
           id="store-name"
@@ -41,7 +45,7 @@ export default function StoreForm() {
           aria-describedby={errors.name ? "store-name-error" : undefined}
           value={formData.name}
           onChange={(e) => updateField("name", e.target.value)}
-          placeholder="Ej: Supermercado Central"
+          placeholder={tf.namePlaceholder}
           style={styles.input}
         />
         {errors.name ? (
@@ -53,7 +57,7 @@ export default function StoreForm() {
 
       <div style={styles.group}>
         <span style={styles.label} id="store-type-label">
-          Tipo de tienda <span style={styles.required}>*</span>
+          {tf.typeLabel} <span style={styles.required}>*</span>
         </span>
         <StoreTypeSwitch
           value={formData.type}
@@ -88,7 +92,7 @@ export default function StoreForm() {
       ) : (
         <div style={styles.group}>
           <label htmlFor="store-url" style={styles.label}>
-            URL de la tienda virtual <span style={styles.required}>*</span>
+            {tf.urlLabel} <span style={styles.required}>*</span>
           </label>
           <input
             id="store-url"
@@ -100,7 +104,7 @@ export default function StoreForm() {
             aria-describedby={errors.websiteUrl ? "store-url-error" : undefined}
             value={formData.websiteUrl}
             onChange={(e) => updateField("websiteUrl", e.target.value)}
-            placeholder="https://mitienda.com"
+            placeholder={tf.urlPlaceholder}
             style={styles.input}
           />
           {errors.websiteUrl ? (
@@ -124,7 +128,7 @@ export default function StoreForm() {
       ) : null}
 
       <button type="submit" style={styles.submit} disabled={isSubmitting}>
-        {isSubmitting ? "Creando tienda..." : "Crear tienda"}
+        {isSubmitting ? tf.submitting : tf.submit}
       </button>
     </form>
   );

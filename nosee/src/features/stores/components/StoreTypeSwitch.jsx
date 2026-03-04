@@ -1,11 +1,15 @@
 import { StoreTypeEnum } from "@/features/stores/schemas";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function StoreTypeSwitch({ value, onChange, ariaLabelledBy }) {
+  const { t } = useLanguage();
+  const ts = t.storeType;
+
   return (
     <div
       style={styles.container}
       role="radiogroup"
-      aria-label="Tipo de tienda"
+      aria-label={ts.ariaLabel}
       aria-labelledby={ariaLabelledBy}
     >
       <button
@@ -18,7 +22,7 @@ export default function StoreTypeSwitch({ value, onChange, ariaLabelledBy }) {
         role="radio"
         aria-checked={value === StoreTypeEnum.PHYSICAL}
       >
-        🏬 Tienda física
+        {ts.physical}
       </button>
       <button
         type="button"
@@ -30,7 +34,7 @@ export default function StoreTypeSwitch({ value, onChange, ariaLabelledBy }) {
         role="radio"
         aria-checked={value === StoreTypeEnum.VIRTUAL}
       >
-        🌐 Tienda virtual
+        {ts.virtual}
       </button>
     </div>
   );

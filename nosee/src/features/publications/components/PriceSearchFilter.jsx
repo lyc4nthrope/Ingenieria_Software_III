@@ -23,6 +23,7 @@
  */
 
 import { useState } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
  * Componente: PriceSearchFilter
@@ -44,6 +45,9 @@ export function PriceSearchFilter({
   onFiltersChange,
   onClearFilters,
 }) {
+  const { t } = useLanguage();
+  const tf = t.priceFilter;
+
   // ─── Estados ───────────────────────────────────────────────────────────────
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -95,7 +99,7 @@ export function PriceSearchFilter({
       {/* Header: Título y botón expandir */}
       <div style={styles.header}>
         <div style={styles.title}>
-          🔍 Filtros
+          🔍 {tf.title}
           {activeFiltersCount > 0 && (
             <span style={styles.badge}>{activeFiltersCount}</span>
           )}
@@ -115,10 +119,10 @@ export function PriceSearchFilter({
           {/* Fila 1: Búsquedas */}
           <div style={styles.row}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>🛒 Producto</label>
+              <label style={styles.label}>{tf.product}</label>
               <input
                 type="text"
-                placeholder="Buscar producto..."
+                placeholder={tf.productPlaceholder}
                 value={localFilters.productName || ''}
                 onChange={(e) => handleInputChange('productName', e.target.value)}
                 style={styles.input}
@@ -126,10 +130,10 @@ export function PriceSearchFilter({
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>🏪 Tienda</label>
+              <label style={styles.label}>{tf.store}</label>
               <input
                 type="text"
-                placeholder="Buscar tienda..."
+                placeholder={tf.storePlaceholder}
                 value={localFilters.storeName || ''}
                 onChange={(e) => handleInputChange('storeName', e.target.value)}
                 style={styles.input}
@@ -140,7 +144,7 @@ export function PriceSearchFilter({
           {/* Fila 2: Rango de precio */}
           <div style={styles.row}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>💰 Precio mínimo</label>
+              <label style={styles.label}>{tf.minPrice}</label>
               <div style={styles.inputGroup}>
                 <span style={styles.currency}>$</span>
                 <input
@@ -154,7 +158,7 @@ export function PriceSearchFilter({
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>💰 Precio máximo</label>
+              <label style={styles.label}>{tf.maxPrice}</label>
               <div style={styles.inputGroup}>
                 <span style={styles.currency}>$</span>
                 <input
@@ -171,10 +175,10 @@ export function PriceSearchFilter({
           {/* Fila 3: Distancia y Ordenamiento */}
           <div style={styles.row}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>📍 Distancia máxima (km)</label>
+              <label style={styles.label}>{tf.distance}</label>
               <input
                 type="number"
-                placeholder="Sin límite"
+                placeholder={tf.distancePlaceholder}
                 value={localFilters.maxDistance || ''}
                 onChange={(e) =>
                   handleRangeChange('maxDistance', e.target.value)
@@ -184,15 +188,15 @@ export function PriceSearchFilter({
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>📊 Ordenar por</label>
+              <label style={styles.label}>{tf.sortBy}</label>
               <select
                 value={localFilters.sortBy || 'recent'}
                 onChange={(e) => handleInputChange('sortBy', e.target.value)}
                 style={styles.select}
               >
-                <option value="recent">Más reciente</option>
-                <option value="validated">Más validadas</option>
-                <option value="cheapest">Más barato</option>
+                <option value="recent">{tf.recent}</option>
+                <option value="validated">{tf.validated}</option>
+                <option value="cheapest">{tf.cheapest}</option>
               </select>
             </div>
           </div>
@@ -203,14 +207,14 @@ export function PriceSearchFilter({
               style={{ ...styles.button, ...styles.buttonSecondary }}
               onClick={handleClear}
             >
-              🗑 Limpiar filtros
+              {tf.clearFilters}
             </button>
 
             <div style={styles.spacer}></div>
 
             {activeFiltersCount > 0 && (
               <div style={styles.filterSummary}>
-                {activeFiltersCount === 1 ? '1 filtro activo' : `${activeFiltersCount} filtros activos`}
+                {activeFiltersCount === 1 ? tf.activeFilter : tf.activeFilters(activeFiltersCount)}
               </div>
             )}
           </div>
@@ -258,7 +262,7 @@ export function PriceSearchFilter({
 
           {localFilters.maxPrice && (
             <span style={styles.tag}>
-              💰 Máx ${localFilters.maxPrice}
+              💰 {tf.maxLabel(localFilters.maxPrice)}
               <button
                 style={styles.tagClose}
                 onClick={() => handleRangeChange('maxPrice', '')}
