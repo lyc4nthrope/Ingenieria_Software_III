@@ -24,11 +24,23 @@ import * as publicationsApi from "@/services/api/publications.api";
 import * as storesApi from "@/services/api/stores.api";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-export function PublicationForm({ onSuccess }) {
+
+export function PublicationForm({ mode = "create", publicationId = null, onSuccess }) {
   const { t } = useLanguage();
   const tf = t.publicationForm;
 
-  const { latitude, longitude } = useGeoLocation({ autoFetch: true });
+  const {
+    formData,
+    errors,
+    isSubmitting,
+    submitError,
+    submitSuccess,
+    isLoading,
+    latitude,
+    longitude,
+    updateField,
+    submit,
+  } = usePublicationCreation({ mode, publicationId });
 
   // Estado para autocompletes y modales
   const [hasLoadedInitialData, setHasLoadedInitialData] = useState(mode === 'create');
@@ -245,66 +257,19 @@ export function PublicationForm({ onSuccess }) {
 
   // ─── Form helpers ──────────────────────────────────────────────────────────
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => {
-        const n = { ...prev };
-        delete n[field];
-        return n;
-      });
-    }
-  };
-
-  const validateForm = () => {
-    const e = {};
-    if (!formData.productId) e.productId = tf.productRequired;
-    if (!formData.storeId) e.storeId = tf.storeRequired;
-    if (!formData.price || Number(formData.price) <= 0)
-      e.price = tf.priceRequired;
-    if (!formData.photoUrl) e.photoUrl = tf.photoRequired;
-    if (formData.description?.length > 500)
-      e.description = tf.descriptionMax;
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    updateField(field, value);
   };
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    setSubmitError(null);
-    setSubmitSuccess(false);
-    if (!validateForm()) return;
+    const result = await submit();
 
-    setIsSubmitting(true);
-    try {
-      const result = await publicationsApi.createPublication({
-        productId: Number(formData.productId),
-        storeId: formData.storeId,
-        price: Number(formData.price),
-        photoUrl: formData.photoUrl,
-        description: formData.description,
-      });
-
-      if (result.success) {
-        setSubmitSuccess(true);
-        onSuccess?.(result.data);
-        setFormData({
-          productId: "",
-          storeId: "",
-          price: "",
-          currency: "COP",
-          description: "",
-          photoUrl: "",
-        });
+    if (result.success) {
+      onSuccess?.(result.data);
+      if (mode === "create") {
         setProductQuery("");
         setStoreQuery("");
-        setTimeout(() => setSubmitSuccess(false), 3000);
-      } else {
-        setSubmitError(result.error || tf.errorFallback);
       }
-    } catch (err) {
-      setSubmitError(err.message || tf.unknownError);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
