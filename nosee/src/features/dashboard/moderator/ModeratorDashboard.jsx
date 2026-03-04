@@ -9,13 +9,7 @@
  */
 import { useState, useEffect } from "react";
 import { supabase } from "@/services/supabase.client";
-
-const REPORT_TYPE_LABELS = {
-  fake_price: "Precio falso",
-  wrong_photo: "Foto incorrecta",
-  spam: "Spam",
-  offensive: "Contenido ofensivo",
-};
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const REPORT_SEVERITY = {
   offensive: "alta",
@@ -31,6 +25,9 @@ const SEVERITY_COLORS = {
 };
 
 export default function ModeradorDashboard() {
+  const { t } = useLanguage();
+  const td = t.moderatorDashboard;
+
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("reportes");
@@ -85,12 +82,12 @@ export default function ModeradorDashboard() {
       const reporter = reporterMap[r.reporter_id];
       return {
         id: r.id,
-        type: REPORT_TYPE_LABELS[r.report_type] || r.report_type,
+        rawType: r.report_type,
         severity: REPORT_SEVERITY[r.report_type] || "baja",
         time: new Date(r.created_at).toLocaleDateString("es-CO"),
-        post: pub?.products?.name || "Publicación eliminada",
-        reporter: reporter?.full_name || "Anónimo",
-        reported: pub?.author?.full_name || "Desconocido",
+        post: pub?.products?.name || null,
+        reporter: reporter?.full_name || null,
+        reported: pub?.author?.full_name || null,
         publicationId: r.publication_id,
         reportedUserId: pub?.user_id,
       };
@@ -139,14 +136,9 @@ export default function ModeradorDashboard() {
       <aside style={st.sidebar}>
         <nav style={st.nav}>
           {[
-            {
-              key: "reportes",
-              icon: "⚑",
-              label: "Reportes",
-              badge: pendingCount,
-            },
-            { key: "feed", icon: "◈", label: "Feed" },
-            { key: "historial", icon: "◎", label: "Historial" },
+            { key: "reportes", icon: "⚑", label: td.navReports, badge: pendingCount },
+            { key: "feed",     icon: "◈", label: td.navFeed },
+            { key: "historial",icon: "◎", label: td.navHistory },
           ].map((item) => (
             <button
               key={item.key}
@@ -171,15 +163,13 @@ export default function ModeradorDashboard() {
           <>
             <header style={st.header}>
               <div>
-                <h1 style={st.headerTitle}>Reportes pendientes</h1>
+                <h1 style={st.headerTitle}>{td.reportsTitle}</h1>
                 <p style={st.headerSub}>
-                  {pendingCount > 0
-                    ? `${pendingCount} reportes esperan revisión`
-                    : "Todo al día ✓"}
+                  {pendingCount > 0 ? td.reportsSub(pendingCount) : td.reportsAllDone}
                 </p>
               </div>
               <div style={st.resolvedCount}>
-                {resolved.length} resueltos hoy
+                {td.resolvedToday(resolved.length)}
               </div>
             </header>
 
@@ -187,7 +177,7 @@ export default function ModeradorDashboard() {
               <div style={st.emptyState}>
                 <span style={{ fontSize: 32 }}>⟳</span>
                 <p style={{ color: MUTED, marginTop: 8 }}>
-                  Cargando reportes...
+                  {td.loadingReports}
                 </p>
               </div>
             ) : reports.length === 0 ? (
@@ -205,25 +195,18 @@ export default function ModeradorDashboard() {
         {activeTab === "feed" && (
           <div style={st.placeholder}>
             <span style={st.placeholderIcon}>◈</span>
-            <h2 style={st.placeholderTitle}>
-              Feed con controles de moderación
-            </h2>
-            <p style={st.placeholderSub}>
-              Ver todas las publicaciones con opciones para eliminar o banear
-              contenido
-            </p>
-            <div style={st.tag}>Próximamente</div>
+            <h2 style={st.placeholderTitle}>{td.feedTitle}</h2>
+            <p style={st.placeholderSub}>{td.feedSub}</p>
+            <div style={st.tag}>{td.comingSoon}</div>
           </div>
         )}
 
         {activeTab === "historial" && (
           <div style={st.placeholder}>
             <span style={st.placeholderIcon}>◎</span>
-            <h2 style={st.placeholderTitle}>Historial de acciones</h2>
-            <p style={st.placeholderSub}>
-              Registro de todas las moderaciones realizadas por este moderador
-            </p>
-            <div style={st.tag}>Próximamente</div>
+            <h2 style={st.placeholderTitle}>{td.historyTitle}</h2>
+            <p style={st.placeholderSub}>{td.historySub}</p>
+            <div style={st.tag}>{td.comingSoon}</div>
           </div>
         )}
       </main>
@@ -233,53 +216,46 @@ export default function ModeradorDashboard() {
 
 // ─── ReportCard ───────────────────────────────────────────────────────────────
 function ReportCard({ report, onResolve }) {
-  const sev = SEVERITY_COLORS[report.severity];
+  const { t } = useLanguage();
+  const td = t.moderatorDashboard;
+  const sev = SEVERITY_COLORS[report.severity] || SEVERITY_COLORS.baja;
+  const typeLabel = td.reportTypes?.[report.rawType] || report.rawType;
+  const severityLabel = td.severityLabels?.[report.severity] || report.severity?.toUpperCase();
 
   return (
     <article style={st.reportCard}>
       <div style={st.reportTop}>
-        <span
-          style={{ ...st.severityBadge, background: sev.bg, color: sev.text }}
-        >
-          {report.severity.toUpperCase()}
+        <span style={{ ...st.severityBadge, background: sev.bg, color: sev.text }}>
+          {severityLabel}
         </span>
-        <span style={st.reportType}>{report.type}</span>
+        <span style={st.reportType}>{typeLabel}</span>
         <span style={st.reportTime}>{report.time}</span>
       </div>
 
       <div style={st.reportBody}>
         <div style={st.reportRow}>
-          <span style={st.reportLabel}>Publicación</span>
-          <span style={st.reportValue}>"{report.post}"</span>
+          <span style={st.reportLabel}>{td.labelPublication}</span>
+          <span style={st.reportValue}>"{report.post ?? td.deletedPub}"</span>
         </div>
         <div style={st.reportRow}>
-          <span style={st.reportLabel}>Reportado por</span>
-          <span style={st.reportValue}>{report.reporter}</span>
+          <span style={st.reportLabel}>{td.labelReportedBy}</span>
+          <span style={st.reportValue}>{report.reporter ?? td.anonymous}</span>
         </div>
         <div style={st.reportRow}>
-          <span style={st.reportLabel}>Usuario denunciado</span>
-          <span style={st.reportValue}>{report.reported}</span>
+          <span style={st.reportLabel}>{td.labelReportedUser}</span>
+          <span style={st.reportValue}>{report.reported ?? td.unknown}</span>
         </div>
       </div>
 
       <div style={st.reportActions}>
-        <button
-          style={st.btnDelete}
-          onClick={() => onResolve(report.id, "eliminado", report)}
-        >
-          🗑 Eliminar publicación
+        <button style={st.btnDelete} onClick={() => onResolve(report.id, "eliminado", report)}>
+          {td.deletePublicationBtn}
         </button>
-        <button
-          style={st.btnBan}
-          onClick={() => onResolve(report.id, "baneado", report)}
-        >
-          ⊗ Banear usuario
+        <button style={st.btnBan} onClick={() => onResolve(report.id, "baneado", report)}>
+          {td.banUserBtn}
         </button>
-        <button
-          style={st.btnDismiss}
-          onClick={() => onResolve(report.id, "descartado", report)}
-        >
-          ↩ Descartar
+        <button style={st.btnDismiss} onClick={() => onResolve(report.id, "descartado", report)}>
+          {td.dismissBtn}
         </button>
       </div>
     </article>
@@ -287,21 +263,16 @@ function ReportCard({ report, onResolve }) {
 }
 
 function EmptyState() {
+  const { t } = useLanguage();
+  const td = t.moderatorDashboard;
   return (
     <div style={st.emptyState}>
       <span style={{ fontSize: 48 }}>✓</span>
-      <h2
-        style={{
-          fontSize: 20,
-          fontWeight: 700,
-          margin: "12px 0 6px",
-          color: ACCENT,
-        }}
-      >
-        Sin reportes pendientes
+      <h2 style={{ fontSize: 20, fontWeight: 700, margin: "12px 0 6px", color: ACCENT }}>
+        {td.noReportsTitle}
       </h2>
       <p style={{ color: MUTED, fontSize: 14, margin: 0 }}>
-        La plataforma está limpia. Buen trabajo.
+        {td.noReportsSub}
       </p>
     </div>
   );

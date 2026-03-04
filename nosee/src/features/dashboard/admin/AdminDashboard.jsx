@@ -13,9 +13,12 @@ import { getPublications, deletePublication } from '@/services/api/publications.
 import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ─── Modal de confirmación de baneo ──────────────────────────────────────────
 function BanModal({ user, onConfirm, onCancel }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
   const isBanning = user.status === 'activo';
   return (
     <div style={{
@@ -28,12 +31,12 @@ function BanModal({ user, onConfirm, onCancel }) {
         padding: '28px 32px', width: 420, maxWidth: '90vw',
       }}>
         <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#E8EDF8' }}>
-          {isBanning ? '⊗ Banear usuario' : '✓ Desbanear usuario'}
+          {isBanning ? td.banTitle : td.unbanTitle}
         </h2>
         <p style={{ margin: '0 0 20px', fontSize: 14, color: '#7B90BD' }}>
           {isBanning
-            ? <>Vas a banear a <strong style={{ color: '#E8EDF8' }}>{user.name}</strong>. Su cuenta quedará bloqueada y <strong style={{ color: '#F87171' }}>todas sus publicaciones activas serán ocultadas</strong>.</>
-            : <>Vas a restaurar el acceso de <strong style={{ color: '#E8EDF8' }}>{user.name}</strong>. Podrá volver a iniciar sesión normalmente.</>
+            ? <>{td.banDesc1} <strong style={{ color: '#E8EDF8' }}>{user.name}</strong>{td.banDesc2} <strong style={{ color: '#F87171' }}>{td.banDescStrong}</strong>{td.banDesc3}</>
+            : <>{td.unbanDesc1} <strong style={{ color: '#E8EDF8' }}>{user.name}</strong>{td.unbanDesc2}</>
           }
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -41,7 +44,7 @@ function BanModal({ user, onConfirm, onCancel }) {
             onClick={onCancel}
             style={{ background: 'none', border: '1px solid #1E2D4A', color: '#7B90BD', borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer' }}
           >
-            Cancelar
+            {td.cancelBtn}
           </button>
           <button
             onClick={onConfirm}
@@ -52,7 +55,7 @@ function BanModal({ user, onConfirm, onCancel }) {
               borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer', fontWeight: 600,
             }}
           >
-            {isBanning ? 'Sí, banear' : 'Sí, desbanear'}
+            {isBanning ? td.confirmBanBtn : td.confirmUnbanBtn}
           </button>
         </div>
       </div>
@@ -60,13 +63,7 @@ function BanModal({ user, onConfirm, onCancel }) {
   );
 }
 
-// ─── Constantes de reportes (igual que ModeratorDashboard) ────────────────────
-const REPORT_TYPE_LABELS = {
-  fake_price:  'Precio falso',
-  wrong_photo: 'Foto incorrecta',
-  spam:        'Spam',
-  offensive:   'Contenido ofensivo',
-};
+// ─── Constantes de reportes ───────────────────────────────────────────────────
 const REPORT_SEVERITY = {
   offensive:   'alta',
   spam:        'media',
@@ -93,6 +90,9 @@ const LS_KEY = 'nosee_reputation_params';
 const ALL_ROLES = [UserRoleEnum.USUARIO, UserRoleEnum.MODERADOR, UserRoleEnum.ADMIN, UserRoleEnum.REPARTIDOR];
 
 export default function AdminDashboard() {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
+
   // ─── Estado global ────────────────────────────────────────────────────────
   const [activeSection, setActiveSection]     = useState('overview');
 
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
       if (result.success && result.data) {
         setUsers(result.data.map((u) => ({
           id:     u.id,
-          name:   u.fullName || 'Sin nombre',
+          name:   u.fullName || '',
           email:  u.email,
           role:   u.role,
           status: u.isActive ? 'activo' : 'baneado',
@@ -198,10 +198,10 @@ export default function AdminDashboard() {
           }),
         })));
       } else {
-        setUsersError(result.error || 'No se pudieron cargar los usuarios');
+        setUsersError(result.error || td.errorLoadUsers);
       }
     } catch {
-      setUsersError('Error al conectar con el servidor');
+      setUsersError(td.errorConnect);
     } finally {
       setUsersLoading(false);
     }
@@ -215,10 +215,10 @@ export default function AdminDashboard() {
       if (result.success) {
         setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
       } else {
-        alert(`Error al cambiar rol: ${result.error || 'Error desconocido'}`);
+        alert(td.errorChangeRole(result.error || td.errorChangeRoleGeneric));
       }
     } catch {
-      alert('Error al cambiar rol. Intenta de nuevo.');
+      alert(td.errorChangeRoleGeneric);
     } finally {
       setChangingRole(null);
     }
@@ -239,7 +239,7 @@ export default function AdminDashboard() {
 
     try {
       const result = await updateUserStatus(target.id, newIsActive);
-      if (!result.success) { alert(`Error: ${result.error}`); return; }
+      if (!result.success) { alert(`${td.errorStatus} ${result.error}`); return; }
 
       // Si es un baneo: ocultar todas sus publicaciones activas
       if (isBanning) {
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
         prev.map(u => u.id === target.id ? { ...u, status: isBanning ? 'baneado' : 'activo' } : u)
       );
     } catch {
-      alert('Error al cambiar estado.');
+      alert(td.errorStatus);
     }
   };
 
@@ -287,7 +287,7 @@ export default function AdminDashboard() {
   };
 
   const handleDeletePublication = async (pubId) => {
-    if (!window.confirm('¿Eliminar esta publicación permanentemente?')) return;
+    if (!window.confirm(td.confirmDeletePub)) return;
     setDeletingPub(pubId);
     try {
       const result = await deletePublication(pubId);
@@ -296,10 +296,10 @@ export default function AdminDashboard() {
         // Actualizar stat
         setStats(prev => ({ ...prev, pubs: Math.max(0, (prev.pubs || 1) - 1) }));
       } else {
-        alert(`Error al eliminar: ${result.error}`);
+        alert(td.errorDeletePub(result.error));
       }
     } catch {
-      alert('Error al eliminar la publicación.');
+      alert(td.errorDeletePubGeneric);
     } finally {
       setDeletingPub(null);
     }
@@ -345,12 +345,12 @@ export default function AdminDashboard() {
         return {
           id:             r.id,
           status:         r.status,
-          type:           REPORT_TYPE_LABELS[r.report_type] || r.report_type,
-          severity:       REPORT_SEVERITY[r.report_type]    || 'baja',
+          rawType:        r.report_type,
+          severity:       REPORT_SEVERITY[r.report_type] || 'baja',
           time:           new Date(r.created_at).toLocaleDateString('es-CO'),
-          post:           pub?.products?.name               || 'Publicación eliminada',
-          reporter:       reporter?.full_name               || 'Anónimo',
-          reported:       pub?.author?.full_name            || 'Desconocido',
+          post:           pub?.products?.name            || null,
+          reporter:       reporter?.full_name            || null,
+          reported:       pub?.author?.full_name         || null,
           publicationId:  r.publication_id,
           reportedUserId: pub?.user_id,
         };
@@ -412,7 +412,7 @@ export default function AdminDashboard() {
         setCategories(prev => [...prev, data]);
         setNewCatName('');
       } else {
-        alert(error?.message || 'Error al crear categoría');
+        alert(td.errorCreateCat(error?.message));
       }
     } finally {
       setSavingCat(false);
@@ -445,11 +445,11 @@ export default function AdminDashboard() {
       <aside style={s.sidebar}>
         <nav style={s.nav}>
           {[
-            { key: 'overview', icon: '▦', label: 'Resumen' },
-            { key: 'users',    icon: '◉', label: 'Usuarios' },
-            { key: 'content',  icon: '◈', label: 'Contenido' },
-            { key: 'reports',  icon: '⚠', label: 'Reportes', badge: reportsBadge },
-            { key: 'config',   icon: '⚙', label: 'Config' },
+            { key: 'overview', icon: '▦', label: td.navOverview },
+            { key: 'users',    icon: '◉', label: td.navUsers },
+            { key: 'content',  icon: '◈', label: td.navContent },
+            { key: 'reports',  icon: '⚠', label: td.navReports, badge: reportsBadge },
+            { key: 'config',   icon: '⚙', label: td.navConfig },
           ].map((item) => (
             <button
               key={item.key}
@@ -470,14 +470,14 @@ export default function AdminDashboard() {
         {/* ── OVERVIEW ─────────────────────────────────────────── */}
         {activeSection === 'overview' && (
           <>
-            <SectionHeader title="Panel de control" sub="Vista general de la plataforma NØSEE" />
+            <SectionHeader title={td.overviewTitle} sub={td.overviewSub} />
 
             <div style={s.statsGrid}>
               {[
-                { label: 'Usuarios totales',    value: stats.users,       icon: '◉' },
-                { label: 'Publicaciones hoy',   value: stats.pubs,        icon: '◈' },
-                { label: 'Validaciones hoy',    value: stats.validations, icon: '✓' },
-                { label: 'Reportes pendientes', value: stats.reports,     icon: '⚠' },
+                { label: td.statUsers,       value: stats.users,       icon: '◉' },
+                { label: td.statPubs,        value: stats.pubs,        icon: '◈' },
+                { label: td.statValidations, value: stats.validations, icon: '✓' },
+                { label: td.statReports,     value: stats.reports,     icon: '⚠' },
               ].map((stat) => (
                 <div key={stat.label} style={s.statCard}>
                   <div style={s.statTop}>
@@ -493,10 +493,10 @@ export default function AdminDashboard() {
             <div style={s.section}>
               <div style={s.sectionHead}>
                 <span style={s.sectionTitle}>
-                  Usuarios recientes ({users.length})
+                  {td.recentUsers(users.length)}
                 </span>
                 <button style={s.linkBtn} onClick={() => setActiveSection('users')}>
-                  Ver todos →
+                  {td.viewAll}
                 </button>
               </div>
               {usersLoading ? (
@@ -509,7 +509,7 @@ export default function AdminDashboard() {
                   changingRole={changingRole}
                 />
               ) : (
-                <EmptyMsg text="No hay usuarios registrados aún" />
+                <EmptyMsg text={td.noUsers} />
               )}
             </div>
           </>
@@ -519,12 +519,12 @@ export default function AdminDashboard() {
         {activeSection === 'users' && (
           <>
             <SectionHeader
-              title="Gestión de usuarios"
-              sub={usersLoading ? 'Cargando...' : `${users.length} usuarios registrados`}
+              title={td.usersTitle}
+              sub={usersLoading ? td.loadingDots : td.usersCount(users.length)}
             />
             {usersError && <ErrorBar msg={usersError} onRetry={loadUsers} />}
             {usersLoading ? (
-              <LoadingState label="Cargando usuarios..." />
+              <LoadingState label={td.loadingUsers} />
             ) : users.length > 0 ? (
               <UsersTable
                 users={users}
@@ -533,7 +533,7 @@ export default function AdminDashboard() {
                 changingRole={changingRole}
               />
             ) : (
-              <EmptyMsg text="No hay usuarios registrados aún" />
+              <EmptyMsg text={td.noUsers} />
             )}
           </>
         )}
@@ -542,17 +542,17 @@ export default function AdminDashboard() {
         {activeSection === 'content' && (
           <>
             <SectionHeader
-              title="Gestión de contenido"
-              sub="Publicaciones de precios en la plataforma — el admin puede eliminar cualquiera"
+              title={td.contentTitle}
+              sub={td.contentSub}
             />
 
             {/* Filtro por estado */}
             <div style={s.filterRow}>
               {[
-                { key: 'all',      label: 'Todas' },
-                { key: 'active',   label: 'Activas' },
-                { key: 'pending',  label: 'Pendientes' },
-                { key: 'expired',  label: 'Expiradas' },
+                { key: 'all',      label: td.filterAll },
+                { key: 'active',   label: td.filterActive },
+                { key: 'pending',  label: td.filterPending },
+                { key: 'expired',  label: td.filterExpired },
               ].map(f => (
                 <button
                   key={f.key}
@@ -565,7 +565,7 @@ export default function AdminDashboard() {
             </div>
 
             {pubsLoading ? (
-              <LoadingState label="Cargando publicaciones..." />
+              <LoadingState label={td.loadingPubs} />
             ) : (
               <PublicationsTable
                 publications={publications.filter(p =>
@@ -583,21 +583,21 @@ export default function AdminDashboard() {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
               <div>
-                <h1 style={s.headerTitle}>Reportes de la comunidad</h1>
+                <h1 style={s.headerTitle}>{td.reportsTitle}</h1>
                 <p style={s.headerSub}>
                   {reports.length > 0
-                    ? `${reports.length} reportes • ${resolvedCount} resueltos en esta sesión`
+                    ? td.reportsSub(reports.length, resolvedCount)
                     : resolvedCount > 0
-                      ? `Todo revisado — ${resolvedCount} resueltos en esta sesión`
-                      : 'Sin reportes en esta vista'}
+                      ? td.reportsAllDone(resolvedCount)
+                      : td.reportsNone}
                 </p>
               </div>
               {/* Filtro de estado */}
               <div style={s.filterRow}>
                 {[
-                  { key: 'pending',  label: 'Pendientes' },
-                  { key: 'resolved', label: 'Resueltos' },
-                  { key: 'all',      label: 'Todos' },
+                  { key: 'pending',  label: td.filterPendingReports },
+                  { key: 'resolved', label: td.filterResolved },
+                  { key: 'all',      label: td.filterAllReports },
                 ].map(f => (
                   <button
                     key={f.key}
@@ -611,9 +611,9 @@ export default function AdminDashboard() {
             </div>
 
             {reportsLoading ? (
-              <LoadingState label="Cargando reportes..." />
+              <LoadingState label={td.loadingReports} />
             ) : reports.length === 0 ? (
-              <EmptyMsg text={reportFilter === 'pending' ? 'Sin reportes pendientes ✓' : 'No hay reportes en esta vista'} />
+              <EmptyMsg text={reportFilter === 'pending' ? td.noReportsPending : td.reportsNone} />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {reports.map(r => (
@@ -633,21 +633,21 @@ export default function AdminDashboard() {
         {activeSection === 'config' && (
           <>
             <SectionHeader
-              title="Configuración del sistema"
-              sub="Parámetros globales de la plataforma NØSEE"
+              title={td.configTitle}
+              sub={td.configSub}
             />
 
             {/* Parámetros de reputación (editables) */}
             <div style={s.section}>
               <div style={s.sectionHead}>
-                <span style={s.sectionTitle}>Sistema de reputación</span>
+                <span style={s.sectionTitle}>{td.repTitle}</span>
                 {repEditing ? (
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={cancelEditRep} style={s.btnDismiss}>Cancelar</button>
-                    <button onClick={saveRep} style={{ ...s.filterBtn, ...s.filterBtnActive }}>Guardar</button>
+                    <button onClick={cancelEditRep} style={s.btnDismiss}>{td.cancel}</button>
+                    <button onClick={saveRep} style={{ ...s.filterBtn, ...s.filterBtnActive }}>{td.save}</button>
                   </div>
                 ) : (
-                  <button onClick={startEditRep} style={s.filterBtn}>✎ Editar</button>
+                  <button onClick={startEditRep} style={s.filterBtn}>{td.editBtn}</button>
                 )}
               </div>
               <div style={s.configCard}>
@@ -688,10 +688,10 @@ export default function AdminDashboard() {
             {/* Categorías de productos */}
             <div style={s.section}>
               <div style={s.sectionHead}>
-                <span style={s.sectionTitle}>Categorías de productos</span>
+                <span style={s.sectionTitle}>{td.catsTitle}</span>
                 {catsLoading
                   ? <Spinner size={16} />
-                  : <span style={{ fontSize: 13, color: MUTED }}>{categories.length} categorías</span>
+                  : <span style={{ fontSize: 13, color: MUTED }}>{td.catsCount(categories.length)}</span>
                 }
               </div>
 
@@ -699,7 +699,7 @@ export default function AdminDashboard() {
               <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                 <input
                   type="text"
-                  placeholder="Nombre de nueva categoría..."
+                  placeholder={td.newCatPlaceholder}
                   value={newCatName}
                   onChange={e => setNewCatName(e.target.value)}
                   style={{
@@ -713,21 +713,21 @@ export default function AdminDashboard() {
                   disabled={savingCat || !newCatName.trim()}
                   style={{ ...s.filterBtn, ...s.filterBtnActive, opacity: savingCat || !newCatName.trim() ? 0.5 : 1 }}
                 >
-                  {savingCat ? '...' : '+ Crear'}
+                  {savingCat ? '...' : td.createBtn}
                 </button>
               </form>
 
               {catsLoading ? (
-                <LoadingState label="Cargando categorías..." />
+                <LoadingState label={td.loadingCats} />
               ) : categories.length === 0 ? (
-                <EmptyMsg text="No hay categorías registradas" />
+                <EmptyMsg text={td.noCats} />
               ) : (
                 <div style={s.configCard}>
                   {categories.map(cat => (
                     <div key={cat.id} style={s.configRow}>
                       <div style={s.configParam}>{cat.name}</div>
                       <span style={{ ...s.configValue, color: MUTED, fontSize: 13 }}>
-                        {cat.products?.[0]?.count ?? 0} productos
+                        {td.productsCount(cat.products?.[0]?.count ?? 0)}
                       </span>
                     </div>
                   ))}
@@ -751,19 +751,21 @@ export default function AdminDashboard() {
 
 // ─── UsersTable ───────────────────────────────────────────────────────────────
 function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
   return (
     <div style={s.table}>
       <div style={s.tableHead}>
-        {['Usuario', 'Rol', 'Rep.', 'Estado', 'Acciones'].map((h) => (
+        {[td.colUser, td.colRole, td.colRep, td.colStatus, td.colActions].map((h) => (
           <div key={h} style={s.th}>{h}</div>
         ))}
       </div>
       {users.map((u) => (
         <div key={u.id} style={s.tableRow}>
           <div style={s.td}>
-            <div style={s.rowAvatar}>{u.name.charAt(0)}</div>
+            <div style={s.rowAvatar}>{(u.name || td.noName).charAt(0)}</div>
             <div>
-              <div style={s.rowName}>{u.name}</div>
+              <div style={s.rowName}>{u.name || td.noName}</div>
               <div style={s.rowEmail}>{u.email}</div>
             </div>
           </div>
@@ -779,7 +781,7 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
               ))}
             </select>
             {changingRole === u.id && (
-              <span style={{ marginLeft: 8, fontSize: 12, color: ACCENT }}>Guardando...</span>
+              <span style={{ marginLeft: 8, fontSize: 12, color: ACCENT }}>{td.savingRole}</span>
             )}
           </div>
           <div style={{ ...s.td, ...s.tdNum }}>{u.rep}</div>
@@ -789,7 +791,7 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
               background: u.status === 'activo' ? `${ACCENT}18` : '#F8717120',
               color:      u.status === 'activo' ? ACCENT : '#F87171',
             }}>
-              {u.status}
+              {u.status === 'activo' ? td.statusActive : td.statusBanned}
             </span>
           </div>
           <div style={s.td}>
@@ -798,7 +800,7 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
               onClick={() => onBanToggle(u.id)}
               disabled={changingRole === u.id}
             >
-              {u.status === 'baneado' ? 'Desbanear' : 'Banear'}
+              {u.status === 'baneado' ? td.unbanBtn : td.banBtn}
             </button>
           </div>
         </div>
@@ -809,13 +811,15 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
 
 // ─── PublicationsTable ────────────────────────────────────────────────────────
 function PublicationsTable({ publications, onDelete, deletingId }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
   if (publications.length === 0) {
-    return <EmptyMsg text="No hay publicaciones en esta vista" />;
+    return <EmptyMsg text={td.noPubsView} />;
   }
   return (
     <div style={s.table}>
       <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 0.7fr' }}>
-        {['Producto', 'Tienda', 'Precio', 'Autor', 'Fecha', 'Acción'].map(h => (
+        {[td.colProduct, td.colStore, td.colPrice, td.colAuthor, td.colDate, td.colAction].map(h => (
           <div key={h} style={s.th}>{h}</div>
         ))}
       </div>
@@ -852,26 +856,30 @@ function PublicationsTable({ publications, onDelete, deletingId }) {
 
 // ─── ReportCard ───────────────────────────────────────────────────────────────
 function ReportCard({ report, showActions, onResolve }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
   const sev = SEVERITY_COLORS[report.severity] || SEVERITY_COLORS.baja;
+  const typeLabel = td.reportTypes?.[report.rawType] || report.rawType;
+  const severityLabel = td.severityLabels?.[report.severity] || report.severity?.toUpperCase();
   return (
     <article style={s.reportCard}>
       <div style={s.reportTop}>
         <span style={{ ...s.severityBadge, background: sev.bg, color: sev.text }}>
-          {report.severity?.toUpperCase()}
+          {severityLabel}
         </span>
-        <span style={{ fontSize: 15, fontWeight: 600 }}>{report.type}</span>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>{typeLabel}</span>
         <span style={{ marginLeft: 'auto', fontSize: 12, color: MUTED }}>{report.time}</span>
         {!showActions && (
           <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, background: '#34D39918', color: '#34D399', fontWeight: 700 }}>
-            RESUELTO
+            {td.resolvedBadge}
           </span>
         )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {[
-          ['Publicación',       `"${report.post}"`],
-          ['Reportado por',     report.reporter],
-          ['Usuario denunciado',report.reported],
+          [td.labelPublication,   `"${report.post ?? td.deletedPub}"`],
+          [td.labelReportedBy,    report.reporter ?? td.anonymous],
+          [td.labelReportedUser,  report.reported ?? td.unknown],
         ].map(([label, value]) => (
           <div key={label} style={{ display: 'flex', gap: 12, fontSize: 14 }}>
             <span style={{ color: MUTED, width: 150, flexShrink: 0 }}>{label}</span>
@@ -882,13 +890,13 @@ function ReportCard({ report, showActions, onResolve }) {
       {showActions && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <button style={s.btnDelete} onClick={() => onResolve(report.id, 'delete', report)}>
-            🗑 Eliminar publicación
+            {td.deletePublicationBtn}
           </button>
           <button style={s.btnBan} onClick={() => onResolve(report.id, 'ban', report)}>
-            ⊗ Banear usuario
+            {td.banUserBtn}
           </button>
           <button style={s.btnDismiss} onClick={() => onResolve(report.id, 'dismiss', report)}>
-            ↩ Descartar
+            {td.dismissBtn}
           </button>
         </div>
       )}
@@ -907,11 +915,13 @@ function SectionHeader({ title, sub }) {
 }
 
 function StatusBadge({ status }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
   const map = {
-    active:   { bg: '#34D39918', color: '#34D399', label: 'activa' },
-    pending:  { bg: '#FCD34D18', color: '#FCD34D', label: 'pendiente' },
-    rejected: { bg: '#F8717118', color: '#F87171', label: 'rechazada' },
-    expired:  { bg: '#64748B18', color: '#64748B', label: 'expirada' },
+    active:   { bg: '#34D39918', color: '#34D399', label: td.pubStatusActive },
+    pending:  { bg: '#FCD34D18', color: '#FCD34D', label: td.pubStatusPending },
+    rejected: { bg: '#F8717118', color: '#F87171', label: td.pubStatusRejected },
+    expired:  { bg: '#64748B18', color: '#64748B', label: td.pubStatusExpired },
   };
   const c = map[status] || map.pending;
   return (
@@ -939,6 +949,8 @@ function EmptyMsg({ text }) {
 }
 
 function ErrorBar({ msg, onRetry }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
   return (
     <div style={{
       padding: '12px 16px',
@@ -951,7 +963,7 @@ function ErrorBar({ msg, onRetry }) {
     }}>
       ⚠️ {msg}
       <button onClick={onRetry} style={{ background: 'none', border: 'none', color: '#F87171', cursor: 'pointer', textDecoration: 'underline', marginLeft: 12, fontWeight: 600 }}>
-        Reintentar
+        {td.retry}
       </button>
     </div>
   );

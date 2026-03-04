@@ -7,17 +7,21 @@
  * UBICACIÓN: src/features/dashboard/repartidor/RepartidorDashboard.jsx
  */
 import { useState } from 'react';
-
-const STATUS_INFO = {
-  pendiente:  { label: 'Pendiente',   color: '#60A5FA', bg: '#60A5FA18' },
-  comprando:  { label: 'Comprando',   color: '#FCD34D', bg: '#FCD34D18' },
-  en_camino:  { label: 'En camino',   color: '#34D399', bg: '#34D39918' },
-  llegando:   { label: 'Llegando',    color: '#C8F135', bg: '#C8F13518' },
-  entregado:  { label: 'Entregado',   color: '#34D399', bg: '#34D39918' },
-  cancelado:  { label: 'Cancelado',   color: '#F87171', bg: '#F8717118' },
-};
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function RepartidorDashboard() {
+  const { t } = useLanguage();
+  const td = t.dealerDashboard;
+
+  const STATUS_INFO = {
+    pendiente: { label: td.statusPendiente, color: '#60A5FA', bg: '#60A5FA18' },
+    comprando: { label: td.statusComprando, color: '#FCD34D', bg: '#FCD34D18' },
+    en_camino: { label: td.statusEnCamino,  color: '#34D399', bg: '#34D39918' },
+    llegando:  { label: td.statusLlegando,  color: '#C8F135', bg: '#C8F13518' },
+    entregado: { label: td.statusEntregado, color: '#34D399', bg: '#34D39918' },
+    cancelado: { label: td.statusCancelado, color: '#F87171', bg: '#F8717118' },
+  };
+
   const [orders, setOrders] = useState([]);
   const history = [];
   const [activeTab, setActiveTab] = useState('activos');
@@ -49,15 +53,15 @@ export default function RepartidorDashboard() {
         {/* Estado online */}
         <div style={r.onlineBox}>
           <span style={r.onlineDot} />
-          <span style={r.onlineLabel}>En línea</span>
+          <span style={r.onlineLabel}>{td.onlineLabel}</span>
         </div>
 
         <nav style={r.nav}>
           {[
-            { key: 'activos',   icon: '◉', label: 'Pedidos activos', badge: activeOrders.length },
-            { key: 'ruta',      icon: '▸', label: 'Mi ruta' },
-            { key: 'historial', icon: '◎', label: 'Historial' },
-            { key: 'ganancias', icon: '$', label: 'Ganancias' },
+            { key: 'activos',   icon: '◉', label: td.navActive,   badge: activeOrders.length },
+            { key: 'ruta',      icon: '▸', label: td.navRoute },
+            { key: 'historial', icon: '◎', label: td.navHistory },
+            { key: 'ganancias', icon: '$', label: td.navEarnings },
           ].map((item) => (
             <button
               key={item.key}
@@ -75,15 +79,15 @@ export default function RepartidorDashboard() {
         <div style={r.quickStats}>
           <div style={r.quickStat}>
             <div style={r.qValue}>{activeOrders.length}</div>
-            <div style={r.qLabel}>Activos</div>
+            <div style={r.qLabel}>{td.statActive}</div>
           </div>
           <div style={r.quickStat}>
             <div style={r.qValue}>{history.filter(h => h.status === 'entregado').length}</div>
-            <div style={r.qLabel}>Hoy</div>
+            <div style={r.qLabel}>{td.statToday}</div>
           </div>
           <div style={r.quickStat}>
             <div style={r.qValue}>${(earnings / 1000).toFixed(0)}k</div>
-            <div style={r.qLabel}>Ganado</div>
+            <div style={r.qLabel}>{td.statEarned}</div>
           </div>
         </div>
 
@@ -96,14 +100,14 @@ export default function RepartidorDashboard() {
         {activeTab === 'activos' && (
           <>
             <header style={r.header}>
-              <h1 style={r.headerTitle}>Pedidos activos</h1>
-              <p style={r.headerSub}>{activeOrders.length} en curso</p>
+              <h1 style={r.headerTitle}>{td.activeTitle}</h1>
+              <p style={r.headerSub}>{td.activeSub(activeOrders.length)}</p>
             </header>
 
             {activeOrders.length === 0 ? (
               <div style={r.empty}>
                 <span style={{ fontSize: 40 }}>◎</span>
-                <p>Sin pedidos activos. Espera nuevas asignaciones.</p>
+                <p>{td.noOrders}</p>
               </div>
             ) : (
               <div style={r.orderList}>
@@ -111,6 +115,8 @@ export default function RepartidorDashboard() {
                   <OrderCard
                     key={order.id}
                     order={order}
+                    statusInfo={STATUS_INFO}
+                    td={td}
                     onAdvance={advanceStatus}
                     onSelect={setSelectedOrder}
                     selected={selectedOrder === order.id}
@@ -125,8 +131,8 @@ export default function RepartidorDashboard() {
         {activeTab === 'historial' && (
           <>
             <header style={r.header}>
-              <h1 style={r.headerTitle}>Historial de pedidos</h1>
-              <p style={r.headerSub}>Tus últimas entregas</p>
+              <h1 style={r.headerTitle}>{td.historyTitle}</h1>
+              <p style={r.headerSub}>{td.historySub}</p>
             </header>
             <div style={r.historyList}>
               {history.map((h) => {
@@ -151,14 +157,12 @@ export default function RepartidorDashboard() {
           <div style={r.placeholder}>
             <span style={{ fontSize: 44 }}>{activeTab === 'ruta' ? '▸' : '$'}</span>
             <h2 style={r.phTitle}>
-              {activeTab === 'ruta' ? 'Mapa de ruta' : 'Panel de ganancias'}
+              {activeTab === 'ruta' ? td.routeTitle : td.earningsTitle}
             </h2>
             <p style={r.phSub}>
-              {activeTab === 'ruta'
-                ? 'Visualización de ruta óptima entre tiendas y destinos'
-                : 'Resumen de ganancias diarias, semanales y comisiones'}
+              {activeTab === 'ruta' ? td.routeSub : td.earningsSub}
             </p>
-            <div style={r.tag}>Próximamente</div>
+            <div style={r.tag}>{td.comingSoon}</div>
           </div>
         )}
       </main>
@@ -167,15 +171,15 @@ export default function RepartidorDashboard() {
 }
 
 // ─── OrderCard ────────────────────────────────────────────────────────────────
-function OrderCard({ order, onAdvance, onSelect, selected }) {
-  const si = STATUS_INFO[order.status];
+function OrderCard({ order, statusInfo, td, onAdvance, onSelect, selected }) {
+  const si = statusInfo[order.status] || statusInfo.pendiente;
   const isDelivered = order.status === 'entregado';
 
   const NEXT_LABEL = {
-    pendiente: 'Iniciar compra →',
-    comprando: 'Salir a entregar →',
-    en_camino: 'Llegué →',
-    llegando:  'Marcar entregado ✓',
+    pendiente: td.nextPendiente,
+    comprando: td.nextComprando,
+    en_camino: td.nextEnCamino,
+    llegando:  td.nextLlegando,
   };
 
   return (
@@ -211,7 +215,7 @@ function OrderCard({ order, onAdvance, onSelect, selected }) {
             style={r.advanceBtn}
             onClick={(e) => { e.stopPropagation(); onAdvance(order.id); }}
           >
-            {NEXT_LABEL[order.status] || 'Avanzar →'}
+            {NEXT_LABEL[order.status] || td.advance}
           </button>
         )}
       </div>
