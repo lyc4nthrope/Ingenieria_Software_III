@@ -16,8 +16,12 @@ import StoreCreateModal from "@/features/stores/components/StoreCreateModal";
 import ProductQuickCreateModal from "./ProductQuickCreateModal";
 import * as publicationsApi from "@/services/api/publications.api";
 import * as storesApi from "@/services/api/stores.api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function PublicationForm({ onSuccess }) {
+  const { t } = useLanguage();
+  const tf = t.publicationForm;
+
   const { latitude, longitude } = useGeoLocation({ autoFetch: true });
 
   // ─── Form data ─────────────────────────────────────────────────────────────
@@ -259,13 +263,13 @@ export function PublicationForm({ onSuccess }) {
 
   const validateForm = () => {
     const e = {};
-    if (!formData.productId) e.productId = "Selecciona o crea un producto";
-    if (!formData.storeId) e.storeId = "Selecciona o crea una tienda";
+    if (!formData.productId) e.productId = tf.productRequired;
+    if (!formData.storeId) e.storeId = tf.storeRequired;
     if (!formData.price || Number(formData.price) <= 0)
-      e.price = "El precio debe ser mayor a 0";
-    if (!formData.photoUrl) e.photoUrl = "La foto es obligatoria";
+      e.price = tf.priceRequired;
+    if (!formData.photoUrl) e.photoUrl = tf.photoRequired;
     if (formData.description?.length > 500)
-      e.description = "Máximo 500 caracteres";
+      e.description = tf.descriptionMax;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -301,10 +305,10 @@ export function PublicationForm({ onSuccess }) {
         setStoreQuery("");
         setTimeout(() => setSubmitSuccess(false), 3000);
       } else {
-        setSubmitError(result.error || "Error al crear publicación");
+        setSubmitError(result.error || tf.errorFallback);
       }
     } catch (err) {
-      setSubmitError(err.message || "Error desconocido");
+      setSubmitError(err.message || tf.unknownError);
     } finally {
       setIsSubmitting(false);
     }
@@ -313,10 +317,10 @@ export function PublicationForm({ onSuccess }) {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Publicar Precio</h2>
+      <h2 style={styles.title}>{tf.title}</h2>
 
       {submitSuccess && (
-        <div style={styles.successAlert}>✓ Publicación creada exitosamente</div>
+        <div style={styles.successAlert}>{tf.success}</div>
       )}
       {submitError && <div style={styles.errorAlert}>⚠ {submitError}</div>}
 
@@ -324,12 +328,12 @@ export function PublicationForm({ onSuccess }) {
         {/* ── Producto ─────────────────────────────────────────────────────── */}
         <div style={styles.formGroup}>
           <label style={styles.label}>
-            Producto <span style={styles.required}>*</span>
+            {tf.productLabel} <span style={styles.required}>*</span>
           </label>
           <div ref={productWrapperRef} style={styles.autocompleteContainer}>
             <input
               type="text"
-              placeholder="Escribe el nombre del producto..."
+              placeholder={tf.productPlaceholder}
               value={productQuery}
               onChange={handleProductQueryChange}
               onFocus={() =>
