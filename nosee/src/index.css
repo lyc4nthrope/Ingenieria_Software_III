@@ -204,7 +204,7 @@ img {
 }
 
 .dashboard-logo {
-  font-size: 36px;
+  font-size: 2.25rem;
   line-height: 1;
   font-weight: 800;
   letter-spacing: 1px;
@@ -237,14 +237,14 @@ img {
 }
 
 .banner h1 {
-  font-size: 34px;
+  font-size: 2.125rem;
   line-height: 1.25;
   margin-bottom: 10px;
 }
 
 .banner p {
   color: var(--text-secondary);
-  font-size: 17px;
+  font-size: 1.0625rem;
   line-height: 1.4;
 }
 
@@ -318,11 +318,11 @@ img {
   }
 
   .banner h1 {
-    font-size: 22px;
+    font-size: 1.375rem;
   }
 
   .banner p {
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 }
 
@@ -362,7 +362,7 @@ img {
   background: #ff7f73;
   color: #ffffff;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -385,17 +385,17 @@ img {
 
 .card-title {
   font-weight: 700;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .card-price {
   color: var(--accent);
   font-weight: 700;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 
 .card-description {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
 }
 
@@ -425,7 +425,7 @@ img {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--accent);
   background: var(--accent-soft);
 }
@@ -437,7 +437,7 @@ img {
   border: 1px solid var(--border-soft);
   background: var(--bg-elevated);
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
@@ -471,7 +471,7 @@ img {
   align-items: center;
   justify-content: center;
 
-  font-size: 38px;
+  font-size: 2.375rem;
   font-weight: 600;
   color: #6fb3ff;
 
@@ -497,8 +497,8 @@ html {
 }
 
 .a11y-logo-trigger {
-  width: 52px;
-  height: 52px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   padding: 0;

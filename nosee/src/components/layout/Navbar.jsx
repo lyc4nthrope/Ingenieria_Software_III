@@ -145,7 +145,7 @@ export default function Navbar() {
   };
 
   const logoStyle = {
-    fontSize: "20px",
+    fontSize: "1.25rem",
     fontWeight: "800",
     letterSpacing: "-0.04em",
     color: "var(--accent)",
@@ -159,7 +159,7 @@ export default function Navbar() {
     gap: "6px",
     padding: "6px 12px",
     borderRadius: "var(--radius-sm)",
-    fontSize: "13px",
+    fontSize: "0.8125rem",
     fontWeight: "500",
     color: active ? "var(--accent)" : "var(--text-secondary)",
     background: active ? "var(--accent-soft)" : "transparent",
@@ -176,7 +176,7 @@ export default function Navbar() {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "13px",
+    fontSize: "0.8125rem",
     fontWeight: "600",
     color: "var(--accent)",
     cursor: "pointer",
