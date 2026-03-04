@@ -24,6 +24,6 @@ export function getRolePath(role) {
       return '/dashboard/dealer';
     case UserRoleEnum.USUARIO:
     default:
-      return '/dashboard/user';
+      return '/';
   }
 }

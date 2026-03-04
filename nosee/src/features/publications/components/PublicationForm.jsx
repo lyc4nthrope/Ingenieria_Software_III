@@ -241,6 +241,10 @@ export function PublicationForm({ onSuccess }) {
     (s) => s.name.toLowerCase() === storeQuery.trim().toLowerCase(),
   );
 
+  // ─── Símbolo de moneda ─────────────────────────────────────────────────────
+  const CURRENCY_SYMBOLS = { COP: '$', USD: 'US$', EUR: '€' };
+  const currencySymbol = CURRENCY_SYMBOLS[formData.currency] ?? '$';
+
   // ─── Form helpers ──────────────────────────────────────────────────────────
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -475,14 +479,17 @@ export function PublicationForm({ onSuccess }) {
               Precio <span style={styles.required}>*</span>
             </label>
             <div style={styles.inputGroup}>
-              <span style={styles.currencyPrefix}>$</span>
+              <span style={styles.currencyPrefix}>{currencySymbol}</span>
               <input
                 type="number"
                 placeholder="0"
                 value={formData.price}
-                onChange={(e) => handleInputChange("price", e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "" || Number(val) >= 0) handleInputChange("price", val);
+                }}
                 style={styles.inputWithPrefix}
-                min="1"
+                min="0"
               />
             </div>
             {errors.price && <div style={styles.errorText}>{errors.price}</div>}
@@ -494,7 +501,6 @@ export function PublicationForm({ onSuccess }) {
               value={formData.currency}
               onChange={(e) => handleInputChange("currency", e.target.value)}
               style={styles.select}
-              disabled
             >
               <option value="COP">COP (Pesos)</option>
               <option value="USD">USD (Dólares)</option>

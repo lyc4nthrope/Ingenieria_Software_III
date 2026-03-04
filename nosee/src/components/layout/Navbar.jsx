@@ -6,6 +6,7 @@
  */
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore, selectAuthUser, selectIsAuthenticated, selectIsInitialized } from '@/features/auth/store/authStore';
+import { UserRoleEnum } from '@/types';
 
 // Íconos SVG inline (no dependencias externas)
 const HomeIcon = () => (
@@ -54,6 +55,13 @@ export default function Navbar() {
   const location = useLocation();
 
   const isActive = (path) => location.pathname === path;
+
+  const DASHBOARD_CONFIG = {
+    [UserRoleEnum.ADMIN]:      { label: 'Panel Admin',   path: '/dashboard/admin' },
+    [UserRoleEnum.MODERADOR]:  { label: 'Moderación',    path: '/dashboard/moderator' },
+    [UserRoleEnum.REPARTIDOR]: { label: 'Mis Pedidos',   path: '/dashboard/dealer' },
+  };
+  const dashboardConfig = user?.role ? DASHBOARD_CONFIG[user.role] : null;
 
   const handleLogout = async () => {
     await logout();
@@ -142,6 +150,22 @@ export default function Navbar() {
             <StoreIcon />
             <span className="nav-label">Tiendas</span>
           </Link>
+
+          {/* Botón de dashboard solo para Moderador, Admin y Repartidor */}
+          {dashboardConfig && (
+            <Link
+              to={dashboardConfig.path}
+              style={{
+                ...navLinkStyle(isActive(dashboardConfig.path)),
+                background: isActive(dashboardConfig.path) ? 'var(--accent-soft)' : 'var(--bg-elevated)',
+                border: '1px solid var(--border-soft)',
+                fontWeight: '600',
+              }}
+            >
+              {dashboardConfig.label}
+            </Link>
+          )}
+
           {/* Avatar → perfil */}
           <Link to="/perfil" style={avatarStyle} title="Mi perfil">
             {user?.avatarUrl ? (

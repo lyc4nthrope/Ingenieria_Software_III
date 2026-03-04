@@ -46,7 +46,6 @@ const NewPasswordPage      = lazy(() => import("@/features/auth/pages/NewPasswor
 const ProfilePage          = lazy(() => import("@/features/auth/pages/ProfilePage"));
 
 const RoleRouter           = lazy(() => import("@/router/RoleRouter"));
-const UserDashboard        = lazy(() => import("@/features/dashboard/user/UserDashboard"));
 const AdminDashboard       = lazy(() => import("@/features/dashboard/admin/AdminDashboard"));
 const ModeratorDashboard   = lazy(() => import("@/features/dashboard/moderator/ModeratorDashboard"));
 const DealerDashboard      = lazy(() => import("@/features/dashboard/dealer/DealerDashboard"));
@@ -183,15 +182,6 @@ function AppContent() {
       />
 
       {/* ── Dashboards por rol ───────────────────────────────── */}
-      {/* Cada rol accede a su dashboard correspondiente */}
-      <Route
-        path="/dashboard/user"
-        element={
-          <ProtectedRoute>
-            <UserDashboard />
-          </ProtectedRoute>
-        }
-      />
       <Route
         path="/dashboard/admin"
         element={
