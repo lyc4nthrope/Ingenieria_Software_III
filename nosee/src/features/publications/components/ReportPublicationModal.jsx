@@ -9,7 +9,7 @@ const REPORT_REASON_OPTIONS = [
   { value: 'other', label: 'Otro motivo' },
 ];
 
-export function ReportPublicationModal({ publicationId, onClose, onSubmit }) {
+export function ReportPublicationModal({ publication, onClose, onSubmit }) {
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
   const [evidenceFile, setEvidenceFile] = useState(null);
@@ -17,12 +17,13 @@ export function ReportPublicationModal({ publicationId, onClose, onSubmit }) {
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [hasReported, setHasReported] = useState(false);
   const [existingReport, setExistingReport] = useState(null);
+  const [fileInputHovered, setFileInputHovered] = useState(false);
 
   // Verificar si el usuario ya reportó esta publicación
   useEffect(() => {
     const checkReportStatus = async () => {
       setCheckingStatus(true);
-      const result = await publicationsApi.checkUserReportStatus(publicationId);
+      const result = await publicationsApi.checkUserReportStatus(publication.id);
       
       if (result.success && result.hasReported) {
         setHasReported(true);
@@ -33,7 +34,7 @@ export function ReportPublicationModal({ publicationId, onClose, onSubmit }) {
     };
 
     checkReportStatus();
-  }, [publicationId]);
+  }, [publication.id]);
 
   const evidencePreview = useMemo(() => {
     if (!evidenceFile) return null;
@@ -52,11 +53,11 @@ export function ReportPublicationModal({ publicationId, onClose, onSubmit }) {
   };
 
   const handleSubmit = async () => {
-    if (!publicationId || !reason || submitting || hasReported) return;
+    if (!publication?.id || !reason || submitting || hasReported) return;
 
     setSubmitting(true);
     await onSubmit?.({
-      publicationId,
+      publicationId: publication.id,
       reason,
       description,
       evidenceFile,
@@ -67,11 +68,14 @@ export function ReportPublicationModal({ publicationId, onClose, onSubmit }) {
   return (
     <div role="dialog" aria-modal="true" onClick={handleClose} style={styles.overlay}>
       <div onClick={(event) => event.stopPropagation()} style={styles.modal}>
-        <h3 style={styles.title}>Reportar publicación #{publicationId}</h3>
-        
-        {checkingStatus ? (
-          <p style={styles.subtitle}>Verificando estatus...</p>
-        ) : hasReported ? (
+        <h3 style={styles.title}>
+          {publication?.product?.name || 'Publicación'} • {publication?.store?.name || 'Tienda'} • ${publication?.price?.toLocaleString() || '0'}
+        </h3>
+        <p style={styles.subtitle}>
+          {checkingStatus ? 'Verificando estatus...' : 'Completa la razón del reporte'}
+        </p>
+
+        {hasReported && (
           <div style={{ ...styles.alertBox, background: '#fef3c7', border: '1px solid #fcd34d', marginBottom: '16px' }}>
             <p style={{ margin: 0, color: '#92400e', fontSize: '14px', fontWeight: 600 }}>
               ⚠️ Ya reportaste esta publicación
@@ -80,10 +84,6 @@ export function ReportPublicationModal({ publicationId, onClose, onSubmit }) {
               Reporte enviado el: {existingReport && new Date(existingReport.created_at).toLocaleString()}
             </p>
           </div>
-        ) : (
-          <p style={styles.subtitle}>
-            Completa la razón del reporte. La descripción y la evidencia son opcionales.
-          </p>
         )}
 
         <div style={{ opacity: hasReported ? 0.5 : 1, pointerEvents: hasReported ? 'none' : 'auto' }}>
@@ -121,14 +121,34 @@ export function ReportPublicationModal({ publicationId, onClose, onSubmit }) {
 
           <div style={styles.formGroup}>
             <label htmlFor="report-evidence" style={styles.label}>Foto de evidencia (opcional)</label>
-            <input
-              id="report-evidence"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileChange}
-              style={styles.fileInput}
-              disabled={hasReported}
-            />
+            <div style={styles.fileInputWrapper}>
+              <input
+                id="report-evidence"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleFileChange}
+                style={styles.fileInputHidden}
+                disabled={hasReported}
+              />
+              <label 
+                htmlFor="report-evidence" 
+                style={{
+                  ...styles.fileInputButton,
+                  ...(fileInputHovered && !hasReported ? styles.fileInputButtonHover : {}),
+                  opacity: hasReported ? 0.5 : 1,
+                  cursor: hasReported ? 'not-allowed' : 'pointer'
+                }}
+                onMouseEnter={() => !hasReported && setFileInputHovered(true)}
+                onMouseLeave={() => setFileInputHovered(false)}
+              >
+                📸 {evidenceFile ? evidenceFile.name : 'Seleccionar imagen'}
+              </label>
+              {evidenceFile && (
+                <span style={styles.fileSize}>
+                  {(evidenceFile.size / 1024).toFixed(1)} KB
+                </span>
+              )}
+            </div>
             {evidencePreview && (
               <div style={styles.evidencePreviewWrap}>
                 <img src={evidencePreview} alt="Evidencia del reporte" style={styles.evidencePreview} />
@@ -231,9 +251,34 @@ const styles = {
     fontSize: '14px',
     resize: 'vertical',
   },
-  fileInput: {
-    width: '100%',
+  fileInputWrapper: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  fileInputHidden: {
+    display: 'none',
+  },
+  fileInputButton: {
+    display: 'inline-block',
+    padding: '8px 14px',
+    background: '#0f172a',
+    border: '2px dashed #475569',
+    borderRadius: '6px',
     color: '#cbd5e1',
+    fontSize: '14px',
+    fontWeight: 600,
+    transition: 'all 0.2s ease',
+    userSelect: 'none',
+  },
+  fileInputButtonHover: {
+    borderColor: '#64748b',
+    background: '#1e293b',
+    color: '#e2e8f0',
+  },
+  fileSize: {
+    fontSize: '12px',
+    color: '#94a3b8',
   },
   evidencePreviewWrap: {
     marginTop: '8px',

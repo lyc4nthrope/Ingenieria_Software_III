@@ -234,7 +234,7 @@ export function PublicationCard({
       {/* Modal: Reportar */}
       {showReportModal && (
         <ReportPublicationModal
-          publicationId={publication.id}
+          publication={publication}
           onClose={() => setShowReportModal(false)}
           onSubmit={handleReport}
         />

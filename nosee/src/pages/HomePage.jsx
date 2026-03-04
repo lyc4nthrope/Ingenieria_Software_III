@@ -103,7 +103,7 @@ function PublicationCard({
 
           <button
             className="card-action-button"
-            onClick={() => onReport(pub.id)}
+            onClick={() => onReport(pub)}
             disabled={!isAuthenticated}
             title={
               !isAuthenticated ? "Inicia sesión para reportar" : "Reportar"
@@ -220,7 +220,7 @@ export default function HomePage() {
 
   const [detailPublication, setDetailPublication] = useState(null);
   const [votedIds, setVotedIds] = useState(new Set());
-  const [reportingId, setReportingId] = useState(null);
+  const [reportingPublication, setReportingPublication] = useState(null);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [lastLocationCoords, setLastLocationCoords] = useState(null);
   const [feedback, setFeedback] = useState(null);
@@ -295,21 +295,21 @@ export default function HomePage() {
     });
   };
 
-  const handleReport = (publicationId) => {
+  const handleReport = (publication) => {
     if (!isAuthenticated) return;
-    setReportingId(publicationId);
+    setReportingPublication(publication);
   };
 
   const handleReportSubmit = async (reportPayload) => {
-    if (!reportingId) return;
+    if (!reportingPublication) return;
     
     console.log('[📋 HomePage] Enviando reporte con payload:', reportPayload);
     
-    const result = await reportPublication(reportingId, reportPayload);
+    const result = await reportPublication(reportingPublication.id, reportPayload);
     
     console.log('[📋 HomePage] Resultado del reporte:', result);
     
-    setReportingId(null);
+    setReportingPublication(null);
     
     // Mostrar feedback al usuario
     if (result.success) {
@@ -381,10 +381,10 @@ export default function HomePage() {
         />
       )}
 
-      {reportingId && (
+      {reportingPublication && (
        <ReportPublicationModal
-          publicationId={reportingId}
-          onClose={() => setReportingId(null)}
+          publication={reportingPublication}
+          onClose={() => setReportingPublication(null)}
           onSubmit={handleReportSubmit}
         />
       )}
