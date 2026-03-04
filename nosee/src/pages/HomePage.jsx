@@ -242,7 +242,7 @@ function PublicationCard({
 
           <button
             className="card-action-button"
-            onClick={() => onReport(pub.id)}
+            onClick={() => onReport(pub)}
             aria-label={th.reportLabel(pubName)}
             disabled={!isAuthenticated}
             title={!isAuthenticated ? th.loginToReport : th.report}
