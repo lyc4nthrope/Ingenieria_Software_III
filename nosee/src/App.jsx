@@ -1,27 +1,6 @@
 /**
  * App.jsx - Punto de entrada de la aplicación
  *
- * RUTAS CONFIGURADAS:
- * ┌─────────────────────────┬──────────────────────────┬───────────┐
- * │ Ruta                    │ Componente               │ Protegida │
- * ├─────────────────────────┼──────────────────────────┼───────────┤
- * │ /                       │ HomePage (RED SOCIAL)    │ ❌ No     │
- * │ /dashboard              │ RoleRouter               │ ✅ Sí     │
- * │ /perfil                 │ ProfilePage              │ ✅ Sí     │
- * │ /publicaciones          │ PublicationsPage         │ ✅ Sí     │
- * │ /publicaciones/nueva    │ PublicationForm          │ ✅ Sí     │
- * │ /dashboard/user         │ UserDashboard            │ ✅ Sí     │
- * │ /dashboard/admin        │ AdminDashboard           │ ✅ Sí     │
- * │ /dashboard/moderator    │ ModeratorDashboard       │ ✅ Sí     │
- * │ /dashboard/dealer       │ DealerDashboard          │ ✅ Sí     │
- * │ /login                  │ LoginPage                │ ❌ No     │
- * │ /registro               │ RegisterPage             │ ❌ No     │
- * │ /auth/callback          │ CallbackPage             │ ❌ No     │
- * │ /recuperar-contrasena   │ ForgotPasswordPage       │ ❌ No     │
- * │ /nueva-contrasena       │ NewPasswordPage          │ ❌ No     │
- * │ *                       │ NotFoundPage             │ ❌ No     │
- * └─────────────────────────┴──────────────────────────┴───────────┘
- *
  */
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
