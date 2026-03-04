@@ -510,7 +510,7 @@ const styles = {
     display: "grid",
     gap: "8px",
   },
-  title: { fontWeight: 700 },
+  title: { fontWeight: 700, color: '#333' },
   map: {
     position: "relative",
     zIndex: 0,

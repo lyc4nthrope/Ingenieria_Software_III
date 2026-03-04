@@ -39,7 +39,7 @@ export default function StoreEvidenceUploader({ evidenceFiles = [], onAddEvidenc
 
 const styles = {
   container: { display: 'grid', gap: '10px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#333', fontWeight: 700, fontSize: '14px' },
   count: { fontSize: '12px', color: 'var(--text-secondary, #6b7280)' },
   limit: {
     border: '1px solid #f59e0b',
