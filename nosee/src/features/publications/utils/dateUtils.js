@@ -5,17 +5,16 @@
  */
 
 /**
- * Retorna una descripción de tiempo relativo en español
- * Ejemplo: "hace 2 horas", "hace 3 días", etc.
+ * Retorna una descripción de tiempo relativo usando las traducciones del contexto de idioma.
  *
- * @param {Date} date - La fecha a comparar
+ * @param {Date|string} date - La fecha a comparar
+ * @param {Object} tTimeAgo - Objeto de traducciones t.timeAgo del LanguageContext
  * @returns {string} Descripción del tiempo relativo
  */
-export function formatDistanceToNowInSpanish(date) {
+export function formatDistanceToNow(date, tTimeAgo) {
   const now = new Date();
   const diffMs = now.getTime() - new Date(date).getTime();
 
-  // Convertir a unidades
   const diffSeconds = Math.floor(diffMs / 1000);
   const diffMinutes = Math.floor(diffSeconds / 60);
   const diffHours = Math.floor(diffMinutes / 60);
@@ -24,30 +23,36 @@ export function formatDistanceToNowInSpanish(date) {
   const diffMonths = Math.floor(diffDays / 30);
   const diffYears = Math.floor(diffDays / 365);
 
-  if (diffSeconds < 60) {
-    return 'hace unos segundos';
-  }
+  if (diffSeconds < 60) return tTimeAgo.justNow;
+  if (diffMinutes < 60) return tTimeAgo.minutes(diffMinutes);
+  if (diffHours < 24) return tTimeAgo.hours(diffHours);
+  if (diffDays < 7) return tTimeAgo.days(diffDays);
+  if (diffWeeks < 4) return tTimeAgo.weeks(diffWeeks);
+  if (diffMonths < 12) return tTimeAgo.months(diffMonths);
+  return tTimeAgo.years(diffYears);
+}
 
-  if (diffMinutes < 60) {
-    return `hace ${diffMinutes} minuto${diffMinutes !== 1 ? 's' : ''}`;
-  }
+/**
+ * @deprecated Usa formatDistanceToNow(date, t.timeAgo) con el contexto de idioma.
+ */
+export function formatDistanceToNowInSpanish(date) {
+  const now = new Date();
+  const diffMs = now.getTime() - new Date(date).getTime();
 
-  if (diffHours < 24) {
-    return `hace ${diffHours} hora${diffHours !== 1 ? 's' : ''}`;
-  }
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  const diffYears = Math.floor(diffDays / 365);
 
-  if (diffDays < 7) {
-    return `hace ${diffDays} día${diffDays !== 1 ? 's' : ''}`;
-  }
-
-  if (diffWeeks < 4) {
-    return `hace ${diffWeeks} semana${diffWeeks !== 1 ? 's' : ''}`;
-  }
-
-  if (diffMonths < 12) {
-    return `hace ${diffMonths} mes${diffMonths !== 1 ? 'es' : ''}`;
-  }
-
+  if (diffSeconds < 60) return 'hace unos segundos';
+  if (diffMinutes < 60) return `hace ${diffMinutes} minuto${diffMinutes !== 1 ? 's' : ''}`;
+  if (diffHours < 24) return `hace ${diffHours} hora${diffHours !== 1 ? 's' : ''}`;
+  if (diffDays < 7) return `hace ${diffDays} día${diffDays !== 1 ? 's' : ''}`;
+  if (diffWeeks < 4) return `hace ${diffWeeks} semana${diffWeeks !== 1 ? 's' : ''}`;
+  if (diffMonths < 12) return `hace ${diffMonths} mes${diffMonths !== 1 ? 'es' : ''}`;
   return `hace ${diffYears} año${diffYears !== 1 ? 's' : ''}`;
 }
 

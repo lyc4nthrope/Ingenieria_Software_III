@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useId } from "react";
 
 import {
   useAuthStore,
@@ -7,7 +7,7 @@ import {
 
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
-import ReportPublicationModal from "@/features/publications/components/ReportPublicationModal";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const FALLBACK_IMAGE = "https://via.placeholder.com/400x300?text=Sin+foto";
@@ -30,6 +30,135 @@ const resolvePublicationPhoto = (publication) => {
   return buildCloudinaryImageUrl(candidate) || FALLBACK_IMAGE;
 };
 
+// ─── ReportModal ──────────────────────────────────────────────────────────────
+function ReportModal({ onClose, onSubmit }) {
+  const { t } = useLanguage();
+  const th = t.home;
+  const [reportType, setReportType] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const selectId = useId();
+  const titleId = useId();
+  const descriptionId = useId();
+
+  const handleSubmit = async () => {
+    if (!reportType || submitting) return;
+    setSubmitting(true);
+    await onSubmit(reportType);
+    setSubmitting(false);
+  };
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.7)",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 1000,
+        padding: "16px",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border)",
+          borderRadius: "12px",
+          padding: "24px",
+          width: "min(400px, 100%)",
+        }}
+      >
+        <h3
+          id={titleId}
+          style={{
+            margin: "0 0 16px",
+            fontSize: "16px",
+            fontWeight: 600,
+            color: "var(--text-primary)",
+          }}
+        >
+          {th.reportPublication}
+        </h3>
+        <p
+          id={descriptionId}
+          style={{
+            fontSize: "13px",
+            color: "var(--text-secondary)",
+            marginBottom: "12px",
+          }}
+        >
+          {th.reportDescription}
+        </p>
+        <label
+          htmlFor={selectId}
+          style={{
+            display: "block",
+            fontSize: "13px",
+            color: "var(--text-secondary)",
+            marginBottom: "6px",
+          }}
+        >
+          {th.reportReason}
+        </label>
+        <select
+          id={selectId}
+          name="reportType"
+          required
+          autoFocus
+          value={reportType}
+          onChange={(e) => setReportType(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "6px",
+            color: "var(--text-primary)",
+            fontSize: "14px",
+            marginBottom: "16px",
+          }}
+        >
+          <option value="">{th.selectReason}</option>
+          <option value="fake_price">{th.fakePrice}</option>
+          <option value="wrong_photo">{th.wrongPhoto}</option>
+          <option value="spam">{th.spam}</option>
+          <option value="offensive">{th.offensive}</option>
+        </select>
+        <div
+          style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}
+        >
+          <button type="button" className="card-action-button" onClick={onClose}>
+            {th.cancel}
+          </button>
+          <button
+            type="button"
+            className="card-action-button"
+            onClick={handleSubmit}
+            disabled={!reportType || submitting}
+          >
+            {submitting ? th.sending : th.report}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── PublicationCard ──────────────────────────────────────────────────────────
 function PublicationCard({
   pub,
@@ -42,6 +171,8 @@ function PublicationCard({
   onDelete,
   onOpenDetail,
 }) {
+  const { t } = useLanguage();
+  const th = t.home;
   const publicationImage = resolvePublicationPhoto(pub);
 
   const handleImageError = (event) => {
@@ -52,12 +183,14 @@ function PublicationCard({
     currentUserId &&
     (pub.user_id === currentUserId || pub.user?.id === currentUserId);
 
+  const pubName = pub.product?.name || th.product;
+
   return (
     <article className="card">
       <div className="card-image-wrap">
         <img
           src={publicationImage}
-          alt={pub.product?.name || "Publicación"}
+          alt={pubName}
           className="card-image"
           loading="lazy"
           onError={handleImageError}
@@ -65,10 +198,10 @@ function PublicationCard({
       </div>
 
       <div className="card-body">
-        <div className="card-title">{pub.product?.name || "Producto"}</div>
+        <div className="card-title">{pubName}</div>
         <div className="card-price">${pub.price.toLocaleString()}</div>
         <div className="card-description">
-          {(pub.description || "Sin descripción").slice(0, 80)}
+          {(pub.description || th.noDescription).slice(0, 80)}
         </div>
       </div>
 
@@ -79,53 +212,59 @@ function PublicationCard({
         style={{ flexDirection: "column", gap: 8 }}
       >
         <div className="card-indicators" style={{ width: "100%" }}>
-          <span>✅ {pub.validated_count || 0}</span>
-          <span>🚩 {pub.reported_count || 0}</span>
-          <span>{pub.store?.name || "Tienda"}</span>
+          <span><span aria-hidden="true">✅ </span>{pub.validated_count || 0}</span>
+          <span><span aria-hidden="true">🚩 </span>{pub.reported_count || 0}</span>
+          <span>{pub.store?.name || th.store}</span>
         </div>
-        <div style={{ display: "flex", gap: 8, width: "100%", flexWrap: "wrap" }}>
+        <div
+          style={{ display: "flex", gap: 8, width: "100%", flexWrap: "wrap" }}
+        >
           <button
             className="card-action-button"
-            onClick={() =>
-              isVoted ? onUnvote(pub.id) : onValidate(pub.id)
+            onClick={() => (isVoted ? onUnvote(pub.id) : onValidate(pub.id))}
+            aria-label={
+              isVoted
+                ? th.removeValidationLabel(pubName)
+                : th.validateLabel(pubName)
             }
             disabled={!isAuthenticated}
             title={
               !isAuthenticated
-                ? "Inicia sesión para votar"
+                ? th.loginToVote
                 : isVoted
-                ? "Quitar validación"
-                : "Validar precio"
+                  ? th.removeValidation
+                  : th.validatePrice
             }
           >
-            {isVoted ? "✓ Validado" : "✓ Validar"}
+            {isVoted ? th.validated : th.validate}
           </button>
 
           <button
             className="card-action-button"
-            onClick={() => onReport(pub)}
+            onClick={() => onReport(pub.id)}
+            aria-label={th.reportLabel(pubName)}
             disabled={!isAuthenticated}
-            title={
-              !isAuthenticated ? "Inicia sesión para reportar" : "Reportar"
-            }
+            title={!isAuthenticated ? th.loginToReport : th.report}
           >
-            🚩 Reportar
+            {th.report}
           </button>
 
           <button
             className="card-action-button"
             onClick={() => onOpenDetail(pub.id)}
+            aria-label={th.detailLabel(pubName)}
           >
-            Ver más
+            {th.viewMore}
           </button>
 
           {isAuthor && (
             <button
               className="card-action-button"
               onClick={() => onDelete(pub.id)}
-              title="Eliminar mi publicación"
+              aria-label={th.deleteLabel(pubName)}
+              title={th.deleteBtn}
             >
-              🗑 Eliminar
+              {th.deleteBtn}
             </button>
           )}
         </div>
@@ -136,12 +275,30 @@ function PublicationCard({
 
 // ─── PublicationDetailModal ───────────────────────────────────────────────────
 function PublicationDetailModal({ publication, onClose }) {
+  const { t } = useLanguage();
+  const th = t.home;
+  const titleId = useId();
+  const closeButtonRef = useRef(null);
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
   if (!publication) return null;
 
   return (
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby={titleId}
       onClick={onClose}
       style={{
         position: "fixed",
@@ -160,22 +317,25 @@ function PublicationDetailModal({ publication, onClose }) {
           width: "min(800px, 100%)",
           maxHeight: "90vh",
           overflow: "auto",
-          background: "#0f172a",
+          background: "var(--bg-surface)",
           borderRadius: "12px",
-          border: "1px solid #334155",
+          border: "1px solid var(--border)",
           padding: "16px",
         }}
       >
         <button
+          ref={closeButtonRef}
           onClick={onClose}
+          type="button"
+          aria-label={th.closeDetail}
           className="card-action-button"
           style={{ marginBottom: 12 }}
         >
-          Cerrar
+          {th.close}
         </button>
         <img
           src={resolvePublicationPhoto(publication)}
-          alt={publication.product?.name || "Publicación"}
+          alt={publication.product?.name || th.product}
           style={{
             width: "100%",
             borderRadius: 8,
@@ -183,18 +343,19 @@ function PublicationDetailModal({ publication, onClose }) {
             objectFit: "cover",
           }}
         />
-        <h2 style={{ marginTop: 12 }}>
-          {publication.product?.name || "Producto"}
+        <h2 id={titleId} style={{ marginTop: 12 }}>
+          {publication.product?.name || th.product}
         </h2>
         <p>
-          <strong>Precio:</strong> ${publication.price?.toLocaleString()}
+          <strong>{th.price}</strong> ${publication.price?.toLocaleString()}
         </p>
         <p>
-          <strong>Tienda:</strong> {publication.store?.name || "Sin tienda"}
+          <strong>{th.storeLabel}</strong>{" "}
+          {publication.store?.name || th.store}
         </p>
         <p>
-          <strong>Descripción:</strong>{" "}
-          {publication.description || "Sin descripción"}
+          <strong>{th.description}</strong>{" "}
+          {publication.description || th.noDescription}
         </p>
       </article>
     </div>
@@ -203,6 +364,9 @@ function PublicationDetailModal({ publication, onClose }) {
 
 // ─── HomePage ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
+  const { t } = useLanguage();
+  const th = t.home;
+
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const user = useAuthStore((s) => s.user);
 
@@ -220,45 +384,31 @@ export default function HomePage() {
 
   const [detailPublication, setDetailPublication] = useState(null);
   const [votedIds, setVotedIds] = useState(new Set());
-  const [reportingPublication, setReportingPublication] = useState(null);
-  const [hasInitialized, setHasInitialized] = useState(false);
-  const [lastLocationCoords, setLastLocationCoords] = useState(null);
-  const [feedback, setFeedback] = useState(null);
+  const [reportingId, setReportingId] = useState(null);
+  const hasInitializedRef = useRef(false);
+  const lastLocationCoordsRef = useRef(null);
 
-  // Initialize filters on mount - load recent publications regardless of location
   useEffect(() => {
-    if (hasInitialized) return;
-    setHasInitialized(true);
-
-    // Load with location if available, otherwise just load recent publications
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
     setFilters({
       latitude: latitude || null,
       longitude: longitude || null,
       maxDistance: latitude && longitude ? 3 : null,
       sortBy: "recent",
     });
-  }, []);
+  }, [latitude, longitude, setFilters]);
 
-  // Update filters only if location becomes available AND changed significantly
   useEffect(() => {
-    if (!hasInitialized) return;
-
-    const coordsKey = latitude && longitude ? `${latitude},${longitude}` : 'no-location';
-    if (lastLocationCoords === coordsKey) return; // No change
-
-    setLastLocationCoords(coordsKey);
-
-    // If we got location, update to search nearby
+    if (!hasInitializedRef.current) return;
+    const coordsKey =
+      latitude && longitude ? `${latitude},${longitude}` : "no-location";
+    if (lastLocationCoordsRef.current === coordsKey) return;
+    lastLocationCoordsRef.current = coordsKey;
     if (latitude && longitude) {
-      setFilters({
-        latitude,
-        longitude,
-        maxDistance: 3,
-        sortBy: "recent",
-      });
+      setFilters({ latitude, longitude, maxDistance: 3, sortBy: "recent" });
     }
-    // If location was lost but we're still initialized, keep showing recent publications
-  }, [latitude, longitude, hasInitialized, lastLocationCoords, setFilters]);
+  }, [latitude, longitude, setFilters]);
 
   const normalizedPublications = useMemo(
     () =>
@@ -329,7 +479,7 @@ export default function HomePage() {
   };
 
   const handleDelete = async (publicationId) => {
-    if (!confirm("¿Eliminar esta publicación?")) return;
+    if (!confirm(th.confirmDelete)) return;
     const result = await publicationsApi.deletePublication(publicationId);
     if (result.success) {
       removePublication(publicationId);
@@ -339,22 +489,19 @@ export default function HomePage() {
   return (
     <div className="home-wrapper">
       <section className="banner">
-        <h1>Bienvenidos a NØSEE, plataforma colaborativa.</h1>
-        <p>No sabes donde es más barato, te mostramos donde no ves.</p>
-        {!isAuthenticated && (
-          <p>Inicia sesión para crear y votar publicaciones.</p>
-        )}
+        <h1>{th.title}</h1>
+        <p>{th.subtitle}</p>
+        {!isAuthenticated && <p>{th.loginCta}</p>}
       </section>
 
       <div className="layout">
         <div className="feed">
           {loading ? (
-            <p>Cargando publicaciones...</p>
-          ) : normalizedPublications.length === 0 ? (
-            <p>
-              Aún no hay publicaciones. Cuando un usuario cree una, aparecerá
-              aquí.
+            <p role="status" aria-live="polite">
+              {th.loading}
             </p>
+          ) : normalizedPublications.length === 0 ? (
+            <p role="status" aria-live="polite">{th.noPublications}</p>
           ) : (
             normalizedPublications.map((pub) => (
               <PublicationCard

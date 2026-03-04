@@ -4,90 +4,45 @@
  * Dashboard del moderador de NØSEE.
  *  Vista de usuario + controles de moderación de reportes.
  */
-import { useEffect, useMemo, useState } from 'react';
-import { useAuthStore } from '@/features/auth/store/authStore';
-import { Spinner } from '@/components/ui/Spinner';
-import { getAdminReports, updateReportReview } from '@/services/api/users.api';
+import { useState, useEffect } from "react";
+import { supabase } from "@/services/supabase.client";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-const REPORT_STATUS_OPTIONS = ['PENDING', 'IN_REVIEW', 'RESOLVED', 'REJECTED'];
-
-const REPORT_REASON_LABELS = {
-  fake_price: 'Precio falso',
-  wrong_photo: 'Foto incorrecta',
-  spam: 'Spam',
-  offensive: 'Contenido ofensivo',
-  other: 'Otro',
+const REPORT_SEVERITY = {
+  offensive: "alta",
+  spam: "media",
+  fake_price: "media",
+  wrong_photo: "baja",
 };
 
-const isReportLocked = (status) => ['REJECTED', 'RESOLVED'].includes((status || '').toUpperCase());
-
-const formatPublicationSummary = (publication) => {
-  if (!publication) return null;
-
-  const productName = publication.product?.name || 'N/A';
-  const quantity = publication.product?.base_quantity;
-  const unit = publication.product?.unit_type?.abbreviation || publication.product?.unit_type?.name;
-  const brand = publication.product?.brand?.name || 'N/A';
-  const store = publication.store?.name || 'N/A';
-  const price = publication.price;
-
-  return {
-    productName,
-    unit: quantity && unit ? `${quantity} ${unit}` : 'N/A',
-    brand,
-    store,
-    price: typeof price === 'number' ? price.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) : 'N/A',
-  };
+const SEVERITY_COLORS = {
+  alta: { bg: "#F8717118", text: "#F87171" },
+  media: { bg: "#FCD34D18", text: "#FCD34D" },
+  baja: { bg: "#60A5FA18", text: "#60A5FA" },
 };
 
-export default function ModeratorDashboard() {
-  const logout = useAuthStore((s) => s.logout);
-  const currentUser = useAuthStore((s) => s.user);
+export default function ModeradorDashboard() {
+  const { t } = useLanguage();
+  const td = t.moderatorDashboard;
 
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('reportes');
-  const [error, setError] = useState(null);
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [savingReport, setSavingReport] = useState(false);
-  const [filters, setFilters] = useState({
-    order: 'recent',
-    status: 'all',
-    reason: 'all',
-  });
-  const [reportForm, setReportForm] = useState({
-    status: 'PENDING',
-    actionTaken: '',
-    modNotes: '',
-  });
-
-  useEffect(() => {
-    fetchReports();
-  }, []);
-
-  useEffect(() => {
-    if (!selectedReport) return;
-    setReportForm({
-      status: selectedReport.status || 'PENDING',
-      actionTaken: selectedReport.action_taken || '',
-      modNotes: selectedReport.mod_notes || '',
-    });
-  }, [selectedReport]);
+  const [activeTab, setActiveTab] = useState("reportes");
+  const [resolved, setResolved] = useState([]);
 
   const fetchReports = async () => {
     setLoading(true);
-    setError(null);
-    try {
-      const result = await getAdminReports();
-      if (result.success && result.data) {
-        setReports(result.data);
-      } else {
-        setError(result.error || 'No se pudieron cargar los reportes');
-      }
-    } catch (err) {
-      console.error('Error cargando reportes:', err);
-      setError('Error al conectar con reportes');
-    } finally {
+
+    // 1. Reportes pendientes
+    const { data: rawReports, error } = await supabase
+      .from("price_reports")
+      .select(
+        "id, report_type, description, created_at, publication_id, reporter_id",
+      )
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    if (error || !rawReports?.length) {
       setLoading(false);
     }
   };
@@ -96,27 +51,47 @@ export default function ModeratorDashboard() {
     [reports],
   );
 
-  const reportStats = useMemo(() => {
-    const byType = reports.reduce((acc, report) => {
-      const key = report.reason || 'other';
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
+    // 2. Detalles de las publicaciones reportadas (producto + autor)
+    const pubIds = [
+      ...new Set(rawReports.map((r) => r.publication_id).filter(Boolean)),
+    ];
+    const { data: publications } = await supabase
+      .from("price_publications")
+      .select(
+        "id, user_id, products(name), author:users!price_publications_user_id_fkey(full_name)",
+      )
+      .in("id", pubIds);
 
-    const byStatus = reports.reduce((acc, report) => {
-      const key = (report.status || 'PENDING').toUpperCase();
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
+    // 3. Nombres de los reportadores
+    const reporterIds = [
+      ...new Set(rawReports.map((r) => r.reporter_id).filter(Boolean)),
+    ];
+    const { data: reporters } = await supabase
+      .from("users")
+      .select("id, full_name")
+      .in("id", reporterIds);
 
-    return { byType, byStatus };
-  }, [reports]);
+    const pubMap = Object.fromEntries(
+      (publications || []).map((p) => [p.id, p]),
+    );
+    const reporterMap = Object.fromEntries(
+      (reporters || []).map((u) => [u.id, u]),
+    );
 
-  const filteredReports = useMemo(() => {
-    const base = reports.filter((report) => {
-      const statusMatch = filters.status === 'all' || (report.status || '').toUpperCase() === filters.status;
-      const reasonMatch = filters.reason === 'all' || report.reason === filters.reason;
-      return statusMatch && reasonMatch;
+    const mapped = rawReports.map((r) => {
+      const pub = pubMap[r.publication_id];
+      const reporter = reporterMap[r.reporter_id];
+      return {
+        id: r.id,
+        rawType: r.report_type,
+        severity: REPORT_SEVERITY[r.report_type] || "baja",
+        time: new Date(r.created_at).toLocaleDateString("es-CO"),
+        post: pub?.products?.name || null,
+        reporter: reporter?.full_name || null,
+        reported: pub?.author?.full_name || null,
+        publicationId: r.publication_id,
+        reportedUserId: pub?.user_id,
+      };
     });
 
     return base.sort((a, b) => {
@@ -126,48 +101,35 @@ export default function ModeratorDashboard() {
     });
   }, [reports, filters]);
 
-  const pendingReportsCount = useMemo(
-    () => reports.filter((report) => (report.status || 'PENDING').toUpperCase() === 'PENDING').length,
-    [reports],
-  );
+  useEffect(() => {
+    queueMicrotask(() => {
+      fetchReports();
+    });
+  }, []);
 
+  const handleResolve = async (id, action, report) => {
+    // Marcar el reporte como resuelto
+    await supabase
+      .from("price_reports")
+      .update({ status: "resolved" })
+      .eq("id", id);
 
-  const handleSaveReportReview = async () => {
-    if (!selectedReport) return;
-
-    const status = reportForm.status;
-    const isResolved = status === 'RESOLVED' || status === 'REJECTED';
-
-    setSavingReport(true);
-    try {
-      const payload = {
-        status,
-        action_taken: reportForm.actionTaken || null,
-        mod_notes: reportForm.modNotes || null,
-        reviewed_by: currentUser?.id || selectedReport.reviewed_by || null,
-        resolved_at: isResolved ? new Date().toISOString() : null,
-      };
-
-      const result = await updateReportReview(selectedReport.id, payload);
-      if (!result.success) {
-        alert(`Error al guardar reporte: ${result.error || 'Error desconocido'}`);
-        return;
-      }
-
-      setReports((prev) => prev.map((report) => (
-        report.id === selectedReport.id
-          ? { ...report, ...payload }
-          : report
-      )));
-
-      setSelectedReport((prev) => (prev ? { ...prev, ...payload } : prev));
-    } catch (err) {
-      console.error('Error actualizando reporte:', err);
-      alert('Error al actualizar reporte. Intenta de nuevo.');
-    } finally {
-      setSavingReport(false);
+    if (action === "eliminado" && report.publicationId) {
+      await supabase
+        .from("price_publications")
+        .delete()
+        .eq("id", report.publicationId);
     }
 
+    if (action === "baneado" && report.reportedUserId) {
+      await supabase
+        .from("users")
+        .update({ is_active: false })
+        .eq("id", report.reportedUserId);
+    }
+
+    setResolved((prev) => [...prev, { id, action }]);
+    setReports((prev) => prev.filter((r) => r.id !== id));
   };
   const selectedPublication = formatPublicationSummary(selectedReport?.publication);
   const selectedReportLocked = isReportLocked(selectedReport?.status);
@@ -177,13 +139,16 @@ export default function ModeratorDashboard() {
       <aside style={st.sidebar}>
         <nav style={st.nav}>
           {[
-            { key: 'reportes', icon: '⚑', label: 'Reportes', badge: pendingReportsCount },
-            { key: 'feed', icon: '◈', label: 'Feed' },
-            { key: 'historial', icon: '◎', label: 'Historial' },
+            { key: "reportes", icon: "⚑", label: td.navReports, badge: pendingCount },
+            { key: "feed",     icon: "◈", label: td.navFeed },
+            { key: "historial",icon: "◎", label: td.navHistory },
           ].map((item) => (
             <button
               key={item.key}
-              style={{ ...st.navItem, ...(activeTab === item.key ? st.navActive : {}) }}
+              style={{
+                ...st.navItem,
+                ...(activeTab === item.key ? st.navActive : {}),
+              }}
               onClick={() => setActiveTab(item.key)}
             >
               <span style={st.navIcon}>{item.icon}</span>
@@ -192,49 +157,37 @@ export default function ModeratorDashboard() {
             </button>
           ))}
         </nav>
-
-        <button style={st.logoutBtn} onClick={logout}>⏻ Salir</button>
       </aside>
 
       <main style={st.main}>
-        {error && (
-          <div style={st.errorBox}>
-            ⚠️ {error}
-            <button style={st.linkBtn} onClick={fetchReports}>Reintentar</button>
-          </div>
-        )}
-
-        {activeTab === 'reportes' && (
+        {/* Reportes pendientes */}
+        {activeTab === "reportes" && (
           <>
             <header style={st.header}>
-              <h1 style={st.headerTitle}>Moderación de reportes</h1>
-              <p style={st.headerSub}>Resumen por tipo/estado, filtros y detalle editable</p>
+              <div>
+                <h1 style={st.headerTitle}>{td.reportsTitle}</h1>
+                <p style={st.headerSub}>
+                  {pendingCount > 0 ? td.reportsSub(pendingCount) : td.reportsAllDone}
+                </p>
+              </div>
+              <div style={st.resolvedCount}>
+                {td.resolvedToday(resolved.length)}
+              </div>
             </header>
 
-            <div style={st.statsGrid}>
-              {Object.entries(reportStats.byType).map(([reason, count]) => (
-                <div key={`type-${reason}`} style={st.statCard}>
-                  <div style={st.statLabel}>{REPORT_REASON_LABELS[reason] || reason}</div>
-                  <div style={st.statValue}>{count}</div>
-                </div>
-              ))}
-              {Object.entries(reportStats.byStatus).map(([status, count]) => (
-                <div key={`status-${status}`} style={st.statCard}>
-                  <div style={st.statLabel}>Estado: {status}</div>
-                  <div style={st.statValue}>{count}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={st.filtersRow}>
-              <select style={st.select} value={filters.order} onChange={(e) => setFilters((prev) => ({ ...prev, order: e.target.value }))}>
-                <option value="recent">Más reciente</option>
-                <option value="oldest">Más antiguo</option>
-              </select>
-              <select style={st.select} value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
-                <option value="all">Todos los estados</option>
-                {REPORT_STATUS_OPTIONS.map((status) => (
-                  <option key={status} value={status}>{status}</option>
+            {loading ? (
+              <div style={st.emptyState}>
+                <span style={{ fontSize: 32 }}>⟳</span>
+                <p style={{ color: MUTED, marginTop: 8 }}>
+                  {td.loadingReports}
+                </p>
+              </div>
+            ) : reports.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div style={st.reportList}>
+                {reports.map((r) => (
+                  <ReportCard key={r.id} report={r} onResolve={handleResolve} />
                 ))}
               </select>
               <select style={st.select} value={filters.reason} onChange={(e) => setFilters((prev) => ({ ...prev, reason: e.target.value }))}>
@@ -339,70 +292,297 @@ export default function ModeratorDashboard() {
           </>
         )}
 
-        {activeTab === 'feed' && <Placeholder icon="◈" title="Feed con moderación" sub="Próximamente" />}
-        {activeTab === 'historial' && <Placeholder icon="◎" title="Historial de acciones" sub="Próximamente" />}
+        {activeTab === "feed" && (
+          <div style={st.placeholder}>
+            <span style={st.placeholderIcon}>◈</span>
+            <h2 style={st.placeholderTitle}>{td.feedTitle}</h2>
+            <p style={st.placeholderSub}>{td.feedSub}</p>
+            <div style={st.tag}>{td.comingSoon}</div>
+          </div>
+        )}
+
+        {activeTab === "historial" && (
+          <div style={st.placeholder}>
+            <span style={st.placeholderIcon}>◎</span>
+            <h2 style={st.placeholderTitle}>{td.historyTitle}</h2>
+            <p style={st.placeholderSub}>{td.historySub}</p>
+            <div style={st.tag}>{td.comingSoon}</div>
+          </div>
+        )}
       </main>
     </div>
   );
 }
 
-function Placeholder({ icon, title, sub }) {
+// ─── ReportCard ───────────────────────────────────────────────────────────────
+function ReportCard({ report, onResolve }) {
+  const { t } = useLanguage();
+  const td = t.moderatorDashboard;
+  const sev = SEVERITY_COLORS[report.severity] || SEVERITY_COLORS.baja;
+  const typeLabel = td.reportTypes?.[report.rawType] || report.rawType;
+  const severityLabel = td.severityLabels?.[report.severity] || report.severity?.toUpperCase();
+
   return (
-    <div style={st.placeholder}>
-      <span style={st.placeholderIcon}>{icon}</span>
-      <h2 style={st.placeholderTitle}>{title}</h2>
-      <p style={st.placeholderSub}>{sub}</p>
+    <article style={st.reportCard}>
+      <div style={st.reportTop}>
+        <span style={{ ...st.severityBadge, background: sev.bg, color: sev.text }}>
+          {severityLabel}
+        </span>
+        <span style={st.reportType}>{typeLabel}</span>
+        <span style={st.reportTime}>{report.time}</span>
+      </div>
+
+      <div style={st.reportBody}>
+        <div style={st.reportRow}>
+          <span style={st.reportLabel}>{td.labelPublication}</span>
+          <span style={st.reportValue}>"{report.post ?? td.deletedPub}"</span>
+        </div>
+        <div style={st.reportRow}>
+          <span style={st.reportLabel}>{td.labelReportedBy}</span>
+          <span style={st.reportValue}>{report.reporter ?? td.anonymous}</span>
+        </div>
+        <div style={st.reportRow}>
+          <span style={st.reportLabel}>{td.labelReportedUser}</span>
+          <span style={st.reportValue}>{report.reported ?? td.unknown}</span>
+        </div>
+      </div>
+
+      <div style={st.reportActions}>
+        <button style={st.btnDelete} onClick={() => onResolve(report.id, "eliminado", report)}>
+          {td.deletePublicationBtn}
+        </button>
+        <button style={st.btnBan} onClick={() => onResolve(report.id, "baneado", report)}>
+          {td.banUserBtn}
+        </button>
+        <button style={st.btnDismiss} onClick={() => onResolve(report.id, "descartado", report)}>
+          {td.dismissBtn}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function EmptyState() {
+  const { t } = useLanguage();
+  const td = t.moderatorDashboard;
+  return (
+    <div style={st.emptyState}>
+      <span style={{ fontSize: 48 }}>✓</span>
+      <h2 style={{ fontSize: 20, fontWeight: 700, margin: "12px 0 6px", color: ACCENT }}>
+        {td.noReportsTitle}
+      </h2>
+      <p style={{ color: MUTED, fontSize: 14, margin: 0 }}>
+        {td.noReportsSub}
+      </p>
     </div>
   );
 }
 
-const ACCENT = '#A78BFA';
-const BG = '#080C14';
-const SURFACE = '#0F1724';
-const BORDER = '#1E2D4A';
-const TEXT = '#E8EDF8';
-const MUTED = '#7B90BD';
+// ─── Estilos ──────────────────────────────────────────────────────────────────
+const ACCENT = "#A78BFA"; // violeta moderador — autoridad sutil
+const BG = "var(--bg-base)";
+const SURFACE = "var(--bg-surface)";
+const BORDER = "var(--border)";
+const TEXT = "var(--text-primary)";
+const MUTED = "var(--text-secondary)";
 
 const st = {
-  root: { display: 'flex', minHeight: '100vh', background: BG, color: TEXT, fontFamily: "'DM Sans', 'Inter', sans-serif" },
-  sidebar: { width: 220, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', padding: '24px 16px', position: 'sticky', top: 0, height: '100vh' },
-  nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
-  navItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 14, fontWeight: 500, textAlign: 'left' },
+  root: {
+    display: "flex",
+    height: "100vh",
+    overflow: "hidden",
+    background: BG,
+    color: TEXT,
+    fontFamily: "'DM Sans', 'Inter', sans-serif",
+  },
+  sidebar: {
+    width: 220,
+    background: SURFACE,
+    borderRight: `1px solid ${BORDER}`,
+    display: "flex",
+    flexDirection: "column",
+    padding: "24px 16px",
+    height: "100%",
+    flexShrink: 0,
+  },
+  nav: { display: "flex", flexDirection: "column", gap: 4, flex: 1 },
+  navItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 12px",
+    borderRadius: 8,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: MUTED,
+    fontSize: 14,
+    fontWeight: 500,
+    textAlign: "left",
+    transition: "all 0.15s",
+  },
   navActive: { background: `${ACCENT}18`, color: ACCENT },
   navIcon: { fontSize: 16 },
-  navBadge: { marginLeft: 'auto', background: '#F87171', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 },
-  logoutBtn: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 13, textAlign: 'left' },
-  main: { flex: 1, padding: '32px 40px' },
-  errorBox: { padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(248,113,113,0.25)', background: 'var(--error-soft)', color: 'var(--error)', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 },
-  linkBtn: { background: 'none', border: 'none', color: ACCENT, cursor: 'pointer', fontSize: 13, textDecoration: 'underline' },
-  header: { marginBottom: 18 },
-  headerTitle: { fontSize: 26, fontWeight: 700, margin: 0 },
-  headerSub: { color: MUTED, fontSize: 14, marginTop: 4 },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))', gap: 10, marginBottom: 14 },
-  statCard: { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 12px' },
-  statLabel: { color: MUTED, fontSize: 12 },
-  statValue: { fontSize: 22, fontWeight: 700 },
-  filtersRow: { display: 'flex', gap: 10, marginBottom: 16 },
-  select: { background: '#1C1C20', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 6, padding: '6px 10px', fontSize: 13 },
-  loadingWrap: { display: 'flex', justifyContent: 'center', padding: 50 },
-  layout: { display: 'grid', gridTemplateColumns: '2fr 1.2fr', gap: 16, alignItems: 'start' },
-  table: { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' },
-  tableHead: { display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1.4fr 1fr', padding: '12px 20px', borderBottom: `1px solid ${BORDER}`, background: '#0A1020' },
-  th: { fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
-  tableRow: { display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 1.4fr 1fr', padding: '14px 20px', alignItems: 'center', borderBottom: `1px solid ${BORDER}`, fontSize: 13 },
-  badge: { fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '3px 10px', border: `1px solid ${BORDER}` },
-  actionBtn: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 6, padding: '5px 12px', fontSize: 13, cursor: 'pointer' },
-  detailPanel: { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16 },
-  detailTitle: { margin: '0 0 10px 0' },
-  detailText: { margin: '6px 0', fontSize: 13 },
-  formBlock: { display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 },
-  formLabel: { fontSize: 12, color: MUTED },
-  input: { background: '#1C1C20', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 6, padding: '8px 10px', fontSize: 13 },
-  textarea: { minHeight: 90, resize: 'vertical', background: '#1C1C20', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 6, padding: '8px 10px', fontSize: 13, fontFamily: 'inherit' },
-  saveBtn: { border: `1px solid ${ACCENT}`, color: ACCENT, background: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', alignSelf: 'flex-start' },
-  empty: { padding: 22, color: MUTED, textAlign: 'center', fontSize: 14 },
-  placeholder: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 12, color: MUTED },
+  navBadge: {
+    marginLeft: "auto",
+    background: "#F87171",
+    color: "#fff",
+    borderRadius: 10,
+    padding: "1px 7px",
+    fontSize: 11,
+    fontWeight: 700,
+  },
+  userBlock: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "12px 8px",
+    borderTop: `1px solid ${BORDER}`,
+    marginTop: "auto",
+    marginBottom: 12,
+  },
+  userAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: "50%",
+    background: `${ACCENT}20`,
+    color: ACCENT,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    fontSize: 14,
+  },
+  userName: { fontSize: 13, fontWeight: 600, color: TEXT },
+  userRole: { fontSize: 11, color: MUTED },
+
+  main: {
+    flex: 1,
+    padding: "32px 40px",
+    maxWidth: 760,
+    overflowY: "auto",
+    height: "100%",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 28,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: 700,
+    margin: 0,
+    letterSpacing: "-0.5px",
+  },
+  headerSub: { color: MUTED, fontSize: 14, margin: "4px 0 0" },
+  resolvedCount: {
+    background: `${ACCENT}15`,
+    color: ACCENT,
+    borderRadius: 8,
+    padding: "8px 16px",
+    fontSize: 14,
+    fontWeight: 600,
+  },
+
+  reportList: { display: "flex", flexDirection: "column", gap: 14 },
+  reportCard: {
+    background: SURFACE,
+    border: `1px solid ${BORDER}`,
+    borderRadius: 12,
+    padding: "18px 20px",
+  },
+  reportTop: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 14,
+  },
+  severityBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    borderRadius: 4,
+    padding: "3px 8px",
+    letterSpacing: "0.5px",
+  },
+  reportType: { fontSize: 15, fontWeight: 600 },
+  reportTime: { marginLeft: "auto", fontSize: 12, color: MUTED },
+
+  reportBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    marginBottom: 16,
+  },
+  reportRow: { display: "flex", gap: 12, fontSize: 14 },
+  reportLabel: { color: MUTED, width: 140, flexShrink: 0 },
+  reportValue: { color: TEXT },
+
+  reportActions: { display: "flex", gap: 10, flexWrap: "wrap" },
+  btnDelete: {
+    background: "#F8717115",
+    border: "1px solid #F87171",
+    color: "#F87171",
+    borderRadius: 7,
+    padding: "7px 14px",
+    fontSize: 13,
+    cursor: "pointer",
+    fontWeight: 500,
+  },
+  btnBan: {
+    background: "#FCD34D15",
+    border: "1px solid #FCD34D",
+    color: "#FCD34D",
+    borderRadius: 7,
+    padding: "7px 14px",
+    fontSize: 13,
+    cursor: "pointer",
+    fontWeight: 500,
+  },
+  btnDismiss: {
+    background: "none",
+    border: `1px solid ${BORDER}`,
+    color: MUTED,
+    borderRadius: 7,
+    padding: "7px 14px",
+    fontSize: 13,
+    cursor: "pointer",
+  },
+
+  emptyState: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 400,
+    color: MUTED,
+    gap: 4,
+  },
+
+  placeholder: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 400,
+    gap: 12,
+    color: MUTED,
+  },
   placeholderIcon: { fontSize: 48 },
   placeholderTitle: { fontSize: 20, fontWeight: 700, color: TEXT, margin: 0 },
-  placeholderSub: { fontSize: 14, margin: 0 },
+  placeholderSub: {
+    fontSize: 14,
+    margin: 0,
+    textAlign: "center",
+    maxWidth: 360,
+  },
+  tag: {
+    background: `${ACCENT}15`,
+    color: ACCENT,
+    borderRadius: 6,
+    padding: "4px 12px",
+    fontSize: 12,
+    fontWeight: 600,
+    marginTop: 8,
+  },
 };

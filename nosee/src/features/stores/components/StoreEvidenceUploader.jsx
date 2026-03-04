@@ -1,4 +1,9 @@
+import { useLanguage } from "@/contexts/LanguageContext";
+
 export default function StoreEvidenceUploader({ evidenceFiles = [], onAddEvidence, onRemoveEvidence, error }) {
+  const { t } = useLanguage();
+  const te = t.storeEvidence;
+
   const canAddMore = evidenceFiles.length < 3;
 
   const handleFileChange = (event) => {
@@ -7,26 +12,26 @@ export default function StoreEvidenceUploader({ evidenceFiles = [], onAddEvidenc
     onAddEvidence(file);
     event.target.value = '';
   };
-  
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <strong>🖼 Evidencias del local</strong>
+        <strong>{te.title}</strong>
          <span style={styles.count}>{evidenceFiles.length}/3</span>
       </div>
 
       {canAddMore ? (
         <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} />
       ) : (
-        <div style={styles.limit}>Límite alcanzado (máximo 3 imágenes)</div>
+        <div style={styles.limit}>{te.limitReached}</div>
       )}
 
       <div style={styles.list}>
         {evidenceFiles.map((evidence) => (
           <div key={evidence.id} style={styles.item}>
-            <img src={evidence.previewUrl} alt="Evidencia" style={styles.thumb} />
+            <img src={evidence.previewUrl} alt={te.altText} style={styles.thumb} />
             <button type="button" style={styles.remove} onClick={() => onRemoveEvidence(evidence.id)}>
-              Quitar
+              {te.remove}
             </button>
           </div>
         ))}

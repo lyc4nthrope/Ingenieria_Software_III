@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGeoLocation } from "@/features/publications/hooks";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const MAP_HEIGHT = 360;
 const DEFAULT_ZOOM = 16;
@@ -117,6 +118,13 @@ export default function StoreMapPicker({
   onAddressChange,
   error,
 }) {
+  const { t } = useLanguage();
+  // Store translations in a ref so stable useCallback([]) closures can access current values
+  const tMapRef = useRef(t.storeMap);
+  useEffect(() => {
+    tMapRef.current = t.storeMap;
+  }, [t]);
+
   const [latInput, setLatInput] = useState(latitude ?? "");
   const [lonInput, setLonInput] = useState(longitude ?? "");
   const [addressInput, setAddressInput] = useState(address ?? "");
@@ -163,7 +171,7 @@ export default function StoreMapPicker({
   const resolveAddressForCurrentPoint = useCallback(
     async (nextLat, nextLon) => {
       setLoadingAddress(true);
-      setStatus("Resolviendo dirección...");
+      setStatus(tMapRef.current.statusResolving);
       try {
         const resolvedAddress = await reverseGeocode(nextLat, nextLon);
         onLocationChangeRef.current({
@@ -171,7 +179,7 @@ export default function StoreMapPicker({
           longitude: nextLon,
           address: resolvedAddress,
         });
-        setStatus("Dirección actualizada desde la ubicación seleccionada.");
+        setStatus(tMapRef.current.statusAddressUpdated);
       } catch (resolveError) {
         setStatus(resolveError.message);
       } finally {
@@ -348,7 +356,7 @@ export default function StoreMapPicker({
     const parsedLat = Number(latInput);
     const parsedLon = Number(lonInput);
     if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLon)) {
-      setStatus("Ingresa latitud y longitud válidas.");
+      setStatus(tMapRef.current.statusInvalidCoords);
       return;
     }
     await applyFromCoordinates(parsedLat, parsedLon, { resolveAddress: true });
@@ -357,17 +365,17 @@ export default function StoreMapPicker({
   const applyAddressSearch = async () => {
     const query = String(addressInput || "").trim();
     if (!query) {
-      setStatus("Escribe una dirección para buscarla.");
+      setStatus(tMapRef.current.statusNoAddress);
       return;
     }
     setLoadingAddress(true);
-    setStatus("Buscando dirección...");
+    setStatus(tMapRef.current.statusSearching);
     try {
       const result = await geocodeAddress(query);
       onAddressChangeRef.current(result.address);
       onLocationChangeRef.current(result);
       setMarkerPosition(result.latitude, result.longitude);
-      setStatus("Dirección encontrada y ubicación actualizada.");
+      setStatus(tMapRef.current.statusFound);
     } catch (geocodeError) {
       setStatus(geocodeError.message);
     } finally {
@@ -378,15 +386,13 @@ export default function StoreMapPicker({
   // Botón "Usar mi ubicación actual" — usa la Promise de refetch para coordenadas frescas
   const useCurrentLocation = async () => {
     try {
-      setStatus("Obteniendo ubicación...");
+      setStatus(tMapRef.current.statusGetting);
       const { latitude: nextLat, longitude: nextLon } = await refetch();
       const lat = Number(Number(nextLat).toFixed(6));
       const lon = Number(Number(nextLon).toFixed(6));
       await applyFromCoordinates(lat, lon, { resolveAddress: true });
     } catch (locationError) {
-      setStatus(
-        locationError.message || "No se pudo obtener tu ubicación actual.",
-      );
+      setStatus(locationError.message || tMapRef.current.statusGetting);
     }
   };
 
@@ -399,27 +405,30 @@ export default function StoreMapPicker({
       !Number.isFinite(parsedLon) ||
       !mapInstanceRef.current
     ) {
-      setStatus("Selecciona una ubicación válida para centrar el mapa.");
+      setStatus(tMapRef.current.statusCenterSelect);
       return;
     }
 
     setMarkerPosition(parsedLat, parsedLon, { panTo: true });
-    setStatus("Mapa centrado en la ubicación seleccionada.");
+    setStatus(tMapRef.current.statusCentered);
   };
 
   const osmUrl = hasCoords
     ? `https://www.openstreetmap.org/?mlat=${Number(latitude)}&mlon=${Number(longitude)}#map=18/${Number(latitude)}/${Number(longitude)}`
     : "https://www.openstreetmap.org";
 
+  const tm = t.storeMap;
+
   return (
     <div style={styles.container}>
-      <div style={styles.title}>📍 Ubicación del local</div>
+      <div style={styles.title}>{tm.title}</div>
 
       <div style={styles.row}>
         <input
           type="text"
+          aria-label={tm.addressPlaceholder}
           value={addressInput}
-          placeholder="Ej: Calle 10 #25-30, Bogotá"
+          placeholder={tm.addressPlaceholder}
           onChange={(event) => {
             const nextAddress = event.target.value;
             setAddressInput(nextAddress);
@@ -429,15 +438,16 @@ export default function StoreMapPicker({
         />
         <button
           type="button"
+          aria-label={tm.searchBtn}
           onClick={applyAddressSearch}
           style={styles.button}
           disabled={loadingAddress}
         >
-          Buscar dirección
+          {tm.searchBtn}
         </button>
       </div>
 
-      <div style={styles.map}>
+      <div style={styles.map} role="region" aria-label={tm.title}>
         <div ref={mapContainerRef} style={styles.mapCanvas} />
       </div>
 
@@ -445,26 +455,29 @@ export default function StoreMapPicker({
         <input
           type="number"
           step="any"
+          aria-label={tm.latPlaceholder}
           value={latInput}
-          placeholder="Latitud"
+          placeholder={tm.latPlaceholder}
           onChange={(event) => setLatInput(event.target.value)}
           style={styles.input}
         />
         <input
           type="number"
           step="any"
+          aria-label={tm.lonPlaceholder}
           value={lonInput}
-          placeholder="Longitud"
+          placeholder={tm.lonPlaceholder}
           onChange={(event) => setLonInput(event.target.value)}
           style={styles.input}
         />
         <button
           type="button"
+          aria-label={tm.applyBtn}
           onClick={applyManualCoordinates}
           style={styles.button}
           disabled={loadingAddress}
         >
-          Aplicar
+          {tm.applyBtn}
         </button>
       </div>
 
@@ -475,7 +488,7 @@ export default function StoreMapPicker({
           style={styles.secondaryButton}
           disabled={geoLoading || loadingAddress}
         >
-          {geoLoading ? "Obteniendo ubicación…" : "Usar mi ubicación actual"}
+          {geoLoading ? tm.gettingLocation : tm.useLocationBtn}
         </button>
         <button
           type="button"
@@ -483,20 +496,17 @@ export default function StoreMapPicker({
           style={styles.secondaryButton}
           disabled={loadingAddress}
         >
-          Centrar mapa
+          {tm.centerMap}
         </button>
         <a href={osmUrl} target="_blank" rel="noreferrer" style={styles.link}>
-          Ver punto en OpenStreetMap
+          {tm.viewOSM}
         </a>
       </div>
 
       {status ? <div style={styles.helper}>{status}</div> : null}
-      {geoError ? <div style={styles.helper}>Geo: {geoError}</div> : null}
+      {geoError ? <div style={styles.helper}>{tm.geoPrefix} {geoError}</div> : null}
       {leafletError ? <div style={styles.error}>{leafletError}</div> : null}
-      <div style={styles.helper}>
-        Visualizador: Leaflet + OpenStreetMap. Geocodificación: Nominatim
-        (gratis con límites de uso).
-      </div>
+      <div style={styles.helper}>{tm.footer}</div>
       {error ? <div style={styles.error}>{error}</div> : null}
     </div>
   );

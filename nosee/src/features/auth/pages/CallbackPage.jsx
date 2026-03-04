@@ -33,13 +33,17 @@ import { getRolePath } from '@/utils/roleUtils';
 // ── Spinner inline para no depender de importaciones que podrían no estar ──
 function Spinner() {
   return (
-    <div style={{
-      width: '40px', height: '40px',
-      border: '3px solid rgba(56,189,248,0.15)',
-      borderTop: '3px solid var(--accent, #38BDF8)',
-      borderRadius: '50%',
-      animation: 'spin 0.8s linear infinite',
-    }} />
+    <div
+      role="status"
+      aria-label="Cargando"
+      style={{
+        width: '40px', height: '40px',
+        border: '3px solid rgba(56,189,248,0.15)',
+        borderTop: '3px solid var(--accent, #38BDF8)',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+      }}
+    />
   );
 }
 
@@ -165,7 +169,7 @@ const isRecoveryEvent = event === 'PASSWORD_RECOVERY';
         {/* ── Estado: Éxito ── */}
         {isInitialized && isAuthenticated && !urlError && (
           <>
-            <div style={{ fontSize: '56px', lineHeight: 1 }}>✅</div>
+            <div style={{ fontSize: '56px', lineHeight: 1 }} aria-hidden="true">✅</div>
             <div>
               <p style={{ color: 'var(--text-primary)', fontSize: '18px', fontWeight: '700' }}>
                 {callbackType === CALLBACK_TYPE.RECOVERY
@@ -188,7 +192,7 @@ const isRecoveryEvent = event === 'PASSWORD_RECOVERY';
         {/* ── Estado: Error ── */}
         {status === 'error' && (
           <>
-            <div style={{ fontSize: '56px', lineHeight: 1 }}>⚠️</div>
+            <div style={{ fontSize: '56px', lineHeight: 1 }} aria-hidden="true">⚠️</div>
             <div style={{ maxWidth: '360px' }}>
               <p style={{ color: 'var(--text-primary)', fontSize: '17px', fontWeight: '700' }}>
                 Link inválido o expirado

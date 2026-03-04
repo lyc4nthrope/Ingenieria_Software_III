@@ -22,9 +22,9 @@
  * - Tiempo relativo
  */
 
-import { useState } from 'react';
-import { formatDistanceToNowInSpanish } from '@/features/publications/utils/dateUtils';
-import ReportPublicationModal from '@/features/publications/components/ReportPublicationModal';
+import { useState, useId } from 'react';
+import { formatDistanceToNow } from '@/features/publications/utils/dateUtils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
  * Componente: PublicationCard
@@ -61,6 +61,10 @@ export function PublicationCard({
   onDelete,
   onViewMore,
 }) {
+  // ─── Idioma ─────────────────────────────────────────────────────────────────
+  const { t } = useLanguage();
+  const tc = t.publicationCard;
+
   // ─── Estados ───────────────────────────────────────────────────────────────
 
   const [photoExpanded, setPhotoExpanded] = useState(false);
@@ -68,6 +72,10 @@ export function PublicationCard({
   const [isValidating, setIsValidating] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const reportModalTitleId = useId();
+  const reportSelectId = useId();
+  const photoModalId = useId();
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -99,7 +107,7 @@ export function PublicationCard({
   };
 
   const handleDelete = async () => {
-    if (!confirm('¿Eliminar publicación?') || isDeleting) return;
+    if (!confirm(tc.confirmDelete) || isDeleting) return;
 
     setIsDeleting(true);
     try {
@@ -114,11 +122,12 @@ export function PublicationCard({
   // ─── Render ────────────────────────────────────────────────────────────────
 
   if (!publication) {
-    return <div>Publicación no disponible</div>;
+    return <div>{tc.notAvailable}</div>;
   }
 
-  const timeAgo = formatDistanceToNowInSpanish(
-    publication.timestamp || publication.created_at
+  const timeAgo = formatDistanceToNow(
+    publication.timestamp || publication.created_at,
+    t.timeAgo
   );
 
   return (
@@ -133,7 +142,7 @@ export function PublicationCard({
           </div>
           <div>
             <div style={styles.userName}>
-              {publication.user?.full_name || 'Usuario'}
+              {publication.user?.full_name || tc.user}
             </div>
             <div style={styles.timeAgo}>{timeAgo}</div>
           </div>
@@ -144,10 +153,10 @@ export function PublicationCard({
       <div style={styles.body}>
         <div style={styles.productInfo}>
           <div style={styles.productName}>
-            {publication.product?.name || 'Producto desconocido'}
+            {publication.product?.name || tc.unknownProduct}
           </div>
           <div style={styles.storeName}>
-            🏪 {publication.store?.name || 'Sin tienda'}
+            <span aria-hidden="true">🏪 </span>{publication.store?.name || tc.noStore}
           </div>
         </div>
 
@@ -167,16 +176,21 @@ export function PublicationCard({
         {/* Foto */}
         {publication.photo_url && (
           <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={photoExpanded}
+            aria-label={tc.photoExpandLabel(photoExpanded, publication.product?.name || tc.unknownProduct)}
             style={styles.photoContainer}
             onClick={() => setPhotoExpanded(!photoExpanded)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPhotoExpanded(!photoExpanded); } }}
           >
             <img
               src={publication.photo_url}
-              alt={publication.product?.name}
+              alt={publication.product?.name || tc.unknownProduct}
               style={styles.photo}
             />
-            <div style={styles.photoOverlay}>
-              <span style={styles.photoIcon}>🔍 Expandir</span>
+            <div aria-hidden="true" style={styles.photoOverlay}>
+              <span style={styles.photoIcon}>{tc.photoExpand}</span>
             </div>
           </div>
         )}
@@ -185,15 +199,15 @@ export function PublicationCard({
       {/* Stats: Validaciones y Reportes */}
       <div style={styles.stats}>
         <div style={styles.stat}>
-          <span style={styles.statIcon}>✓</span>
+          <span style={styles.statIcon} aria-hidden="true">✓</span>
           <span style={styles.statText}>
-            {publication.validated_count || 0} validaciones
+            {publication.validated_count || 0} {tc.validations}
           </span>
         </div>
         <div style={styles.stat}>
-          <span style={styles.statIcon}>⚠</span>
+          <span style={styles.statIcon} aria-hidden="true">⚠</span>
           <span style={styles.statText}>
-            {publication.reported_count || 0} reportes
+            {publication.reported_count || 0} {tc.reports}
           </span>
         </div>
       </div>
@@ -201,51 +215,127 @@ export function PublicationCard({
       {/* Acciones */}
       <div style={styles.actions}>
         <button
+          type="button"
+          aria-label={tc.validateLabel(publication.product?.name || tc.unknownProduct)}
+          aria-busy={isValidating || undefined}
           style={{ ...styles.button, ...styles.buttonPrimary }}
           onClick={handleValidate}
           disabled={isValidating}
         >
-          {isValidating ? 'Validando...' : '✓ Validar'}
+          {isValidating ? tc.validating : tc.validate}
         </button>
 
         <button
+          type="button"
+          aria-label={tc.reportLabel(publication.product?.name || tc.unknownProduct)}
           style={{ ...styles.button, ...styles.buttonSecondary }}
           onClick={() => setShowReportModal(true)}
         >
-          ⚠ Reportar
+          {tc.report}
         </button>
 
         <button
+          type="button"
+          aria-label={tc.deleteLabel(publication.product?.name || tc.unknownProduct)}
+          aria-busy={isDeleting || undefined}
           style={{ ...styles.button, ...styles.buttonDanger }}
           onClick={handleDelete}
           disabled={isDeleting}
         >
-          {isDeleting ? '...' : '🗑 Eliminar'}
+          {isDeleting ? tc.deleting : tc.delete}
         </button>
-        
+
         <button
+          type="button"
+          aria-label={tc.viewMoreLabel(publication.product?.name || tc.unknownProduct)}
           style={{ ...styles.button, ...styles.buttonSecondary }}
           onClick={() => onViewMore?.(publication.id)}
         >
-          Ver más
+          {tc.viewMore}
         </button>
       </div>
 
       {/* Modal: Reportar */}
       {showReportModal && (
-        <ReportPublicationModal
-          publication={publication}
-          onClose={() => setShowReportModal(false)}
-          onSubmit={handleReport}
-        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={reportModalTitleId}
+          style={styles.modal}
+          onClick={() => { setShowReportModal(false); setReportType(''); }}
+        >
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <h3 id={reportModalTitleId} style={styles.modalTitle}>{tc.reportTitle}</h3>
+
+            <div style={styles.formGroup}>
+              <label htmlFor={reportSelectId} style={styles.label}>{tc.reportTypeLabel}</label>
+              <select
+                id={reportSelectId}
+                autoFocus
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value)}
+                style={styles.select}
+              >
+                <option value="">{tc.reportSelect}</option>
+                <option value="fake_price">{tc.fakePrice}</option>
+                <option value="wrong_photo">{tc.wrongPhoto}</option>
+                <option value="spam">{tc.spam}</option>
+                <option value="offensive">{tc.offensive}</option>
+              </select>
+            </div>
+
+            <div style={styles.modalActions}>
+              <button
+                type="button"
+                style={{ ...styles.button, ...styles.buttonSecondary }}
+                onClick={() => {
+                  setShowReportModal(false);
+                  setReportType('');
+                }}
+              >
+                {tc.cancel}
+              </button>
+              <button
+                type="button"
+                aria-busy={isReporting || undefined}
+                style={{ ...styles.button, ...styles.buttonDanger }}
+                onClick={handleReport}
+                disabled={!reportType || isReporting}
+              >
+                {isReporting ? tc.sending : tc.report}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal: Foto expandida */}
       {photoExpanded && (
-        <div style={styles.photoModal} onClick={() => setPhotoExpanded(false)}>
+        <div
+          id={photoModalId}
+          role="dialog"
+          aria-modal="true"
+          aria-label={tc.photoExpandLabel(true, publication.product?.name || tc.unknownProduct)}
+          style={styles.photoModal}
+          onClick={() => setPhotoExpanded(false)}
+        >
+          <button
+            type="button"
+            aria-label={tc.closePhotoLabel}
+            onClick={() => setPhotoExpanded(false)}
+            style={{
+              position: 'absolute', top: '16px', right: '16px',
+              background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.3)',
+              color: '#fff', borderRadius: '50%', width: '36px', height: '36px',
+              fontSize: '18px', cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            ✕
+          </button>
           <img
             src={publication.photo_url}
-            alt={publication.product?.name}
+            alt={publication.product?.name || tc.unknownProduct}
             style={styles.photoModalImg}
           />
         </div>
@@ -300,7 +390,7 @@ const styles = {
 
   timeAgo: {
     fontSize: '12px',
-    color: '#999',
+    color: '#666',
     marginTop: '2px',
   },
 
@@ -342,7 +432,7 @@ const styles = {
 
   currency: {
     fontSize: '12px',
-    color: '#999',
+    color: '#555',
   },
 
   description: {
@@ -462,6 +552,7 @@ const styles = {
     justifyContent: 'center',
     zIndex: 1001,
     cursor: 'pointer',
+    position: 'fixed',
   },
 
   photoModalImg: {

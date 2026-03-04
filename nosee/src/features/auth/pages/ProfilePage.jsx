@@ -2,20 +2,200 @@
  * ProfilePage - Página de perfil del usuario autenticado
  * Ruta protegida: solo accesible si hay sesión activa.
  */
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore, selectAuthUser, selectAuthStatus } from '@/features/auth/store/authStore';
 import ProfileCard from '@/features/auth/components/ProfileCard';
 import Button from '@/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
-import { getUserProfileActivity, updateOwnReport } from '@/services/api/users.api';
-import { updatePublication, updateProduct } from '@/services/api/publications.api';
-import { updateStore } from '@/services/api/stores.api';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { alertsApi } from '@/services/api';
+
+// ─── Sección de alertas de precio ────────────────────────────────────────────
+function PriceAlertsSection() {
+  const { t } = useLanguage();
+  const tpa = t.profile.priceAlerts;
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [productId, setProductId] = useState('');
+  const [targetPrice, setTargetPrice] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchAlerts = useCallback(async () => {
+    setLoading(true);
+    const result = await alertsApi.getUserAlerts();
+    if (result.success) setAlerts(result.data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!productId || !targetPrice) return;
+    setSaving(true);
+    setError(null);
+    const result = await alertsApi.createAlert({
+      productId: Number(productId),
+      targetPrice: Number(targetPrice),
+    });
+    if (result.success) {
+      setProductId('');
+      setTargetPrice('');
+      fetchAlerts();
+    } else {
+      setError(result.error);
+    }
+    setSaving(false);
+  };
+
+  const handleDelete = async (alertId) => {
+    await alertsApi.deleteAlert(alertId);
+    fetchAlerts();
+  };
+
+  return (
+    <div style={{
+      marginTop: '20px',
+      background: 'var(--bg-surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-xl)',
+      padding: '20px 24px',
+    }}>
+      <h2
+        id="price-alerts-title"
+        style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}
+      >
+        <span aria-hidden="true">🔔 </span>{tpa.title}
+      </h2>
+      <p id="price-alerts-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+        {tpa.description}
+      </p>
+
+      {/* Formulario nueva alerta */}
+      <form
+        onSubmit={handleCreate}
+        aria-labelledby="price-alerts-title"
+        aria-describedby="price-alerts-desc"
+        style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'flex-end' }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '120px' }}>
+          <label htmlFor="alert-product-id" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+            {tpa.productIdLabel} <span aria-hidden="true">*</span>
+            <span className="sr-only">{tpa.required}</span>
+          </label>
+          <input
+            id="alert-product-id"
+            type="number"
+            placeholder={tpa.productIdPlaceholder}
+            value={productId}
+            onChange={(e) => setProductId(e.target.value)}
+            required
+            aria-required="true"
+            aria-invalid={error ? 'true' : undefined}
+            aria-describedby={error ? 'alert-form-error' : undefined}
+            style={inputStyle}
+          />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '120px' }}>
+          <label htmlFor="alert-target-price" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+            {tpa.targetPriceLabel} <span aria-hidden="true">*</span>
+            <span className="sr-only">{tpa.required}</span>
+          </label>
+          <input
+            id="alert-target-price"
+            type="number"
+            placeholder={tpa.targetPricePlaceholder}
+            value={targetPrice}
+            onChange={(e) => setTargetPrice(e.target.value)}
+            min="0"
+            step="0.01"
+            required
+            aria-required="true"
+            style={inputStyle}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={saving}
+          aria-busy={saving}
+          style={{ ...btnStyle, alignSelf: 'flex-end' }}
+        >
+          {saving ? tpa.saving : tpa.addAlert}
+        </button>
+      </form>
+
+      {error && (
+        <p
+          id="alert-form-error"
+          role="alert"
+          style={{ fontSize: '13px', color: '#dc2626', marginBottom: '12px' }}
+        >
+          <span aria-hidden="true">⚠ </span>{error}
+        </p>
+      )}
+
+      {/* Lista de alertas */}
+      {loading ? (
+        <p role="status" aria-live="polite" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+          {tpa.loading}
+        </p>
+      ) : alerts.length === 0 ? (
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tpa.empty}</p>
+      ) : (
+        <ul
+          aria-label={tpa.listLabel}
+          style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}
+        >
+          {alerts.map((a) => {
+            const productName = a.products?.name ?? tpa.unknownProduct(a.product_id);
+            const priceFormatted = Number(a.target_price).toLocaleString();
+            return (
+              <li key={a.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'var(--bg-base)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)', padding: '10px 14px',
+              }}>
+                <div>
+                  <span style={{ fontSize: '14px', fontWeight: 600 }}>{productName}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', marginLeft: '8px' }}>
+                    ≤ ${priceFormatted}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleDelete(a.id)}
+                  aria-label={tpa.deleteAriaLabel(productName, priceFormatted)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '13px', minHeight: '44px', minWidth: '44px' }}
+                >
+                  {tpa.delete}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const inputStyle = {
+  padding: '8px 12px', borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--border)', fontSize: '13px',
+  flex: 1, minWidth: '120px',
+};
+const btnStyle = {
+  padding: '8px 16px', borderRadius: 'var(--radius-md)',
+  border: 'none', background: 'var(--accent)', color: '#fff',
+  fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+};
 
 // ─── Modal de eliminación de cuenta ──────────────────────────────────────────
 function DeleteAccountModal({ onClose, onConfirm, loading }) {
-  // step: 'choose' | 'confirm-deactivate' | 'confirm-permanent'
+  const { t } = useLanguage();
+  const tp = t.profile;
   const [step, setStep] = useState('choose');
-  const [mode, setMode] = useState(null); // 'deactivate' | 'permanent'
+  const [mode, setMode] = useState(null);
+  const titleId = 'delete-modal-title';
 
   const handleChoose = (chosen) => {
     setMode(chosen);
@@ -24,6 +204,13 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
 
   const handleConfirm = () => {
     onConfirm(mode === 'permanent');
+  };
+
+  const handleKeyDown = (e, chosen) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleChoose(chosen);
+    }
   };
 
   return (
@@ -37,6 +224,9 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--bg-surface)',
@@ -52,17 +242,18 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
         {step === 'choose' && (
           <>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 8px' }}>
-                ¿Qué quieres hacer con tu cuenta?
+              <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 8px' }}>
+                {tp.deleteModalTitle}
               </h2>
               <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                Tus publicaciones ayudan a la comunidad a encontrar mejores precios.
+                {tp.deleteModalSubtitle}
               </p>
             </div>
 
-            {/* Opción desactivar */}
-            <div
+            <button
+              type="button"
               onClick={() => handleChoose('deactivate')}
+              onKeyDown={(e) => handleKeyDown(e, 'deactivate')}
               style={{
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-md)',
@@ -70,22 +261,23 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 cursor: 'pointer',
                 display: 'flex', flexDirection: 'column', gap: '6px',
                 transition: 'border-color 0.15s',
+                background: 'none', textAlign: 'left', width: '100%',
               }}
               onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
               onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
             >
               <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                🔒 Desactivar mi cuenta
+                {tp.deactivateTitle}
               </span>
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                Tu cuenta se desactiva y no podrás iniciar sesión. Tus publicaciones
-                permanecerán visibles para seguir ayudando a la comunidad con precios reales.
+                {tp.deactivateDesc}
               </span>
-            </div>
+            </button>
 
-            {/* Opción eliminar permanente */}
-            <div
+            <button
+              type="button"
               onClick={() => handleChoose('permanent')}
+              onKeyDown={(e) => handleKeyDown(e, 'permanent')}
               style={{
                 border: '1px solid #fecaca',
                 borderRadius: 'var(--radius-md)',
@@ -93,27 +285,28 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 cursor: 'pointer',
                 display: 'flex', flexDirection: 'column', gap: '6px',
                 transition: 'border-color 0.15s',
+                background: 'none', textAlign: 'left', width: '100%',
               }}
               onMouseEnter={(e) => e.currentTarget.style.borderColor = '#ef4444'}
               onMouseLeave={(e) => e.currentTarget.style.borderColor = '#fecaca'}
             >
               <span style={{ fontSize: '14px', fontWeight: '600', color: '#dc2626' }}>
-                🗑 Eliminar cuenta permanentemente
+                {tp.permanentTitle}
               </span>
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                Se eliminan tu cuenta y <strong>todos tus datos</strong>: publicaciones,
-                votos, tiendas, historial. Esta acción es irreversible.
+                {tp.permanentDesc}
               </span>
-            </div>
+            </button>
 
             <button
+              type="button"
               onClick={onClose}
               style={{
                 alignSelf: 'flex-end', background: 'none', border: 'none',
                 fontSize: '13px', color: 'var(--text-muted)', cursor: 'pointer',
               }}
             >
-              Cancelar
+              {tp.cancel}
             </button>
           </>
         )}
@@ -122,8 +315,8 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
         {step === 'confirm-deactivate' && (
           <>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 8px' }}>
-                Confirmar desactivación
+              <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 8px' }}>
+                {tp.confirmDeactivateTitle}
               </h2>
               <div style={{
                 background: 'var(--bg-elevated)',
@@ -132,11 +325,9 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 padding: '14px 16px',
                 fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6,
               }}>
-                ℹ️ Tu cuenta quedará desactivada y no podrás iniciar sesión.
+                {tp.confirmDeactivateInfo}
                 <br /><br />
-                <strong style={{ color: 'var(--text-primary)' }}>Tus publicaciones seguirán visibles</strong> para
-                ayudar a la comunidad a comparar precios reales. Nadie sabrá que tu
-                cuenta está desactivada.
+                <strong style={{ color: 'var(--text-primary)' }}>{tp.confirmDeactivateDetail}</strong>
               </div>
             </div>
 
@@ -149,7 +340,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                   fontSize: '13px', color: 'var(--text-secondary)', cursor: 'pointer',
                 }}
               >
-                Atrás
+                {tp.back}
               </button>
               <button
                 onClick={handleConfirm}
@@ -162,7 +353,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                   opacity: loading ? 0.7 : 1,
                 }}
               >
-                {loading ? 'Procesando...' : 'Sí, desactivar mi cuenta'}
+                {loading ? tp.processing : tp.confirmDeactivate}
               </button>
             </div>
           </>
@@ -172,8 +363,8 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
         {step === 'confirm-permanent' && (
           <>
             <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#dc2626', margin: '0 0 8px' }}>
-                ⚠️ Eliminación permanente
+              <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: '#dc2626', margin: '0 0 8px' }}>
+                {tp.permanentModalTitle}
               </h2>
               <div style={{
                 background: '#fef2f2',
@@ -182,14 +373,11 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 padding: '14px 16px',
                 fontSize: '13px', color: '#7f1d1d', lineHeight: 1.6,
               }}>
-                Esta acción <strong>no se puede deshacer</strong>. Se eliminarán
-                permanentemente:
+                {tp.permanentWarning}
                 <ul style={{ margin: '8px 0 0', paddingLeft: '18px' }}>
-                  <li>Tu cuenta y acceso</li>
-                  <li>Todas tus publicaciones de precios</li>
-                  <li>Tus votos y reportes</li>
-                  <li>Tus tiendas creadas y sus evidencias</li>
-                  <li>Tu historial completo</li>
+                  {tp.permanentItems.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -203,7 +391,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                   fontSize: '13px', color: 'var(--text-secondary)', cursor: 'pointer',
                 }}
               >
-                Atrás
+                {tp.back}
               </button>
               <button
                 onClick={handleConfirm}
@@ -216,7 +404,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                   opacity: loading ? 0.7 : 1,
                 }}
               >
-                {loading ? 'Eliminando...' : 'Sí, eliminar todo permanentemente'}
+                {loading ? tp.deleting : tp.confirmPermanent}
               </button>
             </div>
           </>
@@ -430,6 +618,8 @@ function ProfileActivitySection({ user }) {
 
 // ─── ProfilePage ──────────────────────────────────────────────────────────────
 export default function ProfilePage() {
+  const { t } = useLanguage();
+  const tp = t.profile;
   const user = useAuthStore(selectAuthUser);
   const status = useAuthStore(selectAuthStatus);
   const { updateProfile, logout, deleteAccount } = useAuthStore();
@@ -461,13 +651,12 @@ export default function ProfilePage() {
       padding: '28px 16px',
       width: '100%',
     }}>
-      {/* Breadcrumb / Título */}
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text-primary)' }}>
-          Mi perfil
+          {tp.title}
         </h1>
         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-          Gestiona tu información personal
+          {tp.subtitle}
         </p>
       </div>
 
@@ -489,18 +678,21 @@ export default function ProfilePage() {
         padding: '20px 24px',
       }}>
         <h2 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '14px' }}>
-          Seguridad y sesión
+          {tp.securityTitle}
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <Button variant="secondary" size="md" onClick={() => navigate('/recuperar-contrasena')}>
-            Cambiar contraseña
+            {tp.changePassword}
           </Button>
           <Button variant="danger" size="md" onClick={handleLogout} loading={status === 'loading'}>
-            Cerrar sesión
+            {tp.logout}
           </Button>
         </div>
       </div>
+
+      {/* Alertas de precios */}
+      <PriceAlertsSection />
 
       {/* Zona peligrosa */}
       <div style={{
@@ -511,11 +703,10 @@ export default function ProfilePage() {
         padding: '20px 24px',
       }}>
         <h2 style={{ fontSize: '15px', fontWeight: '600', color: '#dc2626', marginBottom: '6px' }}>
-          Zona peligrosa
+          {tp.dangerZoneTitle}
         </h2>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
-          Puedes desactivar tu cuenta o eliminarla permanentemente.
-          Si tienes publicaciones, te explicaremos qué pasa con ellas antes de confirmar.
+          {tp.dangerZoneDesc}
         </p>
 
         {deleteError && (
@@ -542,7 +733,7 @@ export default function ProfilePage() {
             cursor: 'pointer',
           }}
         >
-          Eliminar cuenta
+          {tp.deleteAccount}
         </button>
       </div>
 

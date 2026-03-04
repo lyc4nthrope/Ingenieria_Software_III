@@ -11,9 +11,12 @@ import {
 } from "@/features/auth/store/authStore";
 import RegisterForm from "@/features/auth/components/RegisterForm";
 import { resendConfirmation } from "@/services/api/auth.api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Vista de verificación de email
 function VerificationView({ email, onResend }) {
+  const { t } = useLanguage();
+  const tr = t.registerPage;
   const [resent, setResent] = useState(false);
   const [resending, setResending] = useState(false);
 
@@ -56,7 +59,7 @@ function VerificationView({ email, onResend }) {
           color: "var(--text-primary)",
         }}
       >
-        Verifica tu email
+        {tr.verifyTitle}
       </h2>
       <p
         style={{
@@ -66,7 +69,7 @@ function VerificationView({ email, onResend }) {
           marginBottom: "8px",
         }}
       >
-        Enviamos un enlace de confirmación a:
+        {tr.verifySent}
       </p>
       <p
         style={{
@@ -86,14 +89,12 @@ function VerificationView({ email, onResend }) {
           marginBottom: "20px",
         }}
       >
-        Revisa tu bandeja de entrada y haz clic en el enlace para activar tu
-        cuenta.
+        {tr.verifyInstruction}
       </p>
 
-      {/* Botón reenvío — genera token nuevo cada vez */}
       {resent ? (
         <p style={{ fontSize: "13px", color: "var(--success)" }}>
-          ✓ Email reenviado. Revisa tu bandeja.
+          {tr.emailResent}
         </p>
       ) : (
         <button
@@ -110,7 +111,7 @@ function VerificationView({ email, onResend }) {
             opacity: resending ? 0.6 : 1,
           }}
         >
-          {resending ? "Reenviando..." : "¿No llegó? Reenviar email"}
+          {resending ? tr.resending : tr.resendEmail}
         </button>
       )}
     </div>
@@ -118,6 +119,7 @@ function VerificationView({ email, onResend }) {
 }
 
 export default function RegisterPage() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const register = useAuthStore((s) => s.register);
   const clearError = useAuthStore((s) => s.clearError);
@@ -191,10 +193,10 @@ export default function RegisterPage() {
               marginBottom: "6px",
             }}
           >
-            Crea tu cuenta
+            {t.registerPage.title}
           </h1>
           <p style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-            Únete y empieza a comparar precios
+            {t.registerPage.subtitle}
           </p>
         </div>
 

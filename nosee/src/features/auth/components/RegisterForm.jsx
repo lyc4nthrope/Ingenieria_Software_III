@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // Íconos
 const MailIcon = () => (
@@ -34,14 +35,22 @@ const CheckIcon = () => (
   </svg>
 );
 
-// Reglas de contraseña
-const passwordRules = [
-  { label: 'Al menos 8 caracteres', test: (v) => v.length >= 8 },
-  { label: 'Una letra mayúscula', test: (v) => /[A-Z]/.test(v) },
-  { label: 'Un número', test: (v) => /\d/.test(v) },
+// Tests de las reglas (sin labels hardcodeados)
+const PASSWORD_RULE_TESTS = [
+  (v) => v.length >= 8,
+  (v) => /[A-Z]/.test(v),
+  (v) => /\d/.test(v),
 ];
 
 export default function RegisterForm({ onSubmit, onGoogleRegister, loading = false, error = null }) {
+  const { t } = useLanguage();
+  const tf = t.registerForm;
+
+  const passwordRules = PASSWORD_RULE_TESTS.map((test, i) => ({
+    label: tf.passwordRules[i],
+    test,
+  }));
+
   const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '' });
   const [fieldErrors, setFieldErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
@@ -52,19 +61,17 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
     if (fieldErrors[name]) setFieldErrors(prev => ({ ...prev, [name]: '' }));
   };
 
-  const toggleShowPassword = () => {
-    setShowPassword(prev => !prev);
-  };
+  const toggleShowPassword = () => setShowPassword(prev => !prev);
 
   const validate = () => {
     const errors = {};
-    if (!form.fullName.trim()) errors.fullName = 'El nombre es requerido';
-    if (!form.email) errors.email = 'El email es requerido';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Email inválido';
-    if (!form.password) errors.password = 'La contraseña es requerida';
-    else if (!passwordRules.every(r => r.test(form.password))) errors.password = 'La contraseña no cumple los requisitos';
-    if (!form.confirmPassword) errors.confirmPassword = 'Confirma tu contraseña';
-    else if (form.password !== form.confirmPassword) errors.confirmPassword = 'Las contraseñas no coinciden';
+    if (!form.fullName.trim()) errors.fullName = tf.fullNameRequired;
+    if (!form.email) errors.email = tf.emailRequired;
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = tf.emailInvalid;
+    if (!form.password) errors.password = tf.passwordRequired;
+    else if (!passwordRules.every(r => r.test(form.password))) errors.password = tf.passwordWeak;
+    if (!form.confirmPassword) errors.confirmPassword = tf.confirmRequired;
+    else if (form.password !== form.confirmPassword) errors.confirmPassword = tf.passwordMismatch;
     return errors;
   };
 
@@ -79,7 +86,6 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
 
   return (
     <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-      {/* Error global */}
       {error && (
         <div role="alert" style={{
           padding: '12px 16px', borderRadius: 'var(--radius-md)',
@@ -90,7 +96,7 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
         </div>
       )}
 
-            <Button
+      <Button
         type="button"
         fullWidth
         size="lg"
@@ -98,23 +104,23 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
         onClick={onGoogleRegister}
         disabled={loading}
       >
-        Registrarme con Google
+        {tf.googleRegister}
       </Button>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>o completa el formulario</span>
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{tf.orForm}</span>
         <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
       </div>
 
       <Input
-        label="Nombre completo"
+        label={tf.fullNameLabel}
         id="reg-fullname"
         name="fullName"
         type="text"
         value={form.fullName}
         onChange={handleChange}
-        placeholder="Tu nombre y apellido"
+        placeholder={tf.fullNamePlaceholder}
         error={fieldErrors.fullName}
         iconLeft={<UserIcon />}
         autoComplete="name"
@@ -123,13 +129,13 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
       />
 
       <Input
-        label="Correo electrónico"
+        label={tf.emailLabel}
         id="reg-email"
         name="email"
         type="email"
         value={form.email}
         onChange={handleChange}
-        placeholder="tucorreo@ejemplo.com"
+        placeholder={tf.emailPlaceholder}
         error={fieldErrors.email}
         iconLeft={<MailIcon />}
         autoComplete="email"
@@ -140,13 +146,13 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <div style={{ position: 'relative' }}>
           <Input
-            label="Contraseña"
+            label={tf.passwordLabel}
             id="reg-password"
             name="password"
             type={showPassword ? 'text' : 'password'}
             value={form.password}
             onChange={handleChange}
-            placeholder="Mínimo 8 caracteres"
+            placeholder={tf.passwordPlaceholder}
             error={fieldErrors.password}
             iconLeft={<LockIcon />}
             autoComplete="new-password"
@@ -156,17 +162,20 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
           <button
             type="button"
             onClick={toggleShowPassword}
+            aria-label={showPassword ? tf.hidePassword : tf.showPassword}
             style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-muted)' }}
             disabled={loading}
           >
-            {showPassword ? '👁️' : '👁️‍🗨️'}
+            <span aria-hidden="true">{showPassword ? '👁️' : '👁️‍🗨️'}</span>
           </button>
         </div>
 
-        {/* Indicador de fortaleza */}
         {form.password.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div style={{ display: 'flex', gap: '4px' }}>
+          <div aria-live="polite" aria-atomic="true" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span className="sr-only">
+              {pwdStrength === 3 ? tf.strongPassword : pwdStrength === 2 ? tf.mediumPassword : tf.weakPassword}
+            </span>
+            <div aria-hidden="true" style={{ display: 'flex', gap: '4px' }}>
               {passwordRules.map((_, i) => (
                 <div key={i} style={{
                   flex: 1, height: '3px', borderRadius: '2px',
@@ -180,7 +189,7 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
                 const met = rule.test(form.password);
                 return (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: met ? 'var(--success)' : 'var(--text-muted)' }}>
-                    <span style={{ opacity: met ? 1 : 0.4 }}><CheckIcon /></span>
+                    <span aria-hidden="true" style={{ opacity: met ? 1 : 0.4 }}><CheckIcon /></span>
                     {rule.label}
                   </div>
                 );
@@ -191,13 +200,13 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
       </div>
 
       <Input
-        label="Confirmar contraseña"
+        label={tf.confirmPasswordLabel}
         id="reg-confirm"
         name="confirmPassword"
         type="password"
         value={form.confirmPassword}
         onChange={handleChange}
-        placeholder="Repite tu contraseña"
+        placeholder={tf.confirmPasswordPlaceholder}
         error={fieldErrors.confirmPassword}
         iconLeft={<LockIcon />}
         autoComplete="new-password"
@@ -205,22 +214,21 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
         disabled={loading}
       />
 
-      {/* Términos */}
       <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        Al registrarte aceptas los{' '}
-        <a href="#" style={{ color: 'var(--accent)' }}>Términos de uso</a>
-        {' '}y la{' '}
-        <a href="#" style={{ color: 'var(--accent)' }}>Política de privacidad</a>.
+        {tf.terms}{' '}
+        <a href="#" style={{ color: 'var(--accent)' }}>{tf.termsLink}</a>
+        {' '}{tf.and}{' '}
+        <a href="#" style={{ color: 'var(--accent)' }}>{tf.privacyLink}</a>.
       </p>
 
       <Button type="submit" fullWidth loading={loading} disabled={loading} size="lg">
-        {loading ? 'Creando cuenta...' : 'Crear cuenta'}
+        {loading ? tf.creatingAccount : tf.createAccount}
       </Button>
 
       <p style={{ textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
-        ¿Ya tienes cuenta?{' '}
+        {tf.hasAccount}{' '}
         <Link to="/login" style={{ color: 'var(--accent)', fontWeight: '500', textDecoration: 'none' }}>
-          Inicia sesión
+          {tf.loginLink}
         </Link>
       </p>
     </form>

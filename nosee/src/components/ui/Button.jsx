@@ -88,11 +88,13 @@ export default function Button({
       type={type}
       disabled={disabled || loading}
       onClick={onClick}
+      aria-busy={loading || undefined}
       style={buttonStyle}
       {...props}
     >
       {loading && (
         <span
+          aria-hidden="true"
           style={{
             width: '14px',
             height: '14px',

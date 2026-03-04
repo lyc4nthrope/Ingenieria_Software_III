@@ -19,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 
 // State Management
 import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // Componentes UI compartidos
 import Button from "@/components/ui/Button";
@@ -87,6 +88,8 @@ export default function PublicationsPage() {
   // PASO 1: Estado del usuario desde store
   // ─────────────────────────────────────────────────────────────
   const user = useAuthStore(selectAuthUser);
+  const { t } = useLanguage();
+  const tp = t.publications;
 
   // ─────────────────────────────────────────────────────────────
   // PASO 2: Hooks de navegación
@@ -137,7 +140,7 @@ export default function PublicationsPage() {
    */
   const handlePublish = () => {
     if (!user?.isVerified) {
-      setError("Debes verificar tu email antes de publicar");
+      setError(tp.verifyEmailError);
       return;
     }
     navigate("/publicaciones/nueva");
@@ -166,32 +169,17 @@ export default function PublicationsPage() {
   const handleValidatePublication = async (publicationId) => {
     const result = await validatePublication(publicationId);
     if (!result.success) {
-      setError(result.error || "No se pudo validar la publicación");
+      setError(result.error || tp.errorValidate);
     }
   };
 
   /**
    * Maneja reporte de publicación
    */
-  const handleReportPublication = async (publicationId, reportPayload) => {
-    console.log('[📋 PublicationsPage] Enviando reporte:', { publicationId, reportPayload });
-    
-    const result = await reportPublication(publicationId, reportPayload);
-    
-    console.log('[📋 PublicationsPage] Resultado:', result);
-    
-    if (result.success) {
-      setFeedback({
-        type: 'success',
-        message: result.message || '✅ Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE.'
-      });
-      setError(null);
-    } else {
-      setFeedback({
-        type: 'error',
-        message: result.message || result.error || '❌ Hubo un error al enviar el reporte. Intenta de nuevo.'
-      });
-      setError(result.error || "No se pudo reportar la publicación");
+  const handleReportPublication = async (publicationId, reason) => {
+    const result = await reportPublication(publicationId, reason, "");
+    if (!result.success) {
+      setError(result.error || tp.errorReport);
     }
     
     // Auto-cerrar el feedback después de 5 segundos
@@ -209,7 +197,7 @@ export default function PublicationsPage() {
       return;
     }
 
-    setError(result.error || "No se pudo eliminar la publicación");
+    setError(result.error || tp.errorDelete);
   };
 
 const handleViewMore = async (publicationId) => {
@@ -218,7 +206,7 @@ const handleViewMore = async (publicationId) => {
 
     const result = await publicationsApi.getPublicationDetail(publicationId);
     if (!result.success) {
-      setError(result.error || "No se pudo cargar el detalle de la publicación");
+      setError(result.error || tp.errorDetail);
       setDetailLoading(false);
       return;
     }
@@ -267,7 +255,7 @@ const handleViewMore = async (publicationId) => {
                 letterSpacing: "-0.02em",
               }}
             >
-              Productos
+              {tp.title}
             </h1>
             <p
               style={{
@@ -276,8 +264,7 @@ const handleViewMore = async (publicationId) => {
                 lineHeight: "1.6",
               }}
             >
-              Busca y compara los mejores precios de productos en la región.
-              Ayuda a la comunidad compartiendo publicaciones útiles.
+              {tp.subtitle}
             </p>
           </div>
 
@@ -286,10 +273,10 @@ const handleViewMore = async (publicationId) => {
             size="md"
             onClick={handlePublish}
             disabled={!user?.isVerified}
-            title={!user?.isVerified ? "Verifica tu email primero" : ""}
+            title={!user?.isVerified ? tp.verifyEmailTitle : ""}
           >
             <PlusIcon style={{ marginRight: "6px" }} />
-            Crear publicación
+            {tp.createBtn}
           </Button>
         </div>
 
@@ -306,14 +293,15 @@ const handleViewMore = async (publicationId) => {
               marginBottom: "16px",
             }}
           >
-            ⚠️ Verifica tu email para publicar precios. Revisa tu bandeja de
-            entrada.
+            {tp.verifyEmailWarning}
           </div>
         )}
 
         {/* Error message */}
         {error && (
           <div
+            role="alert"
+            aria-live="assertive"
             style={{
               padding: "12px 16px",
               background: "rgba(239,68,68,0.1)",
@@ -346,10 +334,11 @@ const handleViewMore = async (publicationId) => {
             alignItems: "center",
           }}
         >
-          <SearchIcon />
+          <SearchIcon aria-hidden="true" />
           <input
-            type="text"
-            placeholder="Buscar producto, tienda o precio..."
+            type="search"
+            aria-label={tp.searchPlaceholder}
+            placeholder={tp.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             style={{
@@ -417,7 +406,7 @@ const handleViewMore = async (publicationId) => {
               }}
             />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <p style={{ fontSize: "14px" }}>Cargando publicaciones...</p>
+            <p style={{ fontSize: "14px" }}>{tp.loading}</p>
           </div>
         ) : !loading && normalizedPublications.length === 0 ? (
           // Estado: Vacío
@@ -442,13 +431,12 @@ const handleViewMore = async (publicationId) => {
                 marginBottom: "8px",
               }}
             >
-              No hay publicaciones
+              {tp.noPublicationsTitle}
             </h2>
             <p
               style={{ fontSize: "14px", maxWidth: "320px", lineHeight: "1.6" }}
             >
-              No encontramos publicaciones que coincidan con tus filtros.
-              Intenta con otros términos o{" "}
+              {tp.noPublicationsDesc}{" "}
               <button
                 onClick={handlePublish}
                 style={{
@@ -460,7 +448,7 @@ const handleViewMore = async (publicationId) => {
                   textDecoration: "underline",
                 }}
               >
-                sé el primero en publicar
+                {tp.beFirst}
               </button>
               .
             </p>
@@ -507,7 +495,7 @@ const handleViewMore = async (publicationId) => {
                 console.log("Cargar más publicaciones");
               }}
             >
-              Ver más publicaciones
+              {tp.loadMore}
             </Button>
           </div>
         )}
@@ -515,7 +503,7 @@ const handleViewMore = async (publicationId) => {
 
       {detailLoading && (
         <div style={{ marginTop: "16px", color: "var(--text-muted)", fontSize: "14px" }}>
-          Cargando detalle...
+          {tp.loadingDetail}
         </div>
       )}
 

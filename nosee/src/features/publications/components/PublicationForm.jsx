@@ -22,24 +22,13 @@ import StoreCreateModal from "@/features/stores/components/StoreCreateModal";
 import ProductQuickCreateModal from "./ProductQuickCreateModal";
 import * as publicationsApi from "@/services/api/publications.api";
 import * as storesApi from "@/services/api/stores.api";
+import { useLanguage } from "@/contexts/LanguageContext";
 
-export function PublicationForm({ 
-  mode = "create",
-  publicationId,
-  onSuccess 
-}) {
-  const {
-    formData,
-    errors,
-    isSubmitting,
-    submitError,
-    submitSuccess,
-    isLoading,
-    latitude,
-    longitude,
-    updateField,
-    submit,
-  } = usePublicationCreation({ publicationId, mode });
+export function PublicationForm({ onSuccess }) {
+  const { t } = useLanguage();
+  const tf = t.publicationForm;
+
+  const { latitude, longitude } = useGeoLocation({ autoFetch: true });
 
   // Estado para autocompletes y modales
   const [hasLoadedInitialData, setHasLoadedInitialData] = useState(mode === 'create');
@@ -256,14 +245,66 @@ export function PublicationForm({
 
   // ─── Form helpers ──────────────────────────────────────────────────────────
   const handleInputChange = (field, value) => {
-    updateField(field, value);
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => {
+        const n = { ...prev };
+        delete n[field];
+        return n;
+      });
+    }
+  };
+
+  const validateForm = () => {
+    const e = {};
+    if (!formData.productId) e.productId = tf.productRequired;
+    if (!formData.storeId) e.storeId = tf.storeRequired;
+    if (!formData.price || Number(formData.price) <= 0)
+      e.price = tf.priceRequired;
+    if (!formData.photoUrl) e.photoUrl = tf.photoRequired;
+    if (formData.description?.length > 500)
+      e.description = tf.descriptionMax;
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    const result = await submit();
-    if (result.success) {
-      onSuccess?.(result.data);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    try {
+      const result = await publicationsApi.createPublication({
+        productId: Number(formData.productId),
+        storeId: formData.storeId,
+        price: Number(formData.price),
+        photoUrl: formData.photoUrl,
+        description: formData.description,
+      });
+
+      if (result.success) {
+        setSubmitSuccess(true);
+        onSuccess?.(result.data);
+        setFormData({
+          productId: "",
+          storeId: "",
+          price: "",
+          currency: "COP",
+          description: "",
+          photoUrl: "",
+        });
+        setProductQuery("");
+        setStoreQuery("");
+        setTimeout(() => setSubmitSuccess(false), 3000);
+      } else {
+        setSubmitError(result.error || tf.errorFallback);
+      }
+    } catch (err) {
+      setSubmitError(err.message || tf.unknownError);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -279,17 +320,10 @@ export function PublicationForm({
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>
-        {mode === "edit" ? "Editar Publicación" : "Publicar Precio"}
-      </h2>
+      <h2 style={styles.title}>{tf.title}</h2>
 
       {submitSuccess && (
-        <div style={styles.successAlert}>
-          ✓{" "}
-          {mode === "edit"
-            ? "Publicación actualizada exitosamente"
-            : "Publicación creada exitosamente"}
-        </div>
+        <div style={styles.successAlert}>{tf.success}</div>
       )}
       {submitError && <div style={styles.errorAlert}>⚠ {submitError}</div>}
 
@@ -297,12 +331,12 @@ export function PublicationForm({
         {/* ── Producto ─────────────────────────────────────────────────────── */}
         <div style={styles.formGroup}>
           <label style={styles.label}>
-            Producto <span style={styles.required}>*</span>
+            {tf.productLabel} <span style={styles.required}>*</span>
           </label>
           <div ref={productWrapperRef} style={styles.autocompleteContainer}>
             <input
               type="text"
-              placeholder="Escribe el nombre del producto..."
+              placeholder={tf.productPlaceholder}
               value={productQuery}
               onChange={handleProductQueryChange}
               onFocus={() =>
@@ -317,7 +351,7 @@ export function PublicationForm({
             {showProductDropdown && (
               <div style={styles.dropdown}>
                 {productSearching && (
-                  <div style={styles.dropdownState}>Buscando...</div>
+                  <div style={styles.dropdownState}>{tf.searching}</div>
                 )}
 
                 {!productSearching &&
@@ -334,7 +368,7 @@ export function PublicationForm({
                 {!productSearching &&
                   productResults.length === 0 &&
                   productQuery.trim().length >= 2 && (
-                    <div style={styles.dropdownState}>Sin resultados</div>
+                    <div style={styles.dropdownState}>{tf.noResults}</div>
                   )}
 
                 {/* Crear producto — solo si no hay coincidencia exacta */}
@@ -348,7 +382,7 @@ export function PublicationForm({
                       }}
                       onMouseDown={handleCreateProduct}
                     >
-                     {`+ Crear "${productQuery.trim()}"`}
+                     {tf.createProduct(productQuery.trim())}
                     </div>
                   )}
               </div>
@@ -356,7 +390,7 @@ export function PublicationForm({
           </div>
 
           {formData.productId && (
-            <div style={styles.selectedBadge}>✓ Producto seleccionado</div>
+            <div style={styles.selectedBadge}>{tf.productSelected}</div>
           )}
           {errors.productId && (
             <div style={styles.errorText}>{errors.productId}</div>
@@ -366,12 +400,12 @@ export function PublicationForm({
         {/* ── Tienda ───────────────────────────────────────────────────────── */}
         <div style={styles.formGroup}>
           <label style={styles.label}>
-            Tienda <span style={styles.required}>*</span>
+            {tf.storeLabel} <span style={styles.required}>*</span>
           </label>
           <div ref={storeWrapperRef} style={styles.autocompleteContainer}>
             <input
               type="text"
-              placeholder="Escribe el nombre de la tienda..."
+              placeholder={tf.storePlaceholder}
               value={storeQuery}
               onChange={handleStoreQueryChange}
               onFocus={() =>
@@ -386,7 +420,7 @@ export function PublicationForm({
             {showStoreDropdown && (
               <div style={styles.dropdown}>
                 {storeSearching && (
-                  <div style={styles.dropdownState}>Buscando...</div>
+                  <div style={styles.dropdownState}>{tf.searching}</div>
                 )}
 
                 {!storeSearching &&
@@ -413,7 +447,7 @@ export function PublicationForm({
                 {!storeSearching &&
                   storeResults.length === 0 &&
                   storeQuery.trim().length >= 2 && (
-                    <div style={styles.dropdownState}>Sin resultados</div>
+                    <div style={styles.dropdownState}>{tf.noResults}</div>
                   )}
 
                 {/* Crear tienda — abre modal */}
@@ -430,7 +464,7 @@ export function PublicationForm({
                         setShowStoreModal(true);
                       }}
                     >
-                      + Crear tienda "{storeQuery.trim()}"
+                      {tf.createStore(storeQuery.trim())}
                     </div>
                   )}
               </div>
@@ -438,7 +472,7 @@ export function PublicationForm({
           </div>
 
           {formData.storeId && (
-            <div style={styles.selectedBadge}>✓ Tienda seleccionada</div>
+            <div style={styles.selectedBadge}>{tf.storeSelected}</div>
           )}
           {errors.storeId && (
             <div style={styles.errorText}>{errors.storeId}</div>
@@ -449,7 +483,7 @@ export function PublicationForm({
         <div style={styles.row}>
           <div style={styles.formGroup}>
             <label style={styles.label}>
-              Precio <span style={styles.required}>*</span>
+              {tf.priceLabel} <span style={styles.required}>*</span>
             </label>
             <div style={styles.inputGroup}>
               <span style={styles.currencyPrefix}>{currencySymbol}</span>
@@ -469,7 +503,7 @@ export function PublicationForm({
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Moneda</label>
+            <label style={styles.label}>{tf.currencyLabel}</label>
             <select
               value={formData.currency}
               onChange={(e) => handleInputChange("currency", e.target.value)}
@@ -484,9 +518,9 @@ export function PublicationForm({
 
         {/* ── Descripción ───────────────────────────────────────────────────── */}
         <div style={styles.formGroup}>
-          <label style={styles.label}>Descripción (opcional)</label>
+          <label style={styles.label}>{tf.descriptionLabel}</label>
           <textarea
-            placeholder="Ej: Buen estado, precio justo"
+            placeholder={tf.descriptionPlaceholder}
             value={formData.description}
             onChange={(e) => handleInputChange("description", e.target.value)}
             maxLength={500}
@@ -501,7 +535,7 @@ export function PublicationForm({
         {/* ── Foto ──────────────────────────────────────────────────────────── */}
         <div style={styles.formGroup}>
           <label style={styles.label}>
-            Foto del producto <span style={styles.required}>*</span>
+            {tf.photoLabel} <span style={styles.required}>*</span>
           </label>
           <PhotoUploader
             onUpload={(url) => handleInputChange("photoUrl", url)}
@@ -515,7 +549,7 @@ export function PublicationForm({
         {/* ── Geolocalización ───────────────────────────────────────────────── */}
         {latitude && longitude && (
           <div style={styles.geoInfo}>
-            Ubicación detectada: {latitude.toFixed(4)}, {longitude.toFixed(4)}
+            {tf.geoDetected} {latitude.toFixed(4)}, {longitude.toFixed(4)}
           </div>
         )}
 
@@ -525,13 +559,7 @@ export function PublicationForm({
           style={{ ...styles.submitBtn, opacity: isSubmitting ? 0.7 : 1 }}
           disabled={isSubmitting}
         >
-          {isSubmitting
-            ? mode === "edit"
-              ? "Actualizando..."
-              : "Publicando..."
-            : mode === "edit"
-            ? "Actualizar Precio"
-            : "Publicar Precio"}
+          {isSubmitting ? tf.submitting : tf.submitBtn}
         </button>
       </form>
 

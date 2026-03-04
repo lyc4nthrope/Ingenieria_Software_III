@@ -1,13 +1,15 @@
 import StoreForm from '@/features/stores/components/StoreForm';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function CreateStorePage() {
+  const { t } = useLanguage();
+  const tc = t.createStore;
+
   return (
     <section style={styles.page}>
       <header style={styles.header}>
-        <h1 style={styles.title}>🏪 Crear tienda</h1>
-        <p style={styles.subtitle}>
-          Registra una tienda física o virtual. Para tiendas físicas puedes adjuntar hasta 3 evidencias.
-        </p>
+        <h1 style={styles.title}>{tc.title}</h1>
+        <p style={styles.subtitle}>{tc.subtitle}</p>
       </header>
 
       <StoreForm />

@@ -2,35 +2,90 @@
  * AdminDashboard.jsx
  *
  * Panel de control total del Admin de NØSEE.
- * Gestión de usuarios, cambio de roles, estadísticas del sistema.
+ * Gestión de usuarios, cambio de roles, estadísticas del sistema,
+ * moderación de publicaciones, revisión de reportes y configuración.
  *
  * UBICACIÓN: src/features/dashboard/admin/AdminDashboard.jsx
- * 
- * CAMBIOS (26-02-2026):
- * ✅ Conectado a API real (getAllUsers, changeUserRole)
- * ✅ Carga usuarios desde BD en useEffect
- * ✅ Estados para loading y error
- * ✅ Manejo de errores amigable
  */
-import { useState, useEffect, useMemo } from 'react';
-import { useAuthStore } from '@/features/auth/store/authStore';
-import {
-  changeUserRole,
-  getAdminOverviewStats,
-  getAdminReports,
-  getAllUsers,
-  updateReportReview,
-  updateUserStatus,
-} from '@/services/api/users.api';
+import { useState, useEffect } from 'react';
+import { changeUserRole, getAllUsers, updateUserStatus } from '@/services/api/users.api';
+import { getPublications, deletePublication } from '@/services/api/publications.api';
+import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
+import { useLanguage } from '@/contexts/LanguageContext';
 
-const INITIAL_STATS = {
-  totalUsers: '—',
-  publicationsToday: '—',
-  validationsToday: '—',
-  pendingReports: '—',
+// ─── Modal de confirmación de baneo ──────────────────────────────────────────
+function BanModal({ user, onConfirm, onCancel }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
+  const isBanning = user.status === 'activo';
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000,
+    }}>
+      <div style={{
+        background: '#0F1724', border: '1px solid #1E2D4A', borderRadius: 14,
+        padding: '28px 32px', width: 420, maxWidth: '90vw',
+      }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#E8EDF8' }}>
+          {isBanning ? td.banTitle : td.unbanTitle}
+        </h2>
+        <p style={{ margin: '0 0 20px', fontSize: 14, color: '#7B90BD' }}>
+          {isBanning
+            ? <>{td.banDesc1} <strong style={{ color: '#E8EDF8' }}>{user.name}</strong>{td.banDesc2} <strong style={{ color: '#F87171' }}>{td.banDescStrong}</strong>{td.banDesc3}</>
+            : <>{td.unbanDesc1} <strong style={{ color: '#E8EDF8' }}>{user.name}</strong>{td.unbanDesc2}</>
+          }
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onCancel}
+            style={{ background: 'none', border: '1px solid #1E2D4A', color: '#7B90BD', borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer' }}
+          >
+            {td.cancelBtn}
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              background: isBanning ? '#F8717118' : '#34D39918',
+              border: `1px solid ${isBanning ? '#F87171' : '#34D399'}`,
+              color: isBanning ? '#F87171' : '#34D399',
+              borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer', fontWeight: 600,
+            }}
+          >
+            {isBanning ? td.confirmBanBtn : td.confirmUnbanBtn}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Constantes de reportes ───────────────────────────────────────────────────
+const REPORT_SEVERITY = {
+  offensive:   'alta',
+  spam:        'media',
+  fake_price:  'media',
+  wrong_photo: 'baja',
 };
+const SEVERITY_COLORS = {
+  alta:  { bg: '#F8717118', text: '#F87171' },
+  media: { bg: '#FCD34D18', text: '#FCD34D' },
+  baja:  { bg: '#60A5FA18', text: '#60A5FA' },
+};
+
+// ─── Parámetros de reputación — valores por defecto del proyecto ─────────────
+const DEFAULT_REPUTATION_PARAMS = [
+  { param: 'Puntos por upvote recibido',       value: '+5',  note: 'Cuando otro usuario valida tu publicación' },
+  { param: 'Puntos por downvote recibido',      value: '-3',  note: 'Cuando otro usuario rechaza tu publicación' },
+  { param: 'Puntos por publicar precio',        value: '+2',  note: 'Al crear una nueva publicación de precio' },
+  { param: 'Umbral Usuario Verificado',         value: '10',  note: 'Mínimo de puntos para publicar sin restricciones' },
+  { param: 'Umbral para rol Moderador',         value: '500', note: 'Puntos mínimos para asignación automática' },
+  { param: 'Penalización por reporte aceptado', value: '-10', note: 'Cuando un reporte contra el usuario es validado' },
+];
+const LS_KEY = 'nosee_reputation_params';
 
 const ALL_ROLES = [UserRoleEnum.USUARIO, UserRoleEnum.MODERADOR, UserRoleEnum.ADMIN, UserRoleEnum.REPARTIDOR];
 const REPORT_STATUS_OPTIONS = ['PENDING', 'IN_REVIEW', 'RESOLVED', 'REJECTED'];
@@ -63,249 +118,354 @@ const formatPublicationSummary = (publication) => {
 };
 
 export default function AdminDashboard() {
-  const logout = useAuthStore((s) => s.logout);
-  const currentUser = useAuthStore((s) => s.user);
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
 
-  // ─── Estados ──────────────────────────────────────────────────────────────
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [stats, setStats] = useState(INITIAL_STATS);
-  const [activeSection, setActiveSection] = useState('overview');
-  const [changingRole, setChangingRole] = useState(null);
-  const [reports, setReports] = useState([]);
-  const [loadingReports, setLoadingReports] = useState(false);
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [reportFilters, setReportFilters] = useState({
-    order: 'recent',
-    status: 'all',
-    reason: 'all',
+  // ─── Estado global ────────────────────────────────────────────────────────
+  const [activeSection, setActiveSection]     = useState('overview');
+
+  // Usuarios
+  const [users, setUsers]                     = useState([]);
+  const [usersLoading, setUsersLoading]       = useState(true);
+  const [usersError, setUsersError]           = useState(null);
+  const [changingRole, setChangingRole]       = useState(null);
+  const [banModal, setBanModal]               = useState(null); // usuario objetivo del baneo
+
+  // Publicaciones
+  const [publications, setPublications]       = useState([]);
+  const [pubsLoading, setPubsLoading]         = useState(false);
+  const [pubsLoaded, setPubsLoaded]           = useState(false);
+  const [pubFilter, setPubFilter]             = useState('all');
+  const [deletingPub, setDeletingPub]         = useState(null);
+
+  // Reportes
+  const [reports, setReports]                 = useState([]);
+  const [reportsLoading, setReportsLoading]   = useState(false);
+  const [reportsLoaded, setReportsLoaded]     = useState(false);
+  const [reportFilter, setReportFilter]       = useState('pending');
+  const [resolvedCount, setResolvedCount]     = useState(0);
+
+  // Categorías (config)
+  const [categories, setCategories]           = useState([]);
+  const [catsLoading, setCatsLoading]         = useState(false);
+  const [catsLoaded, setCatsLoaded]           = useState(false);
+
+  // Configuración editable de reputación
+  const [repParams, setRepParams] = useState(() => {
+    try {
+      const saved = localStorage.getItem(LS_KEY);
+      return saved ? JSON.parse(saved) : DEFAULT_REPUTATION_PARAMS;
+    } catch { return DEFAULT_REPUTATION_PARAMS; }
   });
-  const [reportForm, setReportForm] = useState({ status: 'PENDING', actionTaken: '', modNotes: '' });
-  const [savingReport, setSavingReport] = useState(false);
+  const [repEditing, setRepEditing]     = useState(false);
+  const [repDraft, setRepDraft]         = useState([]);
+  const [newCatName, setNewCatName]     = useState('');
+  const [savingCat, setSavingCat]       = useState(false);
 
-  const statCards = [
-    { label: 'Usuarios totales', value: stats.totalUsers, delta: 'Total', icon: '◉' },
-    { label: 'Publicaciones hoy', value: stats.publicationsToday, delta: 'Hoy', icon: '◈' },
-    { label: 'Validaciones hoy', value: stats.validationsToday, delta: 'Hoy', icon: '✓' },
-    { label: 'Reportes pendientes', value: stats.pendingReports, delta: 'Pendientes', icon: '⚠' },
-  ];
+  // Stats
+  const [stats, setStats]                     = useState({
+    users: '—', pubs: '—', validations: '—', reports: '—',
+  });
 
   // ─── Cargar usuarios al montar ────────────────────────────────────────────
   useEffect(() => {
     loadUsers();
-    loadOverviewStats();
+    loadStats();
   }, []);
 
-  const loadOverviewStats = async () => {
-    try {
-      const result = await getAdminOverviewStats();
-
-      if (result.success && result.data) {
-        setStats(result.data);
-      } else {
-        setError((prev) => prev || result.error || 'No se pudieron cargar las métricas del resumen');
-      }
-    } catch (err) {
-      console.error('Error cargando resumen admin:', err);
-      setError((prev) => prev || 'Error al conectar métricas del resumen');
-    }
-  };
-
+  // Cargar datos de sección cuando se activa (lazy loading)
   useEffect(() => {
-    if (activeSection === 'reports') {
-      loadReports();
-    }
+    if (activeSection === 'content'  && !pubsLoaded)     loadPublications();
+    if (activeSection === 'reports'  && !reportsLoaded)  loadReports();
+    if (activeSection === 'config'   && !catsLoaded)     loadCategories();
   }, [activeSection]);
 
-  useEffect(() => {
-    if (!selectedReport) return;
-    setReportForm({
-      status: selectedReport.status || 'PENDING',
-      actionTaken: selectedReport.action_taken || '',
-      modNotes: selectedReport.mod_notes || '',
-    });
-  }, [selectedReport]);
+  // ─── Stats reales ─────────────────────────────────────────────────────────
+  // Contamos directamente en Supabase para tener números en tiempo real.
+  const loadStats = async () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayISO = today.toISOString();
 
+    const [
+      { count: totalUsers },
+      { count: pubsToday },
+      { count: validationsToday },
+      { count: pendingReports },
+    ] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('price_publications').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
+      supabase.from('publication_votes').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
+      supabase.from('price_reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+    ]);
+
+    setStats({
+      users:       totalUsers       ?? '—',
+      pubs:        pubsToday        ?? '—',
+      validations: validationsToday ?? '—',
+      reports:     pendingReports   ?? '—',
+    });
+  };
+
+  // ─── Usuarios ─────────────────────────────────────────────────────────────
   const loadUsers = async () => {
-    setLoading(true);
-    setError(null);
-    
+    setUsersLoading(true);
+    setUsersError(null);
     try {
       const result = await getAllUsers();
-      
       if (result.success && result.data) {
-        // Mapear datos de BD a formato de tabla
-        const mappedUsers = result.data.map((u) => ({
-          id: u.id,
-          name: u.fullName || 'Sin nombre',
-          email: u.email,
-          role: u.role,
+        setUsers(result.data.map((u) => ({
+          id:     u.id,
+          name:   u.fullName || '',
+          email:  u.email,
+          role:   u.role,
           status: u.isActive ? 'activo' : 'baneado',
-          rep: u.reputationPoints || 0,
-          joined: new Date(u.createdAt).toLocaleDateString('es-CO', { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
+          rep:    u.reputationPoints || 0,
+          joined: new Date(u.createdAt).toLocaleDateString('es-CO', {
+            year: 'numeric', month: 'short', day: 'numeric',
           }),
-        }));
-        
-        setUsers(mappedUsers);
+        })));
       } else {
-        setError(result.error || 'No se pudieron cargar los usuarios');
+        setUsersError(result.error || td.errorLoadUsers);
       }
-    } catch (err) {
-      console.error('Error cargando usuarios:', err);
-      setError('Error al conectar con el servidor');
+    } catch {
+      setUsersError(td.errorConnect);
     } finally {
-      setLoading(false);
+      setUsersLoading(false);
     }
   };
 
-  const loadReports = async () => {
-    setLoadingReports(true);
-    try {
-      const result = await getAdminReports();
-      if (result.success && result.data) {
-        setReports(result.data);
-      } else {
-        setError((prev) => prev || result.error || 'No se pudieron cargar los reportes');
-      }
-    } catch (err) {
-      console.error('Error cargando reportes:', err);
-      setError((prev) => prev || 'Error al conectar reportes');
-    } finally {
-      setLoadingReports(false);
-    }
-  };
-
-  const reportReasonOptions = useMemo(() => {
-    const keys = Array.from(new Set(reports.map((r) => r.reason).filter(Boolean)));
-    return keys;
-  }, [reports]);
-
-  const reportStats = useMemo(() => {
-    const byType = reports.reduce((acc, report) => {
-      const key = report.reason || 'other';
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-
-    const byStatus = reports.reduce((acc, report) => {
-      const key = (report.status || 'PENDING').toUpperCase();
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-
-    return { byType, byStatus };
-  }, [reports]);
-
-  const filteredReports = useMemo(() => {
-    const base = reports.filter((report) => {
-      const statusMatch = reportFilters.status === 'all' || (report.status || '').toUpperCase() === reportFilters.status;
-      const reasonMatch = reportFilters.reason === 'all' || report.reason === reportFilters.reason;
-      return statusMatch && reasonMatch;
-    });
-
-    return base.sort((a, b) => {
-      const firstDate = new Date(a.created_at).getTime();
-      const secondDate = new Date(b.created_at).getTime();
-      return reportFilters.order === 'recent' ? secondDate - firstDate : firstDate - secondDate;
-    });
-  }, [reports, reportFilters]);
-
-  // ─── Cambiar rol de un usuario ─────────────────────────────────────────────
   const handleRoleChange = async (userId, newRole) => {
-    const roleMap = {
-      'Usuario': 1,
-      'Moderador': 2,
-      'Admin': 3,
-      'Repartidor': 4,
-    };
-
+    const roleMap = { 'Usuario': 1, 'Moderador': 2, 'Admin': 3, 'Repartidor': 4 };
     setChangingRole(userId);
-    
     try {
       const result = await changeUserRole(userId, roleMap[newRole]);
-
       if (result.success) {
-        // Actualizar la tabla localmente
-        setUsers(users.map(u => 
-          u.id === userId 
-            ? { ...u, role: newRole }
-            : u
-        ));
+        setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
       } else {
-        alert(`Error al cambiar rol: ${result.error || 'Error desconocido'}`);
+        alert(td.errorChangeRole(result.error || td.errorChangeRoleGeneric));
       }
-    } catch (err) {
-      console.error('Error al cambiar rol:', err);
-      alert('Error al cambiar rol. Intenta de nuevo.');
+    } catch {
+      alert(td.errorChangeRoleGeneric);
     } finally {
       setChangingRole(null);
     }
   };
 
-  // ─── Toggle de ban ────────────────────────────────────────────────────────
-  const handleBanToggle = async (userId) => {
+  // Abre el modal de confirmación
+  const handleBanToggle = (userId) => {
     const target = users.find(u => u.id === userId);
-    if (!target) return;
+    if (target) setBanModal(target);
+  };
 
-    const newIsActive = target.status === 'baneado';
+  // Ejecuta el baneo/desbaneo + desactiva publicaciones si es un baneo
+  const confirmBan = async () => {
+    const target = banModal;
+    setBanModal(null);
+    const isBanning  = target.status === 'activo';
+    const newIsActive = !isBanning;
 
     try {
-      const result = await updateUserStatus(userId, newIsActive);
-      if (result.success) {
-        setUsers(users.map(u =>
-          u.id === userId
-            ? { ...u, status: newIsActive ? 'activo' : 'baneado' }
-            : u
-        ));
-      } else {
-        alert(`Error al cambiar estado: ${result.error || 'Error desconocido'}`);
+      const result = await updateUserStatus(target.id, newIsActive);
+      if (!result.success) { alert(`${td.errorStatus} ${result.error}`); return; }
+
+      // Si es un baneo: ocultar todas sus publicaciones activas
+      if (isBanning) {
+        await supabase
+          .from('price_publications')
+          .update({ status: 'rejected' })
+          .eq('user_id', target.id)
+          .eq('status', 'active');
+
+        // Refrescar la lista de publicaciones si ya estaba cargada
+        if (pubsLoaded) {
+          setPublications(prev =>
+            prev.map(p => p.userId === target.id && p.status === 'active'
+              ? { ...p, status: 'rejected' }
+              : p
+            )
+          );
+        }
       }
-    } catch (err) {
-      console.error('Error al cambiar estado:', err);
-      alert('Error al cambiar estado. Intenta de nuevo.');
+
+      setUsers(prev =>
+        prev.map(u => u.id === target.id ? { ...u, status: isBanning ? 'baneado' : 'activo' } : u)
+      );
+    } catch {
+      alert(td.errorStatus);
     }
   };
 
-  const handleSaveReportReview = async () => {
-    if (!selectedReport) return;
-
-    const status = reportForm.status;
-    const isResolved = status === 'RESOLVED' || status === 'REJECTED';
-
-    setSavingReport(true);
+  // ─── Publicaciones ────────────────────────────────────────────────────────
+  // Usamos getPublications() de la API existente. El admin puede eliminar
+  // cualquier publicación porque deletePublication() verifica role_id === 3.
+  const loadPublications = async () => {
+    setPubsLoading(true);
     try {
-      const payload = {
-        status,
-        action_taken: reportForm.actionTaken || null,
-        mod_notes: reportForm.modNotes || null,
-        reviewed_by: currentUser?.id || selectedReport.reviewed_by || null,
-        resolved_at: isResolved ? new Date().toISOString() : null,
-      };
+      const result = await getPublications({ limit: 100 });
+      if (result.success) {
+        setPublications(result.data || []);
+      }
+    } catch {
+      // silencioso, la tabla queda vacía
+    } finally {
+      setPubsLoading(false);
+      setPubsLoaded(true);
+    }
+  };
 
-      const result = await updateReportReview(selectedReport.id, payload);
-      if (!result.success) {
-        alert(`Error al guardar reporte: ${result.error || 'Error desconocido'}`);
+  const handleDeletePublication = async (pubId) => {
+    if (!window.confirm(td.confirmDeletePub)) return;
+    setDeletingPub(pubId);
+    try {
+      const result = await deletePublication(pubId);
+      if (result.success) {
+        setPublications(prev => prev.filter(p => p.id !== pubId));
+        // Actualizar stat
+        setStats(prev => ({ ...prev, pubs: Math.max(0, (prev.pubs || 1) - 1) }));
+      } else {
+        alert(td.errorDeletePub(result.error));
+      }
+    } catch {
+      alert(td.errorDeletePubGeneric);
+    } finally {
+      setDeletingPub(null);
+    }
+  };
+
+  // ─── Reportes ─────────────────────────────────────────────────────────────
+  // Acceso directo a Supabase (igual que ModeratorDashboard).
+  // El admin puede ver todos los reportes (pending + resueltos) con filtro.
+  const loadReports = async () => {
+    setReportsLoading(true);
+    try {
+      const query = supabase
+        .from('price_reports')
+        .select('id, report_type, description, created_at, publication_id, reporter_id, status')
+        .order('created_at', { ascending: false });
+
+      const { data: rawReports, error } = reportFilter === 'all'
+        ? await query
+        : await query.eq('status', reportFilter);
+
+      if (error || !rawReports?.length) {
+        setReports([]);
         return;
       }
 
-      setReports((prev) => prev.map((report) => (
-        report.id === selectedReport.id
-          ? { ...report, ...payload }
-          : report
-      )));
+      const pubIds     = [...new Set(rawReports.map(r => r.publication_id).filter(Boolean))];
+      const reporterIds = [...new Set(rawReports.map(r => r.reporter_id).filter(Boolean))];
 
-      setSelectedReport((prev) => (prev ? { ...prev, ...payload } : prev));
-    } catch (err) {
-      console.error('Error actualizando reporte:', err);
-      alert('Error al actualizar reporte. Intenta de nuevo.');
+      const [{ data: publications }, { data: reporters }] = await Promise.all([
+        supabase
+          .from('price_publications')
+          .select('id, user_id, products(name), author:users!price_publications_user_id_fkey(full_name)')
+          .in('id', pubIds),
+        supabase.from('users').select('id, full_name').in('id', reporterIds),
+      ]);
+
+      const pubMap      = Object.fromEntries((publications || []).map(p => [p.id, p]));
+      const reporterMap = Object.fromEntries((reporters    || []).map(u => [u.id, u]));
+
+      setReports(rawReports.map(r => {
+        const pub      = pubMap[r.publication_id];
+        const reporter = reporterMap[r.reporter_id];
+        return {
+          id:             r.id,
+          status:         r.status,
+          rawType:        r.report_type,
+          severity:       REPORT_SEVERITY[r.report_type] || 'baja',
+          time:           new Date(r.created_at).toLocaleDateString('es-CO'),
+          post:           pub?.products?.name            || null,
+          reporter:       reporter?.full_name            || null,
+          reported:       pub?.author?.full_name         || null,
+          publicationId:  r.publication_id,
+          reportedUserId: pub?.user_id,
+        };
+      }));
     } finally {
-      setSavingReport(false);
+      setReportsLoading(false);
+      setReportsLoaded(true);
     }
   };
+
+  // Recargar cuando cambia el filtro de reportes
+  useEffect(() => {
+    if (reportsLoaded) {
+      setReportsLoaded(false);
+      loadReports();
+    }
+  }, [reportFilter]);
+
+  const handleResolveReport = async (id, action, report) => {
+    await supabase.from('price_reports').update({ status: 'resolved' }).eq('id', id);
+
+    if (action === 'delete' && report.publicationId) {
+      await supabase.from('price_publications').delete().eq('id', report.publicationId);
+    }
+    if (action === 'ban' && report.reportedUserId) {
+      await supabase.from('users').update({ is_active: false }).eq('id', report.reportedUserId);
+    }
+
+    setReports(prev => prev.filter(r => r.id !== id));
+    setResolvedCount(n => n + 1);
+    setStats(prev => ({ ...prev, reports: Math.max(0, (prev.reports || 1) - 1) }));
+  };
+
+  // ─── Config: reputación ───────────────────────────────────────────────────
+  const startEditRep = () => {
+    setRepDraft(repParams.map(p => ({ ...p })));
+    setRepEditing(true);
+  };
+  const cancelEditRep = () => setRepEditing(false);
+  const saveRep = () => {
+    setRepParams(repDraft);
+    localStorage.setItem(LS_KEY, JSON.stringify(repDraft));
+    setRepEditing(false);
+  };
+
+  // ─── Config: crear categoría ──────────────────────────────────────────────
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    const name = newCatName.trim();
+    if (!name) return;
+    setSavingCat(true);
+    try {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .insert({ name })
+        .select()
+        .single();
+      if (!error && data) {
+        setCategories(prev => [...prev, data]);
+        setNewCatName('');
+      } else {
+        alert(td.errorCreateCat(error?.message));
+      }
+    } finally {
+      setSavingCat(false);
+    }
+  };
+
+  // ─── Categorías (Config) ──────────────────────────────────────────────────
+  const loadCategories = async () => {
+    setCatsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('product_categories')
+        .select('id, name, products(count)')
+        .order('name');
+      setCategories(data || []);
+    } finally {
+      setCatsLoading(false);
+      setCatsLoaded(true);
+    }
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  const reportsBadge = typeof stats.reports === 'number' && stats.reports > 0
+    ? stats.reports
+    : reports.filter(r => r.status === 'pending').length || null;
 
   return (
     <div style={s.root}>
@@ -313,11 +473,11 @@ export default function AdminDashboard() {
       <aside style={s.sidebar}>
         <nav style={s.nav}>
           {[
-            { key: 'overview', icon: '▦', label: 'Resumen' },
-            { key: 'users',    icon: '◉', label: 'Usuarios' },
-            { key: 'content',  icon: '◈', label: 'Contenido' },
-            { key: 'reports',  icon: '⚠', label: 'Reportes' },
-            { key: 'config',   icon: '⚙', label: 'Config' },
+            { key: 'overview', icon: '▦', label: td.navOverview },
+            { key: 'users',    icon: '◉', label: td.navUsers },
+            { key: 'content',  icon: '◈', label: td.navContent },
+            { key: 'reports',  icon: '⚠', label: td.navReports, badge: reportsBadge },
+            { key: 'config',   icon: '⚙', label: td.navConfig },
           ].map((item) => (
             <button
               key={item.key}
@@ -326,70 +486,30 @@ export default function AdminDashboard() {
             >
               <span style={s.navIcon}>{item.icon}</span>
               <span>{item.label}</span>
-              {item.badge && <span style={s.navBadge}>{item.badge}</span>}
+              {item.badge > 0 && <span style={s.navBadge}>{item.badge}</span>}
             </button>
           ))}
         </nav>
-
-        <button style={s.logoutBtn} onClick={logout}>⏻ Salir</button>
       </aside>
 
-      {/* ── Content ──────────────────────────────────────────────── */}
+      {/* ── Contenido principal ───────────────────────────────────── */}
       <main style={s.main}>
 
-        {/* Error message */}
-        {error && (
-          <div style={{
-            padding: '12px 16px',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--error-soft)',
-            border: '1px solid rgba(248,113,113,0.25)',
-            color: 'var(--error)',
-            fontSize: '13px',
-            marginBottom: '20px',
-          }}>
-            ⚠️ {error}
-            <button 
-              onClick={loadUsers}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--error)',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-                marginLeft: '12px',
-                fontWeight: '600',
-              }}
-            >
-              Reintentar
-            </button>
-          </div>
-        )}
-
-        {/* Overview */}
+        {/* ── OVERVIEW ─────────────────────────────────────────── */}
         {activeSection === 'overview' && (
           <>
-            <SectionHeader
-              title="Panel de control"
-              sub="Vista general de la plataforma NØSEE"
-            />
+            <SectionHeader title={td.overviewTitle} sub={td.overviewSub} />
 
-            {/* Stats */}
             <div style={s.statsGrid}>
-               {statCards.map((stat) => (
+              {[
+                { label: td.statUsers,       value: stats.users,       icon: '◉' },
+                { label: td.statPubs,        value: stats.pubs,        icon: '◈' },
+                { label: td.statValidations, value: stats.validations, icon: '✓' },
+                { label: td.statReports,     value: stats.reports,     icon: '⚠' },
+              ].map((stat) => (
                 <div key={stat.label} style={s.statCard}>
                   <div style={s.statTop}>
                     <span style={s.statIcon}>{stat.icon}</span>
-                    <span style={{
-                      ...s.statDelta,
-                     color: stat.delta.startsWith('+')
-                        ? ACCENT
-                        : stat.delta.startsWith('-')
-                          ? '#F87171'
-                          : MUTED,
-                    }}>
-                      {stat.delta}
-                    </span>
                   </div>
                   <div style={s.statValue}>{stat.value}</div>
                   <div style={s.statLabel}>{stat.label}</div>
@@ -397,60 +517,42 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* Recent users preview */}
-            {loading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-                <Spinner size={32} />
+            {/* Preview de usuarios recientes */}
+            <div style={s.section}>
+              <div style={s.sectionHead}>
+                <span style={s.sectionTitle}>
+                  {td.recentUsers(users.length)}
+                </span>
+                <button style={s.linkBtn} onClick={() => setActiveSection('users')}>
+                  {td.viewAll}
+                </button>
               </div>
-            ) : (
-              <div style={s.section}>
-                <div style={s.sectionHead}>
-                  <span style={s.sectionTitle}>
-                    Usuarios recientes ({users.length})
-                  </span>
-                  <button style={s.linkBtn} onClick={() => setActiveSection('users')}>
-                    Ver todos →
-                  </button>
-                </div>
-                {users.length > 0 ? (
-                  <UsersTable
-                    users={users.slice(0, 3)}
-                    onRoleChange={handleRoleChange}
-                    onBanToggle={handleBanToggle}
-                    changingRole={changingRole}
-                  />
-                ) : (
-                  <div style={{
-                    padding: '40px',
-                    textAlign: 'center',
-                    color: MUTED,
-                    fontSize: '14px',
-                  }}>
-                    No hay usuarios registrados aún
-                  </div>
-                )}
-              </div>
-            )}
+              {usersLoading ? (
+                <LoadingState />
+              ) : users.length > 0 ? (
+                <UsersTable
+                  users={users.slice(0, 3)}
+                  onRoleChange={handleRoleChange}
+                  onBanToggle={handleBanToggle}
+                  changingRole={changingRole}
+                />
+              ) : (
+                <EmptyMsg text={td.noUsers} />
+              )}
+            </div>
           </>
         )}
 
-        {/* Users section */}
+        {/* ── USUARIOS ─────────────────────────────────────────── */}
         {activeSection === 'users' && (
           <>
             <SectionHeader
-              title="Gestión de usuarios"
-              sub={loading ? 'Cargando...' : `${users.length} usuarios registrados`}
+              title={td.usersTitle}
+              sub={usersLoading ? td.loadingDots : td.usersCount(users.length)}
             />
-            
-            {loading ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <Spinner size={32} />
-                  <p style={{ marginTop: '16px', color: MUTED, fontSize: '14px' }}>
-                    Cargando usuarios...
-                  </p>
-                </div>
-              </div>
+            {usersError && <ErrorBar msg={usersError} onRetry={loadUsers} />}
+            {usersLoading ? (
+              <LoadingState label={td.loadingUsers} />
             ) : users.length > 0 ? (
               <UsersTable
                 users={users}
@@ -459,65 +561,242 @@ export default function AdminDashboard() {
                 changingRole={changingRole}
               />
             ) : (
-              <div style={{
-                padding: '60px 20px',
-                textAlign: 'center',
-                color: MUTED,
-                fontSize: '14px',
-              }}>
-                No hay usuarios registrados aún
+              <EmptyMsg text={td.noUsers} />
+            )}
+          </>
+        )}
+
+        {/* ── CONTENIDO ────────────────────────────────────────── */}
+        {activeSection === 'content' && (
+          <>
+            <SectionHeader
+              title={td.contentTitle}
+              sub={td.contentSub}
+            />
+
+            {/* Filtro por estado */}
+            <div style={s.filterRow}>
+              {[
+                { key: 'all',      label: td.filterAll },
+                { key: 'active',   label: td.filterActive },
+                { key: 'pending',  label: td.filterPending },
+                { key: 'expired',  label: td.filterExpired },
+              ].map(f => (
+                <button
+                  key={f.key}
+                  style={{ ...s.filterBtn, ...(pubFilter === f.key ? s.filterBtnActive : {}) }}
+                  onClick={() => setPubFilter(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {pubsLoading ? (
+              <LoadingState label={td.loadingPubs} />
+            ) : (
+              <PublicationsTable
+                publications={publications.filter(p =>
+                  pubFilter === 'all' ? true : p.status === pubFilter
+                )}
+                onDelete={handleDeletePublication}
+                deletingId={deletingPub}
+              />
+            )}
+          </>
+        )}
+
+        {/* ── REPORTES ─────────────────────────────────────────── */}
+        {activeSection === 'reports' && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 }}>
+              <div>
+                <h1 style={s.headerTitle}>{td.reportsTitle}</h1>
+                <p style={s.headerSub}>
+                  {reports.length > 0
+                    ? td.reportsSub(reports.length, resolvedCount)
+                    : resolvedCount > 0
+                      ? td.reportsAllDone(resolvedCount)
+                      : td.reportsNone}
+                </p>
+              </div>
+              {/* Filtro de estado */}
+              <div style={s.filterRow}>
+                {[
+                  { key: 'pending',  label: td.filterPendingReports },
+                  { key: 'resolved', label: td.filterResolved },
+                  { key: 'all',      label: td.filterAllReports },
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    style={{ ...s.filterBtn, ...(reportFilter === f.key ? s.filterBtnActive : {}) }}
+                    onClick={() => setReportFilter(f.key)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {reportsLoading ? (
+              <LoadingState label={td.loadingReports} />
+            ) : reports.length === 0 ? (
+              <EmptyMsg text={reportFilter === 'pending' ? td.noReportsPending : td.reportsNone} />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {reports.map(r => (
+                  <ReportCard
+                    key={r.id}
+                    report={r}
+                    showActions={r.status === 'pending'}
+                    onResolve={handleResolveReport}
+                  />
+                ))}
               </div>
             )}
           </>
         )}
 
-        {activeSection === 'reports' && (
-          <ReportsSection
-            reports={filteredReports}
-            stats={reportStats}
-            filters={reportFilters}
-            onFilterChange={setReportFilters}
-            reasonOptions={reportReasonOptions}
-            loading={loadingReports}
-            selectedReport={selectedReport}
-            onSelectReport={setSelectedReport}
-            reportForm={reportForm}
-            onReportFormChange={setReportForm}
-            onSaveReportReview={handleSaveReportReview}
-            savingReport={savingReport}
-          />
-        )}
+        {/* ── CONFIG ───────────────────────────────────────────── */}
+        {activeSection === 'config' && (
+          <>
+            <SectionHeader
+              title={td.configTitle}
+              sub={td.configSub}
+            />
 
-        {/* Other sections placeholder */}
-        {['content', 'config'].includes(activeSection) && (
-          <PlaceholderSection section={activeSection} />
+            {/* Parámetros de reputación (editables) */}
+            <div style={s.section}>
+              <div style={s.sectionHead}>
+                <span style={s.sectionTitle}>{td.repTitle}</span>
+                {repEditing ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={cancelEditRep} style={s.btnDismiss}>{td.cancel}</button>
+                    <button onClick={saveRep} style={{ ...s.filterBtn, ...s.filterBtnActive }}>{td.save}</button>
+                  </div>
+                ) : (
+                  <button onClick={startEditRep} style={s.filterBtn}>{td.editBtn}</button>
+                )}
+              </div>
+              <div style={s.configCard}>
+                {(repEditing ? repDraft : repParams).map(({ param, value, note }, i) => (
+                  <div key={param} style={s.configRow}>
+                    <div>
+                      <div style={s.configParam}>{param}</div>
+                      <div style={s.configNote}>{note}</div>
+                    </div>
+                    {repEditing ? (
+                      <input
+                        type="text"
+                        value={repDraft[i].value}
+                        onChange={e => {
+                          const next = [...repDraft];
+                          next[i] = { ...next[i], value: e.target.value };
+                          setRepDraft(next);
+                        }}
+                        style={{
+                          background: '#1C1C20', border: `1px solid ${BORDER}`,
+                          color: TEXT, borderRadius: 6, padding: '5px 10px',
+                          fontSize: 15, fontWeight: 700, width: 80, textAlign: 'right',
+                        }}
+                      />
+                    ) : (
+                      <span style={{
+                        ...s.configValue,
+                        color: value.startsWith('+') ? '#34D399' : value.startsWith('-') ? '#F87171' : ACCENT,
+                      }}>
+                        {value}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Categorías de productos */}
+            <div style={s.section}>
+              <div style={s.sectionHead}>
+                <span style={s.sectionTitle}>{td.catsTitle}</span>
+                {catsLoading
+                  ? <Spinner size={16} />
+                  : <span style={{ fontSize: 13, color: MUTED }}>{td.catsCount(categories.length)}</span>
+                }
+              </div>
+
+              {/* Formulario para crear categoría */}
+              <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                <input
+                  type="text"
+                  placeholder={td.newCatPlaceholder}
+                  value={newCatName}
+                  onChange={e => setNewCatName(e.target.value)}
+                  style={{
+                    flex: 1, background: '#1C1C20', border: `1px solid ${BORDER}`,
+                    color: TEXT, borderRadius: 8, padding: '8px 14px', fontSize: 14,
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={savingCat || !newCatName.trim()}
+                  style={{ ...s.filterBtn, ...s.filterBtnActive, opacity: savingCat || !newCatName.trim() ? 0.5 : 1 }}
+                >
+                  {savingCat ? '...' : td.createBtn}
+                </button>
+              </form>
+
+              {catsLoading ? (
+                <LoadingState label={td.loadingCats} />
+              ) : categories.length === 0 ? (
+                <EmptyMsg text={td.noCats} />
+              ) : (
+                <div style={s.configCard}>
+                  {categories.map(cat => (
+                    <div key={cat.id} style={s.configRow}>
+                      <div style={s.configParam}>{cat.name}</div>
+                      <span style={{ ...s.configValue, color: MUTED, fontSize: 13 }}>
+                        {td.productsCount(cat.products?.[0]?.count ?? 0)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
         )}
       </main>
+
+      {banModal && (
+        <BanModal
+          user={banModal}
+          onConfirm={confirmBan}
+          onCancel={() => setBanModal(null)}
+        />
+      )}
     </div>
   );
 }
 
 // ─── UsersTable ───────────────────────────────────────────────────────────────
 function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
   return (
     <div style={s.table}>
       <div style={s.tableHead}>
-        {['Usuario', 'Rol', 'Rep.', 'Estado', 'Acciones'].map((h) => (
+        {[td.colUser, td.colRole, td.colRep, td.colStatus, td.colActions].map((h) => (
           <div key={h} style={s.th}>{h}</div>
         ))}
       </div>
       {users.map((u) => (
         <div key={u.id} style={s.tableRow}>
-          {/* Usuario */}
           <div style={s.td}>
-            <div style={s.rowAvatar}>{u.name.charAt(0)}</div>
+            <div style={s.rowAvatar}>{(u.name || td.noName).charAt(0)}</div>
             <div>
-              <div style={s.rowName}>{u.name}</div>
+              <div style={s.rowName}>{u.name || td.noName}</div>
               <div style={s.rowEmail}>{u.email}</div>
             </div>
           </div>
-
-          {/* Rol selector */}
           <div style={s.td}>
             <select
               style={s.roleSelect}
@@ -530,37 +809,26 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
               ))}
             </select>
             {changingRole === u.id && (
-              <span style={{ marginLeft: '8px', fontSize: '12px', color: ACCENT }}>
-                Guardando...
-              </span>
+              <span style={{ marginLeft: 8, fontSize: 12, color: ACCENT }}>{td.savingRole}</span>
             )}
           </div>
-
-          {/* Reputación */}
           <div style={{ ...s.td, ...s.tdNum }}>{u.rep}</div>
-
-          {/* Estado */}
           <div style={s.td}>
             <span style={{
               ...s.badge,
               background: u.status === 'activo' ? `${ACCENT}18` : '#F8717120',
-              color: u.status === 'activo' ? ACCENT : '#F87171',
+              color:      u.status === 'activo' ? ACCENT : '#F87171',
             }}>
-              {u.status}
+              {u.status === 'activo' ? td.statusActive : td.statusBanned}
             </span>
           </div>
-
-          {/* Acciones */}
           <div style={s.td}>
             <button
-              style={{
-                ...s.actionBtn,
-                ...(u.status === 'baneado' ? s.actionBtnDanger : {}),
-              }}
+              style={{ ...s.actionBtn, ...(u.status === 'baneado' ? s.actionBtnDanger : {}) }}
               onClick={() => onBanToggle(u.id)}
               disabled={changingRole === u.id}
             >
-              {u.status === 'baneado' ? 'Desbanear' : 'Banear'}
+              {u.status === 'baneado' ? td.unbanBtn : td.banBtn}
             </button>
           </div>
         </div>
@@ -569,7 +837,102 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── PublicationsTable ────────────────────────────────────────────────────────
+function PublicationsTable({ publications, onDelete, deletingId }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
+  if (publications.length === 0) {
+    return <EmptyMsg text={td.noPubsView} />;
+  }
+  return (
+    <div style={s.table}>
+      <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 0.7fr' }}>
+        {[td.colProduct, td.colStore, td.colPrice, td.colAuthor, td.colDate, td.colAction].map(h => (
+          <div key={h} style={s.th}>{h}</div>
+        ))}
+      </div>
+      {publications.map(p => (
+        <div key={p.id} style={{ ...s.tableRow, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 0.7fr' }}>
+          <div style={s.td}>
+            <div>
+              <div style={s.rowName}>{p.productName || p.product?.name || '—'}</div>
+              <StatusBadge status={p.status} />
+            </div>
+          </div>
+          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.storeName || p.store?.name || '—'}</div>
+          <div style={{ ...s.td, ...s.tdNum }}>
+            ${typeof p.price === 'number' ? p.price.toLocaleString('es-CO') : p.price || '—'}
+          </div>
+          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.authorName || p.user?.fullName || '—'}</div>
+          <div style={{ ...s.td, fontSize: 12, color: MUTED }}>
+            {p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-CO') : '—'}
+          </div>
+          <div style={s.td}>
+            <button
+              style={s.btnDelete}
+              onClick={() => onDelete(p.id)}
+              disabled={deletingId === p.id}
+            >
+              {deletingId === p.id ? '...' : '🗑'}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── ReportCard ───────────────────────────────────────────────────────────────
+function ReportCard({ report, showActions, onResolve }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
+  const sev = SEVERITY_COLORS[report.severity] || SEVERITY_COLORS.baja;
+  const typeLabel = td.reportTypes?.[report.rawType] || report.rawType;
+  const severityLabel = td.severityLabels?.[report.severity] || report.severity?.toUpperCase();
+  return (
+    <article style={s.reportCard}>
+      <div style={s.reportTop}>
+        <span style={{ ...s.severityBadge, background: sev.bg, color: sev.text }}>
+          {severityLabel}
+        </span>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>{typeLabel}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: MUTED }}>{report.time}</span>
+        {!showActions && (
+          <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, background: '#34D39918', color: '#34D399', fontWeight: 700 }}>
+            {td.resolvedBadge}
+          </span>
+        )}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+        {[
+          [td.labelPublication,   `"${report.post ?? td.deletedPub}"`],
+          [td.labelReportedBy,    report.reporter ?? td.anonymous],
+          [td.labelReportedUser,  report.reported ?? td.unknown],
+        ].map(([label, value]) => (
+          <div key={label} style={{ display: 'flex', gap: 12, fontSize: 14 }}>
+            <span style={{ color: MUTED, width: 150, flexShrink: 0 }}>{label}</span>
+            <span style={{ color: TEXT }}>{value}</span>
+          </div>
+        ))}
+      </div>
+      {showActions && (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button style={s.btnDelete} onClick={() => onResolve(report.id, 'delete', report)}>
+            {td.deletePublicationBtn}
+          </button>
+          <button style={s.btnBan} onClick={() => onResolve(report.id, 'ban', report)}>
+            {td.banUserBtn}
+          </button>
+          <button style={s.btnDismiss} onClick={() => onResolve(report.id, 'dismiss', report)}>
+            {td.dismissBtn}
+          </button>
+        </div>
+      )}
+    </article>
+  );
+}
+
+// ─── Helpers UI ───────────────────────────────────────────────────────────────
 function SectionHeader({ title, sub }) {
   return (
     <header style={s.header}>
@@ -579,467 +942,124 @@ function SectionHeader({ title, sub }) {
   );
 }
 
-function ReportsSection({
-  reports,
-  stats,
-  filters,
-  onFilterChange,
-  reasonOptions,
-  loading,
-  selectedReport,
-  onSelectReport,
-  reportForm,
-  onReportFormChange,
-  onSaveReportReview,
-  savingReport,
-}) {
+function StatusBadge({ status }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
+  const map = {
+    active:   { bg: '#34D39918', color: '#34D399', label: td.pubStatusActive },
+    pending:  { bg: '#FCD34D18', color: '#FCD34D', label: td.pubStatusPending },
+    rejected: { bg: '#F8717118', color: '#F87171', label: td.pubStatusRejected },
+    expired:  { bg: '#64748B18', color: '#64748B', label: td.pubStatusExpired },
+  };
+  const c = map[status] || map.pending;
   return (
-    <>
-      <SectionHeader
-        title="Gestión de reportes"
-        sub="Conteos por tipo, estado, filtros rápidos y revisión de detalle"
-      />
-
-      <div style={s.reportsStatsGrid}>
-        {Object.entries(stats.byType).map(([reason, count]) => (
-          <div key={`type-${reason}`} style={s.reportMiniCard}>
-            <div style={s.reportMiniLabel}>{REPORT_REASON_LABELS[reason] || reason}</div>
-            <div style={s.reportMiniValue}>{count}</div>
-          </div>
-        ))}
-        {Object.entries(stats.byStatus).map(([status, count]) => (
-          <div key={`status-${status}`} style={s.reportMiniCard}>
-            <div style={s.reportMiniLabel}>Estado: {status}</div>
-            <div style={s.reportMiniValue}>{count}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={s.reportFilters}>
-        <select
-          style={s.roleSelect}
-          value={filters.order}
-          onChange={(e) => onFilterChange((prev) => ({ ...prev, order: e.target.value }))}
-        >
-          <option value="recent">Más reciente</option>
-          <option value="oldest">Más antiguo</option>
-        </select>
-
-        <select
-          style={s.roleSelect}
-          value={filters.status}
-          onChange={(e) => onFilterChange((prev) => ({ ...prev, status: e.target.value }))}
-        >
-          <option value="all">Todos los estados</option>
-          {REPORT_STATUS_OPTIONS.map((status) => (
-            <option key={status} value={status}>{status}</option>
-          ))}
-        </select>
-
-        <select
-          style={s.roleSelect}
-          value={filters.reason}
-          onChange={(e) => onFilterChange((prev) => ({ ...prev, reason: e.target.value }))}
-        >
-          <option value="all">Todos los tipos</option>
-          {reasonOptions.map((reason) => (
-            <option key={reason} value={reason}>{REPORT_REASON_LABELS[reason] || reason}</option>
-          ))}
-        </select>
-      </div>
-
-      <div style={s.reportsLayout}>
-        <div style={s.table}>
-          <div style={s.reportsTableHead}>
-            {['Fecha', 'Tipo', 'Estado', 'Reportado', 'Detalle'].map((h) => (
-              <div key={h} style={s.th}>{h}</div>
-            ))}
-          </div>
-
-          {loading ? (
-            <div style={s.emptyReports}>Cargando reportes...</div>
-          ) : reports.length === 0 ? (
-            <div style={s.emptyReports}>No hay reportes con estos filtros.</div>
-          ) : reports.map((report) => (
-            <div key={report.id} style={s.reportsTableRow}>
-              <div style={s.td}>{new Date(report.created_at).toLocaleString('es-CO')}</div>
-              <div style={s.td}>{REPORT_REASON_LABELS[report.reason] || report.reason}</div>
-              <div style={s.td}>
-                <span style={s.badge}>{report.status || 'PENDING'}</span>
-              </div>
-              <div style={s.td}>{report.reported?.full_name || report.reported_user_id || 'N/A'}</div>
-              <div style={s.td}>
-                <button style={s.actionBtn} onClick={() => onSelectReport(report)}>Ver / editar</button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div style={s.reportDetailPanel}>
-          {!selectedReport ? (
-            <div style={s.emptyReports}>Selecciona un reporte para ver detalle.</div>
-          ) : (
-            <>
-              <h3 style={s.reportTitle}>Reporte #{selectedReport.id.slice(0, 8)}</h3>
-              <p style={s.reportText}><strong>Razón:</strong> {REPORT_REASON_LABELS[selectedReport.reason] || selectedReport.reason}</p>
-              <p style={s.reportText}><strong>Descripción:</strong> {selectedReport.description || 'Sin descripción'}</p>
-              <p style={s.reportText}><strong>Reportante:</strong> {selectedReport.reporter?.full_name || selectedReport.reporter_user_id}</p>
-              <p style={s.reportText}><strong>Usuario reportado:</strong> {selectedReport.reported?.full_name || selectedReport.reported_user_id || 'N/A'}</p>
-              {(() => {
-                const pubData = formatPublicationSummary(selectedReport?.publication);
-                return (
-                  <>
-                    <p style={s.reportText}><strong>Producto:</strong> {pubData?.productName || 'N/A'}</p>
-                    <p style={s.reportText}><strong>Unidad:</strong> {pubData?.unit || 'N/A'}</p>
-                    <p style={s.reportText}><strong>Marca:</strong> {pubData?.brand || 'N/A'}</p>
-                    <p style={s.reportText}><strong>Tienda:</strong> {pubData?.store || 'N/A'}</p>
-                    <p style={s.reportText}><strong>Precio:</strong> {pubData?.price || 'N/A'}</p>
-                  </>
-                );
-              })()}
-              {selectedReport.evidence_url && (
-                <a href={selectedReport.evidence_url} target="_blank" rel="noreferrer" style={s.linkBtn}>
-                  Ver evidencia
-                </a>
-              )}
-
-              <div style={s.reportFormBlock}>
-                <label style={s.reportLabel}>Estado</label>
-                <select
-                  style={s.roleSelect}
-                  value={reportForm.status}
-                  onChange={(e) => onReportFormChange((prev) => ({ ...prev, status: e.target.value }))}
-                >
-                  {REPORT_STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
-
-                <label style={s.reportLabel}>Acción tomada</label>
-                <input
-                  style={s.reportInput}
-                  value={reportForm.actionTaken}
-                  onChange={(e) => onReportFormChange((prev) => ({ ...prev, actionTaken: e.target.value }))}
-                  placeholder="Ej: Se removió la publicación"
-                />
-
-                <label style={s.reportLabel}>Notas de moderación</label>
-                <textarea
-                  style={s.reportTextarea}
-                  value={reportForm.modNotes}
-                  onChange={(e) => onReportFormChange((prev) => ({ ...prev, modNotes: e.target.value }))}
-                  placeholder="Detalles internos de la revisión"
-                />
-
-                <button style={{ ...s.actionBtn, ...s.saveReportBtn }} onClick={onSaveReportReview} disabled={savingReport}>
-                  {savingReport ? 'Guardando...' : 'Guardar cambios'}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </>
+    <span style={{ ...s.badge, background: c.bg, color: c.color, fontSize: 10, marginTop: 2 }}>
+      {c.label}
+    </span>
   );
 }
 
-function PlaceholderSection({ section }) {
-  const labels = {
-    content: { icon: '◈', title: 'Gestión de contenido', sub: 'Moderación de publicaciones y reportes activos' },
-    reports: { icon: '⚠', title: 'Reportes pendientes', sub: 'Reportes de la comunidad pendientes de revisión' },
-    config: { icon: '⚙', title: 'Configuración del sistema', sub: 'Parámetros globales de la plataforma' },
-  };
-  const info = labels[section];
+function LoadingState({ label }) {
   return (
-    <div style={s.placeholder}>
-      <span style={s.placeholderIcon}>{info.icon}</span>
-      <h2 style={s.placeholderTitle}>{info.title}</h2>
-      <p style={s.placeholderSub}>{info.sub}</p>
-      <div style={s.placeholderTag}>Próximamente</div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: 12 }}>
+      <Spinner size={28} />
+      {label && <p style={{ color: MUTED, fontSize: 14, margin: 0 }}>{label}</p>}
+    </div>
+  );
+}
+
+function EmptyMsg({ text }) {
+  return (
+    <div style={{ padding: '48px 20px', textAlign: 'center', color: MUTED, fontSize: 14 }}>
+      {text}
+    </div>
+  );
+}
+
+function ErrorBar({ msg, onRetry }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
+  return (
+    <div style={{
+      padding: '12px 16px',
+      borderRadius: 'var(--radius-md, 8px)',
+      background: 'rgba(248,113,113,0.08)',
+      border: '1px solid rgba(248,113,113,0.25)',
+      color: '#F87171',
+      fontSize: 13,
+      marginBottom: 20,
+    }}>
+      ⚠️ {msg}
+      <button onClick={onRetry} style={{ background: 'none', border: 'none', color: '#F87171', cursor: 'pointer', textDecoration: 'underline', marginLeft: 12, fontWeight: 600 }}>
+        {td.retry}
+      </button>
     </div>
   );
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
-const ACCENT   = '#FF6B35';   // naranja admin — poder, control
-const BG       = '#080C14';
-const SURFACE  = '#0F1724';
-const BORDER   = '#1E2D4A';
-const TEXT     = '#E8EDF8';
-const MUTED    = '#7B90BD';
+const ACCENT  = '#FF6B35';
+const BG      = 'var(--bg-base)';
+const SURFACE = 'var(--bg-surface)';
+const BORDER  = 'var(--border)';
+const TEXT    = 'var(--text-primary)';
+const MUTED   = 'var(--text-secondary)';
 
 const s = {
-  root: {
-    display: 'flex',
-    minHeight: '100vh',
-    background: BG,
-    color: TEXT,
-    fontFamily: "'DM Sans', 'Inter', sans-serif",
-  },
-  sidebar: {
-    width: 224,
-    background: SURFACE,
-    borderRight: `1px solid ${BORDER}`,
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '24px 16px',
-    position: 'sticky',
-    top: 0,
-    height: '100vh',
-  },
-  nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
-  navItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '10px 12px',
-    borderRadius: 8,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: MUTED,
-    fontSize: 14,
-    fontWeight: 500,
-    textAlign: 'left',
-    transition: 'all 0.15s',
-  },
-  navActive: { background: `${ACCENT}18`, color: ACCENT },
-  navIcon: { fontSize: 16, width: 20, textAlign: 'center' },
-  navBadge: {
-    marginLeft: 'auto',
-    background: '#F87171',
-    color: '#fff',
-    borderRadius: 10,
-    padding: '1px 7px',
-    fontSize: 11,
-    fontWeight: 700,
-  },
-  userBlock: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '12px 8px',
-    borderTop: `1px solid ${BORDER}`,
-    marginTop: 'auto',
-    marginBottom: 12,
-  },
-  userAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: '50%',
-    background: `${ACCENT}25`,
-    color: ACCENT,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 700,
-    fontSize: 14,
-  },
-  userName: { fontSize: 13, fontWeight: 600, color: TEXT },
-  userRole: { fontSize: 11, color: MUTED },
-  logoutBtn: {
-    background: 'none',
-    border: `1px solid ${BORDER}`,
-    color: MUTED,
-    borderRadius: 8,
-    padding: '8px 12px',
-    cursor: 'pointer',
-    fontSize: 13,
-    textAlign: 'left',
-  },
+  root:    { display: 'flex', height: '100vh', overflow: 'hidden', background: BG, color: TEXT, fontFamily: "'DM Sans', 'Inter', sans-serif" },
+  sidebar: { width: 224, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', padding: '24px 16px', height: '100%', flexShrink: 0 },
+  nav:     { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
+  navItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 14, fontWeight: 500, textAlign: 'left', transition: 'all 0.15s' },
+  navActive:  { background: `${ACCENT}18`, color: ACCENT },
+  navIcon:    { fontSize: 16, width: 20, textAlign: 'center' },
+  navBadge:   { marginLeft: 'auto', background: '#F87171', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 },
 
-  main: { flex: 1, padding: '32px 40px' },
-  header: { marginBottom: 28 },
-  headerTitle: { fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' },
-  headerSub: { color: MUTED, fontSize: 14, margin: '4px 0 0' },
+  main:       { flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%' },
+  header:     { marginBottom: 28 },
+  headerTitle:{ fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' },
+  headerSub:  { color: MUTED, fontSize: 14, margin: '4px 0 0' },
 
-  statsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: 14,
-    marginBottom: 32,
-  },
-  statCard: {
-    background: SURFACE,
-    border: `1px solid ${BORDER}`,
-    borderRadius: 12,
-    padding: '18px 20px',
-  },
-  statTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  statIcon: { fontSize: 18, color: MUTED },
-  statDelta: { fontSize: 12, fontWeight: 600 },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 32 },
+  statCard:  { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '18px 20px' },
+  statTop:   { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  statIcon:  { fontSize: 18, color: MUTED },
   statValue: { fontSize: 28, fontWeight: 800, letterSpacing: '-1px', color: TEXT },
   statLabel: { fontSize: 12, color: MUTED, marginTop: 4 },
 
-  section: { marginTop: 32 },
+  section:     { marginTop: 32 },
   sectionHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: 600 },
-  linkBtn: { background: 'none', border: 'none', color: ACCENT, cursor: 'pointer', fontSize: 13, fontWeight: 600 },
+  sectionTitle:{ fontSize: 16, fontWeight: 600 },
+  linkBtn:     { background: 'none', border: 'none', color: ACCENT, cursor: 'pointer', fontSize: 13, fontWeight: 600 },
 
-  table: {
-    background: SURFACE,
-    border: `1px solid ${BORDER}`,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  tableHead: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr',
-    padding: '12px 20px',
-    borderBottom: `1px solid ${BORDER}`,
-    background: '#0A1020',
-  },
-  th: { fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
-  tableRow: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr',
-    padding: '14px 20px',
-    alignItems: 'center',
-    borderBottom: `1px solid ${BORDER}`,
-  },
-  td: { display: 'flex', alignItems: 'center', gap: 10 },
-  tdNum: { fontSize: 14, fontWeight: 600, color: ACCENT },
-  rowAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: '50%',
-    background: '#1C1C20',
-    color: MUTED,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 13,
-    fontWeight: 700,
-    flexShrink: 0,
-  },
-  rowName: { fontSize: 14, fontWeight: 500 },
-  rowEmail: { fontSize: 12, color: MUTED },
-  roleSelect: {
-    background: '#1C1C20',
-    border: `1px solid ${BORDER}`,
-    color: TEXT,
-    borderRadius: 6,
-    padding: '5px 10px',
-    fontSize: 13,
-    cursor: 'pointer',
-  },
-  badge: {
-    fontSize: 12,
-    fontWeight: 600,
-    borderRadius: 6,
-    padding: '3px 10px',
-    textTransform: 'capitalize',
-  },
-  actionBtn: {
-    background: 'none',
-    border: `1px solid ${BORDER}`,
-    color: MUTED,
-    borderRadius: 6,
-    padding: '5px 12px',
-    fontSize: 13,
-    cursor: 'pointer',
-  },
+  filterRow: { display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
+  filterBtn:  { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 7, padding: '6px 14px', fontSize: 13, cursor: 'pointer' },
+  filterBtnActive: { background: `${ACCENT}18`, borderColor: ACCENT, color: ACCENT },
+
+  table:     { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' },
+  tableHead: { display: 'grid', gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr', padding: '12px 20px', borderBottom: `1px solid ${BORDER}`, background: 'var(--bg-elevated)' },
+  th:        { fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
+  tableRow:  { display: 'grid', gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr', padding: '14px 20px', alignItems: 'center', borderBottom: `1px solid ${BORDER}` },
+  td:        { display: 'flex', alignItems: 'center', gap: 10 },
+  tdNum:     { fontSize: 14, fontWeight: 600, color: ACCENT },
+  rowAvatar: { width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-elevated)', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
+  rowName:   { fontSize: 14, fontWeight: 500 },
+  rowEmail:  { fontSize: 12, color: MUTED },
+  roleSelect:{ background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 6, padding: '5px 10px', fontSize: 13, cursor: 'pointer' },
+  badge:     { fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '3px 10px', textTransform: 'capitalize' },
+  actionBtn: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 6, padding: '5px 12px', fontSize: 13, cursor: 'pointer' },
   actionBtnDanger: { borderColor: '#F87171', color: '#F87171' },
 
-  placeholder: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 400,
-    gap: 12,
-    color: MUTED,
-  },
-  placeholderIcon: { fontSize: 48 },
-  placeholderTitle: { fontSize: 20, fontWeight: 700, color: TEXT, margin: 0 },
-  placeholderSub: { fontSize: 14, margin: 0 },
-  placeholderTag: {
-    background: `${ACCENT}15`,
-    color: ACCENT,
-    borderRadius: 6,
-    padding: '4px 12px',
-    fontSize: 12,
-    fontWeight: 600,
-    marginTop: 8,
-  },
-reportsStatsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))',
-    gap: 10,
-    marginBottom: 16,
-  },
-  reportMiniCard: {
-    background: SURFACE,
-    border: `1px solid ${BORDER}`,
-    borderRadius: 10,
-    padding: '10px 12px',
-  },
-  reportMiniLabel: { fontSize: 12, color: MUTED },
-  reportMiniValue: { fontSize: 22, fontWeight: 700 },
-  reportFilters: { display: 'flex', gap: 10, marginBottom: 16 },
-  reportsLayout: {
-    display: 'grid',
-    gridTemplateColumns: '2fr 1.2fr',
-    gap: 16,
-    alignItems: 'start',
-  },
-  reportsTableHead: {
-    display: 'grid',
-    gridTemplateColumns: '1.2fr 1fr 1fr 1.4fr 1fr',
-    padding: '12px 20px',
-    borderBottom: `1px solid ${BORDER}`,
-    background: '#0A1020',
-  },
-  reportsTableRow: {
-    display: 'grid',
-    gridTemplateColumns: '1.2fr 1fr 1fr 1.4fr 1fr',
-    padding: '14px 20px',
-    alignItems: 'center',
-    borderBottom: `1px solid ${BORDER}`,
-  },
-  emptyReports: {
-    padding: '22px',
-    color: MUTED,
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  reportDetailPanel: {
-    background: SURFACE,
-    border: `1px solid ${BORDER}`,
-    borderRadius: 12,
-    padding: 16,
-  },
-  reportTitle: { margin: '0 0 10px 0' },
-  reportText: { margin: '6px 0', fontSize: 13 },
-  reportFormBlock: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-    marginTop: 12,
-  },
-  reportLabel: { fontSize: 12, color: MUTED },
-  reportInput: {
-    background: '#1C1C20',
-    border: `1px solid ${BORDER}`,
-    color: TEXT,
-    borderRadius: 6,
-    padding: '8px 10px',
-    fontSize: 13,
-  },
-  reportTextarea: {
-    minHeight: 90,
-    resize: 'vertical',
-    background: '#1C1C20',
-    border: `1px solid ${BORDER}`,
-    color: TEXT,
-    borderRadius: 6,
-    padding: '8px 10px',
-    fontSize: 13,
-    fontFamily: 'inherit',
-  },
-  saveReportBtn: {
-    color: ACCENT,
-    borderColor: ACCENT,
-    alignSelf: 'flex-start',
-  },
+  reportCard:    { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '18px 20px' },
+  reportTop:     { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 },
+  severityBadge: { fontSize: 10, fontWeight: 700, borderRadius: 4, padding: '3px 8px', letterSpacing: '0.5px' },
+
+  btnDelete:  { background: '#F8717115', border: '1px solid #F87171', color: '#F87171', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
+  btnBan:     { background: '#FCD34D15', border: '1px solid #FCD34D', color: '#FCD34D', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
+  btnDismiss: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer' },
+
+  configCard: { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' },
+  configRow:  { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: `1px solid ${BORDER}` },
+  configParam:{ fontSize: 14, fontWeight: 500, color: TEXT },
+  configNote: { fontSize: 12, color: MUTED, marginTop: 2 },
+  configValue:{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.5px' },
 };

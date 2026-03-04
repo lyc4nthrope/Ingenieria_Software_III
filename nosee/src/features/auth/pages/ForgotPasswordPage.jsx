@@ -18,6 +18,7 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Ícono de correo ────────────────────────────────────────────────────────
 const MailIcon = () => (
@@ -30,6 +31,8 @@ const MailIcon = () => (
 
 // ── Vista de éxito tras enviar el email ───────────────────────────────────
 function SuccessView({ email }) {
+  const { t } = useLanguage();
+  const tf = t.forgotPassword;
   return (
     <div style={{ textAlign: 'center', padding: '8px 0', animation: 'fadeIn 0.3s ease' }}>
       <div style={{
@@ -47,14 +50,14 @@ function SuccessView({ email }) {
         fontSize: '20px', fontWeight: '700', color: 'var(--text-primary)',
         marginBottom: '10px',
       }}>
-        Revisa tu correo
+        {tf.successTitle}
       </h2>
 
       <p style={{
         fontSize: '14px', color: 'var(--text-secondary)',
         lineHeight: '1.6', marginBottom: '8px',
       }}>
-        Enviamos un enlace de recuperación a:
+        {tf.successSent}
       </p>
 
       <p style={{
@@ -69,8 +72,7 @@ function SuccessView({ email }) {
         fontSize: '13px', color: 'var(--text-muted)',
         lineHeight: '1.7',
       }}>
-        Haz clic en el enlace del correo para crear tu nueva contraseña.
-        Si no lo ves, revisa la carpeta de spam.
+        {tf.successInstruction}
       </p>
 
       <div style={{ marginTop: '24px' }}>
@@ -83,7 +85,7 @@ function SuccessView({ email }) {
             fontWeight: '500',
           }}
         >
-          ← Volver al inicio de sesión
+          {tf.backToLoginLink}
         </Link>
       </div>
     </div>
@@ -92,6 +94,8 @@ function SuccessView({ email }) {
 
 // ── Página principal ──────────────────────────────────────────────────────
 export default function ForgotPasswordPage() {
+  const { t } = useLanguage();
+  const tf = t.forgotPassword;
   const { requestPasswordReset, status } = useAuthStore();
 
   const [email, setEmail]       = useState('');
@@ -102,10 +106,9 @@ export default function ForgotPasswordPage() {
 
   const isLoading = status === 'loading';
 
-  // ── Validación del email ─────────────────────────────────────────────
   const validateEmail = (value) => {
-    if (!value) return 'El email es requerido';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Email inválido';
+    if (!value) return tf.emailRequired;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return tf.emailInvalid;
     return '';
   };
 
@@ -129,10 +132,7 @@ export default function ForgotPasswordPage() {
       setSentEmail(email.trim());
       setSent(true);
     } else {
-      // Supabase NO revela si el email existe o no (seguridad).
-      // En la mayoría de casos, igual muestra éxito.
-      // Si hay un error real de red/config, lo mostramos.
-      setServerError(result.error || 'No se pudo enviar el correo. Intenta más tarde.');
+      setServerError(result.error || tf.serverError);
     }
   };
 
@@ -164,10 +164,10 @@ export default function ForgotPasswordPage() {
             fontSize: '22px', fontWeight: '700',
             color: 'var(--text-primary)', marginBottom: '6px',
           }}>
-            Recuperar contraseña
+            {tf.title}
           </h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-            Te enviaremos un enlace para restablecerla
+            {tf.subtitle}
           </p>
         </div>
 
@@ -205,13 +205,13 @@ export default function ForgotPasswordPage() {
               )}
 
               <Input
-                label="Correo electrónico"
+                label={tf.emailLabel}
                 id="forgot-email"
                 name="email"
                 type="email"
                 value={email}
                 onChange={handleChange}
-                placeholder="tucorreo@ejemplo.com"
+                placeholder={tf.emailPlaceholder}
                 error={emailError}
                 iconLeft={<MailIcon />}
                 autoComplete="email"
@@ -226,16 +226,15 @@ export default function ForgotPasswordPage() {
                 disabled={isLoading}
                 size="lg"
               >
-                {isLoading ? 'Enviando enlace...' : 'Enviar enlace de recuperación'}
+                {isLoading ? tf.sending : tf.sendButton}
               </Button>
 
-              {/* Volver al login */}
               <p style={{
                 textAlign: 'center',
                 fontSize: '13px',
                 color: 'var(--text-muted)',
               }}>
-                ¿Recordaste tu contraseña?{' '}
+                {tf.rememberPassword}{' '}
                 <Link
                   to="/login"
                   style={{
@@ -244,7 +243,7 @@ export default function ForgotPasswordPage() {
                     textDecoration: 'none',
                   }}
                 >
-                  Inicia sesión
+                  {tf.backToLogin}
                 </Link>
               </p>
             </form>

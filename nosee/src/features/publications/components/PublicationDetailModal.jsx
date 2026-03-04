@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const DEFAULT_VIRTUAL_IMAGE = "https://via.placeholder.com/1200x800?text=Tienda+virtual";
 const DEFAULT_CENTER = { latitude: 4.711, longitude: -74.0721 };
@@ -146,7 +147,7 @@ function getLeaflet() {
   return window.__leafletLoaderPromise;
 }
 
-function PublicationLocationMap({ latitude, longitude, storeName }) {
+function PublicationLocationMap({ latitude, longitude, storeName, td }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [error, setError] = useState(null);
@@ -293,21 +294,25 @@ function PublicationLocationMap({ latitude, longitude, storeName }) {
     return (
       <div style={{ ...styles.map, background: "#fee", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ color: "#c33", padding: "16px", textAlign: "center", fontSize: 12 }}>
-          <strong>Error en el mapa:</strong>
+          <strong>{td?.mapError ?? "Map error:"}</strong>
           <br />
           {error}
           <br />
-          <small style={{ marginTop: 8, display: "block" }}>Revisa la consola (F12) para más detalles</small>
+          <small style={{ marginTop: 8, display: "block" }}>{td?.mapErrorDetails ?? "Check the console (F12) for more details"}</small>
         </div>
       </div>
     );
   }
 
-  return <div ref={mapContainerRef} style={styles.map} aria-label="Mapa de ubicación de tienda" />;
+  return <div ref={mapContainerRef} style={styles.map} aria-label={td?.mapAria ?? "Store location map"} />;
 }
 
 
 export default function PublicationDetailModal({ publication, onClose }) {
+  const { t } = useLanguage();
+  const td = t.publicationDetail;
+  const titleId = useId();
+
   const votes = publication?.votes || [];
   const positiveVotes = votes.filter((vote) => Number(vote.vote_type) === 1).length;
   const negativeVotes = votes.filter((vote) => Number(vote.vote_type) === -1).length;
@@ -317,54 +322,72 @@ export default function PublicationDetailModal({ publication, onClose }) {
   const hasPhoto = !!publication?.photo_url && !isVirtualStore;
   const mainImage = hasPhoto ? publication.photo_url : DEFAULT_VIRTUAL_IMAGE;
   const { latitude, longitude } = parseStoreLocation(publication?.store?.location);
-    const hasCoordinates =
+  const hasCoordinates =
     Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
-      <div style={styles.modal} onClick={(event) => event.stopPropagation()}>
-        <button style={styles.closeButton} onClick={onClose}>✕</button>
+    <div style={styles.overlay} onClick={onClose} aria-hidden="true">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        style={styles.modal}
+        onClick={(event) => event.stopPropagation()}
+        aria-hidden="false"
+      >
+        <button
+          type="button"
+          style={styles.closeButton}
+          onClick={onClose}
+          aria-label={td.closeModal ?? "Cerrar"}
+        >
+          <span aria-hidden="true">✕</span>
+        </button>
 
-        <img src={mainImage} alt={publication?.product?.name || "Producto"} style={styles.image} />
+        <img src={mainImage} alt={publication?.product?.name || td.noName} style={styles.image} />
 
         {isVirtualStore && publication?.store?.website_url && (
           <a href={publication.store.website_url} target="_blank" rel="noreferrer" style={styles.linkButton}>
-            Ir al enlace de la tienda virtual
+            {td.virtualStoreLink}
           </a>
         )}
 
-        <h2 style={styles.title}>{publication?.product?.name || "Producto sin nombre"}</h2>
+        <h2 id={titleId} style={styles.title}>{publication?.product?.name || td.noName}</h2>
         <p style={styles.meta}>
-          Unidad: {publication?.product?.base_quantity || "-"} {publication?.product?.unit_type?.abbreviation || ""}
+          {td.unit} {publication?.product?.base_quantity || "-"} {publication?.product?.unit_type?.abbreviation || ""}
         </p>
-        <p style={styles.description}>{publication?.description || "No hay descripción"}</p>
+        <p style={styles.description}>{publication?.description || td.noDescription}</p>
 
         <p style={styles.meta}>
-          Publicado por: {publication?.user?.full_name || "Usuario desconocido"} · Puntaje: {publication?.user?.reputation_points ?? 0}
+          {td.publishedBy} {publication?.user?.full_name || td.unknownUser} · {td.score} {publication?.user?.reputation_points ?? 0}
         </p>
-        <p style={styles.meta}>Votos: 👍 {positiveVotes} · 👎 {negativeVotes}</p>
+        <p style={styles.meta}>
+          {td.votes}{" "}
+          <span aria-hidden="true">👍</span> {positiveVotes} ·{" "}
+          <span aria-hidden="true">👎</span> {negativeVotes}
+        </p>
 
         <div style={styles.commentsBox}>
-          <h3 style={styles.sectionTitle}>Comentarios</h3>
+          <h3 style={styles.sectionTitle}>{td.comments}</h3>
           {comments.length === 0 ? (
-            <p style={styles.commentItem}>Sin comentarios por ahora.</p>
+            <p style={styles.commentItem}>{td.noComments}</p>
           ) : (
             comments.map((comment) => (
               <p key={comment.id} style={styles.commentItem}>
-                <strong>{comment.user?.full_name || "Usuario"}:</strong> {comment.content || comment.comment || ""}
+                <strong>{comment.user?.full_name || td.unknownUser}:</strong> {comment.content || comment.comment || ""}
               </p>
             ))
           )}
         </div>
 
         <div>
-          <h3 style={styles.sectionTitle}>Ubicación de la tienda</h3>
-           {hasCoordinates ? (
+          <h3 style={styles.sectionTitle}>{td.storeLocation}</h3>
+          {hasCoordinates ? (
             <div style={styles.mapWrapper}>
-              <PublicationLocationMap latitude={latitude} longitude={longitude} storeName={publication?.store?.name} />
+              <PublicationLocationMap latitude={latitude} longitude={longitude} storeName={publication?.store?.name} td={td} />
             </div>
           ) : (
-            <p style={styles.commentItem}>No hay coordenadas disponibles para esta tienda.</p>
+            <p style={styles.commentItem}>{td.noCoordinates}</p>
           )}
         </div>
       </div>

@@ -21,8 +21,9 @@
  * - Error handling
  */
 
-import { useRef } from 'react';
-import { usePhotoUpload } from '@/features/publications/hooks';
+import { useRef } from "react";
+import { usePhotoUpload } from "@/features/publications/hooks";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * Componente: PhotoUploader
@@ -40,12 +41,16 @@ import { usePhotoUpload } from '@/features/publications/hooks';
 export function PhotoUploader({ onUpload, disabled = false }) {
   // ─── Hooks ────────────────────────────────────────────────────────────────
 
+  const { t } = useLanguage();
+  const tu = t.photoUploader;
+
   const { photoUrl, uploading, progress, error, upload, reset, clearError } =
     usePhotoUpload();
 
   // ─── Estados ───────────────────────────────────────────────────────────────
 
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -69,8 +74,18 @@ export function PhotoUploader({ onUpload, disabled = false }) {
   const handleReset = () => {
     reset();
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
+  };
+
+  const handleClick = () => {
+    clearError();
+    fileInputRef.current?.click();
+  };
+
+  const handleCameraClick = () => {
+    clearError();
+    cameraInputRef.current?.click();
   };
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -81,14 +96,16 @@ export function PhotoUploader({ onUpload, disabled = false }) {
       <div style={styles.container}>
         <div style={styles.successContainer}>
           <div style={styles.previewSection}>
-            <img src={photoUrl} alt="Preview" style={styles.previewImage} />
+            <img src={photoUrl} alt={tu.success} style={styles.previewImage} />
           </div>
 
           <div style={styles.successMessage}>
-            <span style={styles.checkmark}>✓</span>
+            <span style={styles.checkmark} aria-hidden="true">✓</span>
             <div>
-              <div style={styles.successTitle}>Foto subida correctamente</div>
-              <div style={styles.successUrl}>{photoUrl.substring(0, 50)}...</div>
+              <div style={styles.successTitle}>{tu.success}</div>
+              <div style={styles.successUrl}>
+                {photoUrl.substring(0, 50)}...
+              </div>
             </div>
           </div>
 
@@ -97,7 +114,7 @@ export function PhotoUploader({ onUpload, disabled = false }) {
             onClick={handleReset}
             disabled={disabled}
           >
-            Cambiar foto
+            {tu.changePhoto}
           </button>
         </div>
       </div>
@@ -110,7 +127,7 @@ export function PhotoUploader({ onUpload, disabled = false }) {
       <div style={styles.container}>
         <div style={styles.uploadingContainer}>
           <div style={styles.spinner}></div>
-          <div style={styles.uploadingText}>Subiendo foto...</div>
+          <div style={styles.uploadingText} role="status" aria-live="polite">{tu.uploading}</div>
 
           {progress > 0 && (
             <div style={styles.progressContainer}>
@@ -135,14 +152,14 @@ export function PhotoUploader({ onUpload, disabled = false }) {
     return (
       <div style={styles.container}>
         <div style={styles.errorContainer}>
-          <div style={styles.errorTitle}>⚠ Error al subir foto</div>
+          <div style={styles.errorTitle} role="alert"><span aria-hidden="true">⚠ </span>{tu.errorTitle}</div>
           <div style={styles.errorMessage}>{error}</div>
 
           <button
             style={{ ...styles.button, ...styles.buttonSecondary }}
             onClick={clearError}
           >
-            Descartar error
+            {tu.dismissError}
           </button>
 
           <button
@@ -150,7 +167,7 @@ export function PhotoUploader({ onUpload, disabled = false }) {
             onClick={handleClick}
             disabled={disabled}
           >
-            Intentar de nuevo
+            {tu.retry}
           </button>
         </div>
       </div>
@@ -160,13 +177,45 @@ export function PhotoUploader({ onUpload, disabled = false }) {
   // Zona de selección simple
   return (
     <div style={styles.container}>
+      {/* Input para galería */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
         onChange={handleInputChange}
         disabled={disabled}
+        style={{ display: "none" }}
       />
+      {/* Input para cámara del dispositivo */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleInputChange}
+        disabled={disabled}
+        style={{ display: "none" }}
+      />
+      <div style={styles.buttonGroup} role="group" aria-label={tu.groupLabel}>
+        <button
+          type="button"
+          style={{ ...styles.button, ...styles.buttonPrimary }}
+          onClick={handleClick}
+          disabled={disabled}
+          aria-label={tu.galleryLabel}
+        >
+          <span aria-hidden="true">📁 </span>{tu.galleryButton}
+        </button>
+        <button
+          type="button"
+          style={{ ...styles.button, ...styles.buttonSecondary }}
+          onClick={handleCameraClick}
+          disabled={disabled}
+          aria-label={tu.cameraLabel}
+        >
+          <span aria-hidden="true">📷 </span>{tu.cameraButton}
+        </button>
+      </div>
     </div>
   );
 }
@@ -175,221 +224,230 @@ export function PhotoUploader({ onUpload, disabled = false }) {
 
 const styles = {
   container: {
-    width: '100%',
+    width: "100%",
   },
 
   // Drop zone
   dropZone: {
-    border: '2px dashed #ddd',
-    borderRadius: '8px',
-    padding: '40px 20px',
-    textAlign: 'center',
-    cursor: 'pointer',
-    transition: 'all 0.3s',
-    background: '#fafafa',
-    marginBottom: '12px',
+    border: "2px dashed #ddd",
+    borderRadius: "8px",
+    padding: "40px 20px",
+    textAlign: "center",
+    cursor: "pointer",
+    transition: "all 0.3s",
+    background: "#fafafa",
+    marginBottom: "12px",
   },
 
   dropZoneActive: {
-    borderColor: '#ff6b35',
-    background: '#fff5f0',
-    transform: 'scale(1.01)',
+    borderColor: "#ff6b35",
+    background: "#fff5f0",
+    transform: "scale(1.01)",
   },
 
   fileInput: {
-    display: 'none',
+    display: "none",
   },
 
   dropContent: {
-    pointerEvents: 'none',
+    pointerEvents: "none",
   },
 
   dropIcon: {
-    fontSize: '48px',
-    marginBottom: '12px',
+    fontSize: "48px",
+    marginBottom: "12px",
   },
 
   dropTitle: {
-    fontSize: '16px',
+    fontSize: "16px",
     fontWeight: 600,
-    color: '#333',
-    marginBottom: '4px',
+    color: "#333",
+    marginBottom: "4px",
   },
 
   dropSubtitle: {
-    fontSize: '13px',
-    color: '#666',
-    marginBottom: '8px',
+    fontSize: "13px",
+    color: "#666",
+    marginBottom: "8px",
   },
 
   dropHint: {
-    fontSize: '12px',
-    color: '#999',
+    fontSize: "12px",
+    color: "#999",
   },
 
   // Uploading
   uploadingContainer: {
-    padding: '32px 20px',
-    textAlign: 'center',
-    background: '#f0f0f0',
-    borderRadius: '8px',
+    padding: "32px 20px",
+    textAlign: "center",
+    background: "#f0f0f0",
+    borderRadius: "8px",
   },
 
   spinner: {
-    width: '40px',
-    height: '40px',
-    border: '3px solid #f0f0f0',
-    borderTop: '3px solid #ff6b35',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-    margin: '0 auto 12px',
+    width: "40px",
+    height: "40px",
+    border: "3px solid #f0f0f0",
+    borderTop: "3px solid #ff6b35",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+    margin: "0 auto 12px",
   },
 
   uploadingText: {
-    fontSize: '14px',
+    fontSize: "14px",
     fontWeight: 600,
-    color: '#333',
-    marginBottom: '16px',
+    color: "#333",
+    marginBottom: "16px",
   },
 
   progressContainer: {
-    marginTop: '12px',
+    marginTop: "12px",
   },
 
   progressBar: {
-    height: '6px',
-    background: '#e0e0e0',
-    borderRadius: '3px',
-    overflow: 'hidden',
-    marginBottom: '8px',
+    height: "6px",
+    background: "#e0e0e0",
+    borderRadius: "3px",
+    overflow: "hidden",
+    marginBottom: "8px",
   },
 
   progressFill: {
-    height: '100%',
-    background: '#ff6b35',
-    transition: 'width 0.3s',
+    height: "100%",
+    background: "#ff6b35",
+    transition: "width 0.3s",
   },
 
   progressText: {
-    fontSize: '12px',
-    color: '#666',
+    fontSize: "12px",
+    color: "#666",
     fontWeight: 600,
   },
 
   // Success
   successContainer: {
-    padding: '20px',
-    background: '#f0fdf4',
-    border: '1px solid #bbf7d0',
-    borderRadius: '8px',
+    padding: "20px",
+    background: "#f0fdf4",
+    border: "1px solid #bbf7d0",
+    borderRadius: "8px",
   },
 
   previewSection: {
-    marginBottom: '16px',
-    borderRadius: '6px',
-    overflow: 'hidden',
-    background: '#fff',
+    marginBottom: "16px",
+    borderRadius: "6px",
+    overflow: "hidden",
+    background: "#fff",
   },
 
   previewImage: {
-    width: '100%',
-    height: 'auto',
-    maxHeight: '300px',
-    objectFit: 'cover',
-    display: 'block',
+    width: "100%",
+    height: "auto",
+    maxHeight: "300px",
+    objectFit: "cover",
+    display: "block",
   },
 
   successMessage: {
-    display: 'flex',
-    gap: '12px',
-    marginBottom: '16px',
-    alignItems: 'flex-start',
+    display: "flex",
+    gap: "12px",
+    marginBottom: "16px",
+    alignItems: "flex-start",
   },
 
   checkmark: {
-    fontSize: '20px',
-    color: '#22c55e',
-    fontWeight: 'bold',
-    marginTop: '2px',
+    fontSize: "20px",
+    color: "#22c55e",
+    fontWeight: "bold",
+    marginTop: "2px",
   },
 
   successTitle: {
-    fontSize: '14px',
+    fontSize: "14px",
     fontWeight: 600,
-    color: '#166534',
+    color: "#166534",
   },
 
   successUrl: {
-    fontSize: '12px',
-    color: '#15803d',
-    marginTop: '2px',
-    wordBreak: 'break-all',
+    fontSize: "12px",
+    color: "#15803d",
+    marginTop: "2px",
+    wordBreak: "break-all",
   },
 
   // Error
   errorContainer: {
-    padding: '20px',
-    background: '#fef2f2',
-    border: '1px solid #fecaca',
-    borderRadius: '8px',
+    padding: "20px",
+    background: "#fef2f2",
+    border: "1px solid #fecaca",
+    borderRadius: "8px",
   },
 
   errorTitle: {
-    fontSize: '14px',
+    fontSize: "14px",
     fontWeight: 600,
-    color: '#991b1b',
-    marginBottom: '8px',
+    color: "#991b1b",
+    marginBottom: "8px",
   },
 
   errorMessage: {
-    fontSize: '13px',
-    color: '#7f1d1d',
-    marginBottom: '16px',
-    lineHeight: '1.4',
+    fontSize: "13px",
+    color: "#7f1d1d",
+    marginBottom: "16px",
+    lineHeight: "1.4",
   },
 
   // Hints
   hints: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    fontSize: '12px',
-    color: '#666',
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    fontSize: "12px",
+    color: "#666",
   },
 
   hint: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+  },
+
+  // Button group
+  buttonGroup: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
   },
 
   // Buttons
   button: {
-    padding: '10px 16px',
-    borderRadius: '6px',
-    border: 'none',
-    fontSize: '13px',
+    padding: "10px 16px",
+    borderRadius: "6px",
+    border: "none",
+    fontSize: "13px",
     fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    marginRight: '8px',
-    marginBottom: '8px',
+    cursor: "pointer",
+    transition: "all 0.2s",
+    marginRight: "8px",
+    marginBottom: "8px",
+    minHeight: "44px",   // WCAG 2.5.5 touch target
+    minWidth: "44px",
   },
 
   buttonPrimary: {
-    background: '#ff6b35',
-    color: '#fff',
+    background: "#ff6b35",
+    color: "#fff",
   },
 
   buttonSecondary: {
-    background: '#e0e0e0',
-    color: '#333',
+    background: "#e0e0e0",
+    color: "#333",
   },
 };
 
 // Agregar animación CSS
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
+if (typeof document !== "undefined") {
+  const style = document.createElement("style");
   style.textContent = `
     @keyframes spin {
       to { transform: rotate(360deg); }

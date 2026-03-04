@@ -385,6 +385,15 @@ export const createPublication = async (data) => {
       };
     }
 
+    // Calcular puntuación inicial de confiabilidad basada en reputación del usuario
+    const { data: userProfile } = await supabase
+      .from("users")
+      .select("reputation_points")
+      .eq("id", user.id)
+      .single();
+    const reputationPoints = userProfile?.reputation_points ?? 0;
+    const confidence_score = Math.min(1.0, 0.5 + reputationPoints / 1000);
+
     // Crear la publicación
     const payload = {
       product_id: data.productId,
@@ -393,6 +402,7 @@ export const createPublication = async (data) => {
       price: data.price,
       photo_url: data.photoUrl,
       description: data.description || "No hay descripción",
+      confidence_score,
     };
 
     const { data: publication, error } = await supabase
