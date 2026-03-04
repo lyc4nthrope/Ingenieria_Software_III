@@ -96,8 +96,10 @@ export function PublicationCard({
 
     setIsReporting(true);
     try {
-      await onReport?.(publicationId, { reason, description, evidenceFile });
-      setShowReportModal(false);
+      const result = await onReport?.(publicationId, { reason, description, evidenceFile });
+      if (result?.success) {
+        setShowReportModal(false);
+      }
     } catch (err) {
       console.error('Error reportando:', err);
     } finally {
@@ -506,7 +508,6 @@ const styles = {
     justifyContent: 'center',
     zIndex: 1001,
     cursor: 'pointer',
-    position: 'fixed',
   },
 
   photoModalImg: {

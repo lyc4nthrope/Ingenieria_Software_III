@@ -176,14 +176,27 @@ export default function PublicationsPage() {
   /**
    * Maneja reporte de publicación
    */
-  const handleReportPublication = async (publicationId, reason) => {
-    const result = await reportPublication(publicationId, reason, "");
-    if (!result.success) {
-      setError(result.error || tp.errorReport);
+  const handleReportPublication = async (publicationId, reportPayload) => {
+    const result = await reportPublication(publicationId, reportPayload);
+
+    if (result.success) {
+      setError(null);
+      setFeedback({
+        type: 'success',
+        message: result.message || 'Reporte enviado correctamente.',
+      });
+    } else {
+      const errorMessage = result.error || tp.errorReport;
+      setError(errorMessage);
+      setFeedback({
+        type: 'error',
+        message: errorMessage,
+      });
     }
     
     // Auto-cerrar el feedback después de 5 segundos
     setTimeout(() => setFeedback(null), 5000);
+    return result;
   };
 
   /**
