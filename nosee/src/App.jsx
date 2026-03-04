@@ -13,6 +13,7 @@ import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { PageLoader } from "@/components/ui/Spinner";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import AccessibilityMenu from "@/components/layout/AccessibilityMenu";
 
 // ── Carga eager: solo lo imprescindible para el primer render ──────────────
 import HomePage from "@/pages/HomePage";
@@ -216,26 +217,6 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
-      {/* 
-        ✅ SOLUCIÓN OPCIÓN 3
-        
-        Estructura del layout:
-        ┌─────────────────────────────┐
-        │      Navbar (sticky)        │ altura: 60px
-        ├─────────────────────────────┤
-        │                             │
-        │   main (flex: 1)            │ ← Crece para llenar espacio
-        │   └─ AppContent (Routes)    │
-        │                             │
-        └─────────────────────────────┘
-        
-        Ventajas:
-        ✅ Sin superposición
-        ✅ Navbar siempre visible al scroll
-        ✅ Contenido respeta el espacio
-        ✅ Semántica HTML correcta (<main>)
-        ✅ Responsive automáticamente
-      */}
       <div
         style={{
           minHeight: "100vh",
@@ -266,6 +247,8 @@ export default function App() {
             <AppContent />
           </ErrorBoundary>
         </main>
+        
+        <AccessibilityMenu />
       </div>
     </BrowserRouter>
   );
