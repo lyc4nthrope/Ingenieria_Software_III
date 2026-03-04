@@ -43,6 +43,25 @@ const REPORT_REASON_LABELS = {
   other: 'Otro',
 };
 
+const formatPublicationSummary = (publication) => {
+  if (!publication) return null;
+
+  const productName = publication.product?.name || 'N/A';
+  const quantity = publication.product?.base_quantity;
+  const unit = publication.product?.unit_type?.abbreviation || publication.product?.unit_type?.name;
+  const brand = publication.product?.brand?.name || 'N/A';
+  const store = publication.store?.name || 'N/A';
+  const price = publication.price;
+
+  return {
+    productName,
+    unit: quantity && unit ? `${quantity} ${unit}` : 'N/A',
+    brand,
+    store,
+    price: typeof price === 'number' ? price.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) : 'N/A',
+  };
+};
+
 export default function AdminDashboard() {
   const logout = useAuthStore((s) => s.logout);
   const currentUser = useAuthStore((s) => s.user);
@@ -666,7 +685,18 @@ function ReportsSection({
               <p style={s.reportText}><strong>Descripción:</strong> {selectedReport.description || 'Sin descripción'}</p>
               <p style={s.reportText}><strong>Reportante:</strong> {selectedReport.reporter?.full_name || selectedReport.reporter_user_id}</p>
               <p style={s.reportText}><strong>Usuario reportado:</strong> {selectedReport.reported?.full_name || selectedReport.reported_user_id || 'N/A'}</p>
-              <p style={s.reportText}><strong>Publicación:</strong> {selectedReport.publication_id || 'N/A'}</p>
+              {(() => {
+                const pubData = formatPublicationSummary(selectedReport?.publication);
+                return (
+                  <>
+                    <p style={s.reportText}><strong>Producto:</strong> {pubData?.productName || 'N/A'}</p>
+                    <p style={s.reportText}><strong>Unidad:</strong> {pubData?.unit || 'N/A'}</p>
+                    <p style={s.reportText}><strong>Marca:</strong> {pubData?.brand || 'N/A'}</p>
+                    <p style={s.reportText}><strong>Tienda:</strong> {pubData?.store || 'N/A'}</p>
+                    <p style={s.reportText}><strong>Precio:</strong> {pubData?.price || 'N/A'}</p>
+                  </>
+                );
+              })()}
               {selectedReport.evidence_url && (
                 <a href={selectedReport.evidence_url} target="_blank" rel="noreferrer" style={s.linkBtn}>
                   Ver evidencia

@@ -19,6 +19,27 @@ const REPORT_REASON_LABELS = {
   other: 'Otro',
 };
 
+const isReportLocked = (status) => ['REJECTED', 'RESOLVED'].includes((status || '').toUpperCase());
+
+const formatPublicationSummary = (publication) => {
+  if (!publication) return null;
+
+  const productName = publication.product?.name || 'N/A';
+  const quantity = publication.product?.base_quantity;
+  const unit = publication.product?.unit_type?.abbreviation || publication.product?.unit_type?.name;
+  const brand = publication.product?.brand?.name || 'N/A';
+  const store = publication.store?.name || 'N/A';
+  const price = publication.price;
+
+  return {
+    productName,
+    unit: quantity && unit ? `${quantity} ${unit}` : 'N/A',
+    brand,
+    store,
+    price: typeof price === 'number' ? price.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) : 'N/A',
+  };
+};
+
 export default function ModeratorDashboard() {
   const logout = useAuthStore((s) => s.logout);
   const currentUser = useAuthStore((s) => s.user);
@@ -105,6 +126,12 @@ export default function ModeratorDashboard() {
     });
   }, [reports, filters]);
 
+  const pendingReportsCount = useMemo(
+    () => reports.filter((report) => (report.status || 'PENDING').toUpperCase() === 'PENDING').length,
+    [reports],
+  );
+
+
   const handleSaveReportReview = async () => {
     if (!selectedReport) return;
 
@@ -142,13 +169,15 @@ export default function ModeratorDashboard() {
     }
 
   };
+  const selectedPublication = formatPublicationSummary(selectedReport?.publication);
+  const selectedReportLocked = isReportLocked(selectedReport?.status);
 
   return (
     <div style={st.root}>
       <aside style={st.sidebar}>
         <nav style={st.nav}>
           {[
-            { key: 'reportes', icon: '⚑', label: 'Reportes', badge: filteredReports.length },
+            { key: 'reportes', icon: '⚑', label: 'Reportes', badge: pendingReportsCount },
             { key: 'feed', icon: '◈', label: 'Feed' },
             { key: 'historial', icon: '◎', label: 'Historial' },
           ].map((item) => (
@@ -234,9 +263,9 @@ export default function ModeratorDashboard() {
                       <div>{REPORT_REASON_LABELS[report.reason] || report.reason}</div>
                       <div><span style={st.badge}>{report.status || 'PENDING'}</span></div>
                       <div>{report.reported?.full_name || report.reported_user_id || 'N/A'}</div>
-                      <div>
-                        <button style={st.actionBtn} onClick={() => setSelectedReport(report)}>Ver / editar</button>
-                      </div>
+                      <button style={st.actionBtn} onClick={() => setSelectedReport(report)}>
+                          {isReportLocked(report.status) ? 'Ver' : 'Ver / editar'}
+                        </button>
                     </div>
                   ))}
                 </div>
@@ -251,7 +280,15 @@ export default function ModeratorDashboard() {
                       <p style={st.detailText}><strong>Descripción:</strong> {selectedReport.description || 'Sin descripción'}</p>
                       <p style={st.detailText}><strong>Reportante:</strong> {selectedReport.reporter?.full_name || selectedReport.reporter_user_id}</p>
                       <p style={st.detailText}><strong>Usuario reportado:</strong> {selectedReport.reported?.full_name || selectedReport.reported_user_id || 'N/A'}</p>
-                      <p style={st.detailText}><strong>Publicación:</strong> {selectedReport.publication_id || 'N/A'}</p>
+                      <p style={st.detailText}><strong>Producto:</strong> {selectedPublication?.productName || 'N/A'}</p>
+                      <p style={st.detailText}><strong>Unidad:</strong> {selectedPublication?.unit || 'N/A'}</p>
+                      <p style={st.detailText}><strong>Marca:</strong> {selectedPublication?.brand || 'N/A'}</p>
+                      <p style={st.detailText}><strong>Tienda:</strong> {selectedPublication?.store || 'N/A'}</p>
+                      <p style={st.detailText}><strong>Precio:</strong> {selectedPublication?.price || 'N/A'}</p>
+
+                      {selectedReportLocked && (
+                        <p style={st.detailText}><strong>Estado:</strong> Este reporte está cerrado y no permite edición.</p>
+                      )}
 
                       {selectedReport.evidence_url && (
                         <a href={selectedReport.evidence_url} target="_blank" rel="noreferrer" style={st.linkBtn}>
@@ -265,6 +302,7 @@ export default function ModeratorDashboard() {
                           style={st.select}
                           value={reportForm.status}
                           onChange={(e) => setReportForm((prev) => ({ ...prev, status: e.target.value }))}
+                          disabled={selectedReportLocked}
                         >
                           {REPORT_STATUS_OPTIONS.map((status) => (
                             <option key={status} value={status}>{status}</option>
@@ -277,6 +315,7 @@ export default function ModeratorDashboard() {
                           value={reportForm.actionTaken}
                           onChange={(e) => setReportForm((prev) => ({ ...prev, actionTaken: e.target.value }))}
                           placeholder="Ej: Advertencia y retiro de publicación"
+                          disabled={selectedReportLocked}
                         />
 
                         <label style={st.formLabel}>Notas de moderación</label>
@@ -285,10 +324,11 @@ export default function ModeratorDashboard() {
                           value={reportForm.modNotes}
                           onChange={(e) => setReportForm((prev) => ({ ...prev, modNotes: e.target.value }))}
                           placeholder="Detalles internos de la resolución"
+                          disabled={selectedReportLocked}
                         />
 
                         <button style={st.saveBtn} onClick={handleSaveReportReview} disabled={savingReport}>
-                          {savingReport ? 'Guardando...' : 'Guardar cambios'}
+                          {selectedReportLocked ? 'Reporte cerrado' : savingReport ? 'Guardando...' : 'Guardar cambios'}
                         </button>
                       </div>
                     </>

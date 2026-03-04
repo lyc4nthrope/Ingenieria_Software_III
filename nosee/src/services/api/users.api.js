@@ -262,6 +262,7 @@ export async function getAdminOverviewStats() {
 
 /**
  * Obtiene todos los reportes para moderación/admin.
+ * Incluye detalles completos de la publicación reportada (producto, marca, tienda, precio, unidad).
  */
 export async function getAdminReports() {
   const { data, error } = await supabase
@@ -282,7 +283,19 @@ export async function getAdminReports() {
       action_taken,
       reporter:reporter_user_id(full_name),
       reported:reported_user_id(full_name),
-      reviewer:reviewed_by(full_name)
+      reviewer:reviewed_by(full_name),
+      publication:publication_id(
+        id,
+        price,
+        product:products(
+          id,
+          name,
+          base_quantity,
+          brand:brands(id, name),
+          unit_type:unit_types(id, name, abbreviation)
+        ),
+        store:stores(id, name)
+      )
     `)
     .order("created_at", { ascending: false });
 
