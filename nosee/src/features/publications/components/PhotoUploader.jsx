@@ -21,7 +21,7 @@
  * - Error handling
  */
 
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 import { usePhotoUpload } from '@/features/publications/hooks';
 
 /**
@@ -45,7 +45,6 @@ export function PhotoUploader({ onUpload, disabled = false }) {
 
   // ─── Estados ───────────────────────────────────────────────────────────────
 
-  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -60,37 +59,11 @@ export function PhotoUploader({ onUpload, disabled = false }) {
     }
   };
 
-  const handleDrag = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const files = e.dataTransfer.files;
-    if (files && files[0]) {
-      handleFile(files[0]);
-    }
-  };
-
   const handleInputChange = (e) => {
     const files = e.target.files;
     if (files && files[0]) {
       handleFile(files[0]);
     }
-  };
-
-  const handleClick = () => {
-    fileInputRef.current?.click();
   };
 
   const handleReset = () => {
@@ -184,44 +157,16 @@ export function PhotoUploader({ onUpload, disabled = false }) {
     );
   }
 
-  // Zona de drop
+  // Zona de selección simple
   return (
     <div style={styles.container}>
-      <div
-        style={{
-          ...styles.dropZone,
-          ...(dragActive ? styles.dropZoneActive : {}),
-        }}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-        onClick={handleClick}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          onChange={handleInputChange}
-          disabled={disabled}
-          style={styles.fileInput}
-        />
-
-        <div style={styles.dropContent}>
-          <div style={styles.dropIcon}>📷</div>
-          <div style={styles.dropTitle}>Sube una foto</div>
-          <div style={styles.dropSubtitle}>
-            Arrastra aquí o haz click para seleccionar
-          </div>
-          <div style={styles.dropHint}>JPG, PNG o WEBP (máx 5MB)</div>
-        </div>
-      </div>
-
-      <div style={styles.hints}>
-        <div style={styles.hint}>✓ Foto clara del producto</div>
-        <div style={styles.hint}>✓ Precio visible en la etiqueta</div>
-        <div style={styles.hint}>✓ Buena iluminación</div>
-      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleInputChange}
+        disabled={disabled}
+      />
     </div>
   );
 }

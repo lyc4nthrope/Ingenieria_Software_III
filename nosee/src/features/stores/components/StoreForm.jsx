@@ -28,7 +28,7 @@ export default function StoreForm() {
   return (
     <form style={styles.form} onSubmit={onSubmit}>
       <div style={styles.group}>
-        <label style={styles.label}>Nombre de la tienda *</label>
+        <label style={styles.label}>Nombre de la tienda <span style={styles.required}>*</span></label>
         <input
           type="text"
           value={formData.name}
@@ -40,7 +40,7 @@ export default function StoreForm() {
       </div>
 
       <div style={styles.group}>
-        <label style={styles.label}>Tipo de tienda *</label>
+        <label style={styles.label}>Tipo de tienda <span style={styles.required}>*</span></label>
         <StoreTypeSwitch value={formData.type} onChange={(value) => updateField('type', value)} />
         {errors.type ? <div style={styles.error}>{errors.type}</div> : null}
       </div>
@@ -66,7 +66,7 @@ export default function StoreForm() {
         </>
       ) : (
         <div style={styles.group}>
-          <label style={styles.label}>URL de la tienda virtual *</label>
+          <label style={styles.label}>URL de la tienda virtual <span style={styles.required}>*</span></label>
           <input
             type="url"
             value={formData.websiteUrl}
@@ -102,7 +102,8 @@ const styles = {
     background: '#fff',
   },
   group: { display: 'grid', gap: '8px' },
-  label: { fontWeight: 700, fontSize: '14px' },
+  label: { fontWeight: 700, fontSize: '14px', color: '#333' },
+  required: { color: '#d32f2f' },
   input: {
     border: '1px solid var(--border-color, #d1d5db)',
     borderRadius: '8px',
