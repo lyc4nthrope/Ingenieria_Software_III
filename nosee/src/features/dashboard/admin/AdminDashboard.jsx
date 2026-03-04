@@ -196,7 +196,7 @@ export default function AdminDashboard() {
       supabase.from('users').select('*', { count: 'exact', head: true }),
       supabase.from('price_publications').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
       supabase.from('publication_votes').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
-      supabase.from('price_reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
     ]);
 
     setStats({
@@ -340,8 +340,8 @@ export default function AdminDashboard() {
     setReportsLoading(true);
     try {
       const query = supabase
-        .from('price_reports')
-        .select('id, report_type, description, created_at, publication_id, reporter_id, status')
+        .from('reports')
+        .select('id, reason, description, created_at, publication_id, reporter_user_id, status')
         .order('created_at', { ascending: false });
 
       const { data: rawReports, error } = reportFilter === 'all'
@@ -354,7 +354,7 @@ export default function AdminDashboard() {
       }
 
       const pubIds     = [...new Set(rawReports.map(r => r.publication_id).filter(Boolean))];
-      const reporterIds = [...new Set(rawReports.map(r => r.reporter_id).filter(Boolean))];
+      const reporterIds = [...new Set(rawReports.map(r => r.reporter_user_id).filter(Boolean))];
 
       const [{ data: publications }, { data: reporters }] = await Promise.all([
         supabase
@@ -369,12 +369,12 @@ export default function AdminDashboard() {
 
       setReports(rawReports.map(r => {
         const pub      = pubMap[r.publication_id];
-        const reporter = reporterMap[r.reporter_id];
+        const reporter = reporterMap[r.reporter_user_id];
         return {
           id:             r.id,
           status:         r.status,
-          rawType:        r.report_type,
-          severity:       REPORT_SEVERITY[r.report_type] || 'baja',
+          rawType:        r.reason,
+          severity:       REPORT_SEVERITY[r.reason] || 'baja',
           time:           new Date(r.created_at).toLocaleDateString('es-CO'),
           post:           pub?.products?.name            || null,
           reporter:       reporter?.full_name            || null,
@@ -398,7 +398,7 @@ export default function AdminDashboard() {
   }, [reportFilter]);
 
   const handleResolveReport = async (id, action, report) => {
-    await supabase.from('price_reports').update({ status: 'resolved' }).eq('id', id);
+    await supabase.from('reports').update({ status: 'resolved' }).eq('id', id);
 
     if (action === 'delete' && report.publicationId) {
       await supabase.from('price_publications').delete().eq('id', report.publicationId);

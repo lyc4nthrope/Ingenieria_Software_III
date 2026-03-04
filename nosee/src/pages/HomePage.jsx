@@ -8,6 +8,7 @@ import {
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ReportPublicationModal } from "@/features/publications/components/ReportPublicationModal";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const FALLBACK_IMAGE = "https://via.placeholder.com/400x300?text=Sin+foto";
@@ -383,8 +384,10 @@ export default function HomePage() {
   const { latitude, longitude } = useGeoLocation({ autoFetch: true });
 
   const [detailPublication, setDetailPublication] = useState(null);
+  const [reportingPublication, setReportingPublication] = useState(null);
   const [votedIds, setVotedIds] = useState(new Set());
   const [reportingId, setReportingId] = useState(null);
+  const [feedback, setFeedback] = useState(null);
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
 

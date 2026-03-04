@@ -1,10 +1,10 @@
 /**
- * ModeradorDashboard.jsx
+ * ModeratorDashboard.jsx
  *
  * Dashboard del moderador de NØSEE.
- *  Vista de usuario + controles de moderación de reportes.
+ * Vista de usuario + controles de moderación de reportes.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/services/supabase.client";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -21,9 +21,9 @@ const SEVERITY_COLORS = {
   baja: { bg: "#60A5FA18", text: "#60A5FA" },
 };
 
-export default function ModeradorDashboard() {
+export default function ModeratorDashboard() {
   const { t } = useLanguage();
-  const td = t.moderatorDashboard;
+  const td = t.moderatorDashboard || {};
 
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,115 +33,127 @@ export default function ModeradorDashboard() {
   const fetchReports = async () => {
     setLoading(true);
 
-    // 1. Reportes pendientes
-    const { data: rawReports, error } = await supabase
-      .from("price_reports")
-      .select(
-        "id, report_type, description, created_at, publication_id, reporter_id",
-      )
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
+    try {
+      // 1. Reportes pendientes
+      const { data: rawReports, error } = await supabase
+        .from("reports")
+        .select(
+          "id, reason, description, created_at, publication_id, reporter_user_id"
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
 
-    if (error || !rawReports?.length) {
+      if (error) {
+        console.error("Error fetching reports:", error);
+        setLoading(false);
+        return;
+      }
+
+      if (!rawReports?.length) {
+        setReports([]);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Detalles de las publicaciones reportadas (producto + autor)
+      const pubIds = [
+        ...new Set(rawReports.map((r) => r.publication_id).filter(Boolean)),
+      ];
+      const { data: publications } = await supabase
+        .from("price_publications")
+        .select(
+          "id, user_id, products(name), author:users!price_publications_user_id_fkey(full_name)"
+        )
+        .in("id", pubIds);
+
+      // 3. Nombres de los reportadores
+      const reporterIds = [
+        ...new Set(rawReports.map((r) => r.reporter_user_id).filter(Boolean)),
+      ];
+      const { data: reporters } = await supabase
+        .from("users")
+        .select("id, full_name")
+        .in("id", reporterIds);
+
+      const pubMap = Object.fromEntries(
+        (publications || []).map((p) => [p.id, p])
+      );
+      const reporterMap = Object.fromEntries(
+        (reporters || []).map((u) => [u.id, u])
+      );
+
+      const mapped = rawReports.map((r) => {
+        const pub = pubMap[r.publication_id];
+        const reporter = reporterMap[r.reporter_user_id];
+        return {
+          id: r.id,
+          rawType: r.reason,
+          severity: REPORT_SEVERITY[r.reason] || "baja",
+          time: new Date(r.created_at).toLocaleDateString("es-CO"),
+          post: pub?.products?.name || null,
+          reporter: reporter?.full_name || null,
+          reported: pub?.author?.full_name || null,
+          publicationId: r.publication_id,
+          reportedUserId: pub?.user_id,
+        };
+      });
+
+      setReports(mapped);
+    } catch (err) {
+      console.error("Error in fetchReports:", err);
+    } finally {
       setLoading(false);
     }
   };
-  const reasonOptions = useMemo(
-    () => Array.from(new Set(reports.map((r) => r.reason).filter(Boolean))),
-    [reports],
-  );
-
-    // 2. Detalles de las publicaciones reportadas (producto + autor)
-    const pubIds = [
-      ...new Set(rawReports.map((r) => r.publication_id).filter(Boolean)),
-    ];
-    const { data: publications } = await supabase
-      .from("price_publications")
-      .select(
-        "id, user_id, products(name), author:users!price_publications_user_id_fkey(full_name)",
-      )
-      .in("id", pubIds);
-
-    // 3. Nombres de los reportadores
-    const reporterIds = [
-      ...new Set(rawReports.map((r) => r.reporter_id).filter(Boolean)),
-    ];
-    const { data: reporters } = await supabase
-      .from("users")
-      .select("id, full_name")
-      .in("id", reporterIds);
-
-    const pubMap = Object.fromEntries(
-      (publications || []).map((p) => [p.id, p]),
-    );
-    const reporterMap = Object.fromEntries(
-      (reporters || []).map((u) => [u.id, u]),
-    );
-
-    const mapped = rawReports.map((r) => {
-      const pub = pubMap[r.publication_id];
-      const reporter = reporterMap[r.reporter_id];
-      return {
-        id: r.id,
-        rawType: r.report_type,
-        severity: REPORT_SEVERITY[r.report_type] || "baja",
-        time: new Date(r.created_at).toLocaleDateString("es-CO"),
-        post: pub?.products?.name || null,
-        reporter: reporter?.full_name || null,
-        reported: pub?.author?.full_name || null,
-        publicationId: r.publication_id,
-        reportedUserId: pub?.user_id,
-      };
-    });
-
-    return base.sort((a, b) => {
-      const firstDate = new Date(a.created_at).getTime();
-      const secondDate = new Date(b.created_at).getTime();
-      return filters.order === 'recent' ? secondDate - firstDate : firstDate - secondDate;
-    });
-  }, [reports, filters]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      fetchReports();
-    });
+    fetchReports();
   }, []);
 
   const handleResolve = async (id, action, report) => {
-    // Marcar el reporte como resuelto
-    await supabase
-      .from("price_reports")
-      .update({ status: "resolved" })
-      .eq("id", id);
-
-    if (action === "eliminado" && report.publicationId) {
+    try {
+      // Marcar el reporte como resuelto
       await supabase
-        .from("price_publications")
-        .delete()
-        .eq("id", report.publicationId);
-    }
+        .from("reports")
+        .update({ status: "resolved" })
+        .eq("id", id);
 
-    if (action === "baneado" && report.reportedUserId) {
-      await supabase
-        .from("users")
-        .update({ is_active: false })
-        .eq("id", report.reportedUserId);
-    }
+      if (action === "eliminado" && report.publicationId) {
+        await supabase
+          .from("price_publications")
+          .delete()
+          .eq("id", report.publicationId);
+      }
 
-    setResolved((prev) => [...prev, { id, action }]);
-    setReports((prev) => prev.filter((r) => r.id !== id));
+      if (action === "baneado" && report.reportedUserId) {
+        await supabase
+          .from("users")
+          .update({ is_active: false })
+          .eq("id", report.reportedUserId);
+      }
+
+      setResolved((prev) => [...prev, { id, action }]);
+      setReports((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error("Error resolving report:", err);
+    }
   };
-  const selectedPublication = formatPublicationSummary(selectedReport?.publication);
-  const selectedReportLocked = isReportLocked(selectedReport?.status);
+
+  const pendingCount = reports.length;
 
   return (
     <div style={st.root}>
       <aside style={st.sidebar}>
         <nav style={st.nav}>
           {[
-            { key: "reportes", icon: "⚑", label: td.navReports, badge: pendingCount },
-            { key: "feed",     icon: "◈", label: td.navFeed },
-            { key: "historial",icon: "◎", label: td.navHistory },
+            {
+              key: "reportes",
+              icon: "⚑",
+              label: td.navReports || "Reportes",
+              badge: pendingCount,
+            },
+            { key: "feed", icon: "◈", label: td.navFeed || "Feed" },
+            { key: "historial", icon: "◎", label: td.navHistory || "Historial" },
           ].map((item) => (
             <button
               key={item.key}
@@ -165,13 +177,19 @@ export default function ModeradorDashboard() {
           <>
             <header style={st.header}>
               <div>
-                <h1 style={st.headerTitle}>{td.reportsTitle}</h1>
+                <h1 style={st.headerTitle}>
+                  {td.reportsTitle || "Reportes Pendientes"}
+                </h1>
                 <p style={st.headerSub}>
-                  {pendingCount > 0 ? td.reportsSub(pendingCount) : td.reportsAllDone}
+                  {pendingCount > 0
+                    ? `${pendingCount} reporte${pendingCount > 1 ? "s" : ""} pendiente${pendingCount > 1 ? "s" : ""}`
+                    : "Todos resueltos"}
                 </p>
               </div>
               <div style={st.resolvedCount}>
-                {td.resolvedToday(resolved.length)}
+                {td.resolvedToday
+                  ? td.resolvedToday(resolved.length)
+                  : `${resolved.length} resueltos`}
               </div>
             </header>
 
@@ -179,114 +197,22 @@ export default function ModeradorDashboard() {
               <div style={st.emptyState}>
                 <span style={{ fontSize: 32 }}>⟳</span>
                 <p style={{ color: MUTED, marginTop: 8 }}>
-                  {td.loadingReports}
+                  {td.loadingReports || "Cargando reportes..."}
                 </p>
               </div>
             ) : reports.length === 0 ? (
-              <EmptyState />
+              <EmptyState t={t} td={td} />
             ) : (
               <div style={st.reportList}>
                 {reports.map((r) => (
-                  <ReportCard key={r.id} report={r} onResolve={handleResolve} />
+                  <ReportCard
+                    key={r.id}
+                    report={r}
+                    onResolve={handleResolve}
+                    t={t}
+                    td={td}
+                  />
                 ))}
-              </select>
-              <select style={st.select} value={filters.reason} onChange={(e) => setFilters((prev) => ({ ...prev, reason: e.target.value }))}>
-                <option value="all">Todos los tipos</option>
-                {reasonOptions.map((reason) => (
-                  <option key={reason} value={reason}>{REPORT_REASON_LABELS[reason] || reason}</option>
-                ))}
-              </select>
-            </div>
-
-            {loading ? (
-              <div style={st.loadingWrap}><Spinner size={30} /></div>
-            ) : (
-              <div style={st.layout}>
-                <div style={st.table}>
-                  <div style={st.tableHead}>
-                    {['Fecha', 'Tipo', 'Estado', 'Reportado', 'Detalle'].map((h) => (
-                      <div key={h} style={st.th}>{h}</div>
-                    ))}
-                  </div>
-                  {filteredReports.length === 0 ? (
-                    <div style={st.empty}>No hay reportes con esos filtros.</div>
-                  ) : filteredReports.map((report) => (
-                    <div key={report.id} style={st.tableRow}>
-                      <div>{new Date(report.created_at).toLocaleString('es-CO')}</div>
-                      <div>{REPORT_REASON_LABELS[report.reason] || report.reason}</div>
-                      <div><span style={st.badge}>{report.status || 'PENDING'}</span></div>
-                      <div>{report.reported?.full_name || report.reported_user_id || 'N/A'}</div>
-                      <button style={st.actionBtn} onClick={() => setSelectedReport(report)}>
-                          {isReportLocked(report.status) ? 'Ver' : 'Ver / editar'}
-                        </button>
-                    </div>
-                  ))}
-                </div>
-
-                <div style={st.detailPanel}>
-                  {!selectedReport ? (
-                    <div style={st.empty}>Selecciona un reporte para revisar.</div>
-                  ) : (
-                    <>
-                      <h3 style={st.detailTitle}>Reporte #{selectedReport.id.slice(0, 8)}</h3>
-                      <p style={st.detailText}><strong>Razón:</strong> {REPORT_REASON_LABELS[selectedReport.reason] || selectedReport.reason}</p>
-                      <p style={st.detailText}><strong>Descripción:</strong> {selectedReport.description || 'Sin descripción'}</p>
-                      <p style={st.detailText}><strong>Reportante:</strong> {selectedReport.reporter?.full_name || selectedReport.reporter_user_id}</p>
-                      <p style={st.detailText}><strong>Usuario reportado:</strong> {selectedReport.reported?.full_name || selectedReport.reported_user_id || 'N/A'}</p>
-                      <p style={st.detailText}><strong>Producto:</strong> {selectedPublication?.productName || 'N/A'}</p>
-                      <p style={st.detailText}><strong>Unidad:</strong> {selectedPublication?.unit || 'N/A'}</p>
-                      <p style={st.detailText}><strong>Marca:</strong> {selectedPublication?.brand || 'N/A'}</p>
-                      <p style={st.detailText}><strong>Tienda:</strong> {selectedPublication?.store || 'N/A'}</p>
-                      <p style={st.detailText}><strong>Precio:</strong> {selectedPublication?.price || 'N/A'}</p>
-
-                      {selectedReportLocked && (
-                        <p style={st.detailText}><strong>Estado:</strong> Este reporte está cerrado y no permite edición.</p>
-                      )}
-
-                      {selectedReport.evidence_url && (
-                        <a href={selectedReport.evidence_url} target="_blank" rel="noreferrer" style={st.linkBtn}>
-                          Ver evidencia
-                        </a>
-                      )}
-
-                      <div style={st.formBlock}>
-                        <label style={st.formLabel}>Estado</label>
-                        <select
-                          style={st.select}
-                          value={reportForm.status}
-                          onChange={(e) => setReportForm((prev) => ({ ...prev, status: e.target.value }))}
-                          disabled={selectedReportLocked}
-                        >
-                          {REPORT_STATUS_OPTIONS.map((status) => (
-                            <option key={status} value={status}>{status}</option>
-                          ))}
-                        </select>
-
-                        <label style={st.formLabel}>Acción tomada</label>
-                        <input
-                          style={st.input}
-                          value={reportForm.actionTaken}
-                          onChange={(e) => setReportForm((prev) => ({ ...prev, actionTaken: e.target.value }))}
-                          placeholder="Ej: Advertencia y retiro de publicación"
-                          disabled={selectedReportLocked}
-                        />
-
-                        <label style={st.formLabel}>Notas de moderación</label>
-                        <textarea
-                          style={st.textarea}
-                          value={reportForm.modNotes}
-                          onChange={(e) => setReportForm((prev) => ({ ...prev, modNotes: e.target.value }))}
-                          placeholder="Detalles internos de la resolución"
-                          disabled={selectedReportLocked}
-                        />
-
-                        <button style={st.saveBtn} onClick={handleSaveReportReview} disabled={savingReport}>
-                          {selectedReportLocked ? 'Reporte cerrado' : savingReport ? 'Guardando...' : 'Guardar cambios'}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
               </div>
             )}
           </>
@@ -295,18 +221,26 @@ export default function ModeradorDashboard() {
         {activeTab === "feed" && (
           <div style={st.placeholder}>
             <span style={st.placeholderIcon}>◈</span>
-            <h2 style={st.placeholderTitle}>{td.feedTitle}</h2>
-            <p style={st.placeholderSub}>{td.feedSub}</p>
-            <div style={st.tag}>{td.comingSoon}</div>
+            <h2 style={st.placeholderTitle}>
+              {td.feedTitle || "Feed de Moderación"}
+            </h2>
+            <p style={st.placeholderSub}>
+              {td.feedSub || "Vista del feed de la plataforma"}
+            </p>
+            <div style={st.tag}>{td.comingSoon || "Próximamente"}</div>
           </div>
         )}
 
         {activeTab === "historial" && (
           <div style={st.placeholder}>
             <span style={st.placeholderIcon}>◎</span>
-            <h2 style={st.placeholderTitle}>{td.historyTitle}</h2>
-            <p style={st.placeholderSub}>{td.historySub}</p>
-            <div style={st.tag}>{td.comingSoon}</div>
+            <h2 style={st.placeholderTitle}>
+              {td.historyTitle || "Historial"}
+            </h2>
+            <p style={st.placeholderSub}>
+              {td.historySub || "Historial de acciones de moderación"}
+            </p>
+            <div style={st.tag}>{td.comingSoon || "Próximamente"}</div>
           </div>
         )}
       </main>
@@ -315,12 +249,11 @@ export default function ModeradorDashboard() {
 }
 
 // ─── ReportCard ───────────────────────────────────────────────────────────────
-function ReportCard({ report, onResolve }) {
-  const { t } = useLanguage();
-  const td = t.moderatorDashboard;
+function ReportCard({ report, onResolve, t, td }) {
   const sev = SEVERITY_COLORS[report.severity] || SEVERITY_COLORS.baja;
   const typeLabel = td.reportTypes?.[report.rawType] || report.rawType;
-  const severityLabel = td.severityLabels?.[report.severity] || report.severity?.toUpperCase();
+  const severityLabel =
+    td.severityLabels?.[report.severity] || report.severity?.toUpperCase();
 
   return (
     <article style={st.reportCard}>
@@ -334,45 +267,72 @@ function ReportCard({ report, onResolve }) {
 
       <div style={st.reportBody}>
         <div style={st.reportRow}>
-          <span style={st.reportLabel}>{td.labelPublication}</span>
-          <span style={st.reportValue}>"{report.post ?? td.deletedPub}"</span>
+          <span style={st.reportLabel}>
+            {td.labelPublication || "Publicación"}
+          </span>
+          <span style={st.reportValue}>
+            "{report.post ?? (td.deletedPub || "Publicación eliminada")}"
+          </span>
         </div>
         <div style={st.reportRow}>
-          <span style={st.reportLabel}>{td.labelReportedBy}</span>
-          <span style={st.reportValue}>{report.reporter ?? td.anonymous}</span>
+          <span style={st.reportLabel}>
+            {td.labelReportedBy || "Reportado por"}
+          </span>
+          <span style={st.reportValue}>
+            {report.reporter ?? (td.anonymous || "Anónimo")}
+          </span>
         </div>
         <div style={st.reportRow}>
-          <span style={st.reportLabel}>{td.labelReportedUser}</span>
-          <span style={st.reportValue}>{report.reported ?? td.unknown}</span>
+          <span style={st.reportLabel}>
+            {td.labelReportedUser || "Usuario reportado"}
+          </span>
+          <span style={st.reportValue}>
+            {report.reported ?? (td.unknown || "Desconocido")}
+          </span>
         </div>
       </div>
 
       <div style={st.reportActions}>
-        <button style={st.btnDelete} onClick={() => onResolve(report.id, "eliminado", report)}>
-          {td.deletePublicationBtn}
+        <button
+          style={st.btnDelete}
+          onClick={() => onResolve(report.id, "eliminado", report)}
+        >
+          {td.deletePublicationBtn || "Eliminar publicación"}
         </button>
-        <button style={st.btnBan} onClick={() => onResolve(report.id, "baneado", report)}>
-          {td.banUserBtn}
+        <button
+          style={st.btnBan}
+          onClick={() => onResolve(report.id, "baneado", report)}
+        >
+          {td.banUserBtn || "Banear usuario"}
         </button>
-        <button style={st.btnDismiss} onClick={() => onResolve(report.id, "descartado", report)}>
-          {td.dismissBtn}
+        <button
+          style={st.btnDismiss}
+          onClick={() => onResolve(report.id, "descartado", report)}
+        >
+          {td.dismissBtn || "Descartar"}
         </button>
       </div>
     </article>
   );
 }
 
-function EmptyState() {
-  const { t } = useLanguage();
-  const td = t.moderatorDashboard;
+function EmptyState({ t, td }) {
+  const ACCENT = "#A78BFA";
   return (
     <div style={st.emptyState}>
       <span style={{ fontSize: 48 }}>✓</span>
-      <h2 style={{ fontSize: 20, fontWeight: 700, margin: "12px 0 6px", color: ACCENT }}>
-        {td.noReportsTitle}
+      <h2
+        style={{
+          fontSize: 20,
+          fontWeight: 700,
+          margin: "12px 0 6px",
+          color: ACCENT,
+        }}
+      >
+        {td.noReportsTitle || "¡Todos limpios!"}
       </h2>
       <p style={{ color: MUTED, fontSize: 14, margin: 0 }}>
-        {td.noReportsSub}
+        {td.noReportsSub || "No hay reportes pendientes"}
       </p>
     </div>
   );

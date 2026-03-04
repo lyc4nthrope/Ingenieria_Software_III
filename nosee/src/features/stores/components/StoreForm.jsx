@@ -4,8 +4,9 @@ import StoreEvidenceUploader from "@/features/stores/components/StoreEvidenceUpl
 import { StoreTypeEnum } from "@/features/stores/schemas";
 import { useStoreCreation } from "@/features/stores/hooks/useStoreCreation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Spinner } from "@/components/ui/Spinner";
 
-export default function StoreForm() {
+export default function StoreForm({ storeId = null, mode = 'create', onSuccess }) {
   const { t } = useLanguage();
   const tf = t.storeForm;
 
