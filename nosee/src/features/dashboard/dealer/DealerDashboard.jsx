@@ -225,11 +225,11 @@ function OrderCard({ order, statusInfo, td, onAdvance, onSelect, selected }) {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const ACCENT  = '#34D399';   // verde operaciones — movimiento, acción
-const BG      = '#080C14';
-const SURFACE = '#0F1724';
-const BORDER  = '#1E2D4A';
-const TEXT    = '#E8EDF8';
-const MUTED   = '#7B90BD';
+const BG      = 'var(--bg-base)';
+const SURFACE = 'var(--bg-surface)';
+const BORDER  = 'var(--border)';
+const TEXT    = 'var(--text-primary)';
+const MUTED   = 'var(--text-secondary)';
 
 const r = {
   root: {
@@ -355,7 +355,7 @@ const r = {
 
   orderItems: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
   itemChip: {
-    background: '#1A2540',
+    background: 'var(--bg-elevated)',
     border: `1px solid ${BORDER}`,
     borderRadius: 5,
     padding: '3px 10px',

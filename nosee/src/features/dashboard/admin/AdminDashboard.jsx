@@ -971,11 +971,11 @@ function ErrorBar({ msg, onRetry }) {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const ACCENT  = '#FF6B35';
-const BG      = '#080C14';
-const SURFACE = '#0F1724';
-const BORDER  = '#1E2D4A';
-const TEXT    = '#E8EDF8';
-const MUTED   = '#7B90BD';
+const BG      = 'var(--bg-base)';
+const SURFACE = 'var(--bg-surface)';
+const BORDER  = 'var(--border)';
+const TEXT    = 'var(--text-primary)';
+const MUTED   = 'var(--text-secondary)';
 
 const s = {
   root:    { display: 'flex', height: '100vh', overflow: 'hidden', background: BG, color: TEXT, fontFamily: "'DM Sans', 'Inter', sans-serif" },
@@ -1008,15 +1008,15 @@ const s = {
   filterBtnActive: { background: `${ACCENT}18`, borderColor: ACCENT, color: ACCENT },
 
   table:     { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' },
-  tableHead: { display: 'grid', gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr', padding: '12px 20px', borderBottom: `1px solid ${BORDER}`, background: '#0A1020' },
+  tableHead: { display: 'grid', gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr', padding: '12px 20px', borderBottom: `1px solid ${BORDER}`, background: 'var(--bg-elevated)' },
   th:        { fontSize: 12, color: MUTED, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' },
   tableRow:  { display: 'grid', gridTemplateColumns: '2fr 1fr 0.5fr 0.8fr 1fr', padding: '14px 20px', alignItems: 'center', borderBottom: `1px solid ${BORDER}` },
   td:        { display: 'flex', alignItems: 'center', gap: 10 },
   tdNum:     { fontSize: 14, fontWeight: 600, color: ACCENT },
-  rowAvatar: { width: 32, height: 32, borderRadius: '50%', background: '#1C1C20', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
+  rowAvatar: { width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-elevated)', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
   rowName:   { fontSize: 14, fontWeight: 500 },
   rowEmail:  { fontSize: 12, color: MUTED },
-  roleSelect:{ background: '#1C1C20', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 6, padding: '5px 10px', fontSize: 13, cursor: 'pointer' },
+  roleSelect:{ background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 6, padding: '5px 10px', fontSize: 13, cursor: 'pointer' },
   badge:     { fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '3px 10px', textTransform: 'capitalize' },
   actionBtn: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 6, padding: '5px 12px', fontSize: 13, cursor: 'pointer' },
   actionBtnDanger: { borderColor: '#F87171', color: '#F87171' },

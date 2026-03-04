@@ -280,11 +280,11 @@ function EmptyState() {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const ACCENT = "#A78BFA"; // violeta moderador — autoridad sutil
-const BG = "#080C14";
-const SURFACE = "#0F1724";
-const BORDER = "#1E2D4A";
-const TEXT = "#E8EDF8";
-const MUTED = "#7B90BD";
+const BG = "var(--bg-base)";
+const SURFACE = "var(--bg-surface)";
+const BORDER = "var(--border)";
+const TEXT = "var(--text-primary)";
+const MUTED = "var(--text-secondary)";
 
 const st = {
   root: {
