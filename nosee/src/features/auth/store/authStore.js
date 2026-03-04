@@ -30,6 +30,20 @@ import { authApi, usersApi } from '@/services/api';
 import { supabase }          from '@/services/supabase.client';
 import { AsyncStateEnum }    from '@/types';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const insertAuditLog = async (userId, eventType) => {
+  try {
+    await supabase.from('login_audit_logs').insert({
+      user_id:    userId,
+      event_type: eventType,
+      user_agent: navigator.userAgent,
+    });
+  } catch (_) {
+    // No bloquear el flujo por un log fallido
+  }
+};
+
 // ─────────────────────────────────────────────────────────────────
 // ESTADO INICIAL
 // ─────────────────────────────────────────────────────────────────
@@ -44,6 +58,7 @@ const initialState = {
   // Si initialize() se llama de nuevo antes de que el listener anterior se limpie,
   // lo cancelamos primero para no acumular suscripciones duplicadas.
   _unsubscribeAuthListener: null,
+  _roleChangeNotification:  null,
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -135,6 +150,13 @@ export const useAuthStore = create((set, get) => ({
             return;
           }
 
+          // Detectar cambio de rol para notificar al usuario
+          const previousRole = get().user?.role;
+          const newRole = profileResult.data?.role;
+          if (previousRole && newRole && previousRole !== newRole) {
+            set({ _roleChangeNotification: newRole });
+          }
+
           set({
             user:    profileResult.data,
             session,                     // ← token siempre fresco
@@ -206,6 +228,8 @@ export const useAuthStore = create((set, get) => ({
       error:   null,
     });
 
+    await insertAuditLog(result.data.user.id, 'login');
+
     return { success: true, error: null };
   },
 
@@ -258,6 +282,9 @@ register: async (email, password, metadata = {}) => {
     if (unsub) unsub();
 
     set({ status: AsyncStateEnum.LOADING });
+
+    const currentUser = get().user;
+    if (currentUser?.id) await insertAuditLog(currentUser.id, 'logout');
 
     await authApi.signOut();
 
@@ -356,6 +383,11 @@ register: async (email, password, metadata = {}) => {
   // ACCIÓN: clearError
   // ════════════════════════════════════════════════════════════════
   clearError: () => set({ error: null, status: AsyncStateEnum.IDLE }),
+
+  // ════════════════════════════════════════════════════════════════
+  // ACCIÓN: clearRoleNotification
+  // ════════════════════════════════════════════════════════════════
+  clearRoleNotification: () => set({ _roleChangeNotification: null }),
 
 
   // ════════════════════════════════════════════════════════════════

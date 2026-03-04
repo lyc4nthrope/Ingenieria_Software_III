@@ -2,13 +2,14 @@
  * App.jsx - Punto de entrada de la aplicación
  *
  */
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import {
   useAuthStore,
   selectIsInitialized,
 } from "@/features/auth/store/authStore";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { PageLoader } from "@/components/ui/Spinner";
@@ -216,6 +217,75 @@ function AppContent() {
   );
 }
 
+function RoleChangeToast() {
+  const notification = useAuthStore((s) => s._roleChangeNotification);
+  const clearRoleNotification = useAuthStore((s) => s.clearRoleNotification);
+  const { t } = useLanguage();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (notification) {
+      setVisible(true);
+      const timer = setTimeout(() => {
+        setVisible(false);
+        setTimeout(clearRoleNotification, 300);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification, clearRoleNotification]);
+
+  if (!notification) return null;
+
+  return (
+    <div
+      role="alert"
+      aria-live="polite"
+      aria-atomic="true"
+      style={{
+        position: 'fixed',
+        bottom: '24px',
+        right: '24px',
+        background: '#1e293b',
+        color: '#fff',
+        padding: '12px 16px 12px 20px',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: 500,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+        zIndex: 9999,
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 0.3s',
+        maxWidth: '320px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+      }}
+    >
+      <span aria-hidden="true">🔔</span>
+      <span>{t.app.roleChangePrefix} {notification}</span>
+      <button
+        onClick={() => { setVisible(false); setTimeout(clearRoleNotification, 300); }}
+        aria-label={t.app.closeNotification}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: '#fff',
+          cursor: 'pointer',
+          fontSize: '16px',
+          lineHeight: 1,
+          padding: '4px',
+          marginLeft: 'auto',
+          borderRadius: '4px',
+          minWidth: '28px',
+          minHeight: '28px',
+        }}
+      >
+        <span aria-hidden="true">×</span>
+      </button>
+    </div>
+  );
+}
+
 function AppShell() {
   const { t } = useLanguage();
   return (
@@ -251,6 +321,7 @@ function AppShell() {
       </main>
 
       <AccessibilityMenu />
+      <RoleChangeToast />
     </div>
   );
 }

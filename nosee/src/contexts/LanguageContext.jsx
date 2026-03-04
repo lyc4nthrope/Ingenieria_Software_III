@@ -272,6 +272,23 @@ export const TRANSLATIONS = {
       ],
       confirmPermanent: "Sí, eliminar todo permanentemente",
       deleting: "Eliminando...",
+      priceAlerts: {
+        title: "Alertas de precios",
+        description: "Te notificaremos cuando un producto baje del precio que indiques.",
+        productIdLabel: "ID del producto",
+        productIdPlaceholder: "Ej: 42",
+        targetPriceLabel: "Precio objetivo",
+        targetPricePlaceholder: "Ej: 5000",
+        required: "(obligatorio)",
+        saving: "Guardando...",
+        addAlert: "+ Agregar alerta",
+        loading: "Cargando alertas...",
+        empty: "No tienes alertas activas.",
+        listLabel: "Tus alertas de precio activas",
+        delete: "Eliminar",
+        deleteAriaLabel: (name, price) => `Eliminar alerta de ${name} a $${price}`,
+        unknownProduct: (id) => `Producto #${id}`,
+      },
     },
 
     // ── App / General ─────────────────────────────────────────────────────────
@@ -281,6 +298,23 @@ export const TRANSLATIONS = {
       loadingPage: "Cargando...",
       notFound: "Página no encontrada",
       backHome: "Volver al inicio",
+      roleChangePrefix: "Tu rol ha sido actualizado a:",
+      closeNotification: "Cerrar notificación",
+    },
+
+    // ── Subida de fotos ───────────────────────────────────────────────────────
+    photoUploader: {
+      groupLabel: "Opciones para agregar foto",
+      galleryLabel: "Subir imagen desde la galería del dispositivo",
+      galleryButton: "Subir desde galería",
+      cameraLabel: "Abrir cámara para tomar una foto",
+      cameraButton: "Tomar foto",
+      uploading: "Subiendo foto...",
+      success: "Foto subida correctamente",
+      changePhoto: "Cambiar foto",
+      errorTitle: "Error al subir foto",
+      dismissError: "Descartar error",
+      retry: "Intentar de nuevo",
     },
 
     // ── Publicaciones ─────────────────────────────────────────────────────────
@@ -916,6 +950,23 @@ export const TRANSLATIONS = {
       ],
       confirmPermanent: "Yes, delete everything permanently",
       deleting: "Deleting...",
+      priceAlerts: {
+        title: "Price alerts",
+        description: "We'll notify you when a product drops below the price you set.",
+        productIdLabel: "Product ID",
+        productIdPlaceholder: "E.g.: 42",
+        targetPriceLabel: "Target price",
+        targetPricePlaceholder: "E.g.: 5000",
+        required: "(required)",
+        saving: "Saving...",
+        addAlert: "+ Add alert",
+        loading: "Loading alerts...",
+        empty: "You have no active alerts.",
+        listLabel: "Your active price alerts",
+        delete: "Delete",
+        deleteAriaLabel: (name, price) => `Delete alert for ${name} at $${price}`,
+        unknownProduct: (id) => `Product #${id}`,
+      },
     },
 
     // ── App / General ─────────────────────────────────────────────────────────
@@ -925,6 +976,23 @@ export const TRANSLATIONS = {
       loadingPage: "Loading...",
       notFound: "Page not found",
       backHome: "Back to home",
+      roleChangePrefix: "Your role has been updated to:",
+      closeNotification: "Close notification",
+    },
+
+    // ── Photo uploader ────────────────────────────────────────────────────────
+    photoUploader: {
+      groupLabel: "Options to add a photo",
+      galleryLabel: "Upload image from device gallery",
+      galleryButton: "Upload from gallery",
+      cameraLabel: "Open camera to take a photo",
+      cameraButton: "Take photo",
+      uploading: "Uploading photo...",
+      success: "Photo uploaded successfully",
+      changePhoto: "Change photo",
+      errorTitle: "Error uploading photo",
+      dismissError: "Dismiss error",
+      retry: "Try again",
     },
 
     // ── Publications ──────────────────────────────────────────────────────────

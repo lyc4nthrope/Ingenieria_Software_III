@@ -23,6 +23,7 @@
 
 import { useRef } from "react";
 import { usePhotoUpload } from "@/features/publications/hooks";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 /**
  * Componente: PhotoUploader
@@ -40,12 +41,16 @@ import { usePhotoUpload } from "@/features/publications/hooks";
 export function PhotoUploader({ onUpload, disabled = false }) {
   // ─── Hooks ────────────────────────────────────────────────────────────────
 
+  const { t } = useLanguage();
+  const tu = t.photoUploader;
+
   const { photoUrl, uploading, progress, error, upload, reset, clearError } =
     usePhotoUpload();
 
   // ─── Estados ───────────────────────────────────────────────────────────────
 
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -78,6 +83,11 @@ export function PhotoUploader({ onUpload, disabled = false }) {
     fileInputRef.current?.click();
   };
 
+  const handleCameraClick = () => {
+    clearError();
+    cameraInputRef.current?.click();
+  };
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   // Si ya tiene foto
@@ -86,13 +96,13 @@ export function PhotoUploader({ onUpload, disabled = false }) {
       <div style={styles.container}>
         <div style={styles.successContainer}>
           <div style={styles.previewSection}>
-            <img src={photoUrl} alt="Preview" style={styles.previewImage} />
+            <img src={photoUrl} alt={tu.success} style={styles.previewImage} />
           </div>
 
           <div style={styles.successMessage}>
-            <span style={styles.checkmark}>✓</span>
+            <span style={styles.checkmark} aria-hidden="true">✓</span>
             <div>
-              <div style={styles.successTitle}>Foto subida correctamente</div>
+              <div style={styles.successTitle}>{tu.success}</div>
               <div style={styles.successUrl}>
                 {photoUrl.substring(0, 50)}...
               </div>
@@ -104,7 +114,7 @@ export function PhotoUploader({ onUpload, disabled = false }) {
             onClick={handleReset}
             disabled={disabled}
           >
-            Cambiar foto
+            {tu.changePhoto}
           </button>
         </div>
       </div>
@@ -117,7 +127,7 @@ export function PhotoUploader({ onUpload, disabled = false }) {
       <div style={styles.container}>
         <div style={styles.uploadingContainer}>
           <div style={styles.spinner}></div>
-          <div style={styles.uploadingText}>Subiendo foto...</div>
+          <div style={styles.uploadingText} role="status" aria-live="polite">{tu.uploading}</div>
 
           {progress > 0 && (
             <div style={styles.progressContainer}>
@@ -142,14 +152,14 @@ export function PhotoUploader({ onUpload, disabled = false }) {
     return (
       <div style={styles.container}>
         <div style={styles.errorContainer}>
-          <div style={styles.errorTitle}>⚠ Error al subir foto</div>
+          <div style={styles.errorTitle} role="alert"><span aria-hidden="true">⚠ </span>{tu.errorTitle}</div>
           <div style={styles.errorMessage}>{error}</div>
 
           <button
             style={{ ...styles.button, ...styles.buttonSecondary }}
             onClick={clearError}
           >
-            Descartar error
+            {tu.dismissError}
           </button>
 
           <button
@@ -157,7 +167,7 @@ export function PhotoUploader({ onUpload, disabled = false }) {
             onClick={handleClick}
             disabled={disabled}
           >
-            Intentar de nuevo
+            {tu.retry}
           </button>
         </div>
       </div>
@@ -167,13 +177,45 @@ export function PhotoUploader({ onUpload, disabled = false }) {
   // Zona de selección simple
   return (
     <div style={styles.container}>
+      {/* Input para galería */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
         onChange={handleInputChange}
         disabled={disabled}
+        style={{ display: "none" }}
       />
+      {/* Input para cámara del dispositivo */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleInputChange}
+        disabled={disabled}
+        style={{ display: "none" }}
+      />
+      <div style={styles.buttonGroup} role="group" aria-label={tu.groupLabel}>
+        <button
+          type="button"
+          style={{ ...styles.button, ...styles.buttonPrimary }}
+          onClick={handleClick}
+          disabled={disabled}
+          aria-label={tu.galleryLabel}
+        >
+          <span aria-hidden="true">📁 </span>{tu.galleryButton}
+        </button>
+        <button
+          type="button"
+          style={{ ...styles.button, ...styles.buttonSecondary }}
+          onClick={handleCameraClick}
+          disabled={disabled}
+          aria-label={tu.cameraLabel}
+        >
+          <span aria-hidden="true">📷 </span>{tu.cameraButton}
+        </button>
+      </div>
     </div>
   );
 }
@@ -370,6 +412,13 @@ const styles = {
     gap: "6px",
   },
 
+  // Button group
+  buttonGroup: {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+  },
+
   // Buttons
   button: {
     padding: "10px 16px",
@@ -381,6 +430,8 @@ const styles = {
     transition: "all 0.2s",
     marginRight: "8px",
     marginBottom: "8px",
+    minHeight: "44px",   // WCAG 2.5.5 touch target
+    minWidth: "44px",
   },
 
   buttonPrimary: {

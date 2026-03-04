@@ -13,3 +13,4 @@ export * as publicationsApi from './publications.api';
 // export * as ordersApi from './orders.api';
 // export * as deliveryApi from './delivery.api';
 export * as storesApi from './stores.api';
+export * as alertsApi from './alerts.api';
