@@ -18,21 +18,37 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import HomePage from "@/pages/HomePage";
 
 // ── Carga diferida: el resto de páginas se separan en chunks propios ───────
-const LoginPage            = lazy(() => import("@/features/auth/pages/LoginPage"));
-const RegisterPage         = lazy(() => import("@/features/auth/pages/RegisterPage"));
-const CallbackPage         = lazy(() => import("@/features/auth/pages/CallbackPage"));
-const ForgotPasswordPage   = lazy(() => import("@/features/auth/pages/ForgotPasswordPage"));
-const NewPasswordPage      = lazy(() => import("@/features/auth/pages/NewPasswordPage"));
-const ProfilePage          = lazy(() => import("@/features/auth/pages/ProfilePage"));
+const LoginPage = lazy(() => import("@/features/auth/pages/LoginPage"));
+const RegisterPage = lazy(() => import("@/features/auth/pages/RegisterPage"));
+const CallbackPage = lazy(() => import("@/features/auth/pages/CallbackPage"));
+const ForgotPasswordPage = lazy(
+  () => import("@/features/auth/pages/ForgotPasswordPage"),
+);
+const NewPasswordPage = lazy(
+  () => import("@/features/auth/pages/NewPasswordPage"),
+);
+const ProfilePage = lazy(() => import("@/features/auth/pages/ProfilePage"));
 
-const RoleRouter           = lazy(() => import("@/router/RoleRouter"));
-const AdminDashboard       = lazy(() => import("@/features/dashboard/admin/AdminDashboard"));
-const ModeratorDashboard   = lazy(() => import("@/features/dashboard/moderator/ModeratorDashboard"));
-const DealerDashboard      = lazy(() => import("@/features/dashboard/dealer/DealerDashboard"));
+const RoleRouter = lazy(() => import("@/router/RoleRouter"));
+const AdminDashboard = lazy(
+  () => import("@/features/dashboard/admin/AdminDashboard"),
+);
+const ModeratorDashboard = lazy(
+  () => import("@/features/dashboard/moderator/ModeratorDashboard"),
+);
+const DealerDashboard = lazy(
+  () => import("@/features/dashboard/dealer/DealerDashboard"),
+);
 
-const PublicationsPage     = lazy(() => import("@/features/publications/pages/PublicationsPage"));
-const CreatePublicationPage = lazy(() => import("@/features/publications/pages/CreatePublicationPage"));
-const CreateStorePage      = lazy(() => import("@/features/stores/pages/CreateStorePage"));
+const PublicationsPage = lazy(
+  () => import("@/features/publications/pages/PublicationsPage"),
+);
+const CreatePublicationPage = lazy(
+  () => import("@/features/publications/pages/CreatePublicationPage"),
+);
+const CreateStorePage = lazy(
+  () => import("@/features/stores/pages/CreateStorePage"),
+);
 
 function NotFoundPage() {
   return (
@@ -93,106 +109,106 @@ function AppContent() {
 
   return (
     <Suspense fallback={<PageLoader message="Cargando..." />}>
-    <Routes>
-      {/* ── Rutas públicas ───────────────────────────────────── */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/registro" element={<RegisterPage />} />
-      <Route path="/auth/callback" element={<CallbackPage />} />
-      <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
-      <Route path="/nueva-contrasena" element={<NewPasswordPage />} />
+      <Routes>
+        {/* ── Rutas públicas ───────────────────────────────────── */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/registro" element={<RegisterPage />} />
+        <Route path="/auth/callback" element={<CallbackPage />} />
+        <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
+        <Route path="/nueva-contrasena" element={<NewPasswordPage />} />
 
-      {/* ── Rutas protegidas ─────────────────────────────────── */}
+        {/* ── Rutas protegidas ─────────────────────────────────── */}
 
-      {/* HOMEPAGE PÚBLICA - Red Social */}
-      <Route path="/" element={<HomePage />} />
+        {/* HOMEPAGE PÚBLICA - Red Social */}
+        <Route path="/" element={<HomePage />} />
 
-      {/* Dashboard según rol - Protegido */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <RoleRouter />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/perfil"
-        element={
-          <ProtectedRoute>
-            <ProfilePage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/publicaciones"
-        element={
-          <ProtectedRoute>
-            <PublicationsPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/publicaciones/nueva"
-        element={
-          <ProtectedRoute>
-            <CreatePublicationPage />
-          </ProtectedRoute>
-        }
-      />
+        {/* Dashboard según rol - Protegido */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <RoleRouter />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
-        path="/tiendas/nueva"
-        element={
-          <ProtectedRoute>
-            <CreateStorePage />
-          </ProtectedRoute>
-        }
-      />
+          path="/perfil"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/tiendas"
-        element={
-          <ProtectedRoute>
-            <CreateStorePage />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/publicaciones"
+          element={
+            <ProtectedRoute>
+              <PublicationsPage />
+            </ProtectedRoute>
+          }
+        />
 
-      {/* ── Dashboards por rol ───────────────────────────────── */}
-      <Route
-        path="/dashboard/admin"
-        element={
-          <ProtectedRoute allowedRoles={['Admin']}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/moderator"
-        element={
-          <ProtectedRoute allowedRoles={['Moderador', 'Admin']}>
-            <ModeratorDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/dealer"
-        element={
-          <ProtectedRoute allowedRoles={['Repartidor']}>
-            <DealerDashboard />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/publicaciones/nueva"
+          element={
+            <ProtectedRoute>
+              <CreatePublicationPage />
+            </ProtectedRoute>
+          }
+        />
 
-      {/*
+        <Route
+          path="/tiendas/nueva"
+          element={
+            <ProtectedRoute>
+              <CreateStorePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/tiendas"
+          element={
+            <ProtectedRoute>
+              <CreateStorePage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ── Dashboards por rol ───────────────────────────────── */}
+        <Route
+          path="/dashboard/admin"
+          element={
+            <ProtectedRoute allowedRoles={["Admin"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/moderator"
+          element={
+            <ProtectedRoute allowedRoles={["Moderador", "Admin"]}>
+              <ModeratorDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/dealer"
+          element={
+            <ProtectedRoute allowedRoles={["Repartidor"]}>
+              <DealerDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/*
         FIX 4: wildcard al final para que no capture las rutas de los dashboards.
         Antes estaba ANTES de los dashboards, bloqueándolos.
       */}
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
     </Suspense>
   );
 }
@@ -228,11 +244,17 @@ export default function App() {
           background: "var(--bg-base)",
         }}
       >
+        <a href="#main-content" className="skip-link">
+          Saltar al contenido principal
+        </a>
+
         {/* Navbar sticky en la parte superior */}
         <Navbar />
 
         {/* Main semántico que crece para llenar el espacio disponible */}
         <main
+          id="main-content"
+          tabIndex={-1}
           style={{
             flex: 1,
             display: "flex",

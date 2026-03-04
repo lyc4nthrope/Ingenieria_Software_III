@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useId } from "react";
 
 import {
   useAuthStore,
@@ -33,6 +33,9 @@ const resolvePublicationPhoto = (publication) => {
 function ReportModal({ onClose, onSubmit }) {
   const [reportType, setReportType] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const selectId = useId();
+  const titleId = useId();
+  const descriptionId = useId();
 
   const handleSubmit = async () => {
     if (!reportType || submitting) return;
@@ -41,10 +44,21 @@ function ReportModal({ onClose, onSubmit }) {
     setSubmitting(false);
   };
 
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
   return (
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
       onClick={onClose}
       style={{
         position: "fixed",
@@ -68,6 +82,7 @@ function ReportModal({ onClose, onSubmit }) {
         }}
       >
         <h3
+          id={titleId}
           style={{
             margin: "0 0 16px",
             fontSize: "16px",
@@ -77,7 +92,18 @@ function ReportModal({ onClose, onSubmit }) {
         >
           Reportar publicación
         </h3>
+        <p
+          id={descriptionId}
+          style={{
+            fontSize: "13px",
+            color: "#94a3b8",
+            marginBottom: "12px",
+          }}
+        >
+          Selecciona un motivo para reportar la publicación.
+        </p>
         <label
+          htmlFor={selectId}
           style={{
             display: "block",
             fontSize: "13px",
@@ -88,6 +114,10 @@ function ReportModal({ onClose, onSubmit }) {
           Motivo del reporte
         </label>
         <select
+          id={selectId}
+          name="reportType"
+          required
+          autoFocus
           value={reportType}
           onChange={(e) => setReportType(e.target.value)}
           style={{
@@ -107,7 +137,9 @@ function ReportModal({ onClose, onSubmit }) {
           <option value="spam">Spam</option>
           <option value="offensive">Contenido ofensivo</option>
         </select>
-        <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+        <div
+          style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}
+        >
           <button className="card-action-button" onClick={onClose}>
             Cancelar
           </button>
@@ -177,19 +209,24 @@ function PublicationCard({
           <span>🚩 {pub.reported_count || 0}</span>
           <span>{pub.store?.name || "Tienda"}</span>
         </div>
-        <div style={{ display: "flex", gap: 8, width: "100%", flexWrap: "wrap" }}>
+        <div
+          style={{ display: "flex", gap: 8, width: "100%", flexWrap: "wrap" }}
+        >
           <button
             className="card-action-button"
-            onClick={() =>
-              isVoted ? onUnvote(pub.id) : onValidate(pub.id)
+            onClick={() => (isVoted ? onUnvote(pub.id) : onValidate(pub.id))}
+            aria-label={
+              isVoted
+                ? `Quitar validación de ${pub.product?.name || "esta publicación"}`
+                : `Validar precio de ${pub.product?.name || "esta publicación"}`
             }
             disabled={!isAuthenticated}
             title={
               !isAuthenticated
                 ? "Inicia sesión para votar"
                 : isVoted
-                ? "Quitar validación"
-                : "Validar precio"
+                  ? "Quitar validación"
+                  : "Validar precio"
             }
           >
             {isVoted ? "✓ Validado" : "✓ Validar"}
@@ -198,6 +235,7 @@ function PublicationCard({
           <button
             className="card-action-button"
             onClick={() => onReport(pub.id)}
+            aria-label={`Reportar ${pub.product?.name || "publicación"}`}
             disabled={!isAuthenticated}
             title={
               !isAuthenticated ? "Inicia sesión para reportar" : "Reportar"
@@ -209,6 +247,7 @@ function PublicationCard({
           <button
             className="card-action-button"
             onClick={() => onOpenDetail(pub.id)}
+            aria-label={`Ver detalle de ${pub.product?.name || "publicación"}`}
           >
             Ver más
           </button>
@@ -217,6 +256,7 @@ function PublicationCard({
             <button
               className="card-action-button"
               onClick={() => onDelete(pub.id)}
+              aria-label={`Eliminar publicación ${pub.product?.name || ""}`.trim()}
               title="Eliminar mi publicación"
             >
               🗑 Eliminar
@@ -230,12 +270,24 @@ function PublicationCard({
 
 // ─── PublicationDetailModal ───────────────────────────────────────────────────
 function PublicationDetailModal({ publication, onClose }) {
+  const titleId = useId();
+
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
   if (!publication) return null;
 
   return (
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby={titleId}
       onClick={onClose}
       style={{
         position: "fixed",
@@ -262,6 +314,8 @@ function PublicationDetailModal({ publication, onClose }) {
       >
         <button
           onClick={onClose}
+          type="button"
+          aria-label="Cerrar detalle de publicación"
           className="card-action-button"
           style={{ marginBottom: 12 }}
         >
@@ -277,7 +331,7 @@ function PublicationDetailModal({ publication, onClose }) {
             objectFit: "cover",
           }}
         />
-        <h2 style={{ marginTop: 12 }}>
+        <h2 id={titleId} style={{ marginTop: 12 }}>
           {publication.product?.name || "Producto"}
         </h2>
         <p>
@@ -336,7 +390,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!hasInitialized) return;
 
-    const coordsKey = latitude && longitude ? `${latitude},${longitude}` : 'no-location';
+    const coordsKey =
+      latitude && longitude ? `${latitude},${longitude}` : "no-location";
     if (lastLocationCoords === coordsKey) return; // No change
 
     setLastLocationCoords(coordsKey);
@@ -420,7 +475,7 @@ export default function HomePage() {
       <div className="layout">
         <div className="feed">
           {loading ? (
-            <p>Cargando publicaciones...</p>
+            <p role="status" aria-live="polite">Cargando publicaciones...</p>
           ) : normalizedPublications.length === 0 ? (
             <p>
               Aún no hay publicaciones. Cuando un usuario cree una, aparecerá

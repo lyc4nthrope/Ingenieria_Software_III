@@ -4,45 +4,100 @@
  * Muestra el logo y las opciones de sesión según el estado de auth.
  * Se adapta a mobile (barra inferior) y desktop (top bar).
  */
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuthStore, selectAuthUser, selectIsAuthenticated, selectIsInitialized } from '@/features/auth/store/authStore';
-import { UserRoleEnum } from '@/types';
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import {
+  useAuthStore,
+  selectAuthUser,
+  selectIsAuthenticated,
+  selectIsInitialized,
+} from "@/features/auth/store/authStore";
+import { UserRoleEnum } from "@/types";
 
 // Íconos SVG inline (no dependencias externas)
 const HomeIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-    <polyline points="9,22 9,12 15,12 15,22"/>
+  <svg
+    aria-hidden="true"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+    <polyline points="9,22 9,12 15,12 15,22" />
   </svg>
 );
 
 const UserIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-    <circle cx="12" cy="7" r="4"/>
+  <svg
+    aria-hidden="true"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
   </svg>
 );
 
 const LogoutIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-    <polyline points="16,17 21,12 16,7"/>
-    <line x1="21" y1="12" x2="9" y2="12"/>
+  <svg
+    aria-hidden="true"
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+    <polyline points="16,17 21,12 16,7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
   </svg>
 );
 
 const TagIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
-    <line x1="7" y1="7" x2="7.01" y2="7"/>
+  <svg
+    aria-hidden="true"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
+    <line x1="7" y1="7" x2="7.01" y2="7" />
   </svg>
 );
 
 const StoreIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 9l1.5-5h15L21 9"/>
-    <path d="M4 9h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>
-    <path d="M9 21v-6h6v6"/>
+  <svg
+    aria-hidden="true"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 9l1.5-5h15L21 9" />
+    <path d="M4 9h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />
+    <path d="M9 21v-6h6v6" />
   </svg>
 );
 
@@ -57,96 +112,119 @@ export default function Navbar() {
   const isActive = (path) => location.pathname === path;
 
   const DASHBOARD_CONFIG = {
-    [UserRoleEnum.ADMIN]:      { label: 'Panel Admin',   path: '/dashboard/admin' },
-    [UserRoleEnum.MODERADOR]:  { label: 'Moderación',    path: '/dashboard/moderator' },
-    [UserRoleEnum.REPARTIDOR]: { label: 'Mis Pedidos',   path: '/dashboard/dealer' },
+    [UserRoleEnum.ADMIN]: { label: "Panel Admin", path: "/dashboard/admin" },
+    [UserRoleEnum.MODERADOR]: {
+      label: "Moderación",
+      path: "/dashboard/moderator",
+    },
+    [UserRoleEnum.REPARTIDOR]: {
+      label: "Mis Pedidos",
+      path: "/dashboard/dealer",
+    },
   };
   const dashboardConfig = user?.role ? DASHBOARD_CONFIG[user.role] : null;
 
   const handleLogout = async () => {
     await logout();
-    navigate('/');
+    navigate("/");
   };
 
   // Estilo de la barra superior (desktop)
   const navStyle = {
-    position: 'sticky',
+    position: "sticky",
     top: 0,
     zIndex: 100,
-    height: '60px',
-    background: 'rgba(8, 12, 20, 0.85)',
-    backdropFilter: 'blur(12px)',
-    borderBottom: '1px solid var(--border)',
-    display: 'flex',
-    alignItems: 'center',
-    padding: '0 20px',
-    gap: '16px',
+    height: "60px",
+    background: "rgba(8, 12, 20, 0.85)",
+    backdropFilter: "blur(12px)",
+    borderBottom: "1px solid var(--border)",
+    display: "flex",
+    alignItems: "center",
+    padding: "0 20px",
+    gap: "16px",
   };
 
   const logoStyle = {
-    fontSize: '20px',
-    fontWeight: '800',
-    letterSpacing: '-0.04em',
-    color: 'var(--accent)',
-    textDecoration: 'none',
-    marginRight: 'auto',
+    fontSize: "20px",
+    fontWeight: "800",
+    letterSpacing: "-0.04em",
+    color: "var(--accent)",
+    textDecoration: "none",
+    marginRight: "auto",
   };
 
   const navLinkStyle = (active) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '6px 12px',
-    borderRadius: 'var(--radius-sm)',
-    fontSize: '13px',
-    fontWeight: '500',
-    color: active ? 'var(--accent)' : 'var(--text-secondary)',
-    background: active ? 'var(--accent-soft)' : 'transparent',
-    transition: 'all 0.18s ease',
-    textDecoration: 'none',
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "6px 12px",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: active ? "var(--accent)" : "var(--text-secondary)",
+    background: active ? "var(--accent-soft)" : "transparent",
+    transition: "all 0.18s ease",
+    textDecoration: "none",
   });
 
   const avatarStyle = {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    background: 'var(--bg-elevated)',
-    border: '2px solid var(--border-soft)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '13px',
-    fontWeight: '600',
-    color: 'var(--accent)',
-    cursor: 'pointer',
-    overflow: 'hidden',
+    width: "32px",
+    height: "32px",
+    borderRadius: "50%",
+    background: "var(--bg-elevated)",
+    border: "2px solid var(--border-soft)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "13px",
+    fontWeight: "600",
+    color: "var(--accent)",
+    cursor: "pointer",
+    overflow: "hidden",
   };
 
   // Iniciales del usuario
   const initials = user?.fullName
-    ? user.fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-    : user?.email?.[0]?.toUpperCase() || 'U';
+    ? user.fullName
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : user?.email?.[0]?.toUpperCase() || "U";
 
   return (
     <nav style={navStyle} aria-label="Navegación principal">
       {/* Logo */}
       <Link to="/" style={logoStyle}>
-        NØ<span style={{ color: 'var(--text-secondary)' }}>SEE</span>
+        NØ<span style={{ color: "var(--text-secondary)" }}>SEE</span>
       </Link>
 
       {!isInitialized ? null : isAuthenticated ? (
         <>
           {/* Nav links */}
-          <Link to="/" style={navLinkStyle(isActive('/'))}>
+          <Link
+            to="/"
+            style={navLinkStyle(isActive("/"))}
+            aria-current={isActive("/") ? "page" : undefined}
+          >
             <HomeIcon />
             <span className="nav-label">Inicio</span>
           </Link>
 
-          <Link to="/publicaciones" style={navLinkStyle(isActive('/publicaciones'))}>
+          <Link
+            to="/publicaciones"
+            style={navLinkStyle(isActive("/publicaciones"))}
+            aria-current={isActive("/publicaciones") ? "page" : undefined}
+          >
             <TagIcon />
             <span className="nav-label">Productos</span>
           </Link>
-          <Link to="/tiendas" style={navLinkStyle(isActive('/tiendas'))}>
+          <Link
+            to="/tiendas"
+            style={navLinkStyle(isActive("/tiendas"))}
+            aria-current={isActive("/tiendas") ? "page" : undefined}
+          >
             <StoreIcon />
             <span className="nav-label">Tiendas</span>
           </Link>
@@ -156,15 +234,25 @@ export default function Navbar() {
             <Link
               to={dashboardConfig.path}
               style={navLinkStyle(isActive(dashboardConfig.path))}
+              aria-current={isActive(dashboardConfig.path) ? "page" : undefined}
             >
               {dashboardConfig.label}
             </Link>
           )}
 
           {/* Avatar → perfil */}
-          <Link to="/perfil" style={avatarStyle} title="Mi perfil">
+          <Link
+            to="/perfil"
+            style={avatarStyle}
+            title="Mi perfil"
+            aria-label="Ir a mi perfil"
+          >
             {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.fullName || 'Avatar'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img
+                src={user.avatarUrl}
+                alt={user.fullName || "Avatar"}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
             ) : (
               initials
             )}
@@ -174,26 +262,28 @@ export default function Navbar() {
           <button
             onClick={handleLogout}
             title="Cerrar sesión"
+            aria-label="Cerrar sesión"
+            type="button"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '36px',
-              height: '36px',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-muted)',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'all 0.18s ease',
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "36px",
+              height: "36px",
+              borderRadius: "var(--radius-sm)",
+              color: "var(--text-muted)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              transition: "all 0.18s ease",
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.color = 'var(--error)';
-              e.currentTarget.style.background = 'var(--error-soft)';
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "var(--error)";
+              e.currentTarget.style.background = "var(--error-soft)";
             }}
-            onMouseLeave={e => {
-              e.currentTarget.style.color = 'var(--text-muted)';
-              e.currentTarget.style.background = 'transparent';
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "var(--text-muted)";
+              e.currentTarget.style.background = "transparent";
             }}
           >
             <LogoutIcon />
@@ -201,17 +291,17 @@ export default function Navbar() {
         </>
       ) : (
         <>
-          <Link to="/login" style={navLinkStyle(isActive('/login'))}>
+          <Link to="/login" style={navLinkStyle(isActive("/login"))}>
             Iniciar sesión
           </Link>
           <Link
             to="/registro"
             style={{
               ...navLinkStyle(false),
-              background: 'var(--accent)',
-              color: '#080C14',
-              fontWeight: '600',
-              padding: '6px 16px',
+              background: "var(--accent)",
+              color: "#080C14",
+              fontWeight: "600",
+              padding: "6px 16px",
             }}
           >
             Registrarse
