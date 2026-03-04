@@ -259,3 +259,48 @@ export async function getAdminOverviewStats() {
     },
   };
 }
+
+/**
+ * Obtiene todos los reportes para moderación/admin.
+ */
+export async function getAdminReports() {
+  const { data, error } = await supabase
+    .from("reports")
+    .select(`
+      id,
+      publication_id,
+      reported_user_id,
+      reporter_user_id,
+      reason,
+      status,
+      reviewed_by,
+      created_at,
+      resolved_at,
+      description,
+      evidence_url,
+      mod_notes,
+      action_taken,
+      reporter:reporter_user_id(full_name),
+      reported:reported_user_id(full_name),
+      reviewer:reviewed_by(full_name)
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data ?? [] };
+}
+
+/**
+ * Actualiza datos de revisión de un reporte.
+ * @param {string} reportId
+ * @param {Object} payload
+ */
+export async function updateReportReview(reportId, payload) {
+  const { error } = await supabase
+    .from("reports")
+    .update(payload)
+    .eq("id", reportId);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}

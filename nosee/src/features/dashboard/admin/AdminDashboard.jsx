@@ -12,12 +12,14 @@
  * ✅ Estados para loading y error
  * ✅ Manejo de errores amigable
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import {
   changeUserRole,
   getAdminOverviewStats,
+  getAdminReports,
   getAllUsers,
+  updateReportReview,
   updateUserStatus,
 } from '@/services/api/users.api';
 import { UserRoleEnum } from '@/types';
@@ -31,9 +33,19 @@ const INITIAL_STATS = {
 };
 
 const ALL_ROLES = [UserRoleEnum.USUARIO, UserRoleEnum.MODERADOR, UserRoleEnum.ADMIN, UserRoleEnum.REPARTIDOR];
+const REPORT_STATUS_OPTIONS = ['PENDING', 'IN_REVIEW', 'RESOLVED', 'REJECTED'];
+
+const REPORT_REASON_LABELS = {
+  fake_price: 'Precio falso',
+  wrong_photo: 'Foto incorrecta',
+  spam: 'Spam',
+  offensive: 'Ofensivo',
+  other: 'Otro',
+};
 
 export default function AdminDashboard() {
   const logout = useAuthStore((s) => s.logout);
+  const currentUser = useAuthStore((s) => s.user);
 
   // ─── Estados ──────────────────────────────────────────────────────────────
   const [users, setUsers] = useState([]);
@@ -42,6 +54,16 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(INITIAL_STATS);
   const [activeSection, setActiveSection] = useState('overview');
   const [changingRole, setChangingRole] = useState(null);
+  const [reports, setReports] = useState([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [reportFilters, setReportFilters] = useState({
+    order: 'recent',
+    status: 'all',
+    reason: 'all',
+  });
+  const [reportForm, setReportForm] = useState({ status: 'PENDING', actionTaken: '', modNotes: '' });
+  const [savingReport, setSavingReport] = useState(false);
 
   const statCards = [
     { label: 'Usuarios totales', value: stats.totalUsers, delta: 'Total', icon: '◉' },
@@ -70,6 +92,21 @@ export default function AdminDashboard() {
       setError((prev) => prev || 'Error al conectar métricas del resumen');
     }
   };
+
+  useEffect(() => {
+    if (activeSection === 'reports') {
+      loadReports();
+    }
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (!selectedReport) return;
+    setReportForm({
+      status: selectedReport.status || 'PENDING',
+      actionTaken: selectedReport.action_taken || '',
+      modNotes: selectedReport.mod_notes || '',
+    });
+  }, [selectedReport]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -105,6 +142,58 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  const loadReports = async () => {
+    setLoadingReports(true);
+    try {
+      const result = await getAdminReports();
+      if (result.success && result.data) {
+        setReports(result.data);
+      } else {
+        setError((prev) => prev || result.error || 'No se pudieron cargar los reportes');
+      }
+    } catch (err) {
+      console.error('Error cargando reportes:', err);
+      setError((prev) => prev || 'Error al conectar reportes');
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  const reportReasonOptions = useMemo(() => {
+    const keys = Array.from(new Set(reports.map((r) => r.reason).filter(Boolean)));
+    return keys;
+  }, [reports]);
+
+  const reportStats = useMemo(() => {
+    const byType = reports.reduce((acc, report) => {
+      const key = report.reason || 'other';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    const byStatus = reports.reduce((acc, report) => {
+      const key = (report.status || 'PENDING').toUpperCase();
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    return { byType, byStatus };
+  }, [reports]);
+
+  const filteredReports = useMemo(() => {
+    const base = reports.filter((report) => {
+      const statusMatch = reportFilters.status === 'all' || (report.status || '').toUpperCase() === reportFilters.status;
+      const reasonMatch = reportFilters.reason === 'all' || report.reason === reportFilters.reason;
+      return statusMatch && reasonMatch;
+    });
+
+    return base.sort((a, b) => {
+      const firstDate = new Date(a.created_at).getTime();
+      const secondDate = new Date(b.created_at).getTime();
+      return reportFilters.order === 'recent' ? secondDate - firstDate : firstDate - secondDate;
+    });
+  }, [reports, reportFilters]);
 
   // ─── Cambiar rol de un usuario ─────────────────────────────────────────────
   const handleRoleChange = async (userId, newRole) => {
@@ -159,6 +248,43 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Error al cambiar estado:', err);
       alert('Error al cambiar estado. Intenta de nuevo.');
+    }
+  };
+
+  const handleSaveReportReview = async () => {
+    if (!selectedReport) return;
+
+    const status = reportForm.status;
+    const isResolved = status === 'RESOLVED' || status === 'REJECTED';
+
+    setSavingReport(true);
+    try {
+      const payload = {
+        status,
+        action_taken: reportForm.actionTaken || null,
+        mod_notes: reportForm.modNotes || null,
+        reviewed_by: currentUser?.id || selectedReport.reviewed_by || null,
+        resolved_at: isResolved ? new Date().toISOString() : null,
+      };
+
+      const result = await updateReportReview(selectedReport.id, payload);
+      if (!result.success) {
+        alert(`Error al guardar reporte: ${result.error || 'Error desconocido'}`);
+        return;
+      }
+
+      setReports((prev) => prev.map((report) => (
+        report.id === selectedReport.id
+          ? { ...report, ...payload }
+          : report
+      )));
+
+      setSelectedReport((prev) => (prev ? { ...prev, ...payload } : prev));
+    } catch (err) {
+      console.error('Error actualizando reporte:', err);
+      alert('Error al actualizar reporte. Intenta de nuevo.');
+    } finally {
+      setSavingReport(false);
     }
   };
 
@@ -326,8 +452,25 @@ export default function AdminDashboard() {
           </>
         )}
 
+        {activeSection === 'reports' && (
+          <ReportsSection
+            reports={filteredReports}
+            stats={reportStats}
+            filters={reportFilters}
+            onFilterChange={setReportFilters}
+            reasonOptions={reportReasonOptions}
+            loading={loadingReports}
+            selectedReport={selectedReport}
+            onSelectReport={setSelectedReport}
+            reportForm={reportForm}
+            onReportFormChange={setReportForm}
+            onSaveReportReview={handleSaveReportReview}
+            savingReport={savingReport}
+          />
+        )}
+
         {/* Other sections placeholder */}
-        {['content', 'reports', 'config'].includes(activeSection) && (
+        {['content', 'config'].includes(activeSection) && (
           <PlaceholderSection section={activeSection} />
         )}
       </main>
@@ -414,6 +557,159 @@ function SectionHeader({ title, sub }) {
       <h1 style={s.headerTitle}>{title}</h1>
       <p style={s.headerSub}>{sub}</p>
     </header>
+  );
+}
+
+function ReportsSection({
+  reports,
+  stats,
+  filters,
+  onFilterChange,
+  reasonOptions,
+  loading,
+  selectedReport,
+  onSelectReport,
+  reportForm,
+  onReportFormChange,
+  onSaveReportReview,
+  savingReport,
+}) {
+  return (
+    <>
+      <SectionHeader
+        title="Gestión de reportes"
+        sub="Conteos por tipo, estado, filtros rápidos y revisión de detalle"
+      />
+
+      <div style={s.reportsStatsGrid}>
+        {Object.entries(stats.byType).map(([reason, count]) => (
+          <div key={`type-${reason}`} style={s.reportMiniCard}>
+            <div style={s.reportMiniLabel}>{REPORT_REASON_LABELS[reason] || reason}</div>
+            <div style={s.reportMiniValue}>{count}</div>
+          </div>
+        ))}
+        {Object.entries(stats.byStatus).map(([status, count]) => (
+          <div key={`status-${status}`} style={s.reportMiniCard}>
+            <div style={s.reportMiniLabel}>Estado: {status}</div>
+            <div style={s.reportMiniValue}>{count}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={s.reportFilters}>
+        <select
+          style={s.roleSelect}
+          value={filters.order}
+          onChange={(e) => onFilterChange((prev) => ({ ...prev, order: e.target.value }))}
+        >
+          <option value="recent">Más reciente</option>
+          <option value="oldest">Más antiguo</option>
+        </select>
+
+        <select
+          style={s.roleSelect}
+          value={filters.status}
+          onChange={(e) => onFilterChange((prev) => ({ ...prev, status: e.target.value }))}
+        >
+          <option value="all">Todos los estados</option>
+          {REPORT_STATUS_OPTIONS.map((status) => (
+            <option key={status} value={status}>{status}</option>
+          ))}
+        </select>
+
+        <select
+          style={s.roleSelect}
+          value={filters.reason}
+          onChange={(e) => onFilterChange((prev) => ({ ...prev, reason: e.target.value }))}
+        >
+          <option value="all">Todos los tipos</option>
+          {reasonOptions.map((reason) => (
+            <option key={reason} value={reason}>{REPORT_REASON_LABELS[reason] || reason}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={s.reportsLayout}>
+        <div style={s.table}>
+          <div style={s.reportsTableHead}>
+            {['Fecha', 'Tipo', 'Estado', 'Reportado', 'Detalle'].map((h) => (
+              <div key={h} style={s.th}>{h}</div>
+            ))}
+          </div>
+
+          {loading ? (
+            <div style={s.emptyReports}>Cargando reportes...</div>
+          ) : reports.length === 0 ? (
+            <div style={s.emptyReports}>No hay reportes con estos filtros.</div>
+          ) : reports.map((report) => (
+            <div key={report.id} style={s.reportsTableRow}>
+              <div style={s.td}>{new Date(report.created_at).toLocaleString('es-CO')}</div>
+              <div style={s.td}>{REPORT_REASON_LABELS[report.reason] || report.reason}</div>
+              <div style={s.td}>
+                <span style={s.badge}>{report.status || 'PENDING'}</span>
+              </div>
+              <div style={s.td}>{report.reported?.full_name || report.reported_user_id || 'N/A'}</div>
+              <div style={s.td}>
+                <button style={s.actionBtn} onClick={() => onSelectReport(report)}>Ver / editar</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={s.reportDetailPanel}>
+          {!selectedReport ? (
+            <div style={s.emptyReports}>Selecciona un reporte para ver detalle.</div>
+          ) : (
+            <>
+              <h3 style={s.reportTitle}>Reporte #{selectedReport.id.slice(0, 8)}</h3>
+              <p style={s.reportText}><strong>Razón:</strong> {REPORT_REASON_LABELS[selectedReport.reason] || selectedReport.reason}</p>
+              <p style={s.reportText}><strong>Descripción:</strong> {selectedReport.description || 'Sin descripción'}</p>
+              <p style={s.reportText}><strong>Reportante:</strong> {selectedReport.reporter?.full_name || selectedReport.reporter_user_id}</p>
+              <p style={s.reportText}><strong>Usuario reportado:</strong> {selectedReport.reported?.full_name || selectedReport.reported_user_id || 'N/A'}</p>
+              <p style={s.reportText}><strong>Publicación:</strong> {selectedReport.publication_id || 'N/A'}</p>
+              {selectedReport.evidence_url && (
+                <a href={selectedReport.evidence_url} target="_blank" rel="noreferrer" style={s.linkBtn}>
+                  Ver evidencia
+                </a>
+              )}
+
+              <div style={s.reportFormBlock}>
+                <label style={s.reportLabel}>Estado</label>
+                <select
+                  style={s.roleSelect}
+                  value={reportForm.status}
+                  onChange={(e) => onReportFormChange((prev) => ({ ...prev, status: e.target.value }))}
+                >
+                  {REPORT_STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>{status}</option>
+                  ))}
+                </select>
+
+                <label style={s.reportLabel}>Acción tomada</label>
+                <input
+                  style={s.reportInput}
+                  value={reportForm.actionTaken}
+                  onChange={(e) => onReportFormChange((prev) => ({ ...prev, actionTaken: e.target.value }))}
+                  placeholder="Ej: Se removió la publicación"
+                />
+
+                <label style={s.reportLabel}>Notas de moderación</label>
+                <textarea
+                  style={s.reportTextarea}
+                  value={reportForm.modNotes}
+                  onChange={(e) => onReportFormChange((prev) => ({ ...prev, modNotes: e.target.value }))}
+                  placeholder="Detalles internos de la revisión"
+                />
+
+                <button style={{ ...s.actionBtn, ...s.saveReportBtn }} onClick={onSaveReportReview} disabled={savingReport}>
+                  {savingReport ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -635,5 +931,85 @@ const s = {
     fontSize: 12,
     fontWeight: 600,
     marginTop: 8,
+  },
+reportsStatsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))',
+    gap: 10,
+    marginBottom: 16,
+  },
+  reportMiniCard: {
+    background: SURFACE,
+    border: `1px solid ${BORDER}`,
+    borderRadius: 10,
+    padding: '10px 12px',
+  },
+  reportMiniLabel: { fontSize: 12, color: MUTED },
+  reportMiniValue: { fontSize: 22, fontWeight: 700 },
+  reportFilters: { display: 'flex', gap: 10, marginBottom: 16 },
+  reportsLayout: {
+    display: 'grid',
+    gridTemplateColumns: '2fr 1.2fr',
+    gap: 16,
+    alignItems: 'start',
+  },
+  reportsTableHead: {
+    display: 'grid',
+    gridTemplateColumns: '1.2fr 1fr 1fr 1.4fr 1fr',
+    padding: '12px 20px',
+    borderBottom: `1px solid ${BORDER}`,
+    background: '#0A1020',
+  },
+  reportsTableRow: {
+    display: 'grid',
+    gridTemplateColumns: '1.2fr 1fr 1fr 1.4fr 1fr',
+    padding: '14px 20px',
+    alignItems: 'center',
+    borderBottom: `1px solid ${BORDER}`,
+  },
+  emptyReports: {
+    padding: '22px',
+    color: MUTED,
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  reportDetailPanel: {
+    background: SURFACE,
+    border: `1px solid ${BORDER}`,
+    borderRadius: 12,
+    padding: 16,
+  },
+  reportTitle: { margin: '0 0 10px 0' },
+  reportText: { margin: '6px 0', fontSize: 13 },
+  reportFormBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    marginTop: 12,
+  },
+  reportLabel: { fontSize: 12, color: MUTED },
+  reportInput: {
+    background: '#1C1C20',
+    border: `1px solid ${BORDER}`,
+    color: TEXT,
+    borderRadius: 6,
+    padding: '8px 10px',
+    fontSize: 13,
+  },
+  reportTextarea: {
+    minHeight: 90,
+    resize: 'vertical',
+    background: '#1C1C20',
+    border: `1px solid ${BORDER}`,
+    color: TEXT,
+    borderRadius: 6,
+    padding: '8px 10px',
+    fontSize: 13,
+    fontFamily: 'inherit',
+  },
+  saveReportBtn: {
+    color: ACCENT,
+    borderColor: ACCENT,
+    alignSelf: 'flex-start',
   },
 };
