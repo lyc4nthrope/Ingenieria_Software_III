@@ -7,7 +7,6 @@
  * UBICACIÓN: src/features/dashboard/repartidor/RepartidorDashboard.jsx
  */
 import { useState } from 'react';
-import { useAuthStore } from '@/features/auth/store/authStore';
 
 const STATUS_INFO = {
   pendiente:  { label: 'Pendiente',   color: '#60A5FA', bg: '#60A5FA18' },
@@ -19,8 +18,6 @@ const STATUS_INFO = {
 };
 
 export default function RepartidorDashboard() {
-  const logout = useAuthStore((s) => s.logout);
-
   const [orders, setOrders] = useState([]);
   const history = [];
   const [activeTab, setActiveTab] = useState('activos');
@@ -90,7 +87,6 @@ export default function RepartidorDashboard() {
           </div>
         </div>
 
-        <button style={r.logoutBtn} onClick={logout}>⏻ Salir</button>
       </aside>
 
       {/* ── Main ─────────────────────────────────────────────────── */}
@@ -234,7 +230,8 @@ const MUTED   = '#7B90BD';
 const r = {
   root: {
     display: 'flex',
-    minHeight: '100vh',
+    height: '100vh',
+    overflow: 'hidden',
     background: BG,
     color: TEXT,
     fontFamily: "'DM Sans', 'Inter', sans-serif",
@@ -246,9 +243,8 @@ const r = {
     display: 'flex',
     flexDirection: 'column',
     padding: '24px 16px',
-    position: 'sticky',
-    top: 0,
-    height: '100vh',
+    height: '100%',
+    flexShrink: 0,
   },
   onlineBox: {
     display: 'flex',
@@ -328,18 +324,8 @@ const r = {
   },
   userName: { fontSize: 13, fontWeight: 600, color: TEXT },
   userRole: { fontSize: 11, color: MUTED },
-  logoutBtn: {
-    background: 'none',
-    border: `1px solid ${BORDER}`,
-    color: MUTED,
-    borderRadius: 8,
-    padding: '8px 12px',
-    cursor: 'pointer',
-    fontSize: 13,
-    textAlign: 'left',
-  },
 
-  main: { flex: 1, padding: '32px 40px', maxWidth: 720 },
+  main: { flex: 1, padding: '32px 40px', maxWidth: 720, overflowY: 'auto', height: '100%' },
   header: { marginBottom: 28 },
   headerTitle: { fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' },
   headerSub: { color: MUTED, fontSize: 14, margin: '4px 0 0' },

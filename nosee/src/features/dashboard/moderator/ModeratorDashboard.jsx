@@ -8,7 +8,6 @@
  * UBICACIÓN: src/features/dashboard/moderador/ModeradorDashboard.jsx
  */
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/features/auth/store/authStore';
 import { supabase } from '@/services/supabase.client';
 
 const REPORT_TYPE_LABELS = {
@@ -32,8 +31,6 @@ const SEVERITY_COLORS = {
 };
 
 export default function ModeradorDashboard() {
-  const logout = useAuthStore((s) => s.logout);
-
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('reportes');
@@ -142,7 +139,6 @@ export default function ModeradorDashboard() {
           ))}
         </nav>
 
-        <button style={st.logoutBtn} onClick={logout}>⏻ Salir</button>
       </aside>
 
       {/* ── Main ─────────────────────────────────────────────────── */}
@@ -286,7 +282,8 @@ const MUTED   = '#7B90BD';
 const st = {
   root: {
     display: 'flex',
-    minHeight: '100vh',
+    height: '100vh',
+    overflow: 'hidden',
     background: BG,
     color: TEXT,
     fontFamily: "'DM Sans', 'Inter', sans-serif",
@@ -298,9 +295,8 @@ const st = {
     display: 'flex',
     flexDirection: 'column',
     padding: '24px 16px',
-    position: 'sticky',
-    top: 0,
-    height: '100vh',
+    height: '100%',
+    flexShrink: 0,
   },
   nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
   navItem: {
@@ -352,18 +348,8 @@ const st = {
   },
   userName: { fontSize: 13, fontWeight: 600, color: TEXT },
   userRole: { fontSize: 11, color: MUTED },
-  logoutBtn: {
-    background: 'none',
-    border: `1px solid ${BORDER}`,
-    color: MUTED,
-    borderRadius: 8,
-    padding: '8px 12px',
-    cursor: 'pointer',
-    fontSize: 13,
-    textAlign: 'left',
-  },
 
-  main: { flex: 1, padding: '32px 40px', maxWidth: 760 },
+  main: { flex: 1, padding: '32px 40px', maxWidth: 760, overflowY: 'auto', height: '100%' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 },
   headerTitle: { fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' },
   headerSub: { color: MUTED, fontSize: 14, margin: '4px 0 0' },

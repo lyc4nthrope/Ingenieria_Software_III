@@ -8,7 +8,6 @@
  * UBICACIÓN: src/features/dashboard/admin/AdminDashboard.jsx
  */
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/features/auth/store/authStore';
 import { changeUserRole, getAllUsers, updateUserStatus } from '@/services/api/users.api';
 import { getPublications, deletePublication } from '@/services/api/publications.api';
 import { supabase } from '@/services/supabase.client';
@@ -80,8 +79,8 @@ const SEVERITY_COLORS = {
   baja:  { bg: '#60A5FA18', text: '#60A5FA' },
 };
 
-// ─── Parámetros de reputación del sistema (documentados en el proyecto) ───────
-const REPUTATION_PARAMS = [
+// ─── Parámetros de reputación — valores por defecto del proyecto ─────────────
+const DEFAULT_REPUTATION_PARAMS = [
   { param: 'Puntos por upvote recibido',       value: '+5',  note: 'Cuando otro usuario valida tu publicación' },
   { param: 'Puntos por downvote recibido',      value: '-3',  note: 'Cuando otro usuario rechaza tu publicación' },
   { param: 'Puntos por publicar precio',        value: '+2',  note: 'Al crear una nueva publicación de precio' },
@@ -89,12 +88,11 @@ const REPUTATION_PARAMS = [
   { param: 'Umbral para rol Moderador',         value: '500', note: 'Puntos mínimos para asignación automática' },
   { param: 'Penalización por reporte aceptado', value: '-10', note: 'Cuando un reporte contra el usuario es validado' },
 ];
+const LS_KEY = 'nosee_reputation_params';
 
 const ALL_ROLES = [UserRoleEnum.USUARIO, UserRoleEnum.MODERADOR, UserRoleEnum.ADMIN, UserRoleEnum.REPARTIDOR];
 
 export default function AdminDashboard() {
-  const logout = useAuthStore((s) => s.logout);
-
   // ─── Estado global ────────────────────────────────────────────────────────
   const [activeSection, setActiveSection]     = useState('overview');
 
@@ -123,6 +121,18 @@ export default function AdminDashboard() {
   const [categories, setCategories]           = useState([]);
   const [catsLoading, setCatsLoading]         = useState(false);
   const [catsLoaded, setCatsLoaded]           = useState(false);
+
+  // Configuración editable de reputación
+  const [repParams, setRepParams] = useState(() => {
+    try {
+      const saved = localStorage.getItem(LS_KEY);
+      return saved ? JSON.parse(saved) : DEFAULT_REPUTATION_PARAMS;
+    } catch { return DEFAULT_REPUTATION_PARAMS; }
+  });
+  const [repEditing, setRepEditing]     = useState(false);
+  const [repDraft, setRepDraft]         = useState([]);
+  const [newCatName, setNewCatName]     = useState('');
+  const [savingCat, setSavingCat]       = useState(false);
 
   // Stats
   const [stats, setStats]                     = useState({
@@ -374,9 +384,42 @@ export default function AdminDashboard() {
     setStats(prev => ({ ...prev, reports: Math.max(0, (prev.reports || 1) - 1) }));
   };
 
+  // ─── Config: reputación ───────────────────────────────────────────────────
+  const startEditRep = () => {
+    setRepDraft(repParams.map(p => ({ ...p })));
+    setRepEditing(true);
+  };
+  const cancelEditRep = () => setRepEditing(false);
+  const saveRep = () => {
+    setRepParams(repDraft);
+    localStorage.setItem(LS_KEY, JSON.stringify(repDraft));
+    setRepEditing(false);
+  };
+
+  // ─── Config: crear categoría ──────────────────────────────────────────────
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    const name = newCatName.trim();
+    if (!name) return;
+    setSavingCat(true);
+    try {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .insert({ name })
+        .select()
+        .single();
+      if (!error && data) {
+        setCategories(prev => [...prev, data]);
+        setNewCatName('');
+      } else {
+        alert(error?.message || 'Error al crear categoría');
+      }
+    } finally {
+      setSavingCat(false);
+    }
+  };
+
   // ─── Categorías (Config) ──────────────────────────────────────────────────
-  // Mostramos las categorías reales de la BD para que el admin vea la
-  // cobertura del catálogo. No hay tabla de config → es lectura informativa.
   const loadCategories = async () => {
     setCatsLoading(true);
     try {
@@ -419,7 +462,6 @@ export default function AdminDashboard() {
             </button>
           ))}
         </nav>
-        <button style={s.logoutBtn} onClick={logout}>⏻ Salir</button>
       </aside>
 
       {/* ── Contenido principal ───────────────────────────────────── */}
@@ -595,27 +637,49 @@ export default function AdminDashboard() {
               sub="Parámetros globales de la plataforma NØSEE"
             />
 
-            {/* Parámetros de reputación */}
+            {/* Parámetros de reputación (editables) */}
             <div style={s.section}>
               <div style={s.sectionHead}>
                 <span style={s.sectionTitle}>Sistema de reputación</span>
-                <span style={{ fontSize: 12, color: MUTED, padding: '3px 10px', background: `${ACCENT}15`, borderRadius: 6, color: ACCENT }}>
-                  Solo lectura
-                </span>
+                {repEditing ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={cancelEditRep} style={s.btnDismiss}>Cancelar</button>
+                    <button onClick={saveRep} style={{ ...s.filterBtn, ...s.filterBtnActive }}>Guardar</button>
+                  </div>
+                ) : (
+                  <button onClick={startEditRep} style={s.filterBtn}>✎ Editar</button>
+                )}
               </div>
               <div style={s.configCard}>
-                {REPUTATION_PARAMS.map(({ param, value, note }) => (
+                {(repEditing ? repDraft : repParams).map(({ param, value, note }, i) => (
                   <div key={param} style={s.configRow}>
                     <div>
                       <div style={s.configParam}>{param}</div>
                       <div style={s.configNote}>{note}</div>
                     </div>
-                    <span style={{
-                      ...s.configValue,
-                      color: value.startsWith('+') ? '#34D399' : value.startsWith('-') ? '#F87171' : ACCENT,
-                    }}>
-                      {value}
-                    </span>
+                    {repEditing ? (
+                      <input
+                        type="text"
+                        value={repDraft[i].value}
+                        onChange={e => {
+                          const next = [...repDraft];
+                          next[i] = { ...next[i], value: e.target.value };
+                          setRepDraft(next);
+                        }}
+                        style={{
+                          background: '#1C1C20', border: `1px solid ${BORDER}`,
+                          color: TEXT, borderRadius: 6, padding: '5px 10px',
+                          fontSize: 15, fontWeight: 700, width: 80, textAlign: 'right',
+                        }}
+                      />
+                    ) : (
+                      <span style={{
+                        ...s.configValue,
+                        color: value.startsWith('+') ? '#34D399' : value.startsWith('-') ? '#F87171' : ACCENT,
+                      }}>
+                        {value}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -630,6 +694,29 @@ export default function AdminDashboard() {
                   : <span style={{ fontSize: 13, color: MUTED }}>{categories.length} categorías</span>
                 }
               </div>
+
+              {/* Formulario para crear categoría */}
+              <form onSubmit={handleAddCategory} style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                <input
+                  type="text"
+                  placeholder="Nombre de nueva categoría..."
+                  value={newCatName}
+                  onChange={e => setNewCatName(e.target.value)}
+                  style={{
+                    flex: 1, background: '#1C1C20', border: `1px solid ${BORDER}`,
+                    color: TEXT, borderRadius: 8, padding: '8px 14px', fontSize: 14,
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={savingCat || !newCatName.trim()}
+                  style={{ ...s.filterBtn, ...s.filterBtnActive, opacity: savingCat || !newCatName.trim() ? 0.5 : 1 }}
+                >
+                  {savingCat ? '...' : '+ Crear'}
+                </button>
+              </form>
+
               {catsLoading ? (
                 <LoadingState label="Cargando categorías..." />
               ) : categories.length === 0 ? (
@@ -879,16 +966,15 @@ const TEXT    = '#E8EDF8';
 const MUTED   = '#7B90BD';
 
 const s = {
-  root:    { display: 'flex', minHeight: '100vh', background: BG, color: TEXT, fontFamily: "'DM Sans', 'Inter', sans-serif" },
-  sidebar: { width: 224, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', padding: '24px 16px', position: 'sticky', top: 0, height: '100vh' },
+  root:    { display: 'flex', height: '100vh', overflow: 'hidden', background: BG, color: TEXT, fontFamily: "'DM Sans', 'Inter', sans-serif" },
+  sidebar: { width: 224, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', padding: '24px 16px', height: '100%', flexShrink: 0 },
   nav:     { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
   navItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 14, fontWeight: 500, textAlign: 'left', transition: 'all 0.15s' },
   navActive:  { background: `${ACCENT}18`, color: ACCENT },
   navIcon:    { fontSize: 16, width: 20, textAlign: 'center' },
   navBadge:   { marginLeft: 'auto', background: '#F87171', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 },
-  logoutBtn:  { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontSize: 13, textAlign: 'left' },
 
-  main:       { flex: 1, padding: '32px 40px', overflowY: 'auto' },
+  main:       { flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%' },
   header:     { marginBottom: 28 },
   headerTitle:{ fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' },
   headerSub:  { color: MUTED, fontSize: 14, margin: '4px 0 0' },
