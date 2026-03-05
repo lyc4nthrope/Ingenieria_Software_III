@@ -19,6 +19,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 // State Management
 import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
+import { isAdmin } from "@/types";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 // Componentes UI compartidos
@@ -664,6 +665,7 @@ const handleViewMore = async (publicationId) => {
                 onDelete={handleDeletePublication}
                 onViewMore={handleViewMore}
                 isAuthor={user?.id === publication.user_id}
+                isAdmin={isAdmin(user?.role)}
               />
             ))}
           </div>

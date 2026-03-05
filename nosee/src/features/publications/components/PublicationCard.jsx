@@ -80,6 +80,8 @@ export function PublicationCard({
   onReport,
   onDelete,
   onViewMore,
+  isAuthor,
+  isAdmin,
 }) {
   // ─── Idioma ─────────────────────────────────────────────────────────────────
   const { t } = useLanguage();
@@ -277,23 +279,25 @@ export function PublicationCard({
 
           <button
             type="button"
-            aria-label={tc.deleteLabel(publication.product?.name || tc.unknownProduct)}
-            aria-busy={isDeleting || undefined}
-            style={{ ...styles.button, ...styles.buttonDanger }}
-            onClick={handleDelete}
-            disabled={isDeleting}
-          >
-            {isDeleting ? tc.deleting : tc.delete}
-          </button>
-
-          <button
-            type="button"
             aria-label={tc.viewMoreLabel(publication.product?.name || tc.unknownProduct)}
             style={{ ...styles.button, ...styles.buttonSecondary }}
             onClick={() => onViewMore?.(publication.id)}
           >
             {tc.viewMore}
           </button>
+
+          {(isAuthor || isAdmin) && (
+            <button
+              type="button"
+              aria-label={tc.deleteLabel(publication.product?.name || tc.unknownProduct)}
+              aria-busy={isDeleting || undefined}
+              style={{ ...styles.button, ...styles.buttonDanger }}
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? tc.deleting : tc.delete}
+            </button>
+          )}
         </div>
       </div>
 
@@ -544,14 +548,14 @@ const styles = {
   },
 
   button: {
-    flex: 1,
-    padding: '10px 12px',
+    padding: '8px 14px',
     border: 'none',
     borderRadius: 'var(--radius-md)',
     fontSize: '13px',
     fontWeight: 600,
     cursor: 'pointer',
     transition: 'all 0.2s',
+    whiteSpace: 'nowrap',
   },
 
   buttonSecondary: {

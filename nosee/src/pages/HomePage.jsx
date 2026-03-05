@@ -8,6 +8,7 @@ import {
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { isAdmin } from "@/types";
 import { ReportPublicationModal } from "@/features/publications/components/ReportPublicationModal";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -186,6 +187,7 @@ function PublicationCard({
   pub,
   isAuthenticated,
   currentUserId,
+  userIsAdmin,
   onValidate,
   onDownvote,
   onReport,
@@ -299,7 +301,7 @@ function PublicationCard({
             {th.viewMore}
           </button>
 
-          {isAuthor && (
+          {(isAuthor || userIsAdmin) && (
             <button
               className="card-action-button"
               onClick={() => onDelete(pub.id)}
@@ -601,6 +603,7 @@ export default function HomePage() {
                 pub={pub}
                 isAuthenticated={isAuthenticated}
                 currentUserId={user?.id}
+                userIsAdmin={isAdmin(user?.role)}
                 onValidate={handleValidate}
                 onDownvote={handleDownvote}
                 onReport={handleReport}
