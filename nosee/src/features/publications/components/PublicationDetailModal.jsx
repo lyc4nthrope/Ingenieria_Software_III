@@ -353,8 +353,9 @@ function CommentItem({ comment, currentUser, onReply, onDelete, td, depth }) {
   );
 }
 
-function CommentThread({ comment, byParent, currentUser, onReply, onDelete, td, depth = 0 }) {
+function CommentThread({ comment, byParent, currentUser, onReply, onDelete, td, depth = 0, replyTo, replyText, onReplyTextChange, onSubmitReply, onCancelReply, submitting, replyInputRef }) {
   const replies = byParent[comment.id] || [];
+  const isReplyTarget = replyTo?.id === comment.id;
   return (
     <div>
       <CommentItem
@@ -365,6 +366,36 @@ function CommentThread({ comment, byParent, currentUser, onReply, onDelete, td, 
         td={td}
         depth={depth}
       />
+      {isReplyTarget && (
+        <div style={{ marginLeft: 20, marginTop: 4, padding: "8px", background: "var(--bg-muted, var(--bg-surface))", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
+            {td.replyingTo ?? "Respondiendo a"} <strong>{replyTo?.user?.full_name || td.unknownUser}</strong>
+          </p>
+          <textarea
+            ref={replyInputRef}
+            value={replyText}
+            onChange={(e) => onReplyTextChange(e.target.value)}
+            placeholder={td.replyPlaceholder ?? "Escribe tu respuesta..."}
+            rows={2}
+            maxLength={1000}
+            style={styles.commentTextarea}
+            disabled={submitting}
+          />
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+            <button type="button" style={styles.commentCancelBtn} onClick={onCancelReply}>
+              {td.cancelReply ?? "Cancelar"}
+            </button>
+            <button
+              type="button"
+              style={styles.commentSubmitBtn}
+              disabled={submitting || !replyText.trim()}
+              onClick={() => onSubmitReply(replyText, replyTo.id)}
+            >
+              {submitting ? "..." : (td.addCommentBtn ?? "Comentar")}
+            </button>
+          </div>
+        </div>
+      )}
       {replies.map((reply) => (
         <CommentThread
           key={reply.id}
@@ -375,6 +406,13 @@ function CommentThread({ comment, byParent, currentUser, onReply, onDelete, td, 
           onDelete={onDelete}
           td={td}
           depth={depth + 1}
+          replyTo={replyTo}
+          replyText={replyText}
+          onReplyTextChange={onReplyTextChange}
+          onSubmitReply={onSubmitReply}
+          onCancelReply={onCancelReply}
+          submitting={submitting}
+          replyInputRef={replyInputRef}
         />
       ))}
     </div>
@@ -493,80 +531,23 @@ function CommentsSection({ publicationId, initialComments, td }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {topLevel.map((comment) => (
-            <div key={comment.id}>
-              <CommentThread
-                comment={comment}
-                byParent={byParent}
-                currentUser={currentUser}
-                onReply={handleReply}
-                onDelete={handleDelete}
-                td={td}
-              />
-              {/* Inline reply form */}
-              {replyTo?.id === comment.id || (byParent[comment.id] || []).some((r) => r.id === replyTo?.id) ? (
-                <div style={{ marginLeft: 20, marginTop: 4, padding: "8px", background: "var(--bg-muted, var(--bg-surface))", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
-                    {td.replyingTo ?? "Respondiendo a"} <strong>{replyTo?.user?.full_name || td.unknownUser}</strong>
-                  </p>
-                  <textarea
-                    ref={replyInputRef}
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder={td.replyPlaceholder ?? "Escribe tu respuesta..."}
-                    rows={2}
-                    maxLength={1000}
-                    style={styles.commentTextarea}
-                    disabled={submitting}
-                  />
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
-                    <button type="button" style={styles.commentCancelBtn} onClick={() => setReplyTo(null)}>
-                      {td.cancelReply ?? "Cancelar"}
-                    </button>
-                    <button
-                      type="button"
-                      style={styles.commentSubmitBtn}
-                      disabled={submitting || !replyText.trim()}
-                      onClick={() => handleSubmit(replyText, replyTo.id)}
-                    >
-                      {submitting ? "..." : (td.addCommentBtn ?? "Comentar")}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <CommentThread
+              key={comment.id}
+              comment={comment}
+              byParent={byParent}
+              currentUser={currentUser}
+              onReply={handleReply}
+              onDelete={handleDelete}
+              td={td}
+              replyTo={replyTo}
+              replyText={replyText}
+              onReplyTextChange={setReplyText}
+              onSubmitReply={handleSubmit}
+              onCancelReply={() => setReplyTo(null)}
+              submitting={submitting}
+              replyInputRef={replyInputRef}
+            />
           ))}
-        </div>
-      )}
-
-      {/* Reply form for comments that are not top-level parents */}
-      {replyTo && !topLevel.some((c) => c.id === replyTo.id) && !topLevel.some((c) => (byParent[c.id] || []).some((r) => r.id === replyTo.id)) && (
-        <div style={{ marginTop: 8, padding: "8px", background: "var(--bg-muted, var(--bg-surface))", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>
-            {td.replyingTo ?? "Respondiendo a"} <strong>{replyTo?.user?.full_name || td.unknownUser}</strong>
-          </p>
-          <textarea
-            ref={replyInputRef}
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            placeholder={td.replyPlaceholder ?? "Escribe tu respuesta..."}
-            rows={2}
-            maxLength={1000}
-            style={styles.commentTextarea}
-            disabled={submitting}
-          />
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
-            <button type="button" style={styles.commentCancelBtn} onClick={() => setReplyTo(null)}>
-              {td.cancelReply ?? "Cancelar"}
-            </button>
-            <button
-              type="button"
-              style={styles.commentSubmitBtn}
-              disabled={submitting || !replyText.trim()}
-              onClick={() => handleSubmit(replyText, replyTo.id)}
-            >
-              {submitting ? "..." : (td.addCommentBtn ?? "Comentar")}
-            </button>
-          </div>
         </div>
       )}
       <CelebrationOverlay
