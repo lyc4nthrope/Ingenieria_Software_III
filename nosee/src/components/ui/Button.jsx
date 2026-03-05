@@ -62,6 +62,8 @@ const styles = {
   },
 };
 
+const EMPTY_STYLE = {};
+
 export default function Button({
   children,
   variant = 'primary',
@@ -71,7 +73,7 @@ export default function Button({
   loading = false,
   type = 'button',
   onClick,
-  style = {},
+  style = EMPTY_STYLE,
   ...props
 }) {
   const buttonStyle = {

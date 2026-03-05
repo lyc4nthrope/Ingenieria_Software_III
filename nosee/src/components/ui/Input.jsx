@@ -5,6 +5,8 @@
  */
 import { useState } from 'react';
 
+const EMPTY_STYLE = {};
+
 export default function Input({
   label,
   id,
@@ -21,7 +23,7 @@ export default function Input({
   disabled = false,
   required = false,
   autoComplete,
-  style = {},
+  style = EMPTY_STYLE,
   ...props
 }) {
   const [focused, setFocused] = useState(false);

@@ -1,7 +1,9 @@
 import { useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-export default function StoreEvidenceUploader({ evidenceFiles = [], onAddEvidence, onRemoveEvidence, error }) {
+const EMPTY_ARRAY = [];
+
+export default function StoreEvidenceUploader({ evidenceFiles = EMPTY_ARRAY, onAddEvidence, onRemoveEvidence, error }) {
   const { t } = useLanguage();
   const te = t.storeEvidence;
   const fileInputRef = useRef(null);

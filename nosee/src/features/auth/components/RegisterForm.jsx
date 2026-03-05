@@ -176,8 +176,8 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
               {pwdStrength === 3 ? tf.strongPassword : pwdStrength === 2 ? tf.mediumPassword : tf.weakPassword}
             </span>
             <div aria-hidden="true" style={{ display: 'flex', gap: '4px' }}>
-              {passwordRules.map((_, i) => (
-                <div key={i} style={{
+              {passwordRules.map((rule, i) => (
+                <div key={rule.label} style={{
                   flex: 1, height: '3px', borderRadius: '2px',
                   background: i < pwdStrength ? (pwdStrength === 3 ? 'var(--success)' : 'var(--warning)') : 'var(--border)',
                   transition: 'background 0.2s ease',
@@ -185,10 +185,10 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
               ))}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              {passwordRules.map((rule, i) => {
+              {passwordRules.map((rule) => {
                 const met = rule.test(form.password);
                 return (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: met ? 'var(--success)' : 'var(--text-muted)' }}>
+                  <div key={rule.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: met ? 'var(--success)' : 'var(--text-muted)' }}>
                     <span aria-hidden="true" style={{ opacity: met ? 1 : 0.4 }}><CheckIcon /></span>
                     {rule.label}
                   </div>
@@ -216,9 +216,9 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
 
       <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
         {tf.terms}{' '}
-        <a href="#" style={{ color: 'var(--accent)' }}>{tf.termsLink}</a>
+        <button type="button" style={{ color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' }}>{tf.termsLink}</button>
         {' '}{tf.and}{' '}
-        <a href="#" style={{ color: 'var(--accent)' }}>{tf.privacyLink}</a>.
+        <button type="button" style={{ color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' }}>{tf.privacyLink}</button>.
       </p>
 
       <Button type="submit" fullWidth loading={loading} disabled={loading} size="lg">

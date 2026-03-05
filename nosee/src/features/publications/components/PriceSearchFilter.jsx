@@ -11,6 +11,8 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+const EMPTY_FILTERS = {};
+
 /**
  * @param {Object}   filters          - Filtros actuales
  * @param {Function} onFiltersChange  - (newFilters) => void
@@ -18,7 +20,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
  * @param {boolean}  open             - Controla si el panel de filtros está visible
  */
 export function PriceSearchFilter({
-  filters = {},
+  filters = EMPTY_FILTERS,
   onFiltersChange,
   onClearFilters,
   open = false,

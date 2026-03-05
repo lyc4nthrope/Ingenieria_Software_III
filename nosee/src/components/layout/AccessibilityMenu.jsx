@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage, LANG_OPTIONS } from "@/contexts/LanguageContext";
 
 const STORAGE_KEY = "nosee-accessibility-settings";
@@ -158,10 +158,7 @@ export default function AccessibilityMenu() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const fontPercent = useMemo(
-    () => `${Math.round(settings.fontScale * 100)}%`,
-    [settings.fontScale],
-  );
+  const fontPercent = `${Math.round(settings.fontScale * 100)}%`;
 
   const toggleSetting = (key) => {
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
