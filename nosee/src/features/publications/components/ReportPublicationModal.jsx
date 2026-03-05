@@ -66,8 +66,8 @@ export function ReportPublicationModal({ publication, onClose, onSubmit }) {
   };
 
   return (
-    <div role="dialog" aria-modal="true" onClick={handleClose} style={styles.overlay}>
-      <div onClick={(event) => event.stopPropagation()} style={styles.modal}>
+    <div role="dialog" aria-modal="true" onClick={handleClose} onKeyDown={(e) => { if (e.key === 'Escape') handleClose(e); }} style={styles.overlay}>
+      <div role="button" tabIndex={0} onClick={(event) => event.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} style={styles.modal}>
         <h3 style={styles.title}>
           {publication?.product?.name || 'Publicación'} • {publication?.store?.name || 'Tienda'} • ${publication?.price?.toLocaleString() || '0'}
         </h3>

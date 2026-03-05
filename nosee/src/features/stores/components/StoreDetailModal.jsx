@@ -239,6 +239,7 @@ export default function StoreDetailModal({ store, onClose }) {
       aria-label={td.title}
       style={styles.overlay}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
     >
       <div style={styles.modal}>
         {/* Header */}
@@ -322,6 +323,7 @@ export default function StoreDetailModal({ store, onClose }) {
               aria-label={td.evidences}
               style={styles.lightboxOverlay}
               onClick={() => setExpandedEvidence(null)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setExpandedEvidence(null); }}
             >
               <button
                 type="button"
@@ -332,10 +334,13 @@ export default function StoreDetailModal({ store, onClose }) {
                 ✕
               </button>
               <img
+                role="button"
+                tabIndex={0}
                 src={expandedEvidence}
                 alt={store.name}
                 style={styles.lightboxImg}
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
               />
             </div>
           )}

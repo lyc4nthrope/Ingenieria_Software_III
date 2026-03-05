@@ -20,7 +20,7 @@ const STORE_TYPE_ID = {
 };
 
 export default function StoreCreateModal({ initialName = '', onSuccess, onClose }) {
-  const [name, setName]           = useState(initialName);
+  const [name, setName]           = useState(() => initialName);
   const [type, setType]           = useState('physical');
   const [address, setAddress]     = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
@@ -106,7 +106,6 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
               placeholder="Ej: Supermercado Central"
               style={s.input}
               aria-required="true"
-              autoFocus
             />
           </div>
 

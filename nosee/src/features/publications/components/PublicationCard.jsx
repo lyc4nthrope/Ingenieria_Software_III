@@ -274,6 +274,7 @@ export function PublicationCard({
           aria-label={tc.photoExpandLabel(true, publication.product?.name || tc.unknownProduct)}
           style={styles.photoModal}
           onClick={() => setPhotoExpanded(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setPhotoExpanded(false); }}
         >
           <button
             type="button"

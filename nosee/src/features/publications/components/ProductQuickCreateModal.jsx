@@ -16,7 +16,7 @@ export default function ProductQuickCreateModal({
   onClose,
 }) {
   const { t } = useLanguage();
-  const [name, setName] = useState(initialName);
+  const [name, setName] = useState(() => initialName);
   const [categoryId, setCategoryId] = useState("");
   const [unitTypeId, setUnitTypeId] = useState("");
   const [baseQuantity, setBaseQuantity] = useState("");
@@ -188,7 +188,7 @@ export default function ProductQuickCreateModal({
   };
 
   return (
-    <div style={s.overlay} onClick={handleOverlayClick}>
+    <div role="button" tabIndex={0} style={s.overlay} onClick={handleOverlayClick} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
       <div style={s.card}>
         <div style={s.header}>
           <h3 style={s.title}>Crear producto rápido</h3>
@@ -203,8 +203,9 @@ export default function ProductQuickCreateModal({
           <div style={s.loading}>Cargando catálogos...</div>
         ) : (
           <form onSubmit={handleSubmit} style={s.form}>
-            <label style={s.label}>Nombre *</label>
+            <label htmlFor="pqc-name" style={s.label}>Nombre *</label>
             <input
+              id="pqc-name"
               style={s.input}
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -212,8 +213,9 @@ export default function ProductQuickCreateModal({
               required
             />
 
-            <label style={s.label}>Categoría *</label>
+            <label htmlFor="pqc-category" style={s.label}>Categoría *</label>
             <select
+              id="pqc-category"
               style={s.input}
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
@@ -227,10 +229,11 @@ export default function ProductQuickCreateModal({
               ))}
             </select>
 
-            <label style={s.label}>Marca *</label>
+            <label htmlFor="pqc-brand" style={s.label}>Marca *</label>
             <div ref={brandWrapperRef} style={s.brandRow}>
               <div style={s.brandAutocomplete}>
                 <input
+                  id="pqc-brand"
                   style={s.input}
                   value={brandName}
                   onChange={(e) => handleBrandNameChange(e.target.value)}
@@ -243,8 +246,11 @@ export default function ProductQuickCreateModal({
                     {brandResults.map((brand) => (
                       <div
                         key={brand.id}
+                        role="button"
+                        tabIndex={0}
                         style={s.brandDropdownItem}
                         onMouseDown={() => handleBrandSelect(brand)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleBrandSelect(brand); }}
                       >
                         {brand.name}
                       </div>
@@ -274,8 +280,9 @@ export default function ProductQuickCreateModal({
 
             <div style={s.twoCols}>
               <div>
-                <label style={s.label}>Unidad *</label>
+                <label htmlFor="pqc-unit" style={s.label}>Unidad *</label>
                 <select
+                  id="pqc-unit"
                   style={s.input}
                   value={unitTypeId}
                   onChange={(e) => setUnitTypeId(e.target.value)}
@@ -290,8 +297,9 @@ export default function ProductQuickCreateModal({
                 </select>
               </div>
               <div>
-                <label style={s.label}>Cantidad base *</label>
+                <label htmlFor="pqc-qty" style={s.label}>Cantidad base *</label>
                 <input
+                  id="pqc-qty"
                   type="number"
                   min="0.01"
                   step="0.01"

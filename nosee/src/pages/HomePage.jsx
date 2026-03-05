@@ -63,6 +63,7 @@ function ReportModal({ onClose, onSubmit }) {
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(e); }}
       style={{
         position: "fixed",
         inset: 0,
@@ -75,7 +76,10 @@ function ReportModal({ onClose, onSubmit }) {
       }}
     >
       <div
+        role="button"
+        tabIndex={0}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
         style={{
           background: "var(--bg-elevated)",
           border: "1px solid var(--border)",
@@ -120,7 +124,6 @@ function ReportModal({ onClose, onSubmit }) {
           id={selectId}
           name="reportType"
           required
-          autoFocus
           value={reportType}
           onChange={(e) => setReportType(e.target.value)}
           style={{
@@ -301,6 +304,7 @@ function PublicationDetailModal({ publication, onClose }) {
       aria-modal="true"
       aria-labelledby={titleId}
       onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(e); }}
       style={{
         position: "fixed",
         inset: 0,
@@ -313,7 +317,10 @@ function PublicationDetailModal({ publication, onClose }) {
       }}
     >
       <article
+        role="button"
+        tabIndex={0}
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
         style={{
           width: "min(800px, 100%)",
           maxHeight: "90vh",

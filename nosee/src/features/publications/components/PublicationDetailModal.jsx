@@ -594,6 +594,7 @@ export default function PublicationDetailModal({ publication, onClose }) {
         aria-labelledby={titleId}
         style={styles.modal}
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
         aria-hidden="false"
       >
         <button

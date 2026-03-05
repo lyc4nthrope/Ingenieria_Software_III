@@ -527,10 +527,13 @@ function ReportDetailsModal({ report, td, onClose, onSave }) {
     td.severityLabels?.[report.severity] || report.severity?.toUpperCase() || "—";
 
   return (
-    <div style={st.modalOverlay} onClick={onClose}>
+    <div role="button" tabIndex={0} style={st.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
       <div
+        role="button"
+        tabIndex={0}
         style={{ ...st.modalCard, maxHeight: "90vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         {/* Cabecera */}
         <div
@@ -797,10 +800,13 @@ function ActionConfirmModal({ report, action, td, onClose, onConfirm }) {
   };
 
   return (
-    <div style={st.modalOverlay} onClick={onClose}>
+    <div role="button" tabIndex={0} style={st.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
       <div
+        role="button"
+        tabIndex={0}
         style={{ ...st.modalCard, maxWidth: 440 }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: 17, color: TEXT }}>
@@ -830,7 +836,6 @@ function ActionConfirmModal({ report, action, td, onClose, onConfirm }) {
             placeholder="Ej: Usuario reincidente, contenido claramente falso..."
             style={{ ...st.modalTextarea, width: "100%", boxSizing: "border-box" }}
             rows={3}
-            autoFocus
           />
         </label>
 

@@ -125,14 +125,13 @@ export default function StoreMapPicker({
     tMapRef.current = t.storeMap;
   }, [t]);
 
-  const [latInput, setLatInput] = useState(latitude ?? "");
-  const [lonInput, setLonInput] = useState(longitude ?? "");
-  const [addressInput, setAddressInput] = useState(address ?? "");
+  const latInput = latitude ?? "";
+  const lonInput = longitude ?? "";
+  const addressInput = address ?? "";
   const [status, setStatus] = useState("");
   const [loadingAddress, setLoadingAddress] = useState(false);
   const [leafletError, setLeafletError] = useState("");
   const hasInitializedWithGeo = useRef(false);
-  const hasAutoCenteredCurrentLocation = useRef(false);
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
@@ -286,37 +285,6 @@ export default function StoreMapPicker({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Sincronizar inputs con los props externos ────────────────────────────────
-  useEffect(() => {
-    setLatInput(latitude ?? "");
-  }, [latitude]);
-  useEffect(() => {
-    setLonInput(longitude ?? "");
-  }, [longitude]);
-  useEffect(() => {
-    setAddressInput(address ?? "");
-  }, [address]);
-
-  // ─── Mover el marcador cuando cambian las coordenadas externamente ────────────
-  useEffect(() => {
-    if (!hasCoords || !mapInstanceRef.current || !markerRef.current) return;
-    setMarkerPosition(Number(latitude), Number(longitude), { panTo: true });
-  }, [hasCoords, latitude, longitude, setMarkerPosition]);
-
-  // ─── Auto-centrar el mapa al obtener la ubicación del dispositivo (una vez) ──
-  useEffect(() => {
-    if (hasAutoCenteredCurrentLocation.current) return;
-    if (!hasLocation) return;
-    if (!mapInstanceRef.current) return;
-
-    const nextLat = Number(Number(geoLatitude).toFixed(6));
-    const nextLon = Number(Number(geoLongitude).toFixed(6));
-    if (!Number.isFinite(nextLat) || !Number.isFinite(nextLon)) return;
-
-    hasAutoCenteredCurrentLocation.current = true;
-    mapInstanceRef.current.setView([nextLat, nextLon], 17, { animate: true });
-  }, [hasLocation, geoLatitude, geoLongitude]);
-
   // ─── Inicializar formData con la ubicación del dispositivo (si no hay coords) ─
   useEffect(() => {
     if (hasInitializedWithGeo.current) return;
@@ -325,12 +293,14 @@ export default function StoreMapPicker({
     hasInitializedWithGeo.current = true;
     const nextLat = Number(Number(geoLatitude).toFixed(6));
     const nextLon = Number(Number(geoLongitude).toFixed(6));
+    if (!Number.isFinite(nextLat) || !Number.isFinite(nextLon)) return;
     onLocationChangeRef.current({
       latitude: nextLat,
       longitude: nextLon,
       address: "",
     });
-  }, [hasLocation, hasCoords, geoLatitude, geoLongitude]);
+    setMarkerPosition(nextLat, nextLon);
+  }, [hasLocation, hasCoords, geoLatitude, geoLongitude, setMarkerPosition]);
 
   // ─── Handlers de la UI ───────────────────────────────────────────────────────
 
@@ -339,8 +309,6 @@ export default function StoreMapPicker({
     nextLon,
     { resolveAddress = false } = {},
   ) => {
-    setLatInput(String(nextLat));
-    setLonInput(String(nextLon));
     onLocationChangeRef.current({
       latitude: nextLat,
       longitude: nextLon,
@@ -430,9 +398,7 @@ export default function StoreMapPicker({
           value={addressInput}
           placeholder={tm.addressPlaceholder}
           onChange={(event) => {
-            const nextAddress = event.target.value;
-            setAddressInput(nextAddress);
-            onAddressChangeRef.current(nextAddress);
+            onAddressChangeRef.current(event.target.value);
           }}
           style={styles.input}
         />
@@ -458,7 +424,7 @@ export default function StoreMapPicker({
           aria-label={tm.latPlaceholder}
           value={latInput}
           placeholder={tm.latPlaceholder}
-          onChange={(event) => setLatInput(event.target.value)}
+          onChange={() => {}}
           style={styles.input}
         />
         <input
@@ -467,7 +433,7 @@ export default function StoreMapPicker({
           aria-label={tm.lonPlaceholder}
           value={lonInput}
           placeholder={tm.lonPlaceholder}
-          onChange={(event) => setLonInput(event.target.value)}
+          onChange={() => {}}
           style={styles.input}
         />
         <button

@@ -184,11 +184,14 @@ function OrderCard({ order, statusInfo, td, onAdvance, onSelect, selected }) {
 
   return (
     <article
+      role="button"
+      tabIndex={0}
       style={{
         ...r.orderCard,
         ...(selected ? r.orderCardSelected : {}),
       }}
       onClick={() => onSelect(selected ? null : order.id)}
+      onKeyDown={(e) => { if (e.key === 'Enter') onSelect(selected ? null : order.id); }}
     >
       <div style={r.orderTop}>
         <div style={r.orderId}>{order.id}</div>

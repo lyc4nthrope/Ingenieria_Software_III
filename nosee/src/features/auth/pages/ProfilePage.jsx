@@ -217,7 +217,10 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(e); }}
       style={{
         position: 'fixed', inset: 0,
         background: 'rgba(0,0,0,0.65)',
@@ -230,6 +233,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
         style={{
           background: 'var(--bg-surface)',
           border: '1px solid var(--border)',
@@ -553,12 +557,12 @@ function EditPublicationModal({ publication, onClose, onSave }) {
   };
 
   return (
-    <div onClick={onClose} style={{
+    <div role="button" tabIndex={0} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(e); }} style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 1000, padding: '16px',
     }}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+      <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
         background: 'var(--bg-surface)', border: '1px solid var(--border)',
         borderRadius: 'var(--radius-xl)', padding: '24px', width: '100%', maxWidth: '420px',
         display: 'flex', flexDirection: 'column', gap: '16px',
@@ -571,21 +575,22 @@ function EditPublicationModal({ publication, onClose, onSave }) {
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Precio *</label>
+          <label htmlFor="edit-pub-price" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Precio *</label>
           <input
+            id="edit-pub-price"
             type="number"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             min="0"
             step="1"
             style={inputStyle}
-            autoFocus
           />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Descripción</label>
+          <label htmlFor="edit-pub-desc" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Descripción</label>
           <textarea
+            id="edit-pub-desc"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
@@ -703,8 +708,9 @@ function ReportCard({ report, userId, onRefresh }) {
       {editing && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Razón del reporte</label>
+            <label htmlFor="report-reason" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Razón del reporte</label>
             <select
+              id="report-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               style={{ ...inputStyle, background: 'var(--bg-surface)' }}
@@ -715,8 +721,9 @@ function ReportCard({ report, userId, onRefresh }) {
             </select>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Descripción (opcional)</label>
+            <label htmlFor="report-desc" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>Descripción (opcional)</label>
             <textarea
+              id="report-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}

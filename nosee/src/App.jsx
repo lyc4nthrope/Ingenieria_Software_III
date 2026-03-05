@@ -105,7 +105,7 @@ function AppContent() {
 
   useEffect(() => {
     initialize();
-  }, []);
+  }, [initialize]);
 
   if (!isInitialized) {
     return <PageLoader message="Loading..." />;

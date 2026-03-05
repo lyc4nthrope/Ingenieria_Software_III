@@ -61,9 +61,12 @@ export default function CelebrationOverlay({ visible, message, onDone }) {
           justifyContent: "center",
         }}
         onClick={() => onDone?.()}
+        onKeyDown={(e) => { if (e.key === 'Escape') onDone?.(); }}
       >
         {/* Card */}
         <div
+          role="button"
+          tabIndex={0}
           style={{
             position: "fixed",
             top: "50%",
@@ -82,6 +85,7 @@ export default function CelebrationOverlay({ visible, message, onDone }) {
               : "celebrationBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
           }}
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
         >
           <div style={{ fontSize: "56px", lineHeight: 1, marginBottom: "12px" }}>
             🏆

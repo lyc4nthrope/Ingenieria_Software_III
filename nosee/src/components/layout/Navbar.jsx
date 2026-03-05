@@ -164,7 +164,7 @@ export default function Navbar() {
     fontWeight: "500",
     color: active ? "var(--accent)" : "var(--text-secondary)",
     background: active ? "var(--accent-soft)" : "transparent",
-    transition: "all 0.18s ease",
+    transition: "color 0.18s ease, background-color 0.18s ease",
     textDecoration: "none",
   });
 
@@ -281,7 +281,7 @@ export default function Navbar() {
               background: "transparent",
               border: "none",
               cursor: "pointer",
-              transition: "all 0.18s ease",
+              transition: "color 0.18s ease, background-color 0.18s ease",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = "var(--error)";

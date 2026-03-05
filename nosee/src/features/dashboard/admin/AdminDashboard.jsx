@@ -1069,8 +1069,8 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
   };
 
   return (
-    <div style={s.modalOverlay} onClick={onClose}>
-      <div style={{ ...s.modalCard, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+    <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
+      <div role="button" tabIndex={0} style={{ ...s.modalCard, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         {/* Cabecera */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
@@ -1170,7 +1170,8 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
 }
 
 // ─── SummaryCard ─────────────────────────────────────────────────────────────
-function SummaryCard({ title, counts, labels = {} }) {
+const EMPTY_LABELS = {};
+function SummaryCard({ title, counts, labels = EMPTY_LABELS }) {
   return (
     <div style={s.summaryCard}>
       <h3 style={s.summaryTitle}>{title}</h3>
@@ -1262,7 +1263,7 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
 function ReportDetailsModal({ report, onClose, onSave }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
-  const [status, setStatus] = useState(normalizeReportStatus(report.status));
+  const [status, setStatus] = useState(() => normalizeReportStatus(report.status));
   const [actionTaken, setActionTaken] = useState(report.actionTaken || '');
   const [modNotes, setModNotes] = useState(report.modNotes || '');
   const [saving, setSaving] = useState(false);
@@ -1312,8 +1313,8 @@ function ReportDetailsModal({ report, onClose, onSave }) {
   const severityLabel = td.severityLabels?.[report.severity] || report.severity?.toUpperCase() || '—';
 
   return (
-    <div style={s.modalOverlay} onClick={onClose}>
-      <div style={{ ...s.modalCard, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+    <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
+      <div role="button" tabIndex={0} style={{ ...s.modalCard, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         {/* Cabecera */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div>
