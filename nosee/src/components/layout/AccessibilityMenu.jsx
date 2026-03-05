@@ -99,17 +99,13 @@ function stopReading(strings) {
 function AccessibilityIcon() {
   return (
     <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-      <circle cx="32" cy="32" r="30" fill="#2668d8" stroke="#b8cffd" strokeWidth="4" />
-      {/* Cabeza */}
-      <circle cx="32" cy="16" r="5" fill="#fff" />
-      {/* Brazos extendidos */}
-      <line x1="10" y1="28" x2="54" y2="28" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-      {/* Cuerpo */}
-      <line x1="32" y1="28" x2="32" y2="42" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-      {/* Pierna izquierda */}
-      <line x1="32" y1="42" x2="20" y2="54" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-      {/* Pierna derecha */}
-      <line x1="32" y1="42" x2="44" y2="54" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+      <circle cx="32" cy="32" r="30" fill="#2668d8" />
+      <circle cx="32" cy="32" r="26" fill="none" stroke="#fff" strokeWidth="2.5" />
+      <circle cx="32" cy="20" r="4" fill="#fff" />
+      <line x1="18" y1="30" x2="46" y2="30" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" />
+      <line x1="32" y1="30" x2="32" y2="40" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" />
+      <line x1="32" y1="40" x2="23" y2="50" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" />
+      <line x1="32" y1="40" x2="41" y2="50" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" />
     </svg>
   );
 }
