@@ -51,6 +51,7 @@ const areFiltersEqual = (a = {}, b = {}) => {
     'longitude',
     'sortBy',
     'limit',
+    'categoryId',
   ];
 
   return keys.every((key) => {
