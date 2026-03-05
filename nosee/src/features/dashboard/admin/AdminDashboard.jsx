@@ -139,6 +139,7 @@ export default function AdminDashboard() {
   const [pubsLoaded, setPubsLoaded]           = useState(false);
   const [pubFilter, setPubFilter]             = useState('all');
   const [deletingPub, setDeletingPub]         = useState(null);
+  const [selectedPub, setSelectedPub]         = useState(null); // pub abierta en modal
 
   // Reportes
   const [reports, setReports]                 = useState([]);
@@ -302,17 +303,25 @@ export default function AdminDashboard() {
   };
 
   // ─── Publicaciones ────────────────────────────────────────────────────────
-  // Usamos getPublications() de la API existente. El admin puede eliminar
-  // cualquier publicación porque deletePublication() verifica role_id === 3.
+  // El admin ve TODAS las publicaciones (activas e inactivas).
+  // Usamos supabase directamente para evitar filtros de la API de usuario.
   const loadPublications = async () => {
     setPubsLoading(true);
     try {
-      const result = await getPublications({ limit: 100 });
-      if (result.success) {
-        setPublications(result.data || []);
-      }
+      const { data, error } = await supabase
+        .from('price_publications')
+        .select(`
+          id, price, photo_url, description, confidence_score, is_active, created_at,
+          user_id, store_id, product_id,
+          user:users!price_publications_user_id_fkey (id, full_name, reputation_points),
+          product:products (id, name, base_quantity, unit_type:unit_types (id, name, abbreviation)),
+          store:stores!price_publications_store_id_fkey (id, name, address)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(300);
+      if (!error) setPublications(data || []);
     } catch {
-      // silencioso, la tabla queda vacía
+      // silencioso
     } finally {
       setPubsLoading(false);
       setPubsLoaded(true);
@@ -335,6 +344,25 @@ export default function AdminDashboard() {
       alert(td.errorDeletePubGeneric);
     } finally {
       setDeletingPub(null);
+    }
+  };
+
+  // updates puede contener: { is_active, price, description }
+  const handleEditPublication = async (pubId, updates) => {
+    try {
+      const { error } = await supabase
+        .from('price_publications')
+        .update(updates)
+        .eq('id', pubId);
+      if (error) {
+        alert(td.errorEditPub(error.message));
+        return false;
+      }
+      setPublications(prev => prev.map(p => p.id === pubId ? { ...p, ...updates } : p));
+      return true;
+    } catch {
+      alert(td.errorEditPubGeneric);
+      return false;
     }
   };
 
@@ -606,13 +634,34 @@ export default function AdminDashboard() {
               sub={td.contentSub}
             />
 
-            {/* Filtro por estado */}
+            {/* Stats de publicaciones */}
+            {!pubsLoading && pubsLoaded && (
+              <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+                <div style={{ ...s.statCard, flex: '1 1 140px', padding: '14px 18px' }}>
+                  <div style={s.statValue}>{publications.length}</div>
+                  <div style={s.statLabel}>{td.filterAll}</div>
+                </div>
+                <div style={{ ...s.statCard, flex: '1 1 140px', padding: '14px 18px' }}>
+                  <div style={{ ...s.statValue, color: '#34D399' }}>
+                    {publications.filter(p => p.is_active).length}
+                  </div>
+                  <div style={s.statLabel}>{td.filterVisible}</div>
+                </div>
+                <div style={{ ...s.statCard, flex: '1 1 140px', padding: '14px 18px' }}>
+                  <div style={{ ...s.statValue, color: '#F87171' }}>
+                    {publications.filter(p => !p.is_active).length}
+                  </div>
+                  <div style={s.statLabel}>{td.filterHidden}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Filtro por visibilidad */}
             <div style={s.filterRow}>
               {[
-                { key: 'all',      label: td.filterAll },
-                { key: 'active',   label: td.filterActive },
-                { key: 'pending',  label: td.filterPending },
-                { key: 'expired',  label: td.filterExpired },
+                { key: 'all',     label: td.filterAll },
+                { key: 'visible', label: td.filterVisible },
+                { key: 'hidden',  label: td.filterHidden },
               ].map(f => (
                 <button
                   key={f.key}
@@ -628,11 +677,29 @@ export default function AdminDashboard() {
               <LoadingState label={td.loadingPubs} />
             ) : (
               <PublicationsTable
-                publications={publications.filter(p =>
-                  pubFilter === 'all' ? true : p.status === pubFilter
-                )}
+                publications={publications.filter(p => {
+                  if (pubFilter === 'visible') return p.is_active === true;
+                  if (pubFilter === 'hidden')  return p.is_active === false;
+                  return true;
+                })}
                 onDelete={handleDeletePublication}
+                onView={(p) => setSelectedPub(p)}
                 deletingId={deletingPub}
+              />
+            )}
+
+            {selectedPub && (
+              <PublicationDetailModal
+                pub={selectedPub}
+                onClose={() => setSelectedPub(null)}
+                onSave={async (updates) => {
+                  const ok = await handleEditPublication(selectedPub.id, updates);
+                  if (ok) setSelectedPub(prev => prev ? { ...prev, ...updates } : null);
+                }}
+                onDelete={() => {
+                  handleDeletePublication(selectedPub.id);
+                  setSelectedPub(null);
+                }}
               />
             )}
           </>
@@ -907,7 +974,7 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
 }
 
 // ─── PublicationsTable ────────────────────────────────────────────────────────
-function PublicationsTable({ publications, onDelete, deletingId }) {
+function PublicationsTable({ publications, onDelete, onView, deletingId }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
   if (publications.length === 0) {
@@ -915,13 +982,13 @@ function PublicationsTable({ publications, onDelete, deletingId }) {
   }
   return (
     <div style={s.table}>
-      <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 0.7fr' }}>
+      <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 1.2fr' }}>
         {[td.colProduct, td.colStore, td.colPrice, td.colAuthor, td.colDate, td.colAction].map(h => (
           <div key={h} style={s.th}>{h}</div>
         ))}
       </div>
       {publications.map(p => (
-        <div key={p.id} style={{ ...s.tableRow, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 0.7fr' }}>
+        <div key={p.id} style={{ ...s.tableRow, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 1.2fr' }}>
           <div style={s.td}>
             <div>
               <div style={s.rowName}>{p.productName || p.product?.name || '—'}</div>
@@ -936,17 +1003,141 @@ function PublicationsTable({ publications, onDelete, deletingId }) {
           <div style={{ ...s.td, fontSize: 12, color: MUTED }}>
             {p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-CO') : '—'}
           </div>
-          <div style={s.td}>
+          <div style={{ ...s.td, gap: 6 }}>
+            <button
+              style={{ ...s.filterBtn, padding: '5px 10px', fontSize: 12 }}
+              onClick={() => onView(p)}
+              title={td.viewPubBtn}
+            >
+              {td.viewPubBtn}
+            </button>
             <button
               style={s.btnDelete}
               onClick={() => onDelete(p.id)}
               disabled={deletingId === p.id}
+              title={td.colAction}
             >
               {deletingId === p.id ? '...' : '🗑'}
             </button>
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── PublicationDetailModal ───────────────────────────────────────────────────
+const PUB_STATUS_OPTIONS = ['active', 'pending', 'rejected', 'expired'];
+
+function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
+  const [status, setStatus] = useState(pub.status || 'active');
+  const [price, setPrice]   = useState(pub.price ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+
+  const productName = pub.productName || pub.product?.name || '—';
+  const storeName   = pub.storeName   || pub.store?.name   || '—';
+  const authorName  = pub.authorName  || pub.user?.fullName || '—';
+  const createdAt   = pub.createdAt   ? new Date(pub.createdAt).toLocaleString('es-CO') : '—';
+
+  const save = async () => {
+    setSaving(true);
+    setSaved(false);
+    const updates = { status };
+    const parsedPrice = Number(price);
+    if (!isNaN(parsedPrice) && parsedPrice > 0) updates.price = parsedPrice;
+    const ok = await onSave(updates);
+    setSaving(false);
+    if (ok !== false) setSaved(true);
+  };
+
+  return (
+    <div style={s.modalOverlay} onClick={onClose}>
+      <div style={{ ...s.modalCard, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        {/* Cabecera */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.pubDetailTitle}</h2>
+            <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {pub.id}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+
+        {/* Detalle */}
+        <div style={{ ...s.section, marginBottom: 16, marginTop: 0 }}>
+          <div style={{ ...s.sectionHead, marginBottom: 10 }}>
+            <span style={s.sectionTitle}>{td.pubDetailTitle}</span>
+            <StatusBadge status={pub.status} />
+          </div>
+          <div style={s.detailGrid}>
+            <DetailRow label={td.pubProductLabel} value={productName} />
+            <DetailRow label={td.pubStoreLabel}   value={storeName} />
+            <DetailRow label={td.pubPriceLabel}   value={`$${typeof pub.price === 'number' ? pub.price.toLocaleString('es-CO') : pub.price || '—'}`} />
+            <DetailRow label={td.pubAuthorLabel}  value={authorName} />
+            <DetailRow label={td.pubDateLabel}    value={createdAt} />
+            {typeof pub.upvotes === 'number' && <DetailRow label={td.pubUpvotesLabel}   value={pub.upvotes} />}
+            {typeof pub.downvotes === 'number' && <DetailRow label={td.pubDownvotesLabel} value={pub.downvotes} />}
+          </div>
+        </div>
+
+        {/* Imagen */}
+        {pub.photoUrl && (
+          <div style={{ marginBottom: 16 }}>
+            <img
+              src={pub.photoUrl}
+              alt="Foto de publicación"
+              style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 8, border: `1px solid ${BORDER}` }}
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          </div>
+        )}
+
+        <hr style={{ border: 'none', borderTop: `1px solid ${BORDER}`, margin: '0 0 16px' }} />
+
+        {/* Edición */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <label style={s.filterLabelWrap}>
+            <span style={s.filterLabel}>{td.pubStatusLabel}</span>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} style={s.filterSelect}>
+              {PUB_STATUS_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>
+                  {td[`pubStatus${opt.charAt(0).toUpperCase()}${opt.slice(1)}`] || opt}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label style={s.filterLabelWrap}>
+            <span style={s.filterLabel}>{td.pubPriceLabel}</span>
+            <input
+              type="number"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              style={{ ...s.filterSelect, fontFamily: 'inherit' }}
+              min={0}
+              placeholder="Precio en COP"
+            />
+          </label>
+        </div>
+
+        {saved && (
+          <p style={{ margin: '10px 0 0', fontSize: 13, color: '#34D399', textAlign: 'right' }}>
+            ✓ {td.pubSavedOk}
+          </p>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, gap: 10 }}>
+          <button onClick={onDelete} style={s.btnDelete}>{td.deletePublicationBtn}</button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={s.btnDismiss}>{td.cancel}</button>
+            <button onClick={save} style={{ ...s.filterBtn, ...s.filterBtnActive }} disabled={saving}>
+              {saving ? '...' : td.savePubBtn}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
