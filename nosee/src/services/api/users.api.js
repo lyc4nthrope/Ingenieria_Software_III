@@ -402,6 +402,15 @@ export async function updateOwnReport(reportId, userId, updates = {}) {
   return { success: true, data };
 }
 
+export async function deleteOwnReport(reportId) {
+  if (!reportId) return { success: false, error: "ID de reporte requerido" };
+
+  const { error } = await supabase.rpc("delete_own_report", { p_report_id: reportId });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
 export async function updateReportReview(reportId, payload) {
   // Si el reporte se resuelve, deducir reputación al usuario reportado
   if (payload.status === "RESOLVED") {

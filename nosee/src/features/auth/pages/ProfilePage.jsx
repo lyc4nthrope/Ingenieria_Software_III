@@ -9,7 +9,7 @@ import Button from '@/components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { alertsApi } from '@/services/api';
-import { getUserProfileActivity, updateOwnReport } from '@/services/api/users.api';
+import { getUserProfileActivity, updateOwnReport, deleteOwnReport } from '@/services/api/users.api';
 import { updatePublication } from '@/services/api/publications.api';
 
 // ─── Sección de alertas de precio ────────────────────────────────────────────
@@ -621,6 +621,7 @@ function ReportCard({ report, userId, onRefresh }) {
   const [reason, setReason] = useState(report.reason || 'other');
   const [description, setDescription] = useState(report.description || '');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
 
   const statusKey = report.status?.toUpperCase() || 'PENDING';
@@ -649,6 +650,16 @@ function ReportCard({ report, userId, onRefresh }) {
     setDescription(report.description || '');
     setEditing(false);
     setError(null);
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm('¿Eliminar este reporte? Esta acción no se puede deshacer.')) return;
+    setDeleting(true);
+    setError(null);
+    const result = await deleteOwnReport(report.id);
+    setDeleting(false);
+    if (!result.success) { setError(result.error || 'No se pudo eliminar'); return; }
+    onRefresh();
   };
 
   return (
@@ -748,16 +759,30 @@ function ReportCard({ report, userId, onRefresh }) {
         </div>
       )}
 
-      {/* Botón editar (solo si PENDING y no está en modo edición) */}
+      {/* Botones (solo si PENDING y no está en modo edición) */}
       {isPending && !editing && (
-        <button onClick={() => setEditing(true)} style={{
-          border: '1px solid var(--border)', background: 'none',
-          borderRadius: 'var(--radius-sm)', padding: '5px 12px',
-          fontSize: '12px', color: 'var(--text-primary)', cursor: 'pointer',
-          display: 'inline-flex', alignItems: 'center', gap: '4px',
-        }}>
-          ✏ Modificar reporte
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => setEditing(true)} style={{
+            border: '1px solid var(--border)', background: 'none',
+            borderRadius: 'var(--radius-sm)', padding: '5px 12px',
+            fontSize: '12px', color: 'var(--text-primary)', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: '4px',
+          }}>
+            ✏ Modificar reporte
+          </button>
+          <button onClick={handleDelete} disabled={deleting} style={{
+            border: '1px solid var(--error, #e53e3e)', background: 'none',
+            borderRadius: 'var(--radius-sm)', padding: '5px 12px',
+            fontSize: '12px', color: 'var(--error, #e53e3e)', cursor: deleting ? 'not-allowed' : 'pointer',
+            display: 'inline-flex', alignItems: 'center', gap: '4px',
+            opacity: deleting ? 0.6 : 1,
+          }}>
+            🗑 {deleting ? 'Eliminando...' : 'Eliminar reporte'}
+          </button>
+        </div>
+      )}
+      {isPending && !editing && error && (
+        <p style={{ fontSize: '12px', color: 'var(--error)', margin: '6px 0 0' }}>⚠ {error}</p>
       )}
     </div>
   );
