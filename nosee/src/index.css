@@ -302,14 +302,14 @@ img {
 .categories-carousel {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  justify-content: center;
 }
 
 .categories-track {
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 1;
   overflow: hidden;
 }
 
