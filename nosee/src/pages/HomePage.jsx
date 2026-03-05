@@ -163,14 +163,31 @@ function ReportModal({ onClose, onSubmit }) {
   );
 }
 
+const HappyFaceIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+    <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3" strokeLinecap="round" />
+    <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+);
+
+const SadFaceIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
+    <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3" strokeLinecap="round" />
+    <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+);
+
 // ─── PublicationCard ──────────────────────────────────────────────────────────
 function PublicationCard({
   pub,
   isAuthenticated,
   currentUserId,
-  isVoted,
   onValidate,
-  onUnvote,
+  onDownvote,
   onReport,
   onDelete,
   onOpenDetail,
@@ -178,6 +195,7 @@ function PublicationCard({
   const { t } = useLanguage();
   const th = t.home;
   const publicationImage = resolvePublicationPhoto(pub);
+  const [isVoting, setIsVoting] = useState(false);
 
   const handleImageError = (event) => {
     event.currentTarget.src = FALLBACK_IMAGE;
@@ -188,6 +206,19 @@ function PublicationCard({
     (pub.user_id === currentUserId || pub.user?.id === currentUserId);
 
   const pubName = pub.product?.name || th.product;
+
+  const handleVote = async (action) => {
+    if (isVoting || !isAuthenticated) return;
+    setIsVoting(true);
+    try {
+      await action(pub.id);
+    } finally {
+      setIsVoting(false);
+    }
+  };
+
+  const upActive = pub.user_vote === 1;
+  const downActive = pub.user_vote === -1;
 
   return (
     <article className="card">
@@ -207,41 +238,48 @@ function PublicationCard({
         <p className="card-description">
           {(pub.description || th.noDescription).slice(0, 80)}
         </p>
+        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{pub.store?.name || th.store}</span>
       </div>
 
       <div className="card-divider" />
 
-      <div
-        className="card-actions-row"
-        style={{ flexDirection: "column", gap: 8 }}
-      >
-        <div className="card-indicators" style={{ width: "100%" }}>
-          <span><span aria-hidden="true">✅ </span>{pub.validated_count || 0}</span>
-          <span><span aria-hidden="true">🚩 </span>{pub.reported_count || 0}</span>
-          <span>{pub.store?.name || th.store}</span>
-        </div>
-        <div
-          style={{ display: "flex", gap: 8, width: "100%", flexWrap: "wrap" }}
-        >
-          <button
-            className="card-action-button"
-            onClick={() => (isVoted ? onUnvote(pub.id) : onValidate(pub.id))}
-            aria-label={
-              isVoted
-                ? th.removeValidationLabel(pubName)
-                : th.validateLabel(pubName)
-            }
-            disabled={!isAuthenticated}
-            title={
-              !isAuthenticated
-                ? th.loginToVote
-                : isVoted
-                  ? th.removeValidation
-                  : th.validatePrice
-            }
-          >
-            {isVoted ? th.validated : th.validate}
-          </button>
+      <div className="card-actions-row" style={{ flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {/* Grupo de votos */}
+          <div style={homeVoteStyles.group}>
+            <button
+              type="button"
+              aria-label={th.validateLabel(pubName)}
+              aria-pressed={upActive}
+              disabled={isVoting || !isAuthenticated}
+              title={!isAuthenticated ? th.loginToVote : undefined}
+              onClick={() => handleVote(onValidate)}
+              style={{
+                ...homeVoteStyles.btn,
+                ...homeVoteStyles.btnLeft,
+                ...(upActive ? homeVoteStyles.btnUpActive : {}),
+              }}
+            >
+              <HappyFaceIcon />
+              <span style={homeVoteStyles.count}>{pub.validated_count || 0}</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`Votar negativamente ${pubName}`}
+              aria-pressed={downActive}
+              disabled={isVoting || !isAuthenticated}
+              title={!isAuthenticated ? th.loginToVote : undefined}
+              onClick={() => handleVote(onDownvote)}
+              style={{
+                ...homeVoteStyles.btn,
+                ...homeVoteStyles.btnRight,
+                ...(downActive ? homeVoteStyles.btnDownActive : {}),
+              }}
+            >
+              <SadFaceIcon />
+              <span style={homeVoteStyles.count}>{pub.downvoted_count || 0}</span>
+            </button>
+          </div>
 
           <button
             className="card-action-button"
@@ -276,6 +314,45 @@ function PublicationCard({
     </article>
   );
 }
+
+const homeVoteStyles = {
+  group: {
+    display: "flex",
+    borderRadius: "8px",
+    overflow: "hidden",
+    border: "1px solid var(--border)",
+    flexShrink: 0,
+  },
+  btn: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "5px 12px",
+    border: "none",
+    background: "var(--bg-surface)",
+    cursor: "pointer",
+    color: "var(--text-muted)",
+    transition: "background 0.15s, color 0.15s",
+  },
+  btnLeft: {
+    borderRight: "1px solid var(--border)",
+  },
+  btnRight: {},
+  btnUpActive: {
+    background: "rgba(16,185,129,0.12)",
+    color: "#10b981",
+  },
+  btnDownActive: {
+    background: "rgba(239,68,68,0.10)",
+    color: "#ef4444",
+  },
+  count: {
+    fontSize: "13px",
+    fontWeight: 700,
+    minWidth: "14px",
+    textAlign: "center",
+  },
+};
 
 // ─── PublicationDetailModal ───────────────────────────────────────────────────
 function PublicationDetailModal({ publication, onClose }) {
@@ -383,6 +460,7 @@ export default function HomePage() {
     loading,
     setFilters,
     validatePublication,
+    downvotePublication,
     unvotePublication,
     reportPublication,
     removePublication,
@@ -392,8 +470,6 @@ export default function HomePage() {
 
   const [detailPublication, setDetailPublication] = useState(null);
   const [reportingPublication, setReportingPublication] = useState(null);
-  const [votedIds, setVotedIds] = useState(new Set());
-  const [reportingId, setReportingId] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
@@ -442,17 +518,23 @@ export default function HomePage() {
   };
 
   const handleValidate = async (publicationId) => {
-    await validatePublication(publicationId);
-    setVotedIds((prev) => new Set([...prev, publicationId]));
+    const pub = publications.find((p) => p.id === publicationId);
+    if (pub?.user_vote === 1) {
+      await unvotePublication(publicationId);
+    } else {
+      if (pub?.user_vote === -1) await unvotePublication(publicationId);
+      await validatePublication(publicationId);
+    }
   };
 
-  const handleUnvote = async (publicationId) => {
-    await unvotePublication(publicationId);
-    setVotedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(publicationId);
-      return next;
-    });
+  const handleDownvote = async (publicationId) => {
+    const pub = publications.find((p) => p.id === publicationId);
+    if (pub?.user_vote === -1) {
+      await unvotePublication(publicationId);
+    } else {
+      if (pub?.user_vote === 1) await unvotePublication(publicationId);
+      await downvotePublication(publicationId);
+    }
   };
 
   const handleReport = (publication) => {
@@ -519,9 +601,8 @@ export default function HomePage() {
                 pub={pub}
                 isAuthenticated={isAuthenticated}
                 currentUserId={user?.id}
-                isVoted={votedIds.has(pub.id)}
                 onValidate={handleValidate}
-                onUnvote={handleUnvote}
+                onDownvote={handleDownvote}
                 onReport={handleReport}
                 onDelete={handleDelete}
                 onOpenDetail={handleOpenDetail}

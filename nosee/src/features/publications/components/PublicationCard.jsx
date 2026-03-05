@@ -27,6 +27,24 @@ import { formatDistanceToNow } from '@/features/publications/utils/dateUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ReportPublicationModal } from '@/features/publications/components/ReportPublicationModal';
 
+const HappyFaceIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+    <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3" strokeLinecap="round" />
+    <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+);
+
+const SadFaceIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
+    <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3" strokeLinecap="round" />
+    <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+);
+
 /**
  * Componente: PublicationCard
  * Tarjeta visual de una publicación de precio
@@ -226,7 +244,7 @@ export function PublicationCard({
             onClick={handleValidate}
             disabled={isValidating || isDownvoting}
           >
-            <span style={styles.voteEmoji}>😊</span>
+            <HappyFaceIcon />
             <span style={styles.voteCount}>{publication.validated_count || 0}</span>
           </button>
           <button
@@ -241,7 +259,7 @@ export function PublicationCard({
             onClick={handleDownvote}
             disabled={isValidating || isDownvoting}
           >
-            <span style={styles.voteEmoji}>😢</span>
+            <SadFaceIcon />
             <span style={styles.voteCount}>{publication.downvoted_count || 0}</span>
           </button>
         </div>
@@ -511,11 +529,6 @@ const styles = {
   voteBtnDownActive: {
     background: 'rgba(239,68,68,0.10)',
     color: '#ef4444',
-  },
-
-  voteEmoji: {
-    fontSize: '16px',
-    lineHeight: 1,
   },
 
   voteCount: {
