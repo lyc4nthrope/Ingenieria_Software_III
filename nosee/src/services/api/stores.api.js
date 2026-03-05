@@ -211,10 +211,12 @@ export async function createStore(payload = {}) {
     if (insertError) return { success: false, error: insertError.message };
 
     // Sumar reputación al creador de la tienda (best-effort)
-    supabase.rpc("increment_user_reputation", {
-      target_user_id: userResult.data,
-      reputation_delta: 3,
-    }).catch(() => {});
+    void (async () => {
+      await supabase.rpc("increment_user_reputation", {
+        target_user_id: userResult.data,
+        reputation_delta: 3,
+      });
+    })();
 
     return {
       success: true,
@@ -448,10 +450,12 @@ export async function createStoreSimple(
     if (error) return { success: false, error: error.message };
 
     // Sumar reputación al creador de la tienda (best-effort)
-    supabase.rpc("increment_user_reputation", {
-      target_user_id: userResult.data,
-      reputation_delta: 3,
-    }).catch(() => {});
+    void (async () => {
+      await supabase.rpc("increment_user_reputation", {
+        target_user_id: userResult.data,
+        reputation_delta: 3,
+      });
+    })();
 
     return {
       success: true,

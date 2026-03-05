@@ -412,10 +412,12 @@ export async function updateReportReview(reportId, payload) {
       .single();
 
     if (report?.reported_user_id) {
-      supabase.rpc("increment_user_reputation", {
-        target_user_id: report.reported_user_id,
-        reputation_delta: -7,
-      }).catch(() => {});
+      void (async () => {
+        await supabase.rpc("increment_user_reputation", {
+          target_user_id: report.reported_user_id,
+          reputation_delta: -7,
+        });
+      })();
     }
   }
 
