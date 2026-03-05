@@ -22,36 +22,36 @@ function BanModal({ user, onConfirm, onCancel }) {
   const isBanning = user.status === 'activo';
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+      position: 'fixed', inset: 0, background: 'var(--overlay)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 1000,
     }}>
       <div style={{
-        background: '#0F1724', border: '1px solid #1E2D4A', borderRadius: 14,
+        background: 'var(--bg-surface)', border: '1px solid #1E2D4A', borderRadius: 14,
         padding: '28px 32px', width: 420, maxWidth: '90vw',
       }}>
-        <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#E8EDF8' }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
           {isBanning ? td.banTitle : td.unbanTitle}
         </h2>
-        <p style={{ margin: '0 0 20px', fontSize: 14, color: '#7B90BD' }}>
+        <p style={{ margin: '0 0 20px', fontSize: 14, color: 'var(--text-secondary)' }}>
           {isBanning
-            ? <>{td.banDesc1} <strong style={{ color: '#E8EDF8' }}>{user.name}</strong>{td.banDesc2} <strong style={{ color: '#F87171' }}>{td.banDescStrong}</strong>{td.banDesc3}</>
-            : <>{td.unbanDesc1} <strong style={{ color: '#E8EDF8' }}>{user.name}</strong>{td.unbanDesc2}</>
+            ? <>{td.banDesc1} <strong style={{ color: 'var(--text-primary)' }}>{user.name}</strong>{td.banDesc2} <strong style={{ color: 'var(--error)' }}>{td.banDescStrong}</strong>{td.banDesc3}</>
+            : <>{td.unbanDesc1} <strong style={{ color: 'var(--text-primary)' }}>{user.name}</strong>{td.unbanDesc2}</>
           }
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button
             onClick={onCancel}
-            style={{ background: 'none', border: '1px solid #1E2D4A', color: '#7B90BD', borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer' }}
+            style={{ background: 'none', border: '1px solid #1E2D4A', color: 'var(--text-secondary)', borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer' }}
           >
             {td.cancelBtn}
           </button>
           <button
             onClick={onConfirm}
             style={{
-              background: isBanning ? '#F8717118' : '#34D39918',
-              border: `1px solid ${isBanning ? '#F87171' : '#34D399'}`,
-              color: isBanning ? '#F87171' : '#34D399',
+              background: isBanning ? 'var(--error-soft)' : 'var(--success-soft)',
+              border: `1px solid ${isBanning ? 'var(--error)' : 'var(--success)'}`,
+              color: isBanning ? 'var(--error)' : 'var(--success)',
               borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer', fontWeight: 600,
             }}
           >
@@ -71,9 +71,9 @@ const REPORT_SEVERITY = {
   wrong_photo: 'baja',
 };
 const SEVERITY_COLORS = {
-  alta:  { bg: '#F8717118', text: '#F87171' },
-  media: { bg: '#FCD34D18', text: '#FCD34D' },
-  baja:  { bg: '#60A5FA18', text: '#60A5FA' },
+  alta:  { bg: 'var(--error-soft)', text: 'var(--error)' },
+  media: { bg: 'var(--warning-soft)', text: 'var(--warning)' },
+  baja:  { bg: 'var(--info-soft)', text: 'var(--info)' },
 };
 
 // ─── Parámetros de reputación — valores por defecto del proyecto ─────────────
@@ -656,13 +656,13 @@ export default function AdminDashboard() {
                   <div style={s.statLabel}>{td.filterAll}</div>
                 </div>
                 <div style={{ ...s.statCard, flex: '1 1 140px', padding: '14px 18px' }}>
-                  <div style={{ ...s.statValue, color: '#34D399' }}>
+                  <div style={{ ...s.statValue, color: 'var(--success)' }}>
                     {publications.filter(isPublicationVisible).length}
                   </div>
                   <div style={s.statLabel}>{td.filterVisible}</div>
                 </div>
                 <div style={{ ...s.statCard, flex: '1 1 140px', padding: '14px 18px' }}>
-                  <div style={{ ...s.statValue, color: '#F87171' }}>
+                  <div style={{ ...s.statValue, color: 'var(--error)' }}>
                     {publications.filter(isPublicationHidden).length}
                   </div>
                   <div style={s.statLabel}>{td.filterHidden}</div>
@@ -845,7 +845,7 @@ export default function AdminDashboard() {
                           setRepDraft(next);
                         }}
                         style={{
-                          background: '#1C1C20', border: `1px solid ${BORDER}`,
+                          background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`,
                           color: TEXT, borderRadius: 6, padding: '5px 10px',
                           fontSize: 15, fontWeight: 700, width: 80, textAlign: 'right',
                         }}
@@ -853,7 +853,7 @@ export default function AdminDashboard() {
                     ) : (
                       <span style={{
                         ...s.configValue,
-                        color: value.startsWith('+') ? '#34D399' : value.startsWith('-') ? '#F87171' : ACCENT,
+                        color: value.startsWith('+') ? 'var(--success)' : value.startsWith('-') ? 'var(--error)' : ACCENT,
                       }}>
                         {value}
                       </span>
@@ -881,7 +881,7 @@ export default function AdminDashboard() {
                   value={newCatName}
                   onChange={e => setNewCatName(e.target.value)}
                   style={{
-                    flex: 1, background: '#1C1C20', border: `1px solid ${BORDER}`,
+                    flex: 1, background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`,
                     color: TEXT, borderRadius: 8, padding: '8px 14px', fontSize: 14,
                     outline: 'none',
                   }}
@@ -967,7 +967,7 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
             <span style={{
               ...s.badge,
               background: u.status === 'activo' ? `${ACCENT}18` : '#F8717120',
-              color:      u.status === 'activo' ? ACCENT : '#F87171',
+              color:      u.status === 'activo' ? ACCENT : 'var(--error)',
             }}>
               {u.status === 'activo' ? td.statusActive : td.statusBanned}
             </span>
@@ -1150,7 +1150,7 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
         </div>
 
         {saved && (
-          <p style={{ margin: '10px 0 0', fontSize: 13, color: '#34D399', textAlign: 'right' }}>
+          <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--success)', textAlign: 'right' }}>
             ✓ {td.pubSavedOk}
           </p>
         )}
@@ -1220,7 +1220,7 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
         ))}
 
         {report.publicationSummary && (
-          <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: `1px solid ${BORDER}` }}>
+          <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-surface)', border: `1px solid ${BORDER}` }}>
             <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Publicación reportada
             </p>
@@ -1327,7 +1327,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
         {/* Badges de tipo, severidad y estado */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
           <span style={{ ...s.severityBadge, background: sev.bg, color: sev.text }}>{severityLabel}</span>
-          <span style={{ ...s.badge, background: '#33415518', color: '#94a3b8' }}>{typeLabel}</span>
+          <span style={{ ...s.badge, background: 'var(--info-soft)', color: 'var(--text-secondary)' }}>{typeLabel}</span>
           <span style={s.statusPill}>{td.statusLabels?.[normalizeReportStatus(report.status)] || report.status}</span>
         </div>
 
@@ -1352,7 +1352,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
             <div style={{ ...s.sectionHead, marginBottom: 8 }}>
               <span style={s.sectionTitle}>{td.labelDescription}</span>
             </div>
-            <p style={{ margin: 0, fontSize: 14, color: TEXT, lineHeight: 1.5, background: '#0f172a', padding: '10px 14px', borderRadius: 8, border: `1px solid ${BORDER}` }}>
+            <p style={{ margin: 0, fontSize: 14, color: TEXT, lineHeight: 1.5, background: 'var(--bg-surface)', padding: '10px 14px', borderRadius: 8, border: `1px solid ${BORDER}` }}>
               {report.description}
             </p>
           </div>
@@ -1364,7 +1364,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
             <div style={{ ...s.sectionHead, marginBottom: 10 }}>
               <span style={s.sectionTitle}>Publicación reportada</span>
               {pubDeleted && (
-                <span style={{ fontSize: 11, fontWeight: 700, background: '#F8717118', color: '#F87171', borderRadius: 4, padding: '2px 8px' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--error-soft)', color: 'var(--error)', borderRadius: 4, padding: '2px 8px' }}>
                   {pub ? 'Desactivada' : 'Eliminada'}
                 </span>
               )}
@@ -1438,7 +1438,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
         </label>
 
         {saved && (
-          <p style={{ margin: '8px 0 0', fontSize: 13, color: '#34D399', textAlign: 'right' }}>
+          <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--success)', textAlign: 'right' }}>
             ✓ {td.reportSavedOk}
           </p>
         )}
@@ -1478,11 +1478,11 @@ function StatusBadge({ status }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
   const map = {
-    active:   { bg: '#34D39918', color: '#34D399', label: td.pubStatusActive },
-    hidden:   { bg: '#F8717118', color: '#F87171', label: td.pubHiddenStatus },
-    pending:  { bg: '#FCD34D18', color: '#FCD34D', label: td.pubStatusPending },
-    rejected: { bg: '#F8717118', color: '#F87171', label: td.pubStatusRejected },
-    expired:  { bg: '#64748B18', color: '#64748B', label: td.pubStatusExpired },
+    active:   { bg: 'var(--success-soft)', color: 'var(--success)', label: td.pubStatusActive },
+    hidden:   { bg: 'var(--error-soft)', color: 'var(--error)', label: td.pubHiddenStatus },
+    pending:  { bg: 'var(--warning-soft)', color: 'var(--warning)', label: td.pubStatusPending },
+    rejected: { bg: 'var(--error-soft)', color: 'var(--error)', label: td.pubStatusRejected },
+    expired:  { bg: 'var(--info-soft)', color: 'var(--text-muted)', label: td.pubStatusExpired },
   };
   const c = map[status] || map.pending;
   return (
@@ -1516,14 +1516,14 @@ function ErrorBar({ msg, onRetry }) {
     <div style={{
       padding: '12px 16px',
       borderRadius: 'var(--radius-md, 8px)',
-      background: 'rgba(248,113,113,0.08)',
+      background: 'var(--error-soft)',
       border: '1px solid rgba(248,113,113,0.25)',
-      color: '#F87171',
+      color: 'var(--error)',
       fontSize: 13,
       marginBottom: 20,
     }}>
       ⚠️ {msg}
-      <button onClick={onRetry} style={{ background: 'none', border: 'none', color: '#F87171', cursor: 'pointer', textDecoration: 'underline', marginLeft: 12, fontWeight: 600 }}>
+      <button onClick={onRetry} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', textDecoration: 'underline', marginLeft: 12, fontWeight: 600 }}>
         {td.retry}
       </button>
     </div>
@@ -1545,7 +1545,7 @@ const s = {
   navItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 14, fontWeight: 500, textAlign: 'left', transition: 'all 0.15s' },
   navActive:  { background: `${ACCENT}18`, color: ACCENT },
   navIcon:    { fontSize: 16, width: 20, textAlign: 'center' },
-  navBadge:   { marginLeft: 'auto', background: '#F87171', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 },
+  navBadge:   { marginLeft: 'auto', background: 'var(--error)', color: 'var(--text-primary)', borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700 },
 
   main:       { flex: 1, padding: '32px 40px', overflowY: 'auto', height: '100%' },
   header:     { marginBottom: 28 },
@@ -1580,7 +1580,7 @@ const s = {
   roleSelect:{ background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 6, padding: '5px 10px', fontSize: 13, cursor: 'pointer' },
   badge:     { fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '3px 10px', textTransform: 'capitalize' },
   actionBtn: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 6, padding: '5px 12px', fontSize: 13, cursor: 'pointer' },
-  actionBtnDanger: { borderColor: '#F87171', color: '#F87171' },
+  actionBtnDanger: { borderColor: 'var(--error)', color: 'var(--error)' },
 
   reportCard:    { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '18px 20px' },
   reportTop:     { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 },
@@ -1597,7 +1597,7 @@ const s = {
   filterLabel: { fontSize: 12, color: MUTED, fontWeight: 600 },
   filterSelect: { background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 7, padding: '8px 10px', fontSize: 13 },
 
-  modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: 16 },
+  modalOverlay: { position: 'fixed', inset: 0, background: 'var(--overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: 16 },
   modalCard: { width: 720, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20 },
   detailGrid: { display: 'grid', gap: 10, marginBottom: 14 },
   detailRow: { display: 'grid', gridTemplateColumns: '150px 1fr', gap: 10, fontSize: 13 },
@@ -1605,8 +1605,8 @@ const s = {
   modalTextarea: { width: '100%', background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 8, padding: 10, fontSize: 13, resize: 'vertical' },
 
 
-  btnDelete:  { background: '#F8717115', border: '1px solid #F87171', color: '#F87171', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
-  btnBan:     { background: '#FCD34D15', border: '1px solid #FCD34D', color: '#FCD34D', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
+  btnDelete:  { background: '#F8717115', border: '1px solid #F87171', color: 'var(--error)', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
+  btnBan:     { background: '#FCD34D15', border: '1px solid #FCD34D', color: 'var(--warning)', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
   btnDismiss: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer' },
 
   configCard: { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' },

@@ -182,7 +182,7 @@ const s = {
   overlay: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.6)',
+    background: 'var(--overlay)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -306,6 +306,6 @@ const s = {
     fontWeight: 600,
     cursor: 'pointer',
     background: 'var(--accent)',
-    color: '#080C14',
+    color: 'var(--bg-base)',
   },
 };

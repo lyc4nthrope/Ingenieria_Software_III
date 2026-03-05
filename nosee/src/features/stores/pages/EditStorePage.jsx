@@ -8,7 +8,7 @@ export default function EditStorePage() {
   if (!id) {
     return (
       <section style={styles.page}>
-        <div style={{ color: '#dc2626', fontSize: '14px' }}>
+        <div style={{ color: 'var(--error)', fontSize: '14px' }}>
           Error: ID de tienda no válido
         </div>
       </section>

@@ -55,7 +55,7 @@ export default function CelebrationOverlay({ visible, message, onDone }) {
           position: "fixed",
           inset: 0,
           zIndex: 9999,
-          background: "rgba(0,0,0,0.45)",
+          background: "var(--overlay-light)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -79,7 +79,7 @@ export default function CelebrationOverlay({ visible, message, onDone }) {
             textAlign: "center",
             maxWidth: "340px",
             width: "90vw",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+            boxShadow: "0 20px 60px var(--overlay-light)",
             animation: pauseAnimations
               ? "none"
               : "celebrationBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
@@ -116,7 +116,7 @@ export default function CelebrationOverlay({ visible, message, onDone }) {
             style={{
               padding: "8px 24px",
               background: "var(--accent, #7c3aed)",
-              color: "#fff",
+              color: "var(--text-primary)",
               border: "none",
               borderRadius: "8px",
               fontSize: "14px",

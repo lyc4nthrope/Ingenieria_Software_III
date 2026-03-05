@@ -17,8 +17,8 @@ const REPORT_SEVERITY = {
 };
 
 const SEVERITY_COLORS = {
-  alta: { bg: "#F8717118", text: "#F87171" },
-  media: { bg: "#FCD34D18", text: "#FCD34D" },
+  alta: { bg: "#F8717118", text: "var(--error)" },
+  media: { bg: "#FCD34D18", text: "var(--warning)" },
   baja: { bg: "#60A5FA18", text: "#60A5FA" },
 };
 
@@ -407,7 +407,7 @@ export default function ModeratorDashboard() {
             position: "fixed",
             bottom: 28,
             right: 28,
-            background: toast.type === "error" ? "#F87171" : "#34D399",
+            background: toast.type === "error" ? "var(--error)" : "var(--success)",
             color: "#0f172a",
             borderRadius: 10,
             padding: "13px 20px",
@@ -590,7 +590,7 @@ function ReportDetailsModal({ report, td, onClose, onSave }) {
           <span
             style={{
               ...st.severityBadge,
-              background: "#33415518",
+              background: "var(--info-soft)",
               color: "#94a3b8",
             }}
           >
@@ -640,7 +640,7 @@ function ReportDetailsModal({ report, td, onClose, onSave }) {
                 fontSize: 14,
                 color: TEXT,
                 lineHeight: 1.5,
-                background: "#0f172a",
+                background: "var(--bg-surface)",
                 padding: "10px 14px",
                 borderRadius: 8,
                 border: `1px solid ${BORDER}`,
@@ -746,7 +746,7 @@ function ReportDetailsModal({ report, td, onClose, onSave }) {
         </label>
 
         {saved && (
-          <p style={{ margin: "8px 0 0", fontSize: 13, color: "#34D399", textAlign: "right" }}>
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--success)", textAlign: "right" }}>
             ✓ {td.reportSavedOk || "Revisión guardada correctamente"}
           </p>
         )}
@@ -929,8 +929,8 @@ const st = {
   navIcon: { fontSize: 16 },
   navBadge: {
     marginLeft: "auto",
-    background: "#F87171",
-    color: "#fff",
+    background: "var(--error)",
+    color: "var(--text-primary)",
     borderRadius: 10,
     padding: "1px 7px",
     fontSize: 11,
@@ -1011,9 +1011,9 @@ const st = {
     fontWeight: 500,
   },
   btnDelete: {
-    background: "#F8717115",
+    background: "var(--error-soft)",
     border: "1px solid #F87171",
-    color: "#F87171",
+    color: "var(--error)",
     borderRadius: 7,
     padding: "7px 14px",
     fontSize: 13,
@@ -1021,9 +1021,9 @@ const st = {
     fontWeight: 500,
   },
   btnBan: {
-    background: "#FCD34D15",
+    background: "var(--warning-soft)",
     border: "1px solid #FCD34D",
-    color: "#FCD34D",
+    color: "var(--warning)",
     borderRadius: 7,
     padding: "7px 14px",
     fontSize: 13,
@@ -1054,14 +1054,14 @@ const st = {
   modalOverlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.6)",
+    background: "var(--overlay)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1000,
   },
   modalCard: {
-    background: "#0F1724",
+    background: "var(--bg-surface)",
     border: `1px solid ${BORDER}`,
     borderRadius: 16,
     padding: "28px 32px",

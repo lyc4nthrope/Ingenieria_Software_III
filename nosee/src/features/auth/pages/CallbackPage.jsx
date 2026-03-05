@@ -212,7 +212,7 @@ const isRecoveryEvent = event === 'PASSWORD_RECOVERY';
                   style={{
                     padding: '10px 20px',
                     background: 'var(--accent)',
-                    color: '#000',
+                    color: 'var(--text-primary)',
                     borderRadius: 'var(--radius-md)',
                     fontSize: '14px',
                     fontWeight: '600',

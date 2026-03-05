@@ -14,12 +14,12 @@ export default function RepartidorDashboard() {
   const td = t.dealerDashboard;
 
   const STATUS_INFO = {
-    pendiente: { label: td.statusPendiente, color: '#60A5FA', bg: '#60A5FA18' },
+    pendiente: { label: td.statusPendiente, color: 'var(--info)', bg: '#60A5FA18' },
     comprando: { label: td.statusComprando, color: '#FCD34D', bg: '#FCD34D18' },
     en_camino: { label: td.statusEnCamino,  color: '#34D399', bg: '#34D39918' },
     llegando:  { label: td.statusLlegando,  color: '#C8F135', bg: '#C8F13518' },
     entregado: { label: td.statusEntregado, color: '#34D399', bg: '#34D39918' },
-    cancelado: { label: td.statusCancelado, color: '#F87171', bg: '#F8717118' },
+    cancelado: { label: td.statusCancelado, color: 'var(--error)', bg: '#F8717118' },
   };
 
   const [orders, setOrders] = useState([]);
@@ -291,7 +291,7 @@ const r = {
   navBadge: {
     marginLeft: 'auto',
     background: ACCENT,
-    color: '#000',
+    color: 'var(--text-primary)',
     borderRadius: 10,
     padding: '1px 7px',
     fontSize: 11,
@@ -370,7 +370,7 @@ const r = {
   orderTotal: { fontSize: 20, fontWeight: 800, color: ACCENT, letterSpacing: '-0.5px' },
   advanceBtn: {
     background: ACCENT,
-    color: '#000',
+    color: 'var(--text-primary)',
     border: 'none',
     borderRadius: 8,
     padding: '9px 18px',

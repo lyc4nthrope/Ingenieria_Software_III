@@ -296,8 +296,8 @@ function PublicationLocationMap({ latitude, longitude, storeName, td }) {
 
   if (error) {
     return (
-      <div style={{ ...styles.map, background: "#fee", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "#c33", padding: "16px", textAlign: "center", fontSize: 12 }}>
+      <div style={{ ...styles.map, background: "var(--error-soft)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: "var(--error)", padding: "16px", textAlign: "center", fontSize: 12 }}>
           <strong>{td?.mapError ?? "Map error:"}</strong>
           <br />
           {error}
@@ -643,7 +643,7 @@ export default function PublicationDetailModal({ publication, onClose }) {
 }
 
 const styles = {
-  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", zIndex: 1300, display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" },
+  overlay: { position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1300, display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" },
   modal: { background: "var(--bg-surface)", color: "var(--text-primary)", width: "min(900px, 100%)", maxHeight: "92vh", overflowY: "auto", borderRadius: "var(--radius-lg)", padding: "16px", position: "relative", border: "1px solid var(--border)" },
   closeButton: { position: "absolute", right: 16, top: 12, border: "none", background: "transparent", color: "var(--text-muted)", fontSize: 22, cursor: "pointer" },
   image: { width: "100%", maxHeight: 420, objectFit: "cover", borderRadius: "var(--radius-md)", marginBottom: 10 },
@@ -654,10 +654,10 @@ const styles = {
   sectionTitle: { margin: "4px 0 10px", color: "var(--text-primary)" },
   commentItem: { margin: "6px 0", padding: "6px 0", borderBottom: "1px solid var(--border)", color: "var(--text-muted)", fontSize: 14 },
   commentTextarea: { width: "100%", padding: "8px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "var(--bg-surface)", color: "var(--text-primary)", fontSize: 14, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit" },
-  commentSubmitBtn: { padding: "6px 14px", borderRadius: "var(--radius-md)", border: "none", background: "var(--accent)", color: "#fff", fontSize: 13, cursor: "pointer", fontWeight: 600 },
+  commentSubmitBtn: { padding: "6px 14px", borderRadius: "var(--radius-md)", border: "none", background: "var(--accent)", color: "var(--text-primary)", fontSize: 13, cursor: "pointer", fontWeight: 600 },
   commentCancelBtn: { padding: "6px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", fontSize: 13, cursor: "pointer" },
   commentActionBtn: { padding: "2px 8px", borderRadius: "var(--radius-sm, 4px)", border: "1px solid var(--border)", background: "transparent", color: "var(--accent)", fontSize: 12, cursor: "pointer" },
   mapWrapper: { position: "relative", zIndex: 0, width: "100%", height: 260, borderRadius: "var(--radius-md)", border: "1px solid var(--border)", overflow: "hidden", isolation: "isolate" },
   map: { width: "100%", height: "100%", zIndex: 0 },
-  linkButton: { display: "inline-block", marginBottom: 10, padding: "8px 10px", borderRadius: "var(--radius-md)", background: "var(--accent)", color: "#fff", textDecoration: "none", fontSize: 14 },
+  linkButton: { display: "inline-block", marginBottom: 10, padding: "8px 10px", borderRadius: "var(--radius-md)", background: "var(--accent)", color: "var(--text-primary)", textDecoration: "none", fontSize: 14 },
 };

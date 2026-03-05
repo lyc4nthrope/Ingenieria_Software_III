@@ -63,7 +63,7 @@ const styles = {
   count: { fontSize: '12px', color: 'var(--text-muted)' },
   limit: {
     border: '1px solid rgba(251,191,36,0.3)',
-    background: 'rgba(251,191,36,0.08)',
+    background: 'var(--warning-soft)',
     color: 'var(--warning)',
     padding: '8px 10px',
     borderRadius: 'var(--radius-sm)',

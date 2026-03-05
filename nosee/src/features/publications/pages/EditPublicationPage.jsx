@@ -8,7 +8,7 @@ export default function EditPublicationPage() {
   if (!id) {
     return (
       <section style={{ padding: "24px 16px" }}>
-        <div style={{ color: "#dc2626", fontSize: "14px" }}>
+        <div style={{ color: "var(--error)", fontSize: "14px" }}>
           Error: ID de publicación no válido
         </div>
       </section>

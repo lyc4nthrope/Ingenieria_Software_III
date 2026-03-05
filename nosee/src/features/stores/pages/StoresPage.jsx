@@ -167,7 +167,7 @@ const styles = {
     flexShrink: 0,
     padding: '7px 14px',
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--text-primary)',
     borderRadius: 'var(--radius-md)',
     fontSize: '13px',
     fontWeight: 600,
@@ -207,7 +207,7 @@ const styles = {
   },
   errorText: {
     margin: 0,
-    color: '#ef4444',
+    color: 'var(--error)',
     fontSize: '15px',
   },
   list: {
