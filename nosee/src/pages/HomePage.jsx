@@ -473,8 +473,22 @@ export default function HomePage() {
   const [detailPublication, setDetailPublication] = useState(null);
   const [reportingPublication, setReportingPublication] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
+
+  useEffect(() => {
+    publicationsApi.getProductCategories().then((result) => {
+      if (result.success) setCategories(result.data);
+    });
+  }, []);
+
+  const handleCategorySelect = (catId) => {
+    const next = selectedCategory === catId ? null : catId;
+    setSelectedCategory(next);
+    setFilters({ categoryId: next });
+  };
 
   useEffect(() => {
     if (hasInitializedRef.current) return;
@@ -587,6 +601,28 @@ export default function HomePage() {
         <p>{th.subtitle}</p>
         {!isAuthenticated && <p>{th.loginCta}</p>}
       </section>
+
+      {categories.length > 0 && (
+        <nav className="categories" aria-label="Filtrar por categoría">
+          <button
+            type="button"
+            className={selectedCategory === null ? "active" : ""}
+            onClick={() => handleCategorySelect(null)}
+          >
+            Todas
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              className={selectedCategory === cat.id ? "active" : ""}
+              onClick={() => handleCategorySelect(cat.id)}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </nav>
+      )}
 
       <div className="layout">
         <div className="feed">

@@ -236,7 +236,7 @@ img {
   padding: 28px 42px 40px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   max-width: 1440px;
   width: 100%;
   margin: 0 auto;
@@ -324,9 +324,16 @@ img {
   border-color: var(--accent);
 }
 
+.categories button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .layout {
   display: block;
   width: 100%;
+  margin-top: 12px;
 }
 
 .feed {

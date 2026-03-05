@@ -646,6 +646,7 @@ export const getPublications = async (filters = {}) => {
       sortBy = "recent",
       page = 1,
       limit = 20,
+      categoryId = null,
     } = filters;
      const offset = (page - 1) * limit;
 
@@ -668,6 +669,29 @@ export const getPublications = async (filters = {}) => {
 
       if (productIdFilter.length === 0) {
         return { success: true, data: [], count: 0, hasMore: false };
+      }
+    }
+
+    // Pre-filtro: IDs de productos de la categoría seleccionada
+    if (categoryId) {
+      const { data: categoryProducts } = await supabase
+        .from("products")
+        .select("id")
+        .eq("category_id", categoryId);
+
+      const categoryProductIds = (categoryProducts || []).map((p) => p.id);
+
+      if (categoryProductIds.length === 0) {
+        return { success: true, data: [], count: 0, hasMore: false };
+      }
+
+      if (productIdFilter !== null) {
+        productIdFilter = productIdFilter.filter((id) => categoryProductIds.includes(id));
+        if (productIdFilter.length === 0) {
+          return { success: true, data: [], count: 0, hasMore: false };
+        }
+      } else {
+        productIdFilter = categoryProductIds;
       }
     }
 
