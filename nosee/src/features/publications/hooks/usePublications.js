@@ -467,21 +467,46 @@ export const usePublications = (initialFilters = {}, options = {}) => {
 
       if (result.success) {
         setPublications((prev) =>
-          prev.map((pub) =>
-            pub.id === publicationId
-              ? {
-                  ...pub,
-                  validated_count: Math.max((pub.validated_count || 1) - 1, 0),
-                  user_vote: null,
-                }
-              : pub,
-          ),
+          prev.map((pub) => {
+            if (pub.id !== publicationId) return pub;
+            return {
+              ...pub,
+              validated_count: pub.user_vote === 1 ? Math.max((pub.validated_count || 1) - 1, 0) : pub.validated_count,
+              downvoted_count: pub.user_vote === -1 ? Math.max((pub.downvoted_count || 1) - 1, 0) : pub.downvoted_count,
+              user_vote: null,
+            };
+          }),
         );
       }
 
       return result;
     } catch (err) {
       console.error('Error quitando voto de publicación:', err);
+      return { success: false, error: err.message };
+    }
+  }, []);
+
+  /**
+   * Downvote una publicación
+   */
+  const downvotePublication = useCallback(async (publicationId) => {
+    try {
+      const result = await publicationsApi.downvotePublication(publicationId);
+
+      if (result.success) {
+        setPublications((prev) =>
+          prev.map((pub) =>
+            pub.id === publicationId
+              ? { ...pub, downvoted_count: (pub.downvoted_count || 0) + 1, user_vote: -1 }
+              : pub
+          )
+        );
+        return result;
+      } else {
+        return result;
+      }
+    } catch (err) {
+      console.error('Error downvoteando publicación:', err);
       return { success: false, error: err.message };
     }
   }, []);
@@ -556,6 +581,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
     addPublication,
     removePublication,
     validatePublication,
+    downvotePublication,
     unvotePublication,
     reportPublication,
   };

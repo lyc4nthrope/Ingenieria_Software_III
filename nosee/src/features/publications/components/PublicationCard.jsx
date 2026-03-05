@@ -58,6 +58,7 @@ import { ReportPublicationModal } from '@/features/publications/components/Repor
 export function PublicationCard({
   publication,
   onValidate,
+  onDownvote,
   onReport,
   onDelete,
   onViewMore,
@@ -71,6 +72,7 @@ export function PublicationCard({
   const [photoExpanded, setPhotoExpanded] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  const [isDownvoting, setIsDownvoting] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -79,8 +81,7 @@ export function PublicationCard({
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const handleValidate = async () => {
-    if (isValidating) return;
-
+    if (isValidating || isDownvoting) return;
     setIsValidating(true);
     try {
       await onValidate?.(publication.id);
@@ -88,6 +89,18 @@ export function PublicationCard({
       console.error('Error validando:', err);
     } finally {
       setIsValidating(false);
+    }
+  };
+
+  const handleDownvote = async () => {
+    if (isDownvoting || isValidating) return;
+    setIsDownvoting(true);
+    try {
+      await onDownvote?.(publication.id);
+    } catch (err) {
+      console.error('Error downvoteando:', err);
+    } finally {
+      setIsDownvoting(false);
     }
   };
 
@@ -197,67 +210,73 @@ export function PublicationCard({
         )}
       </div>
 
-      {/* Stats: Validaciones y Reportes */}
-      <div style={styles.stats}>
-        <div style={styles.stat}>
-          <span style={styles.statIcon} aria-hidden="true">✓</span>
-          <span style={styles.statText}>
-            {publication.validated_count || 0} {tc.validations}
-          </span>
+      {/* Votos + Acciones */}
+      <div style={styles.actionsRow}>
+        {/* Grupo de votos estilo Reddit */}
+        <div style={styles.voteGroup}>
+          <button
+            type="button"
+            aria-label={tc.validateLabel(publication.product?.name || tc.unknownProduct)}
+            aria-pressed={publication.user_vote === 1}
+            style={{
+              ...styles.voteBtn,
+              ...styles.voteBtnLeft,
+              ...(publication.user_vote === 1 ? styles.voteBtnUpActive : {}),
+            }}
+            onClick={handleValidate}
+            disabled={isValidating || isDownvoting}
+          >
+            <span style={styles.voteEmoji}>😊</span>
+            <span style={styles.voteCount}>{publication.validated_count || 0}</span>
+          </button>
+          <button
+            type="button"
+            aria-label={tc.downvoteLabel?.(publication.product?.name || tc.unknownProduct) ?? `Votar negativamente ${publication.product?.name || ''}`}
+            aria-pressed={publication.user_vote === -1}
+            style={{
+              ...styles.voteBtn,
+              ...styles.voteBtnRight,
+              ...(publication.user_vote === -1 ? styles.voteBtnDownActive : {}),
+            }}
+            onClick={handleDownvote}
+            disabled={isValidating || isDownvoting}
+          >
+            <span style={styles.voteEmoji}>😢</span>
+            <span style={styles.voteCount}>{publication.downvoted_count || 0}</span>
+          </button>
         </div>
-        <div style={styles.stat}>
-          <span style={styles.statIcon} aria-hidden="true">⚠</span>
-          <span style={styles.statText}>
-            {publication.reported_count || 0} {tc.reports}
-          </span>
+
+        {/* Acciones secundarias */}
+        <div style={styles.actions}>
+          <button
+            type="button"
+            aria-label={tc.reportLabel(publication.product?.name || tc.unknownProduct)}
+            style={{ ...styles.button, ...styles.buttonSecondary }}
+            onClick={() => setShowReportModal(true)}
+          >
+            {tc.report}
+          </button>
+
+          <button
+            type="button"
+            aria-label={tc.deleteLabel(publication.product?.name || tc.unknownProduct)}
+            aria-busy={isDeleting || undefined}
+            style={{ ...styles.button, ...styles.buttonDanger }}
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? tc.deleting : tc.delete}
+          </button>
+
+          <button
+            type="button"
+            aria-label={tc.viewMoreLabel(publication.product?.name || tc.unknownProduct)}
+            style={{ ...styles.button, ...styles.buttonSecondary }}
+            onClick={() => onViewMore?.(publication.id)}
+          >
+            {tc.viewMore}
+          </button>
         </div>
-      </div>
-
-      {/* Acciones */}
-      <div style={styles.actions}>
-        <button
-          type="button"
-          aria-label={tc.validateLabel(publication.product?.name || tc.unknownProduct)}
-          aria-busy={isValidating || undefined}
-          aria-pressed={publication.user_vote === 1}
-          style={{
-            ...styles.button,
-            ...(publication.user_vote === 1 ? styles.buttonValidated : styles.buttonPrimary),
-          }}
-          onClick={handleValidate}
-          disabled={isValidating}
-        >
-          {isValidating ? tc.validating : publication.user_vote === 1 ? tc.validated : tc.validate}
-        </button>
-
-        <button
-          type="button"
-          aria-label={tc.reportLabel(publication.product?.name || tc.unknownProduct)}
-          style={{ ...styles.button, ...styles.buttonSecondary }}
-          onClick={() => setShowReportModal(true)}
-        >
-          {tc.report}
-        </button>
-
-        <button
-          type="button"
-          aria-label={tc.deleteLabel(publication.product?.name || tc.unknownProduct)}
-          aria-busy={isDeleting || undefined}
-          style={{ ...styles.button, ...styles.buttonDanger }}
-          onClick={handleDelete}
-          disabled={isDeleting}
-        >
-          {isDeleting ? tc.deleting : tc.delete}
-        </button>
-
-        <button
-          type="button"
-          aria-label={tc.viewMoreLabel(publication.product?.name || tc.unknownProduct)}
-          style={{ ...styles.button, ...styles.buttonSecondary }}
-          onClick={() => onViewMore?.(publication.id)}
-        >
-          {tc.viewMore}
-        </button>
       </div>
 
       {/* Modal: Reportar */}
@@ -448,35 +467,67 @@ const styles = {
     gap: '4px',
   },
 
-  stats: {
-    display: 'flex',
-    padding: '12px 16px',
+  actionsRow: {
     borderTop: '1px solid var(--border)',
-    borderBottom: '1px solid var(--border)',
-    gap: '16px',
-    background: 'var(--bg-surface)',
-    fontSize: '13px',
+    padding: '10px 16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
   },
 
-  stat: {
+  voteGroup: {
+    display: 'flex',
+    alignSelf: 'flex-start',
+    borderRadius: 'var(--radius-md)',
+    overflow: 'hidden',
+    border: '1px solid var(--border)',
+  },
+
+  voteBtn: {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
+    padding: '6px 14px',
+    border: 'none',
+    background: 'var(--bg-surface)',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 600,
     color: 'var(--text-muted)',
+    transition: 'background 0.15s, color 0.15s',
   },
 
-  statIcon: {
-    fontSize: '14px',
+  voteBtnLeft: {
+    borderRight: '1px solid var(--border)',
   },
 
-  statText: {
-    fontWeight: 500,
+  voteBtnRight: {},
+
+  voteBtnUpActive: {
+    background: 'rgba(16,185,129,0.12)',
+    color: '#10b981',
+  },
+
+  voteBtnDownActive: {
+    background: 'rgba(239,68,68,0.10)',
+    color: '#ef4444',
+  },
+
+  voteEmoji: {
+    fontSize: '16px',
+    lineHeight: 1,
+  },
+
+  voteCount: {
+    fontSize: '13px',
+    fontWeight: 700,
+    minWidth: '14px',
+    textAlign: 'center',
   },
 
   actions: {
     display: 'flex',
     gap: '8px',
-    padding: '12px 16px',
   },
 
   button: {
@@ -488,17 +539,6 @@ const styles = {
     fontWeight: 600,
     cursor: 'pointer',
     transition: 'all 0.2s',
-  },
-
-  buttonPrimary: {
-    background: 'var(--accent)',
-    color: '#fff',
-  },
-
-  buttonValidated: {
-    background: '#10b981',
-    color: '#fff',
-    border: '2px solid #059669',
   },
 
   buttonSecondary: {

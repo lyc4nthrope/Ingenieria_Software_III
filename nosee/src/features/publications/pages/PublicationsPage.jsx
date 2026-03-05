@@ -114,6 +114,7 @@ export default function PublicationsPage() {
     setFilters: setPublicationFilters,
     clearFilters,
     validatePublication,
+    downvotePublication,
     unvotePublication,
     reportPublication,
     removePublication,
@@ -203,7 +204,7 @@ export default function PublicationsPage() {
   };
 
   /**
-   * Maneja validación de publicación (toggle: valida si no votó, quita voto si ya validó)
+   * Maneja voto positivo (toggle; si ya tenía voto negativo, lo cambia)
    */
   const handleValidatePublication = async (publicationId) => {
     const pub = publications.find((p) => p.id === publicationId);
@@ -211,7 +212,23 @@ export default function PublicationsPage() {
       const result = await unvotePublication(publicationId);
       if (!result.success) setError(result.error || tp.errorValidate);
     } else {
+      if (pub?.user_vote === -1) await unvotePublication(publicationId);
       const result = await validatePublication(publicationId);
+      if (!result.success) setError(result.error || tp.errorValidate);
+    }
+  };
+
+  /**
+   * Maneja voto negativo (toggle; si ya tenía voto positivo, lo cambia)
+   */
+  const handleDownvotePublication = async (publicationId) => {
+    const pub = publications.find((p) => p.id === publicationId);
+    if (pub?.user_vote === -1) {
+      const result = await unvotePublication(publicationId);
+      if (!result.success) setError(result.error || tp.errorValidate);
+    } else {
+      if (pub?.user_vote === 1) await unvotePublication(publicationId);
+      const result = await downvotePublication(publicationId);
       if (!result.success) setError(result.error || tp.errorValidate);
     }
   };
@@ -642,6 +659,7 @@ const handleViewMore = async (publicationId) => {
                 key={publication.id}
                 publication={publication}
                 onValidate={handleValidatePublication}
+                onDownvote={handleDownvotePublication}
                 onReport={handleReportPublication}
                 onDelete={handleDeletePublication}
                 onViewMore={handleViewMore}

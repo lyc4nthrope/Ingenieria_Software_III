@@ -288,6 +288,7 @@ const enrichPublicationsWithVoteCounts = async (publications) => {
   return publications.map((pub) => ({
     ...pub,
     validated_count: (voteCountByPublication[pub.id]?.positive || 0),
+    downvoted_count: (voteCountByPublication[pub.id]?.negative || 0),
     reported_count: (reportCountByPublication[pub.id] || 0),
     user_vote: userVoteByPublication[pub.id] ?? null,
   }));
