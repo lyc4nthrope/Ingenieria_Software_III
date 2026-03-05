@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
 import { addComment, deleteComment, getComments } from "@/services/api/publications.api";
+import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
+import { playSuccessSound } from "@/utils/celebrationSound";
 
 const DEFAULT_VIRTUAL_IMAGE = "https://via.placeholder.com/1200x800?text=Tienda+virtual";
 const DEFAULT_CENTER = { latitude: 4.711, longitude: -74.0721 };
@@ -380,6 +382,7 @@ function CommentThread({ comment, byParent, currentUser, onReply, onDelete, td, 
 }
 
 function CommentsSection({ publicationId, initialComments, td }) {
+  const { t } = useLanguage();
   const currentUser = useAuthStore(selectAuthUser);
   const [comments, setComments] = useState(initialComments || []);
   const [text, setText] = useState("");
@@ -387,6 +390,7 @@ function CommentsSection({ publicationId, initialComments, td }) {
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [showCelebration, setShowCelebration] = useState(false);
   const replyInputRef = useRef(null);
 
   // Refresh comments from API on mount
@@ -426,6 +430,8 @@ function CommentsSection({ publicationId, initialComments, td }) {
       return;
     }
     setComments((prev) => [...prev, result.data]);
+    playSuccessSound();
+    setShowCelebration(true);
     if (parentId) {
       setReplyTo(null);
       setReplyText("");
@@ -563,6 +569,11 @@ function CommentsSection({ publicationId, initialComments, td }) {
           </div>
         </div>
       )}
+      <CelebrationOverlay
+        visible={showCelebration}
+        message={t.celebration?.comment || "¡Comentario agregado! +1 punto de reputación"}
+        onDone={() => setShowCelebration(false)}
+      />
     </div>
   );
 }
