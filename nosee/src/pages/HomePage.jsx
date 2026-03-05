@@ -475,6 +475,8 @@ export default function HomePage() {
   const [feedback, setFeedback] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [categoryPage, setCategoryPage] = useState(0);
+  const CATS_PER_PAGE = 8;
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
 
@@ -602,27 +604,53 @@ export default function HomePage() {
         {!isAuthenticated && <p>{th.loginCta}</p>}
       </section>
 
-      {categories.length > 0 && (
-        <nav className="categories" aria-label="Filtrar por categoría">
-          <button
-            type="button"
-            className={selectedCategory === null ? "active" : ""}
-            onClick={() => handleCategorySelect(null)}
-          >
-            Todas
-          </button>
-          {categories.map((cat) => (
+      {categories.length > 0 && (() => {
+        const totalPages = Math.ceil(categories.length / CATS_PER_PAGE);
+        const visible = categories.slice(categoryPage * CATS_PER_PAGE, (categoryPage + 1) * CATS_PER_PAGE);
+        return (
+          <nav className="categories-carousel" aria-label="Filtrar por categoría">
             <button
-              key={cat.id}
               type="button"
-              className={selectedCategory === cat.id ? "active" : ""}
-              onClick={() => handleCategorySelect(cat.id)}
+              className="categories-arrow"
+              onClick={() => setCategoryPage((p) => p - 1)}
+              disabled={categoryPage === 0}
+              aria-label="Categorías anteriores"
             >
-              {cat.name}
+              ‹
             </button>
-          ))}
-        </nav>
-      )}
+
+            <div className="categories-track">
+              <button
+                type="button"
+                className={`categories-btn${selectedCategory === null ? " active" : ""}`}
+                onClick={() => handleCategorySelect(null)}
+              >
+                Todas
+              </button>
+              {visible.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`categories-btn${selectedCategory === cat.id ? " active" : ""}`}
+                  onClick={() => handleCategorySelect(cat.id)}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="categories-arrow"
+              onClick={() => setCategoryPage((p) => p + 1)}
+              disabled={categoryPage >= totalPages - 1}
+              aria-label="Más categorías"
+            >
+              ›
+            </button>
+          </nav>
+        );
+      })()}
 
       <div className="layout">
         <div className="feed">
