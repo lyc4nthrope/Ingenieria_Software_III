@@ -420,7 +420,8 @@ export default function AdminDashboard() {
       await supabase.from('users').update({ is_active: false }).eq('id', report.reportedUserId);
     }
 
-    await updateReportData(report, { status: 'RESOLVED' });
+    const nextStatus = action === 'reject' ? 'REJECTED' : 'RESOLVED';
+    await updateReportData(report, { status: nextStatus });
   };
 
   const reportTypeOptions = [...new Set(reports.map((r) => r.rawType).filter(Boolean))];
@@ -1000,16 +1001,16 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
         ))}
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button style={s.filterBtn} onClick={onOpenDetails}>{td.viewReportDetailBtn}</button>
+        <button style={s.filterBtn} onClick={onOpenDetails} title={td.viewReportDetailBtn}>{td.viewReportDetailBtn}</button>
         {showActions && (
           <>
-            <button style={s.btnDelete} onClick={() => onResolve(report, 'delete')}>
+            <button style={s.btnDelete} onClick={() => onResolve(report, 'delete')} title={td.deletePublicationBtn}>
               {td.deletePublicationBtn}
             </button>
-            <button style={s.btnBan} onClick={() => onResolve(report, 'ban')}>
+            <button style={s.btnBan} onClick={() => onResolve(report, 'ban')} title={td.banUserBtn}>
               {td.banUserBtn}
             </button>
-            <button style={s.btnDismiss} onClick={() => onResolve(report, 'dismiss')}>
+            <button style={s.btnDismiss} onClick={() => onResolve(report, 'reject')} title={td.dismissBtn}>
               {td.dismissBtn}
             </button>
           </>
@@ -1026,27 +1027,104 @@ function ReportDetailsModal({ report, onClose, onSave }) {
   const [actionTaken, setActionTaken] = useState(report.actionTaken || '');
   const [modNotes, setModNotes] = useState(report.modNotes || '');
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const save = async () => {
     setSaving(true);
+    setSaved(false);
     await onSave({ status, actionTaken, modNotes });
     setSaving(false);
+    setSaved(true);
   };
 
-  return (
-    <div style={s.modalOverlay}>
-      <div style={s.modalCard}>
-        <h2 style={{ marginTop: 0 }}>{td.reportDetailTitle}</h2>
-        <p style={s.headerSub}>{td.reportDetailSubtitle(report.id)}</p>
+  const sev = SEVERITY_COLORS[report.severity] || SEVERITY_COLORS.baja;
+  const typeLabel = td.reportTypes?.[report.rawType] || report.rawType || '—';
+  const severityLabel = td.severityLabels?.[report.severity] || report.severity?.toUpperCase() || '—';
+  const pub = report.publicationSummary;
 
-        <div style={s.detailGrid}>
-          <DetailRow label={td.labelPublication} value={report.post || td.deletedPub} />
-          <DetailRow label={td.labelReportedBy} value={report.reporter || td.anonymous} />
-          <DetailRow label={td.labelReportedUser} value={report.reported || td.unknown} />
-          <DetailRow label={td.labelDescription} value={report.description || '—'} />
-          <DetailRow label={td.labelEvidence} value={report.evidenceUrl || '—'} />
+  return (
+    <div style={s.modalOverlay} onClick={onClose}>
+      <div style={{ ...s.modalCard, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+        {/* Cabecera */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.reportDetailTitle}</h2>
+            <p style={{ ...s.headerSub, margin: '4px 0 0' }}>{typeof td.reportDetailSubtitle === 'function' ? td.reportDetailSubtitle(report.id) : `ID: ${report.id}`}</p>
+          </div>
+          <button onClick={onClose} title={td.cancel} aria-label={td.cancel} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>✕</button>
         </div>
 
+        {/* Badges de tipo, severidad y estado */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+          <span style={{ ...s.severityBadge, background: sev.bg, color: sev.text }}>{severityLabel}</span>
+          <span style={{ ...s.badge, background: '#33415518', color: '#94a3b8' }}>{typeLabel}</span>
+          <span style={s.statusPill}>{td.statusLabels?.[normalizeReportStatus(report.status)] || report.status}</span>
+        </div>
+
+        {/* Info del reporte */}
+        <div style={{ ...s.section, marginBottom: 16 }}>
+          <div style={{ ...s.sectionHead, marginBottom: 10 }}>
+            <span style={s.sectionTitle}>Información del reporte</span>
+          </div>
+          <div style={s.detailGrid}>
+            <DetailRow label="Razón" value={typeLabel} />
+            <DetailRow label={td.labelReportedBy} value={report.reporter || td.anonymous} />
+            <DetailRow label={td.labelReportedUser} value={report.reported || td.unknown} />
+            <DetailRow label="Fecha del reporte" value={report.createdAt ? new Date(report.createdAt).toLocaleString('es-CO') : '—'} />
+            {report.resolvedAt && <DetailRow label="Fecha de resolución" value={new Date(report.resolvedAt).toLocaleString('es-CO')} />}
+            {report.reviewer && <DetailRow label="Revisado por" value={report.reviewer} />}
+          </div>
+        </div>
+
+        {/* Descripción del reporte */}
+        {report.description && (
+          <div style={{ ...s.section, marginBottom: 16 }}>
+            <div style={{ ...s.sectionHead, marginBottom: 8 }}>
+              <span style={s.sectionTitle}>{td.labelDescription}</span>
+            </div>
+            <p style={{ margin: 0, fontSize: 14, color: TEXT, lineHeight: 1.5, background: '#0f172a', padding: '10px 14px', borderRadius: 8, border: `1px solid ${BORDER}` }}>
+              {report.description}
+            </p>
+          </div>
+        )}
+
+        {/* Publicación relacionada */}
+        {pub && (
+          <div style={{ ...s.section, marginBottom: 16 }}>
+            <div style={{ ...s.sectionHead, marginBottom: 10 }}>
+              <span style={s.sectionTitle}>Publicación reportada</span>
+            </div>
+            <div style={s.detailGrid}>
+              <DetailRow label="Producto" value={pub.productName} />
+              <DetailRow label="Marca" value={pub.brand} />
+              <DetailRow label="Cantidad" value={pub.unit} />
+              <DetailRow label="Tienda" value={pub.store} />
+              <DetailRow label="Precio" value={pub.price} />
+            </div>
+          </div>
+        )}
+
+        {/* Imagen de evidencia */}
+        {report.evidenceUrl && (
+          <div style={{ ...s.section, marginBottom: 16 }}>
+            <div style={{ ...s.sectionHead, marginBottom: 10 }}>
+              <span style={s.sectionTitle}>Evidencia</span>
+            </div>
+            <img
+              src={report.evidenceUrl}
+              alt="Evidencia del reporte"
+              style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 8, border: `1px solid ${BORDER}` }}
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+            <a href={report.evidenceUrl} target="_blank" rel="noreferrer" style={{ ...s.linkBtn, display: 'block', marginTop: 6, fontSize: 12 }}>
+              Ver imagen original ↗
+            </a>
+          </div>
+        )}
+
+        <hr style={{ border: 'none', borderTop: `1px solid ${BORDER}`, margin: '16px 0' }} />
+
+        {/* Campos editables */}
         <label style={s.filterLabelWrap}>
           <span style={s.filterLabel}>{td.filterStatusLabel}</span>
           <select value={status} onChange={(e) => setStatus(e.target.value)} style={s.filterSelect}>
@@ -1058,21 +1136,39 @@ function ReportDetailsModal({ report, onClose, onSave }) {
 
         <label style={s.filterLabelWrap}>
           <span style={s.filterLabel}>{td.labelActionTaken}</span>
-          <textarea value={actionTaken} onChange={(e) => setActionTaken(e.target.value)} style={s.modalTextarea} rows={3} />
+          <textarea
+            value={actionTaken}
+            onChange={(e) => setActionTaken(e.target.value)}
+            placeholder="Ej: Publicación eliminada, usuario advertido..."
+            style={s.modalTextarea}
+            rows={3}
+          />
         </label>
 
         <label style={s.filterLabelWrap}>
           <span style={s.filterLabel}>{td.labelModNotes}</span>
-          <textarea value={modNotes} onChange={(e) => setModNotes(e.target.value)} style={s.modalTextarea} rows={3} />
+          <textarea
+            value={modNotes}
+            onChange={(e) => setModNotes(e.target.value)}
+            placeholder="Notas internas del moderador (no visibles al usuario)..."
+            style={s.modalTextarea}
+            rows={3}
+          />
         </label>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        {saved && (
+          <p style={{ margin: '8px 0 0', fontSize: 13, color: '#34D399', textAlign: 'right' }}>
+            ✓ {td.reportSavedOk}
+          </p>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
           <button onClick={onClose} style={s.btnDismiss}>{td.cancel}</button>
           <button onClick={save} style={{ ...s.filterBtn, ...s.filterBtnActive }} disabled={saving}>
             {saving ? '...' : td.saveReportBtn}
           </button>
         </div>
-        </div>
+      </div>
     </div>
   );
 }
