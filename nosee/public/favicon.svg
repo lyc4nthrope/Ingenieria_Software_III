@@ -1,4 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
-  <rect fill="#ef4444" width="180" height="180"/>
-  <text x="50%" y="50%" font-size="100" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">N</text>
+  <rect width="180" height="180" rx="36" fill="#080c14"/>
+  <text
+    x="50%"
+    y="52%"
+    font-family="'Plus Jakarta Sans', Arial, sans-serif"
+    font-size="68"
+    font-weight="800"
+    fill="#e8edf8"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    letter-spacing="-3"
+  >NØ</text>
 </svg>
