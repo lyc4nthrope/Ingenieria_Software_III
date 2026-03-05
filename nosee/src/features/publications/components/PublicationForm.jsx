@@ -7,10 +7,16 @@
  *   Tienda   → autocomplete con búsqueda en tiempo real.
  *              Si el nombre no existe → opción "Crear tienda [nombre]"
  *              que abre StoreCreateModal encima del formulario.
+ *
+ * Props:
+ *   - mode: 'create' | 'edit' (default: 'create')
+ *   - publicationId: string (required if mode='edit')
+ *   - onSuccess: function
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useGeoLocation } from "@/features/publications/hooks";
+import { usePublicationCreation } from "@/features/publications/hooks";
+import { Spinner } from "@/components/ui";
 import PhotoUploader from "./PhotoUploader";
 import StoreCreateModal from "@/features/stores/components/StoreCreateModal";
 import ProductQuickCreateModal from "./ProductQuickCreateModal";
@@ -18,25 +24,26 @@ import * as publicationsApi from "@/services/api/publications.api";
 import * as storesApi from "@/services/api/stores.api";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-export function PublicationForm({ onSuccess }) {
+
+export function PublicationForm({ mode = "create", publicationId = null, onSuccess }) {
   const { t } = useLanguage();
   const tf = t.publicationForm;
 
-  const { latitude, longitude } = useGeoLocation({ autoFetch: true });
+  const {
+    formData,
+    errors,
+    isSubmitting,
+    submitError,
+    submitSuccess,
+    isLoading,
+    latitude,
+    longitude,
+    updateField,
+    submit,
+  } = usePublicationCreation({ mode, publicationId });
 
-  // ─── Form data ─────────────────────────────────────────────────────────────
-  const [formData, setFormData] = useState({
-    productId: "",
-    storeId: "",
-    price: "",
-    currency: "COP",
-    description: "",
-    photoUrl: "",
-  });
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+  // Estado para autocompletes y modales
+  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(mode === 'create');
 
   // ─── Product autocomplete ──────────────────────────────────────────────────
   const [productQuery, setProductQuery] = useState("");
@@ -58,9 +65,20 @@ export function PublicationForm({ onSuccess }) {
   const storeRequestIdRef = useRef(0);
   const storeWrapperRef = useRef(null);
 
+<<<<<<< HEAD
   // ─── Índice activo para navegación por teclado ─────────────────────────────
   const [activeProductIndex, setActiveProductIndex] = useState(-1);
   const [activeStoreIndex, setActiveStoreIndex] = useState(-1);
+=======
+  // Cargar nombres iniciales cuando se cargan datos en modo edición
+  useEffect(() => {
+    if (!isLoading && !hasLoadedInitialData && formData.productId && formData.storeId) {
+      // En modo edición, los datos ya están cargados, inicializar queries
+      // La búsqueda de nombre completo debe venir del formData y ser buscada
+      setHasLoadedInitialData(true);
+    }
+  }, [isLoading, hasLoadedInitialData, formData.productId, formData.storeId]);
+>>>>>>> 5df3ee4575caca8df4846a9a6fd348c07c5e83cf
 
   // ─── Cerrar dropdowns al clickar fuera ────────────────────────────────────
   useEffect(() => {
@@ -169,7 +187,7 @@ export function PublicationForm({ onSuccess }) {
   const handleProductQueryChange = (e) => {
     const val = e.target.value;
     setProductQuery(val);
-    setFormData((prev) => ({ ...prev, productId: "" }));
+    updateField("productId", "");
     clearTimeout(productTimerRef.current);
 
     if (!val.trim() || val.length < 2) {
@@ -185,14 +203,9 @@ export function PublicationForm({ onSuccess }) {
   };
 
   const handleProductSelect = (product) => {
-    setFormData((prev) => ({ ...prev, productId: product.id }));
+    updateField("productId", String(product.id));
     setProductQuery(product.name);
     setShowProductDropdown(false);
-    setErrors((prev) => {
-      const n = { ...prev };
-      delete n.productId;
-      return n;
-    });
   };
 
   const handleCreateProduct = async () => {
@@ -250,7 +263,7 @@ export function PublicationForm({ onSuccess }) {
   const handleStoreQueryChange = (e) => {
     const val = e.target.value;
     setStoreQuery(val);
-    setFormData((prev) => ({ ...prev, storeId: "" }));
+    updateField("storeId", "");
     clearTimeout(storeTimerRef.current);
 
     if (!val.trim() || val.length < 2) {
@@ -266,14 +279,9 @@ export function PublicationForm({ onSuccess }) {
   };
 
   const handleStoreSelect = (store) => {
-    setFormData((prev) => ({ ...prev, storeId: store.id }));
+    updateField("storeId", store.id);
     setStoreQuery(store.name);
     setShowStoreDropdown(false);
-    setErrors((prev) => {
-      const n = { ...prev };
-      delete n.storeId;
-      return n;
-    });
   };
 
   const handleStoreCreated = (store) => {
@@ -325,68 +333,30 @@ export function PublicationForm({ onSuccess }) {
 
   // ─── Form helpers ──────────────────────────────────────────────────────────
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors((prev) => {
-        const n = { ...prev };
-        delete n[field];
-        return n;
-      });
-    }
-  };
-
-  const validateForm = () => {
-    const e = {};
-    if (!formData.productId) e.productId = tf.productRequired;
-    if (!formData.storeId) e.storeId = tf.storeRequired;
-    if (!formData.price || Number(formData.price) <= 0)
-      e.price = tf.priceRequired;
-    if (!formData.photoUrl) e.photoUrl = tf.photoRequired;
-    if (formData.description?.length > 500)
-      e.description = tf.descriptionMax;
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    updateField(field, value);
   };
 
   const handleSubmit = async (ev) => {
     ev.preventDefault();
-    setSubmitError(null);
-    setSubmitSuccess(false);
-    if (!validateForm()) return;
+    const result = await submit();
 
-    setIsSubmitting(true);
-    try {
-      const result = await publicationsApi.createPublication({
-        productId: Number(formData.productId),
-        storeId: formData.storeId,
-        price: Number(formData.price),
-        photoUrl: formData.photoUrl,
-        description: formData.description,
-      });
-
-      if (result.success) {
-        setSubmitSuccess(true);
-        onSuccess?.(result.data);
-        setFormData({
-          productId: "",
-          storeId: "",
-          price: "",
-          currency: "COP",
-          description: "",
-          photoUrl: "",
-        });
+    if (result.success) {
+      onSuccess?.(result.data);
+      if (mode === "create") {
         setProductQuery("");
         setStoreQuery("");
-        setTimeout(() => setSubmitSuccess(false), 3000);
-      } else {
-        setSubmitError(result.error || tf.errorFallback);
       }
-    } catch (err) {
-      setSubmitError(err.message || tf.unknownError);
-    } finally {
-      setIsSubmitting(false);
     }
   };
+
+  // Mostrar spinner mientras carga datos en modo edición
+  if (isLoading) {
+    return (
+      <div style={styles.container} className="flex items-center justify-center min-h-96">
+        <Spinner />
+      </div>
+    );
+  }
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (

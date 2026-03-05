@@ -25,6 +25,7 @@
 import { useState, useId } from 'react';
 import { formatDistanceToNow } from '@/features/publications/utils/dateUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { ReportPublicationModal } from '@/features/publications/components/ReportPublicationModal';
 
 /**
  * Componente: PublicationCard
@@ -69,13 +70,10 @@ export function PublicationCard({
 
   const [photoExpanded, setPhotoExpanded] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [reportType, setReportType] = useState('');
   const [isValidating, setIsValidating] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const reportModalTitleId = useId();
-  const reportSelectId = useId();
   const photoModalId = useId();
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -93,14 +91,15 @@ export function PublicationCard({
     }
   };
 
-  const handleReport = async () => {
-    if (!reportType || isReporting) return;
+  const handleReport = async ({ publicationId, reason, description, evidenceFile }) => {
+    if (!reason || isReporting) return;
 
     setIsReporting(true);
     try {
-      await onReport?.(publication.id, reportType);
-      setShowReportModal(false);
-      setReportType('');
+      const result = await onReport?.(publicationId, { reason, description, evidenceFile });
+      if (result?.success) {
+        setShowReportModal(false);
+      }
     } catch (err) {
       console.error('Error reportando:', err);
     } finally {
@@ -259,56 +258,11 @@ export function PublicationCard({
 
       {/* Modal: Reportar */}
       {showReportModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={reportModalTitleId}
-          style={styles.modal}
-          onClick={() => { setShowReportModal(false); setReportType(''); }}
-        >
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h3 id={reportModalTitleId} style={styles.modalTitle}>{tc.reportTitle}</h3>
-
-            <div style={styles.formGroup}>
-              <label htmlFor={reportSelectId} style={styles.label}>{tc.reportTypeLabel}</label>
-              <select
-                id={reportSelectId}
-                autoFocus
-                value={reportType}
-                onChange={(e) => setReportType(e.target.value)}
-                style={styles.select}
-              >
-                <option value="">{tc.reportSelect}</option>
-                <option value="fake_price">{tc.fakePrice}</option>
-                <option value="wrong_photo">{tc.wrongPhoto}</option>
-                <option value="spam">{tc.spam}</option>
-                <option value="offensive">{tc.offensive}</option>
-              </select>
-            </div>
-
-            <div style={styles.modalActions}>
-              <button
-                type="button"
-                style={{ ...styles.button, ...styles.buttonSecondary }}
-                onClick={() => {
-                  setShowReportModal(false);
-                  setReportType('');
-                }}
-              >
-                {tc.cancel}
-              </button>
-              <button
-                type="button"
-                aria-busy={isReporting || undefined}
-                style={{ ...styles.button, ...styles.buttonDanger }}
-                onClick={handleReport}
-                disabled={!reportType || isReporting}
-              >
-                {isReporting ? tc.sending : tc.report}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ReportPublicationModal
+          publication={publication}
+          onClose={() => setShowReportModal(false)}
+          onSubmit={handleReport}
+        />
       )}
 
       {/* Modal: Foto expandida */}
@@ -541,60 +495,6 @@ const styles = {
     border: '1px solid #ffcccc',
   },
 
-  // Modal
-  modal: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-
-  modalContent: {
-    background: '#fff',
-    borderRadius: '8px',
-    padding: '20px',
-    maxWidth: '400px',
-    width: '90%',
-  },
-
-  modalTitle: {
-    fontSize: '16px',
-    fontWeight: 600,
-    marginBottom: '16px',
-    margin: 0,
-  },
-
-  formGroup: {
-    marginBottom: '16px',
-  },
-
-  label: {
-    display: 'block',
-    fontSize: '13px',
-    fontWeight: 600,
-    marginBottom: '6px',
-    color: '#333',
-  },
-
-  select: {
-    width: '100%',
-    padding: '8px',
-    borderRadius: '6px',
-    border: '1px solid #e0e0e0',
-    fontSize: '13px',
-  },
-
-  modalActions: {
-    display: 'flex',
-    gap: '8px',
-  },
-
   // Photo modal
   photoModal: {
     position: 'fixed',
@@ -608,7 +508,6 @@ const styles = {
     justifyContent: 'center',
     zIndex: 1001,
     cursor: 'pointer',
-    position: 'fixed',
   },
 
   photoModalImg: {

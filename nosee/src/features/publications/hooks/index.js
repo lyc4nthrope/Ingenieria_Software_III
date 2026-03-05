@@ -7,3 +7,4 @@
 export { usePublications } from './usePublications';
 export { usePhotoUpload } from './usePhotoUpload';
 export { useGeoLocation } from './useGeoLocation';
+export { usePublicationCreation } from './usePublicationCreation';

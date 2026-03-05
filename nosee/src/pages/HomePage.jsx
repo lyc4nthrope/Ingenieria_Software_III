@@ -8,6 +8,7 @@ import {
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ReportPublicationModal } from "@/features/publications/components/ReportPublicationModal";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const FALLBACK_IMAGE = "https://via.placeholder.com/400x300?text=Sin+foto";
@@ -241,7 +242,7 @@ function PublicationCard({
 
           <button
             className="card-action-button"
-            onClick={() => onReport(pub.id)}
+            onClick={() => onReport(pub)}
             aria-label={th.reportLabel(pubName)}
             disabled={!isAuthenticated}
             title={!isAuthenticated ? th.loginToReport : th.report}
@@ -383,8 +384,10 @@ export default function HomePage() {
   const { latitude, longitude } = useGeoLocation({ autoFetch: true });
 
   const [detailPublication, setDetailPublication] = useState(null);
+  const [reportingPublication, setReportingPublication] = useState(null);
   const [votedIds, setVotedIds] = useState(new Set());
   const [reportingId, setReportingId] = useState(null);
+  const [feedback, setFeedback] = useState(null);
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
 
@@ -445,15 +448,37 @@ export default function HomePage() {
     });
   };
 
-  const handleReport = (publicationId) => {
+  const handleReport = (publication) => {
     if (!isAuthenticated) return;
-    setReportingId(publicationId);
+    setReportingPublication(publication);
   };
 
-  const handleReportSubmit = async (reportType) => {
-    if (!reportingId) return;
-    await reportPublication(reportingId, reportType, "");
-    setReportingId(null);
+  const handleReportSubmit = async (reportPayload) => {
+    if (!reportingPublication) return;
+    
+    console.log('[📋 HomePage] Enviando reporte con payload:', reportPayload);
+    
+    const result = await reportPublication(reportingPublication.id, reportPayload);
+    
+    console.log('[📋 HomePage] Resultado del reporte:', result);
+    
+    setReportingPublication(null);
+    
+    // Mostrar feedback al usuario
+    if (result.success) {
+      setFeedback({
+        type: 'success',
+        message: result.message || '✅ Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE.'
+      });
+    } else {
+      setFeedback({
+        type: 'error',
+        message: result.message || result.error || '❌ Hubo un error al enviar el reporte. Intenta de nuevo.'
+      });
+    }
+    
+    // Auto-cerrar el feedback después de 5 segundos
+    setTimeout(() => setFeedback(null), 5000);
   };
 
   const handleDelete = async (publicationId) => {
@@ -506,11 +531,35 @@ export default function HomePage() {
         />
       )}
 
-      {reportingId && (
-        <ReportModal
-          onClose={() => setReportingId(null)}
+      {reportingPublication && (
+       <ReportPublicationModal
+          publication={reportingPublication}
+          onClose={() => setReportingPublication(null)}
           onSubmit={handleReportSubmit}
         />
+      )}
+
+      {/* Feedback Toast */}
+      {feedback && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            padding: '16px 20px',
+            borderRadius: '8px',
+            background: feedback.type === 'success' ? '#10b981' : '#ef4444',
+            color: '#fff',
+            fontSize: '14px',
+            fontWeight: 600,
+            zIndex: 2000,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            maxWidth: '300px',
+            animation: 'slideInUp 0.3s ease-out',
+          }}
+        >
+          {feedback.message}
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,5 @@
 /**
- * App.jsx - Punto de entrada de la aplicación
- *
+ * App.jsx
  */
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -16,43 +15,41 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import AccessibilityMenu from "@/components/layout/AccessibilityMenu";
 import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 
-// ── Carga eager: solo lo imprescindible para el primer render ──────────────
 import HomePage from "@/pages/HomePage";
 
-// ── Carga diferida: el resto de páginas se separan en chunks propios ───────
 const LoginPage = lazy(() => import("@/features/auth/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@/features/auth/pages/RegisterPage"));
 const CallbackPage = lazy(() => import("@/features/auth/pages/CallbackPage"));
 const ForgotPasswordPage = lazy(
-  () => import("@/features/auth/pages/ForgotPasswordPage"),
+  () => import("@/features/auth/pages/ForgotPasswordPage")
 );
 const NewPasswordPage = lazy(
-  () => import("@/features/auth/pages/NewPasswordPage"),
+  () => import("@/features/auth/pages/NewPasswordPage")
 );
 const ProfilePage = lazy(() => import("@/features/auth/pages/ProfilePage"));
 
 const RoleRouter = lazy(() => import("@/router/RoleRouter"));
 const AdminDashboard = lazy(
-  () => import("@/features/dashboard/admin/AdminDashboard"),
+  () => import("@/features/dashboard/admin/AdminDashboard")
 );
 const ModeratorDashboard = lazy(
-  () => import("@/features/dashboard/moderator/ModeratorDashboard"),
+  () => import("@/features/dashboard/moderator/ModeratorDashboard")
 );
 const DealerDashboard = lazy(
-  () => import("@/features/dashboard/dealer/DealerDashboard"),
+  () => import("@/features/dashboard/dealer/DealerDashboard")
 );
 
 const PublicationsPage = lazy(
-  () => import("@/features/publications/pages/PublicationsPage"),
+  () => import("@/features/publications/pages/PublicationsPage")
 );
 const CreatePublicationPage = lazy(
-  () => import("@/features/publications/pages/CreatePublicationPage"),
+  () => import("@/features/publications/pages/CreatePublicationPage")
 );
 const CreateStorePage = lazy(
-  () => import("@/features/stores/pages/CreateStorePage"),
+  () => import("@/features/stores/pages/CreateStorePage")
 );
 const StoresPage = lazy(
-  () => import("@/features/stores/pages/StoresPage"),
+  () => import("@/features/stores/pages/StoresPage")
 );
 
 function NotFoundPage() {
@@ -107,28 +104,23 @@ function AppContent() {
 
   useEffect(() => {
     initialize();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!isInitialized) {
-    return <PageLoader message="Iniciando aplicación..." />;
+    return <PageLoader message="Loading..." />;
   }
 
   return (
-    <Suspense fallback={<PageLoader message="Cargando..." />}>
+    <Suspense fallback={<PageLoader message="Loading..." />}>
       <Routes>
-        {/* ── Rutas públicas ───────────────────────────────────── */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/registro" element={<RegisterPage />} />
         <Route path="/auth/callback" element={<CallbackPage />} />
         <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
         <Route path="/nueva-contrasena" element={<NewPasswordPage />} />
 
-        {/* ── Rutas protegidas ─────────────────────────────────── */}
-
-        {/* HOMEPAGE PÚBLICA - Red Social */}
         <Route path="/" element={<HomePage />} />
 
-        {/* Dashboard según rol - Protegido */}
         <Route
           path="/dashboard"
           element={
@@ -183,7 +175,6 @@ function AppContent() {
           }
         />
 
-        {/* ── Dashboards por rol ───────────────────────────────── */}
         <Route
           path="/dashboard/admin"
           element={
@@ -209,10 +200,6 @@ function AppContent() {
           }
         />
 
-        {/*
-        FIX 4: wildcard al final para que no capture las rutas de los dashboards.
-        Antes estaba ANTES de los dashboards, bloqueándolos.
-      */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
@@ -232,7 +219,6 @@ function RoleChangeToast() {
 
   useEffect(() => {
     if (!notification) return;
-    // setTimeout evita llamar setState síncronamente en el cuerpo del efecto
     const showTimer = setTimeout(() => setVisible(true), 0);
     const hideTimer = setTimeout(dismiss, 5000);
     return () => {
@@ -249,23 +235,23 @@ function RoleChangeToast() {
       aria-live="polite"
       aria-atomic="true"
       style={{
-        position: 'fixed',
-        bottom: '24px',
-        right: '24px',
-        background: '#1e293b',
-        color: '#fff',
-        padding: '12px 16px 12px 20px',
-        borderRadius: '8px',
-        fontSize: '14px',
+        position: "fixed",
+        bottom: "24px",
+        right: "24px",
+        background: "#1e293b",
+        color: "#fff",
+        padding: "12px 16px 12px 20px",
+        borderRadius: "8px",
+        fontSize: "14px",
         fontWeight: 500,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
         zIndex: 9999,
         opacity: visible ? 1 : 0,
-        transition: 'opacity 0.3s',
-        maxWidth: '320px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
+        transition: "opacity 0.3s",
+        maxWidth: "320px",
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
       }}
     >
       <span aria-hidden="true">🔔</span>
@@ -275,17 +261,17 @@ function RoleChangeToast() {
         onClick={dismiss}
         aria-label={t.app.closeNotification}
         style={{
-          background: 'none',
-          border: 'none',
-          color: '#fff',
-          cursor: 'pointer',
-          fontSize: '16px',
+          background: "none",
+          border: "none",
+          color: "#fff",
+          cursor: "pointer",
+          fontSize: "16px",
           lineHeight: 1,
-          padding: '4px',
-          marginLeft: 'auto',
-          borderRadius: '4px',
-          minWidth: '28px',
-          minHeight: '28px',
+          padding: "4px",
+          marginLeft: "auto",
+          borderRadius: "4px",
+          minWidth: "28px",
+          minHeight: "28px",
         }}
       >
         <span aria-hidden="true">×</span>
@@ -309,10 +295,8 @@ function AppShell() {
         {t.app.skipToContent}
       </a>
 
-      {/* Navbar sticky en la parte superior */}
       <Navbar />
 
-      {/* Main semántico que crece para llenar el espacio disponible */}
       <main
         id="main-content"
         tabIndex={-1}

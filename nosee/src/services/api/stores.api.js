@@ -417,9 +417,82 @@ export async function createStoreSimple(
   }
 }
 
+export async function getStore(storeId) {
+  if (!storeId) return { success: false, error: "storeId es obligatorio" };
+
+  try {
+    const { data: store, error } = await supabase
+      .from("stores")
+      .select("id, name, address, latitude, longitude, website_url, store_type_id, created_by")
+      .eq("id", storeId)
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    
+    const uiType = getUiTypeByStoreTypeId(store.store_type_id);
+
+    return {
+      success: true,
+      data: {
+        id: store.id,
+        name: store.name,
+        type: uiType,
+        address: store.address,
+        latitude: store.latitude,
+        longitude: store.longitude,
+        websiteUrl: store.website_url,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message || "Error obtainendo tienda",
+    };
+  }
+}
+
+export async function updateStore(storeId, updates = {}) {
+  if (!storeId) return { success: false, error: "storeId es obligatorio" };
+
+  const userResult = await getCurrentUserId();
+  if (!userResult.success) return userResult;
+
+  const { data: store, error: storeError } = await supabase
+    .from("stores")
+    .select("id, created_by")
+    .eq("id", storeId)
+    .single();
+
+  if (storeError) return { success: false, error: storeError.message };
+  if (store?.created_by !== userResult.data) {
+    return { success: false, error: "Solo el creador puede editar la tienda" };
+  }
+
+  const safeUpdates = {};
+  if (typeof updates.name === "string") safeUpdates.name = updates.name.trim();
+  if (typeof updates.address === "string") safeUpdates.address = updates.address.trim() || null;
+  if (typeof updates.websiteUrl === "string") safeUpdates.website_url = updates.websiteUrl.trim() || null;
+
+  if (Object.keys(safeUpdates).length === 0) {
+    return { success: false, error: "No hay campos para actualizar" };
+  }
+
+  const { data, error } = await supabase
+    .from("stores")
+    .update(safeUpdates)
+    .eq("id", storeId)
+    .select("id, name, address, website_url, store_type_id")
+    .single();
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: { ...data, type: getUiTypeByStoreTypeId(data.store_type_id) } };
+}
+
 export default {
   createStore,
   createStoreSimple,
   uploadStoreEvidence,
   searchNearbyStores,
+  getStore,
+  updateStore,
 };

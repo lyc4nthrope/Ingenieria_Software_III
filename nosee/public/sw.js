@@ -37,6 +37,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Ignore non-HTTP(S) requests
+  if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
+    return;
+  }
+
+  // Don't cache auth routes - let them go directly to the server
+  const url = new URL(event.request.url);
+  if (url.pathname.includes('/auth/') || url.pathname.includes('/login') || url.pathname.includes('/registro')) {
+    return; // Let the request go directly to the server
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {

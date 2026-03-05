@@ -4,8 +4,9 @@ import StoreEvidenceUploader from "@/features/stores/components/StoreEvidenceUpl
 import { StoreTypeEnum } from "@/features/stores/schemas";
 import { useStoreCreation } from "@/features/stores/hooks/useStoreCreation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Spinner } from "@/components/ui/Spinner";
 
-export default function StoreForm() {
+export default function StoreForm({ storeId = null, mode = 'create', onSuccess }) {
   const { t } = useLanguage();
   const tf = t.storeForm;
 
@@ -15,19 +16,31 @@ export default function StoreForm() {
     isSubmitting,
     submitError,
     submitSuccess,
+    isLoading,
     updateField,
     setLocation,
     addEvidenceFile,
     removeEvidenceFile,
     submit,
-  } = useStoreCreation();
+  } = useStoreCreation({ storeId, mode });
 
   const isPhysical = formData.type === StoreTypeEnum.PHYSICAL;
 
   const onSubmit = async (event) => {
     event.preventDefault();
-    await submit();
+    const result = await submit();
+    if (result.success) {
+      onSuccess?.(result.data);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div style={styles.form} className="flex items-center justify-center min-h-96">
+        <Spinner />
+      </div>
+    );
+  }
 
   return (
     <form style={styles.form} onSubmit={onSubmit} noValidate>

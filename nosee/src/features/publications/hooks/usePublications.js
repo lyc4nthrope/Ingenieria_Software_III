@@ -486,18 +486,26 @@ export const usePublications = (initialFilters = {}, options = {}) => {
     }
   }, []);
 
-
   /**
    * Reportar una publicación
+   * 
+   * @param {number} publicationId - ID de la publicación
+   * @param {object} reportPayload - Objeto con detalles del reporte
+   *   - reason: Razón del reporte
+   *   - description: Descripción opcional
+   *   - evidenceFile: Archivo de evidencia opcional
    */
   const reportPublication = useCallback(
-    async (publicationId, reportType, description) => {
+    async (publicationId, reportPayload) => {
       try {
+        console.log('[📋 HOOK] Reportando publicación:', { publicationId, reportPayload });
+        
         const result = await publicationsApi.reportPublication(
           publicationId,
-          reportType,
-          description
+          reportPayload
         );
+
+        console.log('[📋 HOOK] Resultado del reporte:', result);
 
         if (result.success) {
           // Actualizar contador en la lista
@@ -513,8 +521,12 @@ export const usePublications = (initialFilters = {}, options = {}) => {
           return result;
         }
       } catch (err) {
-        console.error('Error reportando publicación:', err);
-        return { success: false, error: err.message };
+        console.error('[📋 HOOK] Error reportando publicación:', err);
+        return { 
+          success: false, 
+          error: err.message,
+          message: "Error al reportar la publicación"
+        };
       }
     },
     []

@@ -198,3 +198,216 @@ export async function updateUserStatus(userId, isActive) {
   if (error) return { success: false, error: error.message };
   return { success: true };
 }
+
+/**
+ * Obtiene métricas principales para el resumen del dashboard Admin.
+ *
+ * Incluye:
+ * - Cantidad total de usuarios
+ * - Cantidad de publicaciones creadas hoy
+ * - Cantidad de reportes pendientes
+ * - Cantidad de validaciones (upvotes) hechas hoy
+ */
+export async function getAdminOverviewStats() {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const startIso = startOfToday.toISOString();
+
+  const [
+    usersCountResult,
+    publicationsTodayResult,
+    reportsPendingResult,
+    validationsTodayResult,
+  ] = await Promise.all([
+    supabase
+      .from("users")
+      .select("id", { count: "exact", head: true }),
+    supabase
+      .from("price_publications")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startIso),
+    supabase
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["PENDING", "pending"]),
+    supabase
+      .from("publication_votes")
+      .select("id", { count: "exact", head: true })
+      .eq("vote_type", 1)
+      .gte("created_at", startIso),
+  ]);
+
+  const firstError = [
+    usersCountResult.error,
+    publicationsTodayResult.error,
+    reportsPendingResult.error,
+    validationsTodayResult.error,
+  ].find(Boolean);
+
+  if (firstError) {
+    return { success: false, error: firstError.message };
+  }
+
+  return {
+    success: true,
+    data: {
+      totalUsers: usersCountResult.count ?? 0,
+      publicationsToday: publicationsTodayResult.count ?? 0,
+      pendingReports: reportsPendingResult.count ?? 0,
+      validationsToday: validationsTodayResult.count ?? 0,
+    },
+  };
+}
+
+/**
+ * Obtiene todos los reportes para moderación/admin.
+ * Incluye detalles completos de la publicación reportada (producto, marca, tienda, precio, unidad).
+ */
+export async function getAdminReports() {
+  const { data, error } = await supabase
+    .from("reports")
+    .select(`
+      id,
+      publication_id,
+      reported_user_id,
+      reporter_user_id,
+      reason,
+      status,
+      reviewed_by,
+      created_at,
+      resolved_at,
+      description,
+      evidence_url,
+      mod_notes,
+      action_taken,
+      reporter:reporter_user_id(full_name),
+      reported:reported_user_id(full_name),
+      reviewer:reviewed_by(full_name),
+      publication:publication_id(
+        id,
+        price,
+        product:products(
+          id,
+          name,
+          base_quantity,
+          brand:brands(id, name),
+          unit_type:unit_types(id, name, abbreviation)
+        ),
+        store:stores(id, name)
+      )
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data ?? [] };
+}
+
+/**
+ * Actualiza datos de revisión de un reporte.
+ * @param {string} reportId
+ * @param {Object} payload
+ */
+
+/**
+ * Resumen de actividad propia del usuario para el perfil.
+ */
+export async function getUserProfileActivity(userId) {
+  try {
+    const [publicationsResult, storesResult, reportsResult] = await Promise.all([
+      supabase
+        .from("price_publications")
+        .select(`
+          id,
+          price,
+          description,
+          photo_url,
+          is_active,
+          created_at,
+          product:products(id, name),
+          store:stores(id, name)
+        `)
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("stores")
+        .select("id, name, address, website_url, store_type_id, created_at")
+        .eq("created_by", userId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("reports")
+        .select("id, publication_id, reason, description, status, created_at, resolved_at, mod_notes, action_taken")
+        .eq("reporter_user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ]);
+
+    const firstError = [
+      publicationsResult.error,
+      storesResult.error,
+      reportsResult.error,
+    ].find(Boolean);
+
+    if (firstError) return { success: false, error: firstError.message };
+
+    return {
+      success: true,
+      data: {
+        publications: publicationsResult.data || [],
+        stores: storesResult.data || [],
+        reports: reportsResult.data || [],
+        products: [],
+      },
+    };
+  } catch (err) {
+    return { success: false, error: err.message || "No se pudo cargar la actividad" };
+  }
+}
+
+/**
+ * Editar un reporte propio.
+ */
+export async function updateOwnReport(reportId, userId, updates = {}) {
+  if (!reportId) return { success: false, error: "ID de reporte requerido" };
+
+  const { data: report, error: reportError } = await supabase
+    .from("reports")
+    .select("id, reporter_user_id")
+    .eq("id", reportId)
+    .single();
+
+  if (reportError) return { success: false, error: reportError.message };
+  if (report?.reporter_user_id !== userId) {
+    return { success: false, error: "Solo puedes editar tus propios reportes" };
+  }
+
+  const safeUpdates = {};
+  if (typeof updates.reason === "string") safeUpdates.reason = updates.reason;
+  if (typeof updates.description === "string") safeUpdates.description = updates.description;
+
+  if (Object.keys(safeUpdates).length === 0) {
+    return { success: false, error: "No hay cambios para guardar" };
+  }
+
+  const { data, error } = await supabase
+    .from("reports")
+    .update(safeUpdates)
+    .eq("id", reportId)
+    .select("id, publication_id, reason, description, status, created_at")
+    .single();
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data };
+}
+
+export async function updateReportReview(reportId, payload) {
+  const { error } = await supabase
+    .from("reports")
+    .update(payload)
+    .eq("id", reportId);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}

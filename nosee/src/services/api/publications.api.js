@@ -20,6 +20,7 @@
  */
 
 import { supabase } from "@/services/supabase.client";
+import { uploadImageToCloudinary } from "@/services/cloudinary";
 
 // ─── TIPOS / INTERFACES ───────────────────────────────────────────────────────
 
@@ -989,59 +990,257 @@ export const unvotePublication = async (publicationId) => {
  * Reportar una publicación (abuso, precio falso, etc.)
  *
  * @param {number} publicationId - ID de la publicación
- * @param {string} reportType - 'fake_price', 'wrong_photo', 'spam', 'offensive'
- * @param {string} description - Descripción del reporte (max 500 chars)
+ * @param {object} payload - Objeto con detalles del reporte
+ *   - reason: Razón del reporte (fake_price, wrong_photo, spam, offensive, other)
+ *   - description: Descripción opcional del reporte
+ *   - evidenceFile: Archivo de evidencia opcional
  *
- * @returns {Promise} { success, data, error }
+ * @returns {Promise} { success, data, error, message }
  *
  * @example
- * const result = await reportPublication(123, 'fake_price', 'El precio es imposible');
+ * const result = await reportPublication(123, { 
+ *   reason: 'fake_price', 
+ *   description: 'El precio es imposible',
+ *   evidenceFile: fileObject
+ * });
  */
-export const reportPublication = async (
-  publicationId,
-  reportType,
-  description,
-) => {
+
+/**
+ * Verificar si el usuario ya reportó una publicación
+ *
+ * @param {number} publicationId - ID de la publicación
+ * @returns {Promise} { success, hasReported: boolean, existingReport: object|null }
+ *
+ * @example
+ * const result = await checkUserReportStatus(123);
+ * // { success: true, hasReported: true, existingReport: { id: '...', createdAt: '...' } }
+ */
+export const checkUserReportStatus = async (publicationId) => {
+  const logPrefix = '[📋 CHECK-REPORT]';
+  
   try {
-    // Validaciones
-    if (!publicationId || !reportType) {
-      return { success: false, error: "Datos incompletos" };
-    }
-
-    const validTypes = ["fake_price", "wrong_photo", "spam", "offensive"];
-    if (!validTypes.includes(reportType)) {
-      return { success: false, error: "Tipo de reporte inválido" };
-    }
-
+    console.log(`${logPrefix} Verificando si usuario ya reportó publicación #${publicationId}`);
+    
     // Obtener usuario actual
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    
     if (!user) {
-      return { success: false, error: "Usuario no autenticado" };
+      console.log(`${logPrefix} Usuario no autenticado`);
+      return { 
+        success: true, 
+        hasReported: false, 
+        existingReport: null 
+      };
     }
 
-    // Crear el reporte
+    // Buscar reporte existente
+    const { data: existingReport, error } = await supabase
+      .from("reports")
+      .select("id, created_at, reason, description")
+      .eq("publication_id", publicationId)
+      .eq("reporter_user_id", user.id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+      console.error(`${logPrefix} Error buscando reporte:`, error.message);
+      return { 
+        success: false, 
+        error: error.message 
+      };
+    }
+
+    const hasReported = !!existingReport;
+    console.log(`${logPrefix} Resultado:`, { 
+      hasReported, 
+      reportId: existingReport?.id 
+    });
+
+    return { 
+      success: true, 
+      hasReported, 
+      existingReport: existingReport || null 
+    };
+
+  } catch (err) {
+    console.error(`${logPrefix} Error crítico:`, err.message);
+    return { 
+      success: false, 
+      error: err.message 
+    };
+  }
+};
+
+export const reportPublication = async (
+  publicationId,
+  payload,
+  _deprecatedDescription,
+) => {
+  const logPrefix = '[📋 REPORTE]';
+  
+  try {
+    console.log(`${logPrefix} Iniciando reporte de publicación #${publicationId}`);
+    console.log(`${logPrefix} Payload recibido:`, payload);
+
+    // ─── VALIDACIONES ───────────────────────────────────────────────────
+    
+    // Manejar tanto payload object como parámetros antiguos
+    const isLegacyCall = typeof payload === 'string';
+    const reportData = isLegacyCall 
+      ? { reason: payload, description: _deprecatedDescription }
+      : payload;
+
+    console.log(`${logPrefix} Datos del reporte:`, {
+      reason: reportData.reason,
+      hasDescription: !!reportData.description,
+      hasEvidence: !!reportData.evidenceFile,
+    });
+
+    if (!publicationId || !reportData.reason) {
+      const errorMsg = "Datos incompletos: falta publicationId o reason";
+      console.error(`${logPrefix} ❌ ${errorMsg}`);
+      return { 
+        success: false, 
+        error: errorMsg,
+        message: "Por favor completa la razón del reporte"
+      };
+    }
+
+    const validReasons = ["fake_price", "wrong_photo", "spam", "offensive", "other"];
+    if (!validReasons.includes(reportData.reason)) {
+      const errorMsg = `Razón de reporte inválida: ${reportData.reason}`;
+      console.error(`${logPrefix} ❌ ${errorMsg}`);
+      return { 
+        success: false, 
+        error: errorMsg,
+        message: "Razón de reporte no válida"
+      };
+    }
+
+    // ─── AUTENTICACIÓN ──────────────────────────────────────────────────
+
+    console.log(`${logPrefix} Verificando autenticación...`);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    
+    if (!user) {
+      const errorMsg = "Usuario no autenticado";
+      console.error(`${logPrefix} ❌ ${errorMsg}`);
+      return { 
+        success: false, 
+        error: errorMsg,
+        message: "Debes iniciar sesión para reportar"
+      };
+    }
+
+    console.log(`${logPrefix} ✓ Usuario autenticado: ${user.id}`);
+
+    // ─── VERIFICAR REPORTE DUPLICADO ────────────────────────────────────
+
+    console.log(`${logPrefix} Verificando si ya reportó esta publicación...`);
+    const { data: existingReport, error: checkError } = await supabase
+      .from("reports")
+      .select("id, created_at")
+      .eq("publication_id", publicationId)
+      .eq("reporter_user_id", user.id)
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error(`${logPrefix} ❌ Error verificando reporte:`, checkError.message);
+      return { 
+        success: false, 
+        error: checkError.message,
+        message: "Error verificando reportes anteriores"
+      };
+    }
+
+    if (existingReport) {
+      const errorMsg = `Ya reportaste esta publicación el ${new Date(existingReport.created_at).toLocaleString()}`;
+      console.warn(`${logPrefix} ⚠️ ${errorMsg}`);
+      return { 
+        success: false, 
+        error: "Duplicate report",
+        message: errorMsg,
+        existingReport
+      };
+    }
+
+    console.log(`${logPrefix} ✓ Sin reportes previos de este usuario`);
+
+    // ─── SUBIR EVIDENCIA (si existe) ────────────────────────────────────
+
+    let evidenceUrl = null;
+    if (reportData.evidenceFile) {
+      try {
+        console.log(`${logPrefix} Subiendo archivo de evidencia a Cloudinary...`);
+        
+        const cloudinaryResult = await uploadImageToCloudinary(reportData.evidenceFile, {
+          folder: 'nosee/reports-evidence'
+        });
+
+        if (cloudinaryResult.success) {
+          evidenceUrl = cloudinaryResult.optimizedUrl || cloudinaryResult.url;
+          console.log(`${logPrefix} ✓ Evidencia subida: ${evidenceUrl}`);
+        } else {
+          console.warn(`${logPrefix} ⚠️ Error subiendo evidencia (continuando sin ella):`, cloudinaryResult.error);
+        }
+      } catch (fileErr) {
+        console.warn(`${logPrefix} ⚠️ Error procesando archivo (continuando):`, fileErr.message);
+      }
+    }
+
+    // ─── CREAR REPORTE EN BD ────────────────────────────────────────────
+
+    console.log(`${logPrefix} Creando reporte en base de datos...`);
     const { data: report, error } = await supabase
       .from("reports")
       .insert({
         publication_id: publicationId,
         reporter_user_id: user.id,
-        reason: description || `Tipo: ${reportType}`,
+        reason: reportData.reason,
+        description: reportData.description || null,
+        evidence_url: evidenceUrl,
         status: "PENDING",
+        created_at: new Date().toISOString(),
       })
       .select()
       .single();
 
     if (error) {
-      console.error("Error reportando publicación:", error);
-      return { success: false, error: error.message };
+      console.error(`${logPrefix} ❌ Error en BD:`, error);
+      return { 
+        success: false, 
+        error: error.message,
+        message: "Hubo un error al guardar el reporte"
+      };
     }
 
-    return { success: true, data: report };
+    console.log(`${logPrefix} ✅ Reporte creado exitosamente:`, {
+      id: report.id,
+      publicationId: report.publication_id,
+      reason: report.reason,
+      status: report.status,
+    });
+
+    return { 
+      success: true, 
+      data: report,
+      message: "Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE."
+    };
+
   } catch (err) {
-    console.error("Error en reportPublication:", err);
-    return { success: false, error: err.message };
+    console.error(`${logPrefix} ❌ Error crítico:`, {
+      message: err.message,
+      stack: err.stack,
+      publicationId,
+    });
+    return { 
+      success: false, 
+      error: err.message,
+      message: "Error al procesar el reporte. Intenta de nuevo."
+    };
   }
 };
 
@@ -1471,6 +1670,31 @@ export async function createProduct(name) {
   return { success: true, data };
 }
 
+export async function updateProduct(productId, updates = {}) {
+  if (!productId) return { success: false, error: "ID de producto requerido" };
+
+  const safeUpdates = {};
+  if (typeof updates.name === "string") safeUpdates.name = updates.name.trim();
+  if (updates.categoryId !== undefined) safeUpdates.category_id = Number(updates.categoryId);
+  if (updates.unitTypeId !== undefined) safeUpdates.unit_type_id = Number(updates.unitTypeId);
+  if (updates.brandId !== undefined) safeUpdates.brand_id = Number(updates.brandId);
+  if (updates.baseQuantity !== undefined) safeUpdates.base_quantity = Number(updates.baseQuantity);
+
+  if (Object.keys(safeUpdates).length === 0) {
+    return { success: false, error: "No hay campos para actualizar" };
+  }
+
+  const { data, error } = await supabase
+    .from("products")
+    .update(safeUpdates)
+    .eq("id", productId)
+    .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
+    .single();
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data };
+}
+
 export const createBrand = async (name) => {
   const normalizedName = String(name || "").trim();
   if (!normalizedName || normalizedName.length < 2) {
@@ -1561,6 +1785,7 @@ export default {
   downvotePublication,
   unvotePublication,
   reportPublication,
+  checkUserReportStatus,
   searchProducts,
   createProduct,
   getProducts,
@@ -1570,6 +1795,7 @@ export default {
   getUnitTypes,
   searchBrands,
   createBrand,
+  updateProduct,
   updatePublication,
   deletePublication,
   PUBLICATION_STATUS,
