@@ -43,17 +43,17 @@ const RoleBadge = ({ role }) => {
   const colors = {
     Admin: {
       bg: "rgba(251,191,36,0.15)",
-      color: "#FBBF24",
+      color: "var(--warning)",
       border: "rgba(251,191,36,0.3)",
     },
     Moderador: {
       bg: "rgba(167,139,250,0.15)",
-      color: "#A78BFA",
+      color: "var(--accent)",
       border: "rgba(167,139,250,0.3)",
     },
     Repartidor: {
       bg: "rgba(52,211,153,0.15)",
-      color: "#34D399",
+      color: "var(--success)",
       border: "rgba(52,211,153,0.3)",
     },
     Usuario: {
@@ -78,7 +78,7 @@ const RoleBadge = ({ role }) => {
         gap: "4px",
         padding: "3px 10px",
         borderRadius: "99px",
-        fontSize: "11px",
+        fontSize: "0.6875rem",
         fontWeight: "600",
         letterSpacing: "0.04em",
         textTransform: "uppercase",
@@ -170,7 +170,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: "24px",
+          fontSize: "1.5rem",
           fontWeight: "700",
           color: "var(--accent)",
           overflow: "hidden",
@@ -207,7 +207,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
               <div>
                 <h2
                   style={{
-                    fontSize: "20px",
+                    fontSize: "1.25rem",
                     fontWeight: "700",
                     color: "var(--text-primary)",
                     lineHeight: 1.2,
@@ -217,7 +217,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
                 </h2>
                 <p
                   style={{
-                    fontSize: "14px",
+                    fontSize: "0.875rem",
                     color: "var(--text-secondary)",
                     marginTop: "2px",
                   }}
@@ -247,7 +247,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
             {success && (
               <p
                 style={{
-                  fontSize: "13px",
+                  fontSize: "0.8125rem",
                   color: "var(--success)",
                   marginTop: "8px",
                 }}
@@ -283,7 +283,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
                 >
                   <div
                     style={{
-                      fontSize: "20px",
+                      fontSize: "1.25rem",
                       fontWeight: "700",
                       color: "var(--text-primary)",
                     }}
@@ -292,7 +292,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
                   </div>
                   <div
                     style={{
-                      fontSize: "11px",
+                      fontSize: "0.6875rem",
                       color: "var(--text-muted)",
                       marginTop: "2px",
                     }}
@@ -311,7 +311,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
           >
             <h3
               style={{
-                fontSize: "16px",
+                fontSize: "1rem",
                 fontWeight: "600",
                 color: "var(--text-primary)",
               }}
@@ -326,7 +326,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
                   borderRadius: "var(--radius-md)",
                   background: "var(--error-soft)",
                   color: "var(--error)",
-                  fontSize: "13px",
+                  fontSize: "0.8125rem",
                 }}
               >
                 {error}
@@ -346,7 +346,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
             />
 
             <div>
-              <p style={{ fontSize: "13px", fontWeight: "600", color: "var(--text-primary)", marginBottom: "8px" }}>
+              <p style={{ fontSize: "0.8125rem", fontWeight: "600", color: "var(--text-primary)", marginBottom: "8px" }}>
                 Foto de perfil
               </p>
               {form.avatarUrl && (
@@ -356,7 +356,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
                     alt="Avatar actual"
                     style={{ width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover", border: "2px solid var(--border)" }}
                   />
-                  <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Avatar actual</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Avatar actual</span>
                 </div>
               )}
               <PhotoUploader
@@ -365,7 +365,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
               />
             </div>
 
-            <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+            <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
               Email:{" "}
               <span style={{ color: "var(--text-secondary)" }}>
                 {user?.email}

@@ -293,6 +293,7 @@ export default function Navbar() {
             }}
           >
             <LogoutIcon />
+            <span className="sr-only">{tn.logout}</span>
           </button>
         </>
       ) : (
@@ -305,7 +306,7 @@ export default function Navbar() {
             style={{
               ...navLinkStyle(false),
               background: "var(--accent)",
-              color: "#080C14",
+              color: "var(--bg-base)",
               fontWeight: "600",
               padding: "6px 16px",
             }}

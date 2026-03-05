@@ -131,7 +131,7 @@ function PriceAlertsSection() {
         <p
           id="alert-form-error"
           role="alert"
-          style={{ fontSize: '13px', color: '#dc2626', marginBottom: '12px' }}
+          style={{ fontSize: '13px', color: 'var(--error)', marginBottom: '12px' }}
         >
           <span aria-hidden="true">⚠ </span>{error}
         </p>
@@ -167,7 +167,7 @@ function PriceAlertsSection() {
                 <button
                   onClick={() => handleDelete(a.id)}
                   aria-label={tpa.deleteAriaLabel(productName, priceFormatted)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: '13px', minHeight: '44px', minWidth: '44px' }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)', fontSize: '13px', minHeight: '44px', minWidth: '44px' }}
                 >
                   {tpa.delete}
                 </button>
@@ -285,7 +285,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
               onClick={() => handleChoose('permanent')}
               onKeyDown={(e) => handleKeyDown(e, 'permanent')}
               style={{
-                border: '1px solid #fecaca',
+                border: '1px solid var(--error-soft)',
                 borderRadius: 'var(--radius-md)',
                 padding: '16px',
                 cursor: 'pointer',
@@ -293,10 +293,10 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 transition: 'border-color 0.15s',
                 background: 'none', textAlign: 'left', width: '100%',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.borderColor = '#ef4444'}
-              onMouseLeave={(e) => e.currentTarget.style.borderColor = '#fecaca'}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--error)'}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--error-soft)'}
             >
-              <span style={{ fontSize: '14px', fontWeight: '600', color: '#dc2626' }}>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--error)' }}>
                 {tp.permanentTitle}
               </span>
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
@@ -369,15 +369,15 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
         {step === 'confirm-permanent' && (
           <>
             <div>
-              <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: '#dc2626', margin: '0 0 8px' }}>
+              <h2 id={titleId} style={{ fontSize: '18px', fontWeight: '700', color: 'var(--error)', margin: '0 0 8px' }}>
                 {tp.permanentModalTitle}
               </h2>
               <div style={{
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
+                background: 'var(--error-soft)',
+                border: '1px solid rgba(239,68,68,0.3)',
                 borderRadius: 'var(--radius-md)',
                 padding: '14px 16px',
-                fontSize: '13px', color: '#7f1d1d', lineHeight: 1.6,
+                fontSize: '13px', color: 'var(--error)', lineHeight: 1.6,
               }}>
                 {tp.permanentWarning}
                 <ul style={{ margin: '8px 0 0', paddingLeft: '18px' }}>
@@ -404,7 +404,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 disabled={loading}
                 style={{
                   padding: '9px 18px', borderRadius: 'var(--radius-md)',
-                  border: 'none', background: '#dc2626',
+                  border: 'none', background: 'var(--error)',
                   fontSize: '13px', fontWeight: '600', color: '#fff',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   opacity: loading ? 0.7 : 1,
@@ -441,21 +441,21 @@ const REASON_OPTIONS = [
 ];
 
 const STATUS_CONFIG = {
-  PENDING: { label: 'Pendiente', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
-  pending: { label: 'Pendiente', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
-  IN_REVIEW: { label: 'En revisión', color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
-  in_review: { label: 'En revisión', color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
-  RESOLVED: { label: 'Resuelto', color: '#166534', bg: '#f0fdf4', border: '#bbf7d0' },
-  resolved: { label: 'Resuelto', color: '#166534', bg: '#f0fdf4', border: '#bbf7d0' },
-  REJECTED: { label: 'Rechazado', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' },
-  rejected: { label: 'Rechazado', color: '#991b1b', bg: '#fef2f2', border: '#fecaca' },
+  PENDING: { label: 'Pendiente', color: 'var(--warning)', bg: 'rgba(251,191,36,0.15)', border: 'rgba(251,191,36,0.3)' },
+  pending: { label: 'Pendiente', color: 'var(--warning)', bg: 'rgba(251,191,36,0.15)', border: 'rgba(251,191,36,0.3)' },
+  IN_REVIEW: { label: 'En revisión', color: 'var(--accent)', bg: 'var(--accent-soft)', border: 'rgba(56,189,248,0.3)' },
+  in_review: { label: 'En revisión', color: 'var(--accent)', bg: 'var(--accent-soft)', border: 'rgba(56,189,248,0.3)' },
+  RESOLVED: { label: 'Resuelto', color: 'var(--success)', bg: 'var(--success-soft)', border: 'rgba(52,211,153,0.3)' },
+  resolved: { label: 'Resuelto', color: 'var(--success)', bg: 'var(--success-soft)', border: 'rgba(52,211,153,0.3)' },
+  REJECTED: { label: 'Rechazado', color: 'var(--error)', bg: 'var(--error-soft)', border: 'rgba(239,68,68,0.3)' },
+  rejected: { label: 'Rechazado', color: 'var(--error)', bg: 'var(--error-soft)', border: 'rgba(239,68,68,0.3)' },
 };
 
 // is_active: true = activa, false = inactiva
 const getPubStatusConf = (isActive) =>
   isActive !== false
-    ? { label: 'Activa', color: '#166534', bg: '#f0fdf4' }
-    : { label: 'Inactiva', color: '#6b7280', bg: '#f3f4f6' };
+    ? { label: 'Activa', color: 'var(--success)', bg: 'var(--success-soft)' }
+    : { label: 'Inactiva', color: 'var(--text-muted)', bg: 'var(--bg-elevated)' };
 
 // ─── Tarjeta de publicación (mini) ────────────────────────────────────────────
 function PublicationMiniCard({ publication, onEdit, saving }) {
@@ -503,9 +503,9 @@ function PublicationMiniCard({ publication, onEdit, saving }) {
             {statusConf.label}
           </span>
         </div>
-        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
           {storeName}
-        </div>
+        </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent)' }}>
             ${price}
@@ -516,7 +516,7 @@ function PublicationMiniCard({ publication, onEdit, saving }) {
             </span>
           )}
         </div>
-        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{date}</div>
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{date}</p>
       </div>
 
       {/* Acción */}
@@ -598,7 +598,7 @@ function EditPublicationModal({ publication, onClose, onSave }) {
           />
         </div>
 
-        {error && <p style={{ fontSize: '13px', color: '#dc2626', margin: 0 }}>⚠ {error}</p>}
+        {error && <p style={{ fontSize: '13px', color: 'var(--error)', margin: 0 }}>⚠ {error}</p>}
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{
@@ -731,7 +731,7 @@ function ReportCard({ report, userId, onRefresh }) {
               style={{ ...inputStyle, resize: 'vertical' }}
             />
           </div>
-          {error && <p style={{ fontSize: '12px', color: '#dc2626', margin: 0 }}>⚠ {error}</p>}
+          {error && <p style={{ fontSize: '12px', color: 'var(--error)', margin: 0 }}>⚠ {error}</p>}
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={handleCancel} style={{
               padding: '6px 14px', borderRadius: 'var(--radius-sm)',
@@ -830,7 +830,7 @@ function ProfileActivitySection({ user }) {
       </div>
 
       {loading && <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Cargando...</p>}
-      {error && <p style={{ fontSize: '13px', color: '#dc2626' }}>⚠️ {error}</p>}
+      {error && <p style={{ fontSize: '13px', color: 'var(--error)' }}>⚠️ {error}</p>}
 
       {!loading && !error && (
         <>
@@ -981,11 +981,11 @@ export default function ProfilePage() {
       <div style={{
         marginTop: '20px',
         background: 'var(--bg-surface)',
-        border: '1px solid #fecaca',
+        border: '1px solid var(--error-soft)',
         borderRadius: 'var(--radius-xl)',
         padding: '20px 24px',
       }}>
-        <h2 style={{ fontSize: '15px', fontWeight: '600', color: '#dc2626', marginBottom: '6px' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--error)', marginBottom: '6px' }}>
           {tp.dangerZoneTitle}
         </h2>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: 1.5 }}>
@@ -994,9 +994,9 @@ export default function ProfilePage() {
 
         {deleteError && (
           <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca',
+            background: 'var(--error-soft)', border: '1px solid rgba(239,68,68,0.3)',
             borderRadius: 'var(--radius-md)', padding: '10px 14px',
-            fontSize: '13px', color: '#991b1b', marginBottom: '12px',
+            fontSize: '13px', color: 'var(--error)', marginBottom: '12px',
           }}>
             ⚠️ {deleteError}
           </div>
@@ -1008,11 +1008,11 @@ export default function ProfilePage() {
           style={{
             padding: '9px 18px',
             borderRadius: 'var(--radius-md)',
-            border: '1px solid #dc2626',
+            border: '1px solid var(--error)',
             background: 'none',
             fontSize: '13px',
             fontWeight: '600',
-            color: '#dc2626',
+            color: 'var(--error)',
             cursor: 'pointer',
           }}
         >

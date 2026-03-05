@@ -1531,7 +1531,7 @@ function ErrorBar({ msg, onRetry }) {
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
-const ACCENT  = '#FF6B35';
+const ACCENT  = 'var(--accent)';
 const BG      = 'var(--bg-base)';
 const SURFACE = 'var(--bg-surface)';
 const BORDER  = 'var(--border)';

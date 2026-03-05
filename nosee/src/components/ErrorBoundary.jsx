@@ -43,26 +43,26 @@ export default class ErrorBoundary extends Component {
 const styles = {
   wrapper: {
     margin: "24px",
-    border: "1px solid #fecaca",
+    border: "1px solid var(--error)",
     borderRadius: "12px",
-    background: "#fef2f2",
+    background: "var(--error-soft)",
     padding: "18px",
-    color: "#7f1d1d",
+    color: "var(--error)",
   },
   title: {
     margin: "0 0 8px",
-    fontSize: "20px",
+    fontSize: "1.25rem",
   },
   text: {
     margin: "4px 0",
-    fontSize: "14px",
+    fontSize: "0.875rem",
   },
   button: {
     marginTop: "12px",
     border: "none",
     borderRadius: "8px",
-    background: "#b91c1c",
-    color: "#fff",
+    background: "var(--error)",
+    color: "var(--text-primary)",
     padding: "10px 14px",
     cursor: "pointer",
   },

@@ -18,7 +18,7 @@ export default function StoreCard({ store, onViewDetail }) {
       </div>
 
       <div style={styles.info}>
-        <div style={styles.name}>{store.name}</div>
+        <p style={styles.name}>{store.name}</p>
 
         <div style={styles.badge}>
           <span style={{ ...styles.typeBadge, ...(isPhysical ? styles.badgePhysical : styles.badgeVirtual) }}>
@@ -27,17 +27,17 @@ export default function StoreCard({ store, onViewDetail }) {
         </div>
 
         {isPhysical && store.address && (
-          <div style={styles.address}>
+          <p style={styles.address}>
             <span aria-hidden="true">📍 </span>
             {store.address}
-          </div>
+          </p>
         )}
 
         {!isPhysical && store.website_url && (
-          <div style={styles.address}>
+          <p style={styles.address}>
             <span aria-hidden="true">🔗 </span>
             <span style={styles.urlText}>{store.website_url}</span>
-          </div>
+          </p>
         )}
       </div>
 
@@ -101,12 +101,12 @@ const styles = {
     borderRadius: '99px',
   },
   badgePhysical: {
-    background: 'rgba(34,197,94,0.12)',
-    color: '#16a34a',
+    background: 'var(--success-soft)',
+    color: 'var(--success)',
   },
   badgeVirtual: {
-    background: 'rgba(99,102,241,0.12)',
-    color: '#6366f1',
+    background: 'var(--accent-soft)',
+    color: 'var(--accent)',
   },
   address: {
     fontSize: '12px',

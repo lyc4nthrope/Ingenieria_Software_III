@@ -878,7 +878,7 @@ function EmptyState({ td }) {
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
-const ACCENT = "#A78BFA";
+const ACCENT = 'var(--accent)';
 const BG = "var(--bg-base)";
 const SURFACE = "var(--bg-surface)";
 const BORDER = "var(--border)";

@@ -161,7 +161,7 @@ const s = {
     textAlign: "center",
   },
   title: {
-    fontSize: "32px",
+    fontSize: "2rem",
     fontWeight: 800,
     color: "var(--text-primary)",
     letterSpacing: "-0.02em",
@@ -170,7 +170,7 @@ const s = {
   subtitle: {
     margin: "8px 0 0",
     color: "var(--text-secondary)",
-    fontSize: "15px",
+    fontSize: "0.9375rem",
   },
   centered: {
     display: "flex",
@@ -200,12 +200,12 @@ const s = {
     border: "1px solid rgba(248,113,113,0.3)",
     borderRadius: "var(--radius-sm)",
     padding: "12px 16px",
-    fontSize: "14px",
+    fontSize: "0.875rem",
   },
   empty: {
     textAlign: "center",
     color: "var(--text-muted)",
-    fontSize: "15px",
+    fontSize: "0.9375rem",
     padding: "40px 0",
   },
   tableWrapper: {
@@ -217,13 +217,13 @@ const s = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    fontSize: "14px",
+    fontSize: "0.875rem",
   },
   th: {
     padding: "12px 16px",
     textAlign: "left",
     fontWeight: 700,
-    fontSize: "12px",
+    fontSize: "0.75rem",
     color: "var(--text-muted)",
     textTransform: "uppercase",
     letterSpacing: "0.05em",
@@ -239,7 +239,7 @@ const s = {
     verticalAlign: "middle",
   },
   positionBadge: {
-    fontSize: "18px",
+    fontSize: "1.125rem",
     display: "inline-block",
     minWidth: "32px",
     textAlign: "center",
@@ -256,26 +256,26 @@ const s = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "14px",
+    fontSize: "0.875rem",
     flexShrink: 0,
   },
   userName: {
     fontWeight: 600,
     color: "var(--text-primary)",
-    fontSize: "14px",
+    fontSize: "0.875rem",
   },
   roleBadge: {
     display: "inline-block",
     marginTop: "2px",
     padding: "1px 8px",
     borderRadius: "100px",
-    fontSize: "11px",
+    fontSize: "0.6875rem",
     fontWeight: 600,
     background: "var(--accent-soft)",
     color: "var(--accent)",
   },
   points: {
-    fontSize: "16px",
+    fontSize: "1rem",
     fontWeight: 700,
   },
 };

@@ -227,7 +227,7 @@ function OrderCard({ order, statusInfo, td, onAdvance, onSelect, selected }) {
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
-const ACCENT  = '#34D399';   // verde operaciones — movimiento, acción
+const ACCENT  = 'var(--accent)';
 const BG      = 'var(--bg-base)';
 const SURFACE = 'var(--bg-surface)';
 const BORDER  = 'var(--border)';

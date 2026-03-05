@@ -71,14 +71,14 @@ function NotFoundPage() {
       <div style={{ fontSize: "72px", lineHeight: 1 }}>🔍</div>
       <h1
         style={{
-          fontSize: "28px",
+          fontSize: "1.75rem",
           fontWeight: "800",
           color: "var(--text-primary)",
         }}
       >
         404
       </h1>
-      <p style={{ color: "var(--text-secondary)", fontSize: "15px" }}>
+      <p style={{ color: "var(--text-secondary)", fontSize: "0.9375rem" }}>
         {t.app.notFound}
       </p>
       <a
@@ -88,7 +88,7 @@ function NotFoundPage() {
           background: "var(--accent-soft)",
           color: "var(--accent)",
           borderRadius: "var(--radius-md)",
-          fontSize: "14px",
+          fontSize: "0.875rem",
           fontWeight: "500",
           textDecoration: "none",
         }}
@@ -218,19 +218,19 @@ function ConnectionErrorView() {
       style={{
         margin: "24px",
         borderRadius: "12px",
-        border: "1px solid #fecaca",
-        background: "#fef2f2",
-        color: "#7f1d1d",
+        border: "1px solid var(--error)",
+        background: "var(--error-soft)",
+        color: "var(--error)",
         padding: "20px",
         display: "grid",
         gap: "8px",
       }}
     >
-      <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 800 }}>
+      <h2 style={{ margin: 0, fontSize: "1.375rem", fontWeight: 800 }}>
         {t.app.connectionErrorTitle}
       </h2>
-      <p style={{ margin: 0, color: "#991b1b" }}>{t.app.connectionErrorMessage}</p>
-      <p style={{ margin: 0, fontSize: "14px", color: "#991b1b" }}>
+      <p style={{ margin: 0, color: "var(--error)" }}>{t.app.connectionErrorMessage}</p>
+      <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--error)" }}>
         {t.app.connectionErrorHint}
       </p>
     </section>
@@ -269,11 +269,11 @@ function RoleChangeToast() {
         position: "fixed",
         bottom: "24px",
         right: "24px",
-        background: "#1e293b",
-        color: "#fff",
+        background: "var(--bg-elevated)",
+        color: "var(--text-primary)",
         padding: "12px 16px 12px 20px",
         borderRadius: "8px",
-        fontSize: "14px",
+        fontSize: "0.875rem",
         fontWeight: 500,
         boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
         zIndex: 9999,
@@ -294,9 +294,9 @@ function RoleChangeToast() {
         style={{
           background: "none",
           border: "none",
-          color: "#fff",
+          color: "var(--text-primary)",
           cursor: "pointer",
-          fontSize: "16px",
+          fontSize: "1rem",
           lineHeight: 1,
           padding: "4px",
           marginLeft: "auto",

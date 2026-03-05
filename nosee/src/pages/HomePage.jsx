@@ -202,11 +202,11 @@ function PublicationCard({
       </div>
 
       <div className="card-body">
-        <div className="card-title">{pubName}</div>
-        <div className="card-price">${pub.price.toLocaleString()}</div>
-        <div className="card-description">
+        <p className="card-title">{pubName}</p>
+        <p className="card-price">${pub.price.toLocaleString()}</p>
+        <p className="card-description">
           {(pub.description || th.noDescription).slice(0, 80)}
-        </div>
+        </p>
       </div>
 
       <div className="card-divider" />
