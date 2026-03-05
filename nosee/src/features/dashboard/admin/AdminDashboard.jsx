@@ -9,7 +9,7 @@
  */
 import { useState, useEffect } from 'react';
 import { changeUserRole, getAdminReports, getAllUsers, updateReportReview, updateUserStatus } from '@/services/api/users.api';
-import { getPublications, deletePublication } from '@/services/api/publications.api';
+import { deletePublication } from '@/services/api/publications.api';
 import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
@@ -116,6 +116,20 @@ const formatPublicationSummary = (publication) => {
     price: typeof price === 'number' ? price.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) : 'N/A',
   };
 };
+
+const normalizePublicationForAdmin = (publication) => ({
+  ...publication,
+  userName: publication?.user?.full_name || null,
+  productName: publication?.product?.name || null,
+  storeName: publication?.store?.name || null,
+  createdAt: publication?.created_at || null,
+  photoUrl: publication?.photo_url || null,
+  confidenceScore: publication?.confidence_score ?? null,
+  status: publication?.is_active ? 'active' : 'hidden',
+});
+
+const isPublicationVisible = (publication) => publication?.is_active === true;
+const isPublicationHidden = (publication) => !isPublicationVisible(publication);
 
 const normalizeReportStatus = (status) => String(status || 'PENDING').toUpperCase();
 
@@ -319,7 +333,7 @@ export default function AdminDashboard() {
         `)
         .order('created_at', { ascending: false })
         .limit(300);
-      if (!error) setPublications(data || []);
+      if (!error) setPublications((data || []).map(normalizePublicationForAdmin));
     } catch {
       // silencioso
     } finally {
@@ -643,13 +657,13 @@ export default function AdminDashboard() {
                 </div>
                 <div style={{ ...s.statCard, flex: '1 1 140px', padding: '14px 18px' }}>
                   <div style={{ ...s.statValue, color: '#34D399' }}>
-                    {publications.filter(p => p.is_active).length}
+                    {publications.filter(isPublicationVisible).length}
                   </div>
                   <div style={s.statLabel}>{td.filterVisible}</div>
                 </div>
                 <div style={{ ...s.statCard, flex: '1 1 140px', padding: '14px 18px' }}>
                   <div style={{ ...s.statValue, color: '#F87171' }}>
-                    {publications.filter(p => !p.is_active).length}
+                    {publications.filter(isPublicationHidden).length}
                   </div>
                   <div style={s.statLabel}>{td.filterHidden}</div>
                 </div>
@@ -678,8 +692,8 @@ export default function AdminDashboard() {
             ) : (
               <PublicationsTable
                 publications={publications.filter(p => {
-                  if (pubFilter === 'visible') return p.is_active === true;
-                  if (pubFilter === 'hidden')  return p.is_active === false;
+                  if (pubFilter === 'visible') return isPublicationVisible(p);
+                  if (pubFilter === 'hidden')  return isPublicationHidden(p);
                   return true;
                 })}
                 onDelete={handleDeletePublication}
@@ -992,14 +1006,14 @@ function PublicationsTable({ publications, onDelete, onView, deletingId }) {
           <div style={s.td}>
             <div>
               <div style={s.rowName}>{p.productName || p.product?.name || '—'}</div>
-              <StatusBadge status={p.status} />
+              <StatusBadge status={p.is_active ? 'active' : 'hidden'} />
             </div>
           </div>
-          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.storeName || p.store?.name || '—'}</div>
+           <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.authorName || p.userName || p.user?.full_name || '—'}</div>
           <div style={{ ...s.td, ...s.tdNum }}>
             ${typeof p.price === 'number' ? p.price.toLocaleString('es-CO') : p.price || '—'}
           </div>
-          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.authorName || p.user?.fullName || '—'}</div>
+          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.authorName || p.userName || p.user?.full_name || '—'}</div>
           <div style={{ ...s.td, fontSize: 12, color: MUTED }}>
             {p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-CO') : '—'}
           </div>
@@ -1027,25 +1041,26 @@ function PublicationsTable({ publications, onDelete, onView, deletingId }) {
 }
 
 // ─── PublicationDetailModal ───────────────────────────────────────────────────
-const PUB_STATUS_OPTIONS = ['active', 'pending', 'rejected', 'expired'];
-
 function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
-  const [status, setStatus] = useState(pub.status || 'active');
-  const [price, setPrice]   = useState(pub.price ?? '');
+  const [isActive, setIsActive] = useState(pub.is_active !== false);
+  const [price, setPrice]       = useState(pub.price ?? '');
+  const [description, setDescription] = useState(pub.description || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
 
   const productName = pub.productName || pub.product?.name || '—';
   const storeName   = pub.storeName   || pub.store?.name   || '—';
-  const authorName  = pub.authorName  || pub.user?.fullName || '—';
+  const authorName  = pub.authorName  || pub.userName || pub.user?.full_name || '—';
   const createdAt   = pub.createdAt   ? new Date(pub.createdAt).toLocaleString('es-CO') : '—';
+  const confidence = typeof pub.confidenceScore === 'number' ? pub.confidenceScore.toFixed(2) : '—';
+
 
   const save = async () => {
     setSaving(true);
     setSaved(false);
-    const updates = { status };
+    const updates = { is_active: isActive, description: description?.trim() || null };
     const parsedPrice = Number(price);
     if (!isNaN(parsedPrice) && parsedPrice > 0) updates.price = parsedPrice;
     const ok = await onSave(updates);
@@ -1069,7 +1084,7 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
         <div style={{ ...s.section, marginBottom: 16, marginTop: 0 }}>
           <div style={{ ...s.sectionHead, marginBottom: 10 }}>
             <span style={s.sectionTitle}>{td.pubDetailTitle}</span>
-            <StatusBadge status={pub.status} />
+            <StatusBadge status={pub.is_active ? 'active' : 'hidden'} />
           </div>
           <div style={s.detailGrid}>
             <DetailRow label={td.pubProductLabel} value={productName} />
@@ -1077,8 +1092,8 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
             <DetailRow label={td.pubPriceLabel}   value={`$${typeof pub.price === 'number' ? pub.price.toLocaleString('es-CO') : pub.price || '—'}`} />
             <DetailRow label={td.pubAuthorLabel}  value={authorName} />
             <DetailRow label={td.pubDateLabel}    value={createdAt} />
-            {typeof pub.upvotes === 'number' && <DetailRow label={td.pubUpvotesLabel}   value={pub.upvotes} />}
-            {typeof pub.downvotes === 'number' && <DetailRow label={td.pubDownvotesLabel} value={pub.downvotes} />}
+            <DetailRow label={td.pubConfidenceLabel} value={confidence} />
+            <DetailRow label={td.pubDescriptionLabel} value={pub.description || '—'} />
           </div>
         </div>
 
@@ -1099,13 +1114,14 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
         {/* Edición */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <label style={s.filterLabelWrap}>
-            <span style={s.filterLabel}>{td.pubStatusLabel}</span>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} style={s.filterSelect}>
-              {PUB_STATUS_OPTIONS.map(opt => (
-                <option key={opt} value={opt}>
-                  {td[`pubStatus${opt.charAt(0).toUpperCase()}${opt.slice(1)}`] || opt}
-                </option>
-              ))}
+            <span style={s.filterLabel}>{td.pubVisibilityLabel}</span>
+            <select
+              value={isActive ? 'visible' : 'hidden'}
+              onChange={(e) => setIsActive(e.target.value === 'visible')}
+              style={s.filterSelect}
+            >
+              <option value="visible">{td.pubIsActiveLabel}</option>
+              <option value="hidden">{td.pubIsHiddenLabel}</option>
             </select>
           </label>
 
@@ -1118,6 +1134,17 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
               style={{ ...s.filterSelect, fontFamily: 'inherit' }}
               min={0}
               placeholder="Precio en COP"
+            />
+          </label>
+
+          <label style={s.filterLabelWrap}>
+            <span style={s.filterLabel}>{td.pubDescriptionLabel}</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              style={{ ...s.filterSelect, fontFamily: 'inherit', resize: 'vertical' }}
+              placeholder="Descripción de la publicación"
             />
           </label>
         </div>
@@ -1451,6 +1478,7 @@ function StatusBadge({ status }) {
   const td = t.adminDashboard;
   const map = {
     active:   { bg: '#34D39918', color: '#34D399', label: td.pubStatusActive },
+    hidden:   { bg: '#F8717118', color: '#F87171', label: td.pubHiddenStatus },
     pending:  { bg: '#FCD34D18', color: '#FCD34D', label: td.pubStatusPending },
     rejected: { bg: '#F8717118', color: '#F87171', label: td.pubStatusRejected },
     expired:  { bg: '#64748B18', color: '#64748B', label: td.pubStatusExpired },
