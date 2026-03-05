@@ -26,6 +26,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { compressImage, optimizeCloudinaryUrl } from '@/services/cloudinary';
 
 /**
  * Validaciones para el archivo
@@ -137,9 +138,10 @@ export const usePhotoUpload = () => {
         const uploadFolder =
           import.meta.env.VITE_CLOUDINARY_UPLOAD_FOLDER || 'nosee/publications';
 
-        // Preparar FormData
+        const compressed = await compressImage(file);
+
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', compressed);
         formData.append('upload_preset', uploadPreset);
         formData.append('folder', uploadFolder);
 
@@ -162,7 +164,7 @@ export const usePhotoUpload = () => {
             if (xhr.status === 200) {
               try {
                 const data = JSON.parse(xhr.responseText);
-                const url = data.secure_url;
+                const url = optimizeCloudinaryUrl(data.secure_url, { width: 1200 });
 
                 setPhotoUrl(url);
                 setProgress(100);

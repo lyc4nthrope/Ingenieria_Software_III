@@ -10,15 +10,14 @@ import * as publicationsApi from "@/services/api/publications.api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isAdmin } from "@/types";
 import { ReportPublicationModal } from "@/features/publications/components/ReportPublicationModal";
+import { optimizeCloudinaryUrl } from "@/services/cloudinary";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const FALLBACK_IMAGE = "https://via.placeholder.com/400x300?text=Sin+foto";
 
-const isAbsoluteUrl = (value = "") => /^https?:\/\//i.test(value);
-
 const buildCloudinaryImageUrl = (publicId) => {
   if (!publicId || !CLOUDINARY_CLOUD_NAME) return null;
-  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto,w_800/${publicId}`;
+  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto,w_800,c_limit/${publicId}`;
 };
 
 const resolvePublicationPhoto = (publication) => {
@@ -28,7 +27,11 @@ const resolvePublicationPhoto = (publication) => {
     publication?.cloudinary_public_id;
 
   if (!candidate) return FALLBACK_IMAGE;
-  if (isAbsoluteUrl(candidate)) return candidate;
+
+  if (candidate.includes('res.cloudinary.com')) {
+    return optimizeCloudinaryUrl(candidate, { width: 800 });
+  }
+  if (/^https?:\/\//i.test(candidate)) return candidate;
   return buildCloudinaryImageUrl(candidate) || FALLBACK_IMAGE;
 };
 

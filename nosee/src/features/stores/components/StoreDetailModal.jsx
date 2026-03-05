@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getStorePublications, getStoreEvidences } from '@/services/api/stores.api';
+import { optimizeCloudinaryUrl } from '@/services/cloudinary';
 
 const LEAFLET_CSS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 const LEAFLET_JS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
@@ -133,9 +134,11 @@ function PublicationMini({ pub, onNavigate }) {
     >
       {pub.photo_url && (
         <img
-          src={pub.photo_url}
+          src={optimizeCloudinaryUrl(pub.photo_url, { width: 200 })}
           alt={pub.product?.name || ''}
           style={miniStyles.img}
+          loading="lazy"
+          decoding="async"
         />
       )}
       <div style={miniStyles.info}>
@@ -304,9 +307,11 @@ export default function StoreDetailModal({ store, onClose }) {
                       onClick={() => setExpandedEvidence(ev.image_url)}
                     >
                       <img
-                        src={ev.image_url}
+                        src={optimizeCloudinaryUrl(ev.image_url, { width: 400 })}
                         alt={store.name}
                         style={styles.evidenceImg}
+                        loading="lazy"
+                        decoding="async"
                       />
                     </button>
                   ))}

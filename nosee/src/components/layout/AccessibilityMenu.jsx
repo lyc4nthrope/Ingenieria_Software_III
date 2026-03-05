@@ -100,15 +100,16 @@ function AccessibilityIcon() {
   return (
     <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
       <circle cx="32" cy="32" r="30" fill="#2668d8" stroke="#b8cffd" strokeWidth="4" />
-      <circle cx="32" cy="18" r="5" fill="#fff" />
-      <path
-        d="M19 24h26M32 24v22M23 31l9 6 9-6M25 46h14"
-        stroke="#fff"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
+      {/* Cabeza */}
+      <circle cx="32" cy="16" r="5" fill="#fff" />
+      {/* Brazos extendidos */}
+      <line x1="10" y1="28" x2="54" y2="28" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+      {/* Cuerpo */}
+      <line x1="32" y1="28" x2="32" y2="42" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+      {/* Pierna izquierda */}
+      <line x1="32" y1="42" x2="20" y2="54" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+      {/* Pierna derecha */}
+      <line x1="32" y1="42" x2="44" y2="54" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
     </svg>
   );
 }
