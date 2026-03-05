@@ -47,16 +47,17 @@ const styles = {
     gap: "8px",
   },
   option: {
-    border: "1px solid var(--border-color, #e5e7eb)",
-    borderRadius: "10px",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
     padding: "10px 12px",
-    background: "#fff",
+    background: "var(--bg-elevated)",
+    color: "var(--text-secondary)",
     cursor: "pointer",
     fontWeight: 600,
   },
   active: {
-    borderColor: "var(--accent, #2563eb)",
-    background: "var(--accent-soft, #eff6ff)",
-    color: "var(--accent, #2563eb)",
+    borderColor: "var(--accent)",
+    background: "var(--accent-soft)",
+    color: "var(--accent)",
   },
 };

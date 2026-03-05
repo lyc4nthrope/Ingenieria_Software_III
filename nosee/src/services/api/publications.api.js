@@ -41,7 +41,17 @@ export const SORT_OPTIONS = {
   RECENT: "recent",
   VALIDATED: "validated",
   CHEAPEST: "cheapest",
+  BEST_MATCH: "best_match",
 };
+
+const SEARCH_SORT_FIELDS = new Set([
+  SORT_OPTIONS.RECENT,
+  SORT_OPTIONS.VALIDATED,
+  SORT_OPTIONS.CHEAPEST,
+  SORT_OPTIONS.BEST_MATCH,
+]);
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const REQUEST_TIMEOUT_MS = 12000;
 const BACKGROUND_REQUEST_TIMEOUT_MS = 20000;
@@ -236,6 +246,109 @@ const hydrateRelatedPublicationData = async (publications = []) => {
   });
 };
 
+const enrichSearchRankingSignals = async (publications, filters = {}) => {
+  if (!Array.isArray(publications) || publications.length === 0) {
+    return publications;
+  }
+
+  const publicationIds = publications.map((publication) => publication.id);
+  const storeIds = [...new Set(publications.map((publication) => publication.store_id).filter(Boolean))];
+  const productIds = [...new Set(publications.map((publication) => publication.product_id).filter(Boolean))];
+
+  const [votesResult, reportsResult, evidenceResult, productStatsResult] = await Promise.all([
+    supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds),
+    supabase.from("reports").select("publication_id, status, evidence_url").in("publication_id", publicationIds),
+    supabase.from("store_evidences").select("store_id").in("store_id", storeIds),
+    supabase.from("price_publications").select("product_id, price").in("product_id", productIds),
+  ]);
+
+  const votesByPublication = {};
+  (votesResult.data || []).forEach((row) => {
+    const current = votesByPublication[row.publication_id] || { positive: 0, negative: 0 };
+    if (row.vote_type === 1) current.positive += 1;
+    if (row.vote_type === -1) current.negative += 1;
+    votesByPublication[row.publication_id] = current;
+  });
+
+  const reportsByPublication = {};
+  (reportsResult.data || []).forEach((row) => {
+    if (!row.publication_id) return;
+    const current = reportsByPublication[row.publication_id] || { active: 0, evidences: 0 };
+    if (String(row.status || "").toLowerCase() !== "rejected") {
+      current.active += 1;
+      if (row.evidence_url) current.evidences += 1;
+    }
+    reportsByPublication[row.publication_id] = current;
+  });
+
+  const evidencesByStore = {};
+  (evidenceResult.data || []).forEach((row) => {
+    evidencesByStore[row.store_id] = (evidencesByStore[row.store_id] || 0) + 1;
+  });
+
+  const productPriceStats = {};
+  (productStatsResult.data || []).forEach((row) => {
+    if (!productPriceStats[row.product_id]) {
+      productPriceStats[row.product_id] = { min: Number(row.price), total: 0, count: 0 };
+    }
+    const stat = productPriceStats[row.product_id];
+    const price = Number(row.price);
+    if (price < stat.min) stat.min = price;
+    stat.total += price;
+    stat.count += 1;
+  });
+
+  const hasSearchTerm = String(filters.productName || "").trim().length > 0 || String(filters.storeName || "").trim().length > 0;
+
+  return publications
+    .map((publication) => {
+      const voteSignals = votesByPublication[publication.id] || { positive: 0, negative: 0 };
+      const reportSignals = reportsByPublication[publication.id] || { active: 0, evidences: 0 };
+      const userReputation = Number(publication?.user?.reputation_points || 0);
+      const storeEvidences = Number(evidencesByStore[publication.store_id] || 0);
+      const stats = productPriceStats[publication.product_id] || null;
+
+      const distanceScore = Number.isFinite(publication.distance_km)
+        ? clamp(1 - publication.distance_km / 50, 0, 1)
+        : 0.45;
+      const voteBalance = voteSignals.positive - voteSignals.negative;
+      const voteScore = clamp((voteBalance + 5) / 10, 0, 1);
+      const reportScore = clamp(1 - reportSignals.active / 5, 0, 1);
+      const reputationScore = clamp(userReputation / 500, 0, 1);
+      const evidenceScore = clamp((storeEvidences + reportSignals.evidences) / 8, 0, 1);
+      const priceScore = stats
+        ? clamp(((stats.total / Math.max(stats.count, 1)) - Number(publication.price)) / Math.max(stats.total / Math.max(stats.count, 1), 1) + 0.5, 0, 1)
+        : 0.5;
+
+      const searchScore =
+        0.26 * distanceScore +
+        0.22 * priceScore +
+        0.2 * voteScore +
+        0.14 * reportScore +
+        0.12 * reputationScore +
+        0.06 * evidenceScore;
+
+      return {
+        ...publication,
+        search_signals: {
+          ...voteSignals,
+          reports_active: reportSignals.active,
+          reports_with_evidence: reportSignals.evidences,
+          store_evidences: storeEvidences,
+          user_reputation_points: userReputation,
+          product_avg_price: stats ? stats.total / Math.max(stats.count, 1) : null,
+          product_min_price: stats ? stats.min : null,
+        },
+        search_score: Number(searchScore.toFixed(4)),
+      };
+    })
+    .sort((a, b) => {
+      if (hasSearchTerm) {
+        return (b.search_score || 0) - (a.search_score || 0);
+      }
+      return 0;
+    });
+};
 
 const isAuthSessionError = (error) => {
   const msg = String(error?.message || error || "").toLowerCase();
@@ -577,6 +690,9 @@ export const getPublications = async (filters = {}) => {
         case "validated":
           query = query.order("confidence_score", { ascending: false });
           break;
+        case "best_match":
+          query = query.order("created_at", { ascending: false });
+          break;
         case "recent":
         default:
           query = query.order("created_at", { ascending: false });
@@ -733,11 +849,22 @@ export const getPublications = async (filters = {}) => {
         ),
       };
     });
+    const shouldUseBestMatch =
+      SEARCH_SORT_FIELDS.has(sortBy) &&
+      (sortBy === SORT_OPTIONS.BEST_MATCH || String(productName || "").trim() || String(storeName || "").trim());
+
+    const rankedPublications = shouldUseBestMatch
+      ? await enrichSearchRankingSignals(publicationsWithCoordinates, {
+          productName,
+          storeName,
+        })
+      : publicationsWithCoordinates;
+    
     return {
       success: true,
-      data: publicationsWithCoordinates,
-      count: count ?? publicationsWithCoordinates.length,
-      hasMore: offset + limit < (count ?? publicationsWithCoordinates.length),
+      data: rankedPublications,
+      count: count ?? rankedPublications.length,
+      hasMore: offset + limit < (count ?? rankedPublications.length),
     };
   } catch (err) {
     const runtimeState = getRuntimeNetworkState();
@@ -802,22 +929,12 @@ export const getPublicationDetail = async (publicationId) => {
     }
 
     let comments = [];
-    const { data: commentsData, error: commentsError } = await supabase
-      .from("publication_comments")
-      .select(
-        `
-          id,
-          content,
-          created_at,
-          user_id,
-          user:users!publication_comments_user_id_fkey (id, full_name)
-        `,
-      )
-      .eq("publication_id", publicationId)
-      .order("created_at", { ascending: false });
+    const { data: commentsData, error: commentsError } = await loadCommentsRows(publicationId);
 
-    if (!commentsError) {
-      comments = commentsData || [];
+    if (!commentsError && commentsData?.length) {
+      comments = await hydrateCommentUsers(
+        commentsData.filter((comment) => comment.is_deleted !== true),
+      );
     }
 
     return { success: true, data: { ...data, comments } };
@@ -1258,6 +1375,65 @@ export const reportPublication = async (
  * const result = await searchProducts('ace');
  * // Retorna: [{ id: 1, name: 'Aceite de oliva' }, ...]
  */
+
+export const searchProductsAndBrands = async (query, limit = 8) => {
+  try {
+    if (!query || query.trim().length < 2) {
+      return { success: true, data: [] };
+    }
+
+    const safeLimit = Math.max(3, Math.min(Number(limit) || 8, 20));
+    const term = query.trim();
+
+    const [{ data: productsData, error: productsError }, { data: brandsData, error: brandsError }] = await Promise.all([
+      supabase
+        .from("products")
+        .select("id, name, brand:brands(id, name)")
+        .ilike("name", `%${term}%`)
+        .limit(safeLimit),
+      supabase
+        .from("brands")
+        .select("id, name")
+        .ilike("name", `%${term}%`)
+        .limit(Math.ceil(safeLimit / 2)),
+    ]);
+
+    if (productsError) return { success: false, error: productsError.message };
+    if (brandsError) return { success: false, error: brandsError.message };
+
+    const seen = new Set();
+    const suggestions = [];
+
+    for (const product of productsData || []) {
+      const key = `product-${product.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      suggestions.push({
+        id: product.id,
+        label: product.brand?.name ? `${product.name} · ${product.brand.name}` : product.name,
+        type: "product",
+        value: product.name,
+      });
+    }
+
+    for (const brand of brandsData || []) {
+      const key = `brand-${brand.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      suggestions.push({
+        id: brand.id,
+        label: `${brand.name} (marca)`,
+        type: "brand",
+        value: brand.name,
+      });
+    }
+
+    return { success: true, data: suggestions.slice(0, safeLimit) };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
 export const searchProducts = async (query, limit = 10) => {
   try {
     if (!query || query.length < 2) {
@@ -1267,7 +1443,7 @@ export const searchProducts = async (query, limit = 10) => {
     const executeSearch = () =>
       supabase
         .from("products")
-        .select("id, name, category_id")
+        .select("id, name, category_id, base_quantity, brand:brands(name), unit:unit_types(name)")
         .ilike("name", `%${query}%`)
         .limit(limit);
       
@@ -1609,7 +1785,7 @@ export async function createProduct(name) {
 
   // Si ya existe (case-insensitive), no creamos duplicado y retornamos el existente.
   if (existingProduct) {
-    return { success: true, data: existingProduct };
+    return { success: false, error: "Este producto ya está registrado.", alreadyExists: true, data: existingProduct };
   }
 
   let resolvedBrandId = brandId;
@@ -1716,7 +1892,7 @@ export const createBrand = async (name) => {
   }
 
   if (existing) {
-    return { success: true, data: existing };
+    return { success: false, error: "Esta marca ya está registrada.", alreadyExists: true, data: existing };
   }
 
   const { data, error } = await supabase
@@ -1775,6 +1951,121 @@ export const searchBrands = async (query, limit = 10) => {
 };
 
 
+// ─── COMENTARIOS ─────────────────────────────────────────────────────────────
+
+/**
+ * Obtener todos los comentarios de una publicación (flat, sin borrados)
+ */
+const hydrateCommentUsers = async (comments) => {
+  if (!comments.length) return comments;
+  const userIds = [...new Set(comments.map((c) => c.user_id).filter(Boolean))];
+  const { data: usersData } = await supabase
+    .from("users")
+    .select("id, full_name")
+    .in("id", userIds);
+  const usersMap = {};
+  for (const u of usersData || []) usersMap[u.id] = u;
+  return comments.map((c) => ({ ...c, user: usersMap[c.user_id] || null }));
+};
+
+const loadCommentsRows = async (publicationId) => {
+  const baseQuery = supabase
+    .from("comments")
+    .select("id, content, created_at, user_id, parent_id, is_deleted")
+    .eq("publication_id", publicationId)
+    .order("created_at", { ascending: true });
+
+    const withSoftDeleteFilter = await baseQuery.eq("is_deleted", false);
+  if (!withSoftDeleteFilter.error) return withSoftDeleteFilter;
+
+  // Compatibilidad: algunos entornos siguen sin la columna is_deleted.
+  if (withSoftDeleteFilter.error.code === "42703") {
+    const withoutSoftDeleteFilter = await supabase
+      .from("comments")
+      .select("id, content, created_at, user_id, parent_id")
+      .eq("publication_id", publicationId)
+      .order("created_at", { ascending: true });
+    return withoutSoftDeleteFilter;
+  }
+
+  return withSoftDeleteFilter;
+};
+
+export const getComments = async (publicationId) => {
+  try {
+    if (!publicationId) return { success: false, error: "ID requerido" };
+
+    const { data, error } = await loadCommentsRows(publicationId);
+    if (error) return { success: false, error: error.message };
+    const rows = (data || []).filter((comment) => comment.is_deleted !== true);
+    return { success: true, data: await hydrateCommentUsers(rows) };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Agregar un comentario (o respuesta) a una publicación
+ * @param {number} publicationId
+ * @param {string} content
+ * @param {string|null} parentId - UUID del comentario padre (null = top-level)
+ */
+export const addComment = async (publicationId, content, parentId = null) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Usuario no autenticado" };
+
+    const trimmed = String(content || "").trim();
+    if (!trimmed) return { success: false, error: "El comentario no puede estar vacío" };
+
+    const { data, error } = await supabase
+      .from("comments")
+      .insert({
+        publication_id: publicationId,
+        user_id: user.id,
+        content: trimmed,
+        parent_id: parentId || null,
+      })
+      .select("id, content, created_at, user_id, parent_id")
+      .single();
+
+    if (error) return { success: false, error: error.message };
+
+    // Obtener nombre del usuario desde public.users
+    const { data: userData } = await supabase
+      .from("users")
+      .select("id, full_name")
+      .eq("id", user.id)
+      .single();
+
+    return { success: true, data: { ...data, user: userData || null } };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * Eliminar (soft delete) un comentario propio
+ * @param {string} commentId - UUID del comentario
+ */
+export const deleteComment = async (commentId) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Usuario no autenticado" };
+
+    const { error } = await supabase
+      .from("comments")
+      .update({ is_deleted: true })
+      .eq("id", commentId)
+      .eq("user_id", user.id);
+
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
 // ─── EXPORTAR TODO ────────────────────────────────────────────────────────────
 
 export default {
@@ -1788,6 +2079,7 @@ export default {
   checkUserReportStatus,
   searchProducts,
   createProduct,
+  searchProductsAndBrands,
   getProducts,
   searchStores,
   getStores,
@@ -1798,6 +2090,9 @@ export default {
   updateProduct,
   updatePublication,
   deletePublication,
+  getComments,
+  addComment,
+  deleteComment,
   PUBLICATION_STATUS,
   SORT_OPTIONS,
 };

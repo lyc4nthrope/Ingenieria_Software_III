@@ -14,8 +14,8 @@
  * - Botón para crear nuevas publicaciones
  */
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 // State Management
 import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
@@ -34,34 +34,22 @@ import * as publicationsApi from "@/services/api/publications.api";
 
 // Iconos SVG inline
 const SearchIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="11" cy="11" r="8" />
     <line x1="21" y1="21" x2="16.65" y2="16.65" />
   </svg>
 );
 
 const PlusIcon = () => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <line x1="12" y1="5" x2="12" y2="19" />
     <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+
+const FilterIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
   </svg>
 );
 
@@ -95,10 +83,12 @@ export default function PublicationsPage() {
   // PASO 2: Hooks de navegación
   // ─────────────────────────────────────────────────────────────
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // ─────────────────────────────────────────────────────────────
   // PASO 3: Estado local de la página
   // ─────────────────────────────────────────────────────────────
+  const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
     productName: "",
@@ -112,6 +102,9 @@ export default function PublicationsPage() {
   const [selectedPublication, setSelectedPublication] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchBoxRef = useRef(null);
 
   const {
     publications,
@@ -151,9 +144,13 @@ export default function PublicationsPage() {
    */
   const handleSearch = (query) => {
     setSearchQuery(query);
+<<<<<<< HEAD
     const newFilters = { ...filters, productName: query };
     setFilters(newFilters);
     setPublicationFilters({ productName: query });
+=======
+    setPublicationFilters({ productName: query, sortBy: "best_match" });
+>>>>>>> 411a9e9c1215f1a54234a9d907ab3a078d6d22c2
   };
 
   /**
@@ -258,6 +255,49 @@ const handleViewMore = async (publicationId) => {
     setDetailLoading(false);
   };
 
+  // Abre el modal de detalle si la URL tiene ?pub=<id>
+  useEffect(() => {
+    const pubId = searchParams.get("pub");
+    if (!pubId) return;
+
+    handleViewMore(pubId).then(() => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("pub");
+        return next;
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSearchSuggestions([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      const result = await publicationsApi.searchProductsAndBrands(searchQuery, 8);
+      if (result.success) {
+        setSearchSuggestions(result.data || []);
+      }
+    }, 200);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event) => {
+      if (!searchBoxRef.current?.contains(event.target)) {
+        setSearchFocused(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, []);
+
+
   // ─────────────────────────────────────────────────────────────
   // PASO 5: Render - Estructura de la página
   // ─────────────────────────────────────────────────────────────
@@ -275,45 +315,33 @@ const handleViewMore = async (publicationId) => {
       {/* ─────────── SECCIÓN: Encabezado ─────────── */}
       <section
         style={{
-          marginBottom: "32px",
+          marginBottom: "28px",
         }}
       >
+        {/* Título + botón en la misma línea */}
         <div
           style={{
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: "center",
             justifyContent: "space-between",
             gap: "16px",
-            marginBottom: "16px",
-            flexWrap: "wrap",
+            marginBottom: "4px",
           }}
         >
-          <div>
-            <h1
-              style={{
-                fontSize: "32px",
-                fontWeight: "800",
-                color: "var(--text-primary)",
-                marginBottom: "8px",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              {tp.title}
-            </h1>
-            <p
-              style={{
-                fontSize: "15px",
-                color: "var(--text-secondary)",
-                lineHeight: "1.6",
-              }}
-            >
-              {tp.subtitle}
-            </p>
-          </div>
+          <h1
+            style={{
+              fontSize: "32px",
+              fontWeight: "800",
+              color: "var(--text-primary)",
+              letterSpacing: "-0.02em",
+              margin: 0,
+            }}
+          >
+            {tp.title}
+          </h1>
 
-          {/* Botón Crear publicacion */}
           <Button
-            size="md"
+            size="sm"
             onClick={handlePublish}
             disabled={!user?.isVerified}
             title={!user?.isVerified ? tp.verifyEmailTitle : ""}
@@ -322,6 +350,17 @@ const handleViewMore = async (publicationId) => {
             {tp.createBtn}
           </Button>
         </div>
+
+        <p
+          style={{
+            fontSize: "15px",
+            color: "var(--text-secondary)",
+            lineHeight: "1.6",
+            margin: "0 0 16px",
+          }}
+        >
+          {tp.subtitle}
+        </p>
 
         {/* Aviso de email no verificado */}
         {!user?.isVerified && (
@@ -360,52 +399,128 @@ const handleViewMore = async (publicationId) => {
         )}
       </section>
 
-      {/* ─────────── SECCIÓN: Barra de búsqueda ─────────── */}
-      <section
-        style={{
-          marginBottom: "20px",
-        }}
-      >
-        <div
-          style={{
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-lg)",
-            padding: "14px 16px",
-            display: "flex",
-            gap: "12px",
-            alignItems: "center",
-          }}
-        >
-          <SearchIcon aria-hidden="true" />
-          <input
-            type="search"
-            aria-label={tp.searchPlaceholder}
-            placeholder={tp.searchPlaceholder}
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
+      {/* ─────────── SECCIÓN: Búsqueda + Filtros ─────────── */}
+      <section style={{ marginBottom: "32px" }}>
+        {/* Barra de búsqueda con botón de filtros */}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div
+            ref={searchBoxRef}
             style={{
+              position: "relative",
               flex: 1,
-              background: "transparent",
-              border: "none",
-              color: "var(--text-primary)",
-              fontSize: "14px",
-              outline: "none",
-              fontFamily: "inherit",
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-lg)",
+              padding: "12px 16px",
+              display: "flex",
+              gap: "12px",
+              alignItems: "center",
             }}
-          />
-        </div>
-      </section>
+          >
+            <SearchIcon aria-hidden="true" />
+            <input
+              type="search"
+              aria-label={tp.searchPlaceholder}
+              placeholder={tp.searchPlaceholder}
+              value={searchQuery}
+              onFocus={() => setSearchFocused(true)}
+              onChange={(e) => handleSearch(e.target.value)}
+              style={{
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                color: "var(--text-primary)",
+                fontSize: "14px",
+                outline: "none",
+                fontFamily: "inherit",
+              }}
+            />
+            {searchFocused && searchSuggestions.length > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  left: 0,
+                  right: 0,
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-md)",
+                  background: "var(--bg-surface)",
+                  zIndex: 20,
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                  overflow: "hidden",
+                }}
+              >
+                {searchSuggestions.map((item) => (
+                  <button
+                    key={`${item.type}-${item.id}`}
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery(item.value);
+                      setSearchSuggestions([]);
+                      setSearchFocused(false);
+                      setPublicationFilters({ productName: item.value, sortBy: "best_match" });
+                    }}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      border: "none",
+                      background: "transparent",
+                      color: "var(--text-primary)",
+                      cursor: "pointer",
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-      {/* ─────────── SECCIÓN: Filtros ─────────── */}
-      <section
-        style={{
-          marginBottom: "32px",
-        }}
-      >
+          {/* Botón filtros */}
+          <button
+            onClick={() => setShowFilters((prev) => !prev)}
+            title="Filtros"
+            style={{
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "44px",
+              height: "44px",
+              flexShrink: 0,
+              background: showFilters ? "var(--accent)" : "var(--bg-surface)",
+              border: "1px solid",
+              borderColor: showFilters ? "var(--accent)" : "var(--border)",
+              borderRadius: "var(--radius-lg)",
+              color: showFilters ? "#fff" : "var(--text-muted)",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+          >
+            <FilterIcon />
+            {Object.values(filters).filter((v) => v !== null && v !== "" && v !== "recent").length > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "5px",
+                  right: "5px",
+                  width: "7px",
+                  height: "7px",
+                  background: showFilters ? "#fff" : "var(--accent)",
+                  borderRadius: "50%",
+                }}
+              />
+            )}
+          </button>
+        </div>
+
+        {/* Filtros activos como tags + panel expandible */}
         <PriceSearchFilter
           filters={filters}
           onFiltersChange={handleFilterChange}
+          open={showFilters}
           onClearFilters={() => {
             setFilters({
               productName: "",

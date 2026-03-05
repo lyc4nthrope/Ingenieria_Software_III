@@ -304,9 +304,9 @@ export function PublicationCard({
 
 const styles = {
   card: {
-    background: '#fff',
-    border: '1px solid #e0e0e0',
-    borderRadius: '8px',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
     marginBottom: '16px',
     overflow: 'hidden',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
@@ -315,8 +315,8 @@ const styles = {
 
   header: {
     padding: '12px 16px',
-    borderBottom: '1px solid #f0f0f0',
-    background: '#fafafa',
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--bg-surface)',
   },
 
   userInfo: {
@@ -329,7 +329,7 @@ const styles = {
     width: '40px',
     height: '40px',
     borderRadius: '50%',
-    background: '#ff6b35',
+    background: 'var(--accent)',
     color: '#fff',
     display: 'flex',
     alignItems: 'center',
@@ -341,12 +341,12 @@ const styles = {
   userName: {
     fontWeight: 600,
     fontSize: '14px',
-    color: '#333',
+    color: 'var(--text-primary)',
   },
 
   timeAgo: {
     fontSize: '12px',
-    color: '#666',
+    color: 'var(--text-muted)',
     marginTop: '2px',
   },
 
@@ -361,13 +361,13 @@ const styles = {
   productName: {
     fontSize: '16px',
     fontWeight: 600,
-    color: '#333',
+    color: 'var(--text-primary)',
     marginBottom: '4px',
   },
 
   storeName: {
     fontSize: '13px',
-    color: '#666',
+    color: 'var(--text-muted)',
   },
 
   priceSection: {
@@ -376,24 +376,24 @@ const styles = {
     gap: '8px',
     marginBottom: '12px',
     padding: '12px',
-    background: '#f0f0f0',
-    borderRadius: '6px',
+    background: 'var(--accent-soft)',
+    borderRadius: 'var(--radius-md)',
   },
 
   price: {
     fontSize: '24px',
     fontWeight: 700,
-    color: '#ff6b35',
+    color: 'var(--accent)',
   },
 
   currency: {
     fontSize: '12px',
-    color: '#555',
+    color: 'var(--text-secondary)',
   },
 
   description: {
     fontSize: '13px',
-    color: '#666',
+    color: 'var(--text-muted)',
     marginBottom: '12px',
     lineHeight: '1.4',
   },
@@ -402,9 +402,10 @@ const styles = {
     position: 'relative',
     cursor: 'pointer',
     marginBottom: '12px',
-    borderRadius: '6px',
+    borderRadius: 'var(--radius-md)',
     overflow: 'hidden',
-    background: '#f5f5f5',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
   },
 
   photo: {
@@ -439,10 +440,10 @@ const styles = {
   stats: {
     display: 'flex',
     padding: '12px 16px',
-    borderTop: '1px solid #f0f0f0',
-    borderBottom: '1px solid #f0f0f0',
+    borderTop: '1px solid var(--border)',
+    borderBottom: '1px solid var(--border)',
     gap: '16px',
-    background: '#fafafa',
+    background: 'var(--bg-surface)',
     fontSize: '13px',
   },
 
@@ -450,7 +451,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
-    color: '#666',
+    color: 'var(--text-muted)',
   },
 
   statIcon: {
@@ -471,7 +472,7 @@ const styles = {
     flex: 1,
     padding: '10px 12px',
     border: 'none',
-    borderRadius: '6px',
+    borderRadius: 'var(--radius-md)',
     fontSize: '13px',
     fontWeight: 600,
     cursor: 'pointer',
@@ -479,20 +480,20 @@ const styles = {
   },
 
   buttonPrimary: {
-    background: '#ff6b35',
+    background: 'var(--accent)',
     color: '#fff',
   },
 
   buttonSecondary: {
-    background: '#f0f0f0',
-    color: '#333',
-    border: '1px solid #e0e0e0',
+    background: 'var(--accent-soft)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border)',
   },
 
   buttonDanger: {
-    background: '#fff3f3',
-    color: '#d32f2f',
-    border: '1px solid #ffcccc',
+    background: 'rgba(239,68,68,0.08)',
+    color: '#ef4444',
+    border: '1px solid rgba(239,68,68,0.3)',
   },
 
   // Photo modal
