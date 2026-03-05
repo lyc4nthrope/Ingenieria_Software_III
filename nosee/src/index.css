@@ -322,10 +322,8 @@ img {
 }
 
 .layout {
-  display: grid;
-  grid-template-columns: minmax(0, 3.3fr) minmax(140px, 0.7fr);
-  gap: 28px;
-  align-items: start;
+  display: block;
+  width: 100%;
 }
 
 .feed {
@@ -339,10 +337,6 @@ img {
 @media (max-width: 900px) {
   .home-wrapper {
     padding: 16px 20px 28px;
-  }
-
-  .layout {
-    grid-template-columns: 1fr;
   }
 
   .feed {
