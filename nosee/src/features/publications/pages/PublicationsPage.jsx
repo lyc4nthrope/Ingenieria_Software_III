@@ -114,6 +114,7 @@ export default function PublicationsPage() {
     setFilters: setPublicationFilters,
     clearFilters,
     validatePublication,
+    unvotePublication,
     reportPublication,
     removePublication,
   } = usePublications(filters);
@@ -202,12 +203,16 @@ export default function PublicationsPage() {
   };
 
   /**
-   * Maneja validación de publicación
+   * Maneja validación de publicación (toggle: valida si no votó, quita voto si ya validó)
    */
   const handleValidatePublication = async (publicationId) => {
-    const result = await validatePublication(publicationId);
-    if (!result.success) {
-      setError(result.error || tp.errorValidate);
+    const pub = publications.find((p) => p.id === publicationId);
+    if (pub?.user_vote === 1) {
+      const result = await unvotePublication(publicationId);
+      if (!result.success) setError(result.error || tp.errorValidate);
+    } else {
+      const result = await validatePublication(publicationId);
+      if (!result.success) setError(result.error || tp.errorValidate);
     }
   };
 

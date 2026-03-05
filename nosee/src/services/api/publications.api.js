@@ -246,6 +246,53 @@ const hydrateRelatedPublicationData = async (publications = []) => {
   });
 };
 
+const enrichPublicationsWithVoteCounts = async (publications) => {
+  if (!Array.isArray(publications) || publications.length === 0) {
+    return publications;
+  }
+
+  const publicationIds = publications.map((p) => p.id);
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const currentUserId = user?.id || null;
+
+  const [votesResult, reportsResult, userVotesResult] = await Promise.all([
+    supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds),
+    supabase.from("reports").select("publication_id, status").in("publication_id", publicationIds),
+    currentUserId
+      ? supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds).eq("user_id", currentUserId)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const voteCountByPublication = {};
+  (votesResult.data || []).forEach((row) => {
+    const current = voteCountByPublication[row.publication_id] || { positive: 0, negative: 0 };
+    if (row.vote_type === 1) current.positive += 1;
+    if (row.vote_type === -1) current.negative += 1;
+    voteCountByPublication[row.publication_id] = current;
+  });
+
+  const reportCountByPublication = {};
+  (reportsResult.data || []).forEach((row) => {
+    if (!row.publication_id) return;
+    if (String(row.status || "").toLowerCase() !== "rejected") {
+      reportCountByPublication[row.publication_id] = (reportCountByPublication[row.publication_id] || 0) + 1;
+    }
+  });
+
+  const userVoteByPublication = {};
+  (userVotesResult.data || []).forEach((row) => {
+    userVoteByPublication[row.publication_id] = row.vote_type;
+  });
+
+  return publications.map((pub) => ({
+    ...pub,
+    validated_count: (voteCountByPublication[pub.id]?.positive || 0),
+    reported_count: (reportCountByPublication[pub.id] || 0),
+    user_vote: userVoteByPublication[pub.id] ?? null,
+  }));
+};
+
 const enrichSearchRankingSignals = async (publications, filters = {}) => {
   if (!Array.isArray(publications) || publications.length === 0) {
     return publications;
@@ -867,10 +914,12 @@ export const getPublications = async (filters = {}) => {
           storeName,
         })
       : publicationsWithCoordinates;
-    
+
+    const enrichedPublications = await enrichPublicationsWithVoteCounts(rankedPublications);
+
     return {
       success: true,
-      data: rankedPublications,
+      data: enrichedPublications,
       count: count ?? rankedPublications.length,
       hasMore: offset + limit < (count ?? rankedPublications.length),
     };

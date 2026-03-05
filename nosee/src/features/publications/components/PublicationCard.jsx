@@ -219,11 +219,15 @@ export function PublicationCard({
           type="button"
           aria-label={tc.validateLabel(publication.product?.name || tc.unknownProduct)}
           aria-busy={isValidating || undefined}
-          style={{ ...styles.button, ...styles.buttonPrimary }}
+          aria-pressed={publication.user_vote === 1}
+          style={{
+            ...styles.button,
+            ...(publication.user_vote === 1 ? styles.buttonValidated : styles.buttonPrimary),
+          }}
           onClick={handleValidate}
           disabled={isValidating}
         >
-          {isValidating ? tc.validating : tc.validate}
+          {isValidating ? tc.validating : publication.user_vote === 1 ? tc.validated : tc.validate}
         </button>
 
         <button
@@ -308,10 +312,12 @@ const styles = {
     background: 'var(--bg-surface)',
     border: '1px solid var(--border)',
     borderRadius: 'var(--radius-md)',
-    marginBottom: '16px',
     overflow: 'hidden',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     transition: 'box-shadow 0.2s',
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
   },
 
   header: {
@@ -353,6 +359,9 @@ const styles = {
 
   body: {
     padding: '16px',
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
   },
 
   productInfo: {
@@ -403,16 +412,17 @@ const styles = {
     position: 'relative',
     cursor: 'pointer',
     marginBottom: '12px',
+    marginTop: 'auto',
     borderRadius: 'var(--radius-md)',
     overflow: 'hidden',
     background: 'var(--bg-surface)',
     border: '1px solid var(--border)',
+    flexShrink: 0,
   },
 
   photo: {
     width: '100%',
-    height: 'auto',
-    maxHeight: '300px',
+    height: '200px',
     objectFit: 'cover',
     display: 'block',
   },
@@ -483,6 +493,12 @@ const styles = {
   buttonPrimary: {
     background: 'var(--accent)',
     color: '#fff',
+  },
+
+  buttonValidated: {
+    background: '#10b981',
+    color: '#fff',
+    border: '2px solid #059669',
   },
 
   buttonSecondary: {

@@ -441,11 +441,10 @@ export const usePublications = (initialFilters = {}, options = {}) => {
       const result = await publicationsApi.validatePublication(publicationId);
 
       if (result.success) {
-        // Actualizar contador en la lista
         setPublications((prev) =>
           prev.map((pub) =>
             pub.id === publicationId
-              ? { ...pub, validated_count: (pub.validated_count || 0) + 1 }
+              ? { ...pub, validated_count: (pub.validated_count || 0) + 1, user_vote: 1 }
               : pub
           )
         );
@@ -473,6 +472,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
               ? {
                   ...pub,
                   validated_count: Math.max((pub.validated_count || 1) - 1, 0),
+                  user_vote: null,
                 }
               : pub,
           ),
