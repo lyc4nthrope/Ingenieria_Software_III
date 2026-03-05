@@ -529,6 +529,12 @@ export const createPublication = async (data) => {
       return { success: false, error: error.message };
     }
 
+    // Sumar reputación al autor por crear publicación (best-effort)
+    supabase.rpc("increment_user_reputation", {
+      target_user_id: user.id,
+      reputation_delta: 5,
+    }).catch(() => {});
+
     return { success: true, data: publication };
   } catch (err) {
     console.error("Error en createPublication:", err);
@@ -1843,6 +1849,15 @@ export async function createProduct(name) {
     return { success: false, error: error.message };
   }
 
+  // Sumar reputación al creador del producto (best-effort)
+  const { data: { user: authUser } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+  if (authUser?.id) {
+    supabase.rpc("increment_user_reputation", {
+      target_user_id: authUser.id,
+      reputation_delta: 2,
+    }).catch(() => {});
+  }
+
   return { success: true, data };
 }
 
@@ -1910,6 +1925,15 @@ export const createBrand = async (name) => {
       };
     }
     return { success: false, error: error.message };
+  }
+
+  // Sumar reputación al creador de la marca (best-effort)
+  const { data: { user: authUserBrand } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+  if (authUserBrand?.id) {
+    supabase.rpc("increment_user_reputation", {
+      target_user_id: authUserBrand.id,
+      reputation_delta: 1,
+    }).catch(() => {});
   }
 
   return { success: true, data };
@@ -2037,6 +2061,12 @@ export const addComment = async (publicationId, content, parentId = null) => {
       .select("id, full_name")
       .eq("id", user.id)
       .single();
+
+    // Sumar reputación por comentar (best-effort)
+    supabase.rpc("increment_user_reputation", {
+      target_user_id: user.id,
+      reputation_delta: 1,
+    }).catch(() => {});
 
     return { success: true, data: { ...data, user: userData || null } };
   } catch (err) {

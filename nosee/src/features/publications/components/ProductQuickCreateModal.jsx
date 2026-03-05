@@ -6,18 +6,24 @@ import {
   getUnitTypes,
   searchBrands,
 } from "@/services/api/publications.api";
+import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
+import { playSuccessSound } from "@/utils/celebrationSound";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function ProductQuickCreateModal({
   initialName = "",
   onSuccess,
   onClose,
 }) {
+  const { t } = useLanguage();
   const [name, setName] = useState(initialName);
   const [categoryId, setCategoryId] = useState("");
   const [unitTypeId, setUnitTypeId] = useState("");
   const [baseQuantity, setBaseQuantity] = useState("");
   const [brandName, setBrandName] = useState("");
   const [brandId, setBrandId] = useState("");
+  const [celebrationMsg, setCelebrationMsg] = useState(null);
+  const pendingSuccessRef = useRef(null);
 
   const [categories, setCategories] = useState([]);
   const [unitTypes, setUnitTypes] = useState([]);
@@ -117,6 +123,10 @@ export default function ProductQuickCreateModal({
       const alreadyExists = prev.some((brand) => brand.id === result.data.id);
       return alreadyExists ? prev : [result.data, ...prev];
     });
+
+    // Celebración por crear marca
+    playSuccessSound();
+    setCelebrationMsg(t.celebration?.brand || "¡Marca registrada! +1 punto de reputación");
   };
 
   const handleBrandNameChange = (value) => {
@@ -158,11 +168,23 @@ export default function ProductQuickCreateModal({
       return;
     }
 
-    onSuccess(result.data);
+    // Celebración por crear producto - llama onSuccess cuando termina
+    playSuccessSound();
+    pendingSuccessRef.current = result.data;
+    setCelebrationMsg(t.celebration?.product || "¡Producto registrado! +2 puntos de reputación");
   };
 
   const handleOverlayClick = (event) => {
     if (event.target === event.currentTarget) onClose();
+  };
+
+  const handleCelebrationDone = () => {
+    const pending = pendingSuccessRef.current;
+    setCelebrationMsg(null);
+    if (pending) {
+      pendingSuccessRef.current = null;
+      onSuccess(pending);
+    }
   };
 
   return (
@@ -298,6 +320,11 @@ export default function ProductQuickCreateModal({
           </form>
         )}
       </div>
+      <CelebrationOverlay
+        visible={!!celebrationMsg}
+        message={celebrationMsg}
+        onDone={handleCelebrationDone}
+      />
     </div>
   );
 }

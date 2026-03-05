@@ -1,3 +1,4 @@
+import { useState } from "react";
 import StoreTypeSwitch from "@/features/stores/components/StoreTypeSwitch";
 import StoreMapPicker from "@/features/stores/components/StoreMapPicker";
 import StoreEvidenceUploader from "@/features/stores/components/StoreEvidenceUploader";
@@ -5,10 +6,14 @@ import { StoreTypeEnum } from "@/features/stores/schemas";
 import { useStoreCreation } from "@/features/stores/hooks/useStoreCreation";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Spinner } from "@/components/ui/Spinner";
+import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
+import { playSuccessSound } from "@/utils/celebrationSound";
 
 export default function StoreForm({ storeId = null, mode = 'create', onSuccess }) {
   const { t } = useLanguage();
   const tf = t.storeForm;
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [pendingSuccessData, setPendingSuccessData] = useState(null);
 
   const {
     formData,
@@ -29,9 +34,19 @@ export default function StoreForm({ storeId = null, mode = 'create', onSuccess }
   const onSubmit = async (event) => {
     event.preventDefault();
     const result = await submit();
-    if (result.success) {
+    if (result.success && mode === 'create') {
+      playSuccessSound();
+      setPendingSuccessData(result.data);
+      setShowCelebration(true);
+    } else if (result.success) {
       onSuccess?.(result.data);
     }
+  };
+
+  const handleCelebrationDone = () => {
+    setShowCelebration(false);
+    onSuccess?.(pendingSuccessData);
+    setPendingSuccessData(null);
   };
 
   if (isLoading) {
@@ -143,6 +158,11 @@ export default function StoreForm({ storeId = null, mode = 'create', onSuccess }
       <button type="submit" style={styles.submit} disabled={isSubmitting}>
         {isSubmitting ? tf.submitting : tf.submit}
       </button>
+      <CelebrationOverlay
+        visible={showCelebration}
+        message={t.celebration?.store}
+        onDone={handleCelebrationDone}
+      />
     </form>
   );
 }

@@ -97,6 +97,31 @@ export const TRANSLATIONS = {
       register: "Registrarse",
       myProfile: "Mi perfil",
       logout: "Cerrar sesión",
+      ranking: "Ranking",
+    },
+
+    // ── Ranking ───────────────────────────────────────────────────────────────
+    ranking: {
+      title: "Ranking de reputación",
+      subtitle: "Los usuarios más activos y confiables de la comunidad",
+      position: "Posición",
+      user: "Usuario",
+      points: "Puntos",
+      noUsers: "No hay usuarios aún",
+      loading: "Cargando ranking...",
+      error: "Error al cargar el ranking",
+      role: "Rol",
+    },
+
+    // ── Celebración ───────────────────────────────────────────────────────────
+    celebration: {
+      publication: "¡Publicación creada! +5 puntos de reputación",
+      store: "¡Tienda registrada! +3 puntos de reputación",
+      product: "¡Producto registrado! +2 puntos de reputación",
+      brand: "¡Marca registrada! +1 punto de reputación",
+      comment: "¡Comentario agregado! +1 punto de reputación",
+      close: "Cerrar",
+      congrats: "¡Felicitaciones!",
     },
 
     // ── Página principal ──────────────────────────────────────────────────────
@@ -892,6 +917,31 @@ export const TRANSLATIONS = {
       register: "Sign up",
       myProfile: "My profile",
       logout: "Sign out",
+      ranking: "Ranking",
+    },
+
+    // ── Ranking ───────────────────────────────────────────────────────────────
+    ranking: {
+      title: "Reputation Ranking",
+      subtitle: "The most active and trustworthy users in the community",
+      position: "Position",
+      user: "User",
+      points: "Points",
+      noUsers: "No users yet",
+      loading: "Loading ranking...",
+      error: "Error loading ranking",
+      role: "Role",
+    },
+
+    // ── Celebration ───────────────────────────────────────────────────────────
+    celebration: {
+      publication: "Publication created! +5 reputation points",
+      store: "Store registered! +3 reputation points",
+      product: "Product registered! +2 reputation points",
+      brand: "Brand registered! +1 reputation point",
+      comment: "Comment added! +1 reputation point",
+      close: "Close",
+      congrats: "Congratulations!",
     },
 
     // ── Página principal ──────────────────────────────────────────────────────

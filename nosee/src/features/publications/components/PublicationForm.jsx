@@ -23,6 +23,7 @@ import ProductQuickCreateModal from "./ProductQuickCreateModal";
 import * as publicationsApi from "@/services/api/publications.api";
 import * as storesApi from "@/services/api/stores.api";
 import { useLanguage } from "@/contexts/LanguageContext";
+import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
 
 
 export function PublicationForm({ mode = "create", publicationId = null, onSuccess }) {
@@ -40,6 +41,8 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     longitude,
     updateField,
     submit,
+    showCelebration,
+    setShowCelebration,
   } = usePublicationCreation({ mode, publicationId });
 
   // Estado para autocompletes y modales
@@ -695,6 +698,11 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
           onClose={() => setShowProductModal(false)}
         />
       )}
+      <CelebrationOverlay
+        visible={showCelebration}
+        message={t.celebration?.publication}
+        onDone={() => setShowCelebration(false)}
+      />
     </div>
   );
 }

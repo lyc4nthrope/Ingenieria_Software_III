@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import * as publicationsApi from '@/services/api/publications.api';
 import { useGeoLocation } from './useGeoLocation';
+import { playSuccessSound } from '@/utils/celebrationSound';
 
 const initialFormData = {
   productId: '',
@@ -20,6 +21,7 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(mode === 'edit' && !!publicationId);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Cargar publicación si estamos editando
   useEffect(() => {
@@ -117,6 +119,8 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
       // Solo resetear en modo create
       if (mode === 'create') {
         setFormData(initialFormData);
+        setShowCelebration(true);
+        playSuccessSound();
       }
 
       return result;
@@ -141,5 +145,7 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
     updateField,
     setPhotoUrl,
     submit,
+    showCelebration,
+    setShowCelebration,
   };
 }

@@ -403,6 +403,22 @@ export async function updateOwnReport(reportId, userId, updates = {}) {
 }
 
 export async function updateReportReview(reportId, payload) {
+  // Si el reporte se resuelve, deducir reputación al usuario reportado
+  if (payload.status === "RESOLVED") {
+    const { data: report } = await supabase
+      .from("reports")
+      .select("reported_user_id")
+      .eq("id", reportId)
+      .single();
+
+    if (report?.reported_user_id) {
+      supabase.rpc("increment_user_reputation", {
+        target_user_id: report.reported_user_id,
+        reputation_delta: -7,
+      }).catch(() => {});
+    }
+  }
+
   const { error } = await supabase
     .from("reports")
     .update(payload)
@@ -410,4 +426,19 @@ export async function updateReportReview(reportId, payload) {
 
   if (error) return { success: false, error: error.message };
   return { success: true };
+}
+
+/**
+ * Obtiene los usuarios con más puntos de reputación.
+ * @param {number} limit - Máximo de usuarios a retornar (default 20)
+ */
+export async function getTopUsersByReputation(limit = 20) {
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, full_name, avatar_url, reputation_points, role_id, roles(name)")
+    .order("reputation_points", { ascending: false })
+    .limit(limit);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: data ?? [] };
 }

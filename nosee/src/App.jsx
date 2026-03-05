@@ -51,6 +51,7 @@ const CreateStorePage = lazy(
 const StoresPage = lazy(
   () => import("@/features/stores/pages/StoresPage")
 );
+const RankingPage = lazy(() => import("@/pages/RankingPage"));
 
 function NotFoundPage() {
   const { t } = useLanguage();
@@ -120,6 +121,7 @@ function AppContent() {
         <Route path="/nueva-contrasena" element={<NewPasswordPage />} />
 
         <Route path="/" element={<HomePage />} />
+        <Route path="/ranking" element={<RankingPage />} />
 
         <Route
           path="/dashboard"
