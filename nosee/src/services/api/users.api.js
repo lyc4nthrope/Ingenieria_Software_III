@@ -314,13 +314,15 @@ export async function getAdminReports() {
  */
 export async function getUserProfileActivity(userId) {
   try {
-    const [publicationsResult, storesResult, reportsResult, createdProductsResult] = await Promise.all([
+    const [publicationsResult, storesResult, reportsResult] = await Promise.all([
       supabase
         .from("price_publications")
         .select(`
           id,
           price,
           description,
+          photo_url,
+          is_active,
           created_at,
           product:products(id, name),
           store:stores(id, name)
@@ -336,43 +338,16 @@ export async function getUserProfileActivity(userId) {
         .limit(100),
       supabase
         .from("reports")
-        .select("id, publication_id, reason, description, status, created_at")
+        .select("id, publication_id, reason, description, status, created_at, resolved_at, mod_notes, action_taken")
         .eq("reporter_user_id", userId)
         .order("created_at", { ascending: false })
         .limit(100),
-      supabase
-        .from("products")
-        .select("id, name, created_by, created_at")
-        .eq("created_by", userId)
-        .order("created_at", { ascending: false })
-        .limit(100),
     ]);
-
-    const productsByCreatorUnsupported = createdProductsResult.error?.code === "42703";
-
-    let products = createdProductsResult.data || [];
-    if (productsByCreatorUnsupported) {
-      const { data: fallbackProducts, error: fallbackError } = await supabase
-        .from("price_publications")
-        .select("product:products(id, name)")
-        .eq("user_id", userId)
-        .limit(100);
-
-      if (fallbackError) return { success: false, error: fallbackError.message };
-
-      const uniques = new Map();
-      (fallbackProducts || []).forEach((row) => {
-        const product = row?.product;
-        if (product?.id && !uniques.has(product.id)) uniques.set(product.id, product);
-      });
-      products = Array.from(uniques.values());
-    }
 
     const firstError = [
       publicationsResult.error,
       storesResult.error,
       reportsResult.error,
-      productsByCreatorUnsupported ? null : createdProductsResult.error,
     ].find(Boolean);
 
     if (firstError) return { success: false, error: firstError.message };
@@ -383,8 +358,7 @@ export async function getUserProfileActivity(userId) {
         publications: publicationsResult.data || [],
         stores: storesResult.data || [],
         reports: reportsResult.data || [],
-        products,
-        productsByCreatorUnsupported,
+        products: [],
       },
     };
   } catch (err) {
