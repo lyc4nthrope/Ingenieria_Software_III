@@ -188,12 +188,12 @@ export default function ProductQuickCreateModal({
   };
 
   return (
-    <div role="button" tabIndex={0} style={s.overlay} onClick={handleOverlayClick} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
-      <div style={s.card}>
+    <div style={s.overlay} onClick={handleOverlayClick} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }} aria-hidden="true">
+      <div role="dialog" aria-modal="true" aria-labelledby="pqc-title" style={s.card} onClick={(e) => e.stopPropagation()} aria-hidden="false">
         <div style={s.header}>
-          <h3 style={s.title}>Crear producto rápido</h3>
-          <button style={s.closeBtn} onClick={onClose} type="button">
-            ✕
+          <h3 id="pqc-title" style={s.title}>Crear producto rápido</h3>
+          <button style={s.closeBtn} onClick={onClose} type="button" aria-label="Cerrar">
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 
@@ -242,11 +242,12 @@ export default function ProductQuickCreateModal({
                   autoComplete="off"
                 />
                 {showBrandDropdown && brandName.trim().length >= 1 && (
-                  <div style={s.brandDropdown}>
+                  <div style={s.brandDropdown} role="listbox" aria-label="Marcas disponibles">
                     {brandResults.map((brand) => (
                       <div
                         key={brand.id}
-                        role="button"
+                        role="option"
+                        aria-selected={brandId === String(brand.id)}
                         tabIndex={0}
                         style={s.brandDropdownItem}
                         onMouseDown={() => handleBrandSelect(brand)}
@@ -256,7 +257,7 @@ export default function ProductQuickCreateModal({
                       </div>
                     ))}
                     {brandResults.length === 0 && (
-                      <div style={s.brandDropdownEmpty}>Sin coincidencias</div>
+                      <div role="option" aria-selected="false" style={s.brandDropdownEmpty}>Sin coincidencias</div>
                     )}
                   </div>
                 )}
@@ -270,9 +271,10 @@ export default function ProductQuickCreateModal({
                 }}
                 onClick={handleCreateBrand}
                 disabled={!brandName.trim() || isCreatingBrand}
+                aria-label="Registrar nueva marca"
                 title="Registrar nueva marca"
               >
-                {isCreatingBrand ? "⏳" : "＋"}
+                <span aria-hidden="true">{isCreatingBrand ? "⏳" : "＋"}</span>
               </button>
             </div>
             {brandId && <span style={s.brandOk}>✓ Marca lista</span>}
@@ -341,7 +343,7 @@ const s = {
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.6)",
+    background: "var(--overlay)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",

@@ -187,7 +187,7 @@ const inputStyle = {
 };
 const btnStyle = {
   padding: '8px 16px', borderRadius: 'var(--radius-md)',
-  border: 'none', background: 'var(--accent)', color: '#fff',
+  border: 'none', background: 'var(--accent)', color: 'var(--text-primary)',
   fontSize: '13px', fontWeight: 600, cursor: 'pointer',
 };
 
@@ -223,7 +223,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
       onKeyDown={(e) => { if (e.key === 'Escape') onClose(e); }}
       style={{
         position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.65)',
+        background: 'var(--overlay)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         zIndex: 1000, padding: '16px',
       }}
@@ -354,7 +354,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 style={{
                   padding: '9px 18px', borderRadius: 'var(--radius-md)',
                   border: 'none', background: 'var(--accent)',
-                  fontSize: '13px', fontWeight: '600', color: '#080C14',
+                  fontSize: '13px', fontWeight: '600', color: 'var(--bg-base)',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   opacity: loading ? 0.7 : 1,
                 }}
@@ -405,7 +405,7 @@ function DeleteAccountModal({ onClose, onConfirm, loading }) {
                 style={{
                   padding: '9px 18px', borderRadius: 'var(--radius-md)',
                   border: 'none', background: 'var(--error)',
-                  fontSize: '13px', fontWeight: '600', color: '#fff',
+                  fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   opacity: loading ? 0.7 : 1,
                 }}
@@ -558,7 +558,7 @@ function EditPublicationModal({ publication, onClose, onSave }) {
 
   return (
     <div role="button" tabIndex={0} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(e); }} style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+      position: 'fixed', inset: 0, background: 'var(--overlay)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 1000, padding: '16px',
     }}>
@@ -751,7 +751,7 @@ function ReportCard({ report, userId, onRefresh }) {
             }}>Cancelar</button>
             <button onClick={handleSave} disabled={saving} style={{
               padding: '6px 14px', borderRadius: 'var(--radius-sm)',
-              border: 'none', background: 'var(--accent)', color: '#fff',
+              border: 'none', background: 'var(--accent)', color: 'var(--text-primary)',
               fontSize: '12px', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
               opacity: saving ? 0.7 : 1,
             }}>{saving ? 'Guardando...' : 'Guardar'}</button>

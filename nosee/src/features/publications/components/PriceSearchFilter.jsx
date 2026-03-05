@@ -277,6 +277,10 @@ function StoreCombobox({ value, onStoreChange, placeholder, inputStyle }) {
           value={query}
           onChange={handleInput}
           placeholder={placeholder}
+          aria-label={placeholder || 'Buscar tienda'}
+          aria-autocomplete="list"
+          aria-expanded={isOpen}
+          aria-controls="store-search-listbox"
           onFocus={() => { if (options.length > 0) setIsOpen(true); }}
           autoComplete="off"
           style={{
@@ -313,7 +317,7 @@ function StoreCombobox({ value, onStoreChange, placeholder, inputStyle }) {
       </div>
 
       {isOpen && options.length > 0 && (
-        <div style={comboStyles.dropdown} role="listbox">
+        <div id="store-search-listbox" style={comboStyles.dropdown} role="listbox">
           {options.map((store) => (
             <button
               key={store.id}

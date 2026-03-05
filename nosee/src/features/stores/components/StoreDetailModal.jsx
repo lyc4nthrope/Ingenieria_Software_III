@@ -334,13 +334,9 @@ export default function StoreDetailModal({ store, onClose }) {
                 ✕
               </button>
               <img
-                role="button"
-                tabIndex={0}
                 src={expandedEvidence}
                 alt={store.name}
                 style={styles.lightboxImg}
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
               />
             </div>
           )}
@@ -394,7 +390,7 @@ const styles = {
   overlay: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.55)',
+    background: 'var(--overlay)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -445,12 +441,12 @@ const styles = {
     marginTop: '4px',
   },
   badgePhysical: {
-    background: 'rgba(34,197,94,0.12)',
-    color: '#16a34a',
+    background: 'var(--success-soft)',
+    color: 'var(--success)',
   },
   badgeVirtual: {
-    background: 'rgba(99,102,241,0.12)',
-    color: '#6366f1',
+    background: 'var(--info-soft)',
+    color: 'var(--info)',
   },
   closeBtn: {
     flexShrink: 0,
@@ -541,7 +537,7 @@ const styles = {
   lightboxOverlay: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.9)',
+    background: 'var(--overlay-heavy)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -552,9 +548,9 @@ const styles = {
     position: 'absolute',
     top: '16px',
     right: '16px',
-    background: 'rgba(255,255,255,0.15)',
+    background: 'var(--accent-soft)',
     border: '1px solid rgba(255,255,255,0.3)',
-    color: '#fff',
+    color: 'var(--text-primary)',
     borderRadius: '50%',
     width: '36px',
     height: '36px',

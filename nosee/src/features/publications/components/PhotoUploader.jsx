@@ -177,16 +177,15 @@ export function PhotoUploader({ onUpload, disabled = false }) {
   // Zona de selección simple
   return (
     <div style={styles.container}>
-      {/* Input para galería */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
         onChange={handleInputChange}
         disabled={disabled}
+        aria-label={tu.galleryLabel}
         style={{ display: "none" }}
       />
-      {/* Input para cámara del dispositivo */}
       <input
         ref={cameraInputRef}
         type="file"
@@ -194,6 +193,7 @@ export function PhotoUploader({ onUpload, disabled = false }) {
         capture="environment"
         onChange={handleInputChange}
         disabled={disabled}
+        aria-label={tu.cameraLabel}
         style={{ display: "none" }}
       />
       <div style={styles.buttonGroup} role="group" aria-label={tu.groupLabel}>

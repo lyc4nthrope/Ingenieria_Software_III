@@ -31,7 +31,7 @@ const styles = {
   variants: {
     primary: {
       background: 'var(--accent)',
-      color: '#080C14',
+      color: 'var(--bg-base)',
       borderColor: 'var(--accent)',
     },
     secondary: {
