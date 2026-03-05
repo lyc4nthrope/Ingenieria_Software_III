@@ -1,14 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
-  <rect width="180" height="180" rx="36" fill="#080c14"/>
+  <rect width="180" height="180" rx="32" fill="#080c14"/>
   <text
-    x="50%"
-    y="52%"
-    font-family="'Plus Jakarta Sans', Arial, sans-serif"
-    font-size="68"
-    font-weight="800"
-    fill="#e8edf8"
+    x="90"
+    y="108"
+    font-family="'Arial Black', 'Impact', sans-serif"
+    font-size="54"
+    font-weight="900"
     text-anchor="middle"
-    dominant-baseline="middle"
     letter-spacing="-3"
-  >NØ</text>
+  ><tspan fill="#38bdf8">NØ</tspan><tspan fill="#7b90bd">SEE</tspan></text>
 </svg>
