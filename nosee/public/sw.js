@@ -1,84 +1,68 @@
-// Service Worker - Cache First Strategy
+const CACHE_NAME = 'nosee-cache-v2';
 
-const CACHE_NAME = 'nosee-cache-v1';
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json'
-];
-
-// Install event
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
+      .then((cache) => cache.addAll(['/manifest.json']))
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys()
+      .then((names) => Promise.all(names.map((name) => name !== CACHE_NAME && caches.delete(name))))
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch event - Cache First Strategy
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') {
-    return;
-  }
+  if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith('http')) return;
 
-  // Ignore non-HTTP(S) requests
-  if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
-    return;
-  }
-
-  // Don't cache auth routes - let them go directly to the server
   const url = new URL(event.request.url);
-  if (url.pathname.includes('/auth/') || url.pathname.includes('/login') || url.pathname.includes('/registro')) {
-    return; // Let the request go directly to the server
+
+  // Navegación (index.html): Network-first, cache solo como fallback offline
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match('/index.html') || caches.match('/'))
+    );
+    return;
   }
 
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          return response;
-        }
-
+  // Assets de Vite (/assets/): Cache-first (el hash en el nombre garantiza unicidad)
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
         return fetch(event.request).then((response) => {
-          // No cache non-successful responses
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
-
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-
           return response;
         });
       })
-      .catch(() => {
-        // Fallback response if offline
-        return new Response('Offline - No cached version available', {
-          status: 503,
-          statusText: 'Service Unavailable',
-          headers: new Headers({
-            'Content-Type': 'text/plain'
-          })
-        });
+    );
+    return;
+  }
+
+  // Todo lo demás (iconos, etc.): Network-first
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
       })
+      .catch(() => caches.match(event.request))
   );
 });
