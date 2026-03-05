@@ -223,6 +223,11 @@ export default function ModeratorDashboard() {
           .from("users")
           .update({ is_active: false })
           .eq("id", report.reportedUserId);
+        await supabase
+          .from("price_publications")
+          .update({ status: "rejected" })
+          .eq("user_id", report.reportedUserId)
+          .eq("status", "active");
       }
       if (action === "eliminar_publicacion" && report.publicationId) {
         const { error } = await supabase.rpc("deactivate_publication", {
