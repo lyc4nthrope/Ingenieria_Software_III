@@ -523,7 +523,7 @@ export function PriceSearchFilter({
 
       {open && (
         <div style={styles.panel}>
-          <div style={styles.row}>
+          <div style={{ ...styles.row, gridTemplateColumns: '1fr' }}>
             <div style={styles.formGroup}>
               <label style={styles.label}>{tf.store}</label>
               <StoreCombobox
