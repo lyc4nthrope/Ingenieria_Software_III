@@ -28,7 +28,6 @@ export function PriceSearchFilter({
 
   const [localFilters, setLocalFilters] = useState(filters);
 
-<<<<<<< HEAD
   // Sincronizar cuando el padre actualiza filters externamente
   // (ej: barra de búsqueda superior cambia productName)
   useEffect(() => {
@@ -38,9 +37,6 @@ export function PriceSearchFilter({
     });
   }, [filters]);
 
-  // Contar filtros activos
-=======
->>>>>>> 411a9e9c1215f1a54234a9d907ab3a078d6d22c2
   const activeFiltersCount = Object.values(localFilters).filter(
     (v) => v !== null && v !== '' && v !== 'recent'
   ).length;

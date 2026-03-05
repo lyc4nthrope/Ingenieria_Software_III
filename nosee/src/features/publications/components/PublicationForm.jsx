@@ -65,20 +65,16 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   const storeRequestIdRef = useRef(0);
   const storeWrapperRef = useRef(null);
 
-<<<<<<< HEAD
   // ─── Índice activo para navegación por teclado ─────────────────────────────
   const [activeProductIndex, setActiveProductIndex] = useState(-1);
   const [activeStoreIndex, setActiveStoreIndex] = useState(-1);
-=======
+
   // Cargar nombres iniciales cuando se cargan datos en modo edición
   useEffect(() => {
     if (!isLoading && !hasLoadedInitialData && formData.productId && formData.storeId) {
-      // En modo edición, los datos ya están cargados, inicializar queries
-      // La búsqueda de nombre completo debe venir del formData y ser buscada
       setHasLoadedInitialData(true);
     }
   }, [isLoading, hasLoadedInitialData, formData.productId, formData.storeId]);
->>>>>>> 5df3ee4575caca8df4846a9a6fd348c07c5e83cf
 
   // ─── Cerrar dropdowns al clickar fuera ────────────────────────────────────
   useEffect(() => {
@@ -418,24 +414,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                 )}
 
                 {!productSearching &&
-<<<<<<< HEAD
-                  productResults.map((p, i) => (
-                    <div
-                      key={p.id}
-                      id={`pub-product-option-${i}`}
-                      role="option"
-                      aria-selected={i === activeProductIndex}
-                      style={{
-                        ...styles.dropdownItem,
-                        ...(i === activeProductIndex ? styles.dropdownItemActive : {}),
-                      }}
-                      onMouseDown={() => handleProductSelect(p)}
-                    >
-                      {p.name}
-                    </div>
-                  ))}
-=======
-                  productResults.map((p) => {
+                  productResults.map((p, i) => {
                     const meta = [
                       p.brand?.name,
                       p.base_quantity != null && p.unit?.name
@@ -449,7 +428,13 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                     return (
                       <div
                         key={p.id}
-                        style={styles.dropdownItem}
+                        id={`pub-product-option-${i}`}
+                        role="option"
+                        aria-selected={i === activeProductIndex}
+                        style={{
+                          ...styles.dropdownItem,
+                          ...(i === activeProductIndex ? styles.dropdownItemActive : {}),
+                        }}
                         onMouseDown={() => handleProductSelect(p)}
                       >
                         <span>{p.name}</span>
@@ -457,7 +442,6 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                       </div>
                     );
                   })}
->>>>>>> 411a9e9c1215f1a54234a9d907ab3a078d6d22c2
 
                 {!productSearching &&
                   productResults.length === 0 &&

@@ -144,13 +144,9 @@ export default function PublicationsPage() {
    */
   const handleSearch = (query) => {
     setSearchQuery(query);
-<<<<<<< HEAD
     const newFilters = { ...filters, productName: query };
     setFilters(newFilters);
-    setPublicationFilters({ productName: query });
-=======
     setPublicationFilters({ productName: query, sortBy: "best_match" });
->>>>>>> 411a9e9c1215f1a54234a9d907ab3a078d6d22c2
   };
 
   /**
