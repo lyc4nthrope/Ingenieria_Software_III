@@ -525,16 +525,6 @@ export function PriceSearchFilter({
         <div style={styles.panel}>
           <div style={styles.row}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>{tf.product}</label>
-              <input
-                type="text"
-                placeholder={tf.productPlaceholder}
-                value={localFilters.productName || ''}
-                onChange={(e) => handleInputChange('productName', e.target.value)}
-                style={styles.input}
-              />
-            </div>
-            <div style={styles.formGroup}>
               <label style={styles.label}>{tf.store}</label>
               <StoreCombobox
                 value={localFilters.storeName || ''}
