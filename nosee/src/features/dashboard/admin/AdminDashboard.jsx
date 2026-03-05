@@ -999,6 +999,27 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
             <span style={{ color: TEXT }}>{value}</span>
           </div>
         ))}
+
+        {report.publicationSummary && (
+          <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: `1px solid ${BORDER}` }}>
+            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Publicación reportada
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
+              {[
+                ['Marca',    report.publicationSummary.brand],
+                ['Tienda',   report.publicationSummary.store],
+                ['Cantidad', report.publicationSummary.unit],
+                ['Precio',   report.publicationSummary.price],
+              ].map(([label, value]) => (
+                <div key={label} style={{ display: 'flex', gap: 6, fontSize: 13 }}>
+                  <span style={{ color: MUTED, flexShrink: 0 }}>{label}:</span>
+                  <span style={{ color: TEXT, fontWeight: 500 }}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button style={s.filterBtn} onClick={onOpenDetails} title={td.viewReportDetailBtn}>{td.viewReportDetailBtn}</button>
@@ -1028,6 +1049,37 @@ function ReportDetailsModal({ report, onClose, onSave }) {
   const [modNotes, setModNotes] = useState(report.modNotes || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [pub, setPub] = useState(report.publicationSummary || null);
+  const [pubDeleted, setPubDeleted] = useState(false);
+
+  // Si no hay publicationSummary (publicación eliminada o inactiva), intentar fetch directo
+  useEffect(() => {
+    if (pub || !report.publicationId) return;
+    supabase
+      .from('price_publications')
+      .select('id, price, is_active, products(name, base_quantity, brand:brands(name), unit_type:unit_types(name, abbreviation)), store:stores(name)')
+      .eq('id', report.publicationId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const quantity = data.products?.base_quantity;
+          const unitAbbr = data.products?.unit_type?.abbreviation || data.products?.unit_type?.name;
+          setPub({
+            productName: data.products?.name || '—',
+            brand: data.products?.brand?.name || '—',
+            unit: quantity && unitAbbr ? `${quantity} ${unitAbbr}` : '—',
+            store: data.store?.name || '—',
+            price: typeof data.price === 'number'
+              ? data.price.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+              : '—',
+            isActive: data.is_active,
+          });
+          if (data.is_active === false) setPubDeleted(true);
+        } else {
+          setPubDeleted(true);
+        }
+      });
+  }, []);
 
   const save = async () => {
     setSaving(true);
@@ -1040,7 +1092,6 @@ function ReportDetailsModal({ report, onClose, onSave }) {
   const sev = SEVERITY_COLORS[report.severity] || SEVERITY_COLORS.baja;
   const typeLabel = td.reportTypes?.[report.rawType] || report.rawType || '—';
   const severityLabel = td.severityLabels?.[report.severity] || report.severity?.toUpperCase() || '—';
-  const pub = report.publicationSummary;
 
   return (
     <div style={s.modalOverlay} onClick={onClose}>
@@ -1089,18 +1140,29 @@ function ReportDetailsModal({ report, onClose, onSave }) {
         )}
 
         {/* Publicación relacionada */}
-        {pub && (
+        {(pub || (report.publicationId && pubDeleted)) && (
           <div style={{ ...s.section, marginBottom: 16 }}>
             <div style={{ ...s.sectionHead, marginBottom: 10 }}>
               <span style={s.sectionTitle}>Publicación reportada</span>
+              {pubDeleted && (
+                <span style={{ fontSize: 11, fontWeight: 700, background: '#F8717118', color: '#F87171', borderRadius: 4, padding: '2px 8px' }}>
+                  {pub ? 'Desactivada' : 'Eliminada'}
+                </span>
+              )}
             </div>
-            <div style={s.detailGrid}>
-              <DetailRow label="Producto" value={pub.productName} />
-              <DetailRow label="Marca" value={pub.brand} />
-              <DetailRow label="Cantidad" value={pub.unit} />
-              <DetailRow label="Tienda" value={pub.store} />
-              <DetailRow label="Precio" value={pub.price} />
-            </div>
+            {pub ? (
+              <div style={s.detailGrid}>
+                <DetailRow label="Producto" value={pub.productName} />
+                <DetailRow label="Marca" value={pub.brand} />
+                <DetailRow label="Cantidad" value={pub.unit} />
+                <DetailRow label="Tienda" value={pub.store} />
+                <DetailRow label="Precio" value={pub.price} />
+              </div>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: MUTED }}>
+                La publicación fue eliminada permanentemente. ID: {report.publicationId}
+              </p>
+            )}
           </div>
         )}
 
