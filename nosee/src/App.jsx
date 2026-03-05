@@ -206,6 +206,35 @@ function AppContent() {
   );
 }
 
+function ConnectionErrorView() {
+  const { t } = useLanguage();
+
+  return (
+    <section
+      role="alert"
+      aria-live="assertive"
+      style={{
+        margin: "24px",
+        borderRadius: "12px",
+        border: "1px solid #fecaca",
+        background: "#fef2f2",
+        color: "#7f1d1d",
+        padding: "20px",
+        display: "grid",
+        gap: "8px",
+      }}
+    >
+      <h2 style={{ margin: 0, fontSize: "22px", fontWeight: 800 }}>
+        {t.app.connectionErrorTitle}
+      </h2>
+      <p style={{ margin: 0, color: "#991b1b" }}>{t.app.connectionErrorMessage}</p>
+      <p style={{ margin: 0, fontSize: "14px", color: "#991b1b" }}>
+        {t.app.connectionErrorHint}
+      </p>
+    </section>
+  );
+}
+
 function RoleChangeToast() {
   const notification = useAuthStore((s) => s._roleChangeNotification);
   const clearRoleNotification = useAuthStore((s) => s.clearRoleNotification);
@@ -282,6 +311,22 @@ function RoleChangeToast() {
 
 function AppShell() {
   const { t } = useLanguage();
+  const [isOffline, setIsOffline] = useState(
+    typeof navigator !== "undefined" ? !navigator.onLine : false
+  );
+
+  useEffect(() => {
+    const markOffline = () => setIsOffline(true);
+    const markOnline = () => setIsOffline(false);
+
+    window.addEventListener("offline", markOffline);
+    window.addEventListener("online", markOnline);
+
+    return () => {
+      window.removeEventListener("offline", markOffline);
+      window.removeEventListener("online", markOnline);
+    };
+  }, []);
   return (
     <div
       style={{
@@ -307,6 +352,7 @@ function AppShell() {
           overflow: "auto",
         }}
       >
+        {isOffline ? <ConnectionErrorView /> : null}
         <ErrorBoundary>
           <AppContent />
         </ErrorBoundary>

@@ -1,8 +1,10 @@
+import { useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function StoreEvidenceUploader({ evidenceFiles = [], onAddEvidence, onRemoveEvidence, error }) {
   const { t } = useLanguage();
   const te = t.storeEvidence;
+  const fileInputRef = useRef(null);
 
   const canAddMore = evidenceFiles.length < 3;
 
@@ -21,7 +23,18 @@ export default function StoreEvidenceUploader({ evidenceFiles = [], onAddEvidenc
       </div>
 
       {canAddMore ? (
-        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} />
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+          <button type="button" style={styles.uploadBtn} onClick={() => fileInputRef.current?.click()}>
+            📁 {te.addEvidence}
+          </button>
+        </>
       ) : (
         <div style={styles.limit}>{te.limitReached}</div>
       )}
@@ -44,16 +57,28 @@ export default function StoreEvidenceUploader({ evidenceFiles = [], onAddEvidenc
 
 const styles = {
   container: { display: 'grid', gap: '10px' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#333', fontWeight: 700, fontSize: '14px' },
-  count: { fontSize: '12px', color: 'var(--text-secondary, #6b7280)' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--text-primary)', fontWeight: 700, fontSize: '14px' },
+  count: { fontSize: '12px', color: 'var(--text-muted)' },
   limit: {
-    border: '1px solid #f59e0b',
-    background: '#fffbeb',
-    color: '#92400e',
+    border: '1px solid rgba(251,191,36,0.3)',
+    background: 'rgba(251,191,36,0.08)',
+    color: 'var(--warning)',
     padding: '8px 10px',
-    borderRadius: '8px',
+    borderRadius: 'var(--radius-sm)',
     fontSize: '13px',
     fontWeight: 600,
+  },
+  uploadBtn: {
+    padding: '10px 16px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--accent)',
+    background: 'var(--accent-soft)',
+    color: 'var(--accent)',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    minHeight: '44px',
+    alignSelf: 'start',
   },
   list: {
     display: 'grid',
@@ -61,20 +86,20 @@ const styles = {
     gap: '8px',
   },
   item: {
-    border: '1px solid var(--border-color, #e5e7eb)',
-    borderRadius: '8px',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
     overflow: 'hidden',
-    background: '#fff',
+    background: 'var(--bg-elevated)',
   },
   thumb: { width: '100%', height: '90px', objectFit: 'cover', display: 'block' },
   remove: {
     width: '100%',
     border: 'none',
-    background: '#fee2e2',
-    color: '#991b1b',
+    background: 'var(--error-soft)',
+    color: 'var(--error)',
     padding: '6px 8px',
     cursor: 'pointer',
     fontWeight: 600,
   },
-  error: { color: '#dc2626', fontSize: '12px', fontWeight: 600 },
+  error: { color: 'var(--error)', fontSize: '12px', fontWeight: 600 },
 };

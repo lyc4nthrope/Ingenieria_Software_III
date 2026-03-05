@@ -229,19 +229,19 @@ const styles = {
 
   // Drop zone
   dropZone: {
-    border: "2px dashed #ddd",
-    borderRadius: "8px",
+    border: "2px dashed var(--border)",
+    borderRadius: "var(--radius-sm)",
     padding: "40px 20px",
     textAlign: "center",
     cursor: "pointer",
     transition: "all 0.3s",
-    background: "#fafafa",
+    background: "var(--bg-elevated)",
     marginBottom: "12px",
   },
 
   dropZoneActive: {
-    borderColor: "#ff6b35",
-    background: "#fff5f0",
+    borderColor: "var(--accent)",
+    background: "var(--accent-soft)",
     transform: "scale(1.01)",
   },
 
@@ -261,34 +261,35 @@ const styles = {
   dropTitle: {
     fontSize: "16px",
     fontWeight: 600,
-    color: "#333",
+    color: "var(--text-primary)",
     marginBottom: "4px",
   },
 
   dropSubtitle: {
     fontSize: "13px",
-    color: "#666",
+    color: "var(--text-secondary)",
     marginBottom: "8px",
   },
 
   dropHint: {
     fontSize: "12px",
-    color: "#999",
+    color: "var(--text-muted)",
   },
 
   // Uploading
   uploadingContainer: {
     padding: "32px 20px",
     textAlign: "center",
-    background: "#f0f0f0",
-    borderRadius: "8px",
+    background: "var(--bg-elevated)",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--border)",
   },
 
   spinner: {
     width: "40px",
     height: "40px",
-    border: "3px solid #f0f0f0",
-    borderTop: "3px solid #ff6b35",
+    border: "3px solid var(--border)",
+    borderTop: "3px solid var(--accent)",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
     margin: "0 auto 12px",
@@ -297,7 +298,7 @@ const styles = {
   uploadingText: {
     fontSize: "14px",
     fontWeight: 600,
-    color: "#333",
+    color: "var(--text-primary)",
     marginBottom: "16px",
   },
 
@@ -307,7 +308,7 @@ const styles = {
 
   progressBar: {
     height: "6px",
-    background: "#e0e0e0",
+    background: "var(--border)",
     borderRadius: "3px",
     overflow: "hidden",
     marginBottom: "8px",
@@ -315,29 +316,29 @@ const styles = {
 
   progressFill: {
     height: "100%",
-    background: "#ff6b35",
+    background: "var(--accent)",
     transition: "width 0.3s",
   },
 
   progressText: {
     fontSize: "12px",
-    color: "#666",
+    color: "var(--text-muted)",
     fontWeight: 600,
   },
 
   // Success
   successContainer: {
     padding: "20px",
-    background: "#f0fdf4",
-    border: "1px solid #bbf7d0",
-    borderRadius: "8px",
+    background: "var(--success-soft)",
+    border: "1px solid rgba(74,222,128,0.3)",
+    borderRadius: "var(--radius-sm)",
   },
 
   previewSection: {
     marginBottom: "16px",
-    borderRadius: "6px",
+    borderRadius: "var(--radius-sm)",
     overflow: "hidden",
-    background: "#fff",
+    background: "var(--bg-elevated)",
   },
 
   previewImage: {
@@ -357,7 +358,7 @@ const styles = {
 
   checkmark: {
     fontSize: "20px",
-    color: "#22c55e",
+    color: "var(--success)",
     fontWeight: "bold",
     marginTop: "2px",
   },
@@ -365,36 +366,38 @@ const styles = {
   successTitle: {
     fontSize: "14px",
     fontWeight: 600,
-    color: "#166534",
+    color: "var(--success)",
   },
 
   successUrl: {
     fontSize: "12px",
-    color: "#15803d",
+    color: "var(--success)",
     marginTop: "2px",
     wordBreak: "break-all",
+    opacity: 0.8,
   },
 
   // Error
   errorContainer: {
     padding: "20px",
-    background: "#fef2f2",
-    border: "1px solid #fecaca",
-    borderRadius: "8px",
+    background: "var(--error-soft)",
+    border: "1px solid rgba(248,113,113,0.3)",
+    borderRadius: "var(--radius-sm)",
   },
 
   errorTitle: {
     fontSize: "14px",
     fontWeight: 600,
-    color: "#991b1b",
+    color: "var(--error)",
     marginBottom: "8px",
   },
 
   errorMessage: {
     fontSize: "13px",
-    color: "#7f1d1d",
+    color: "var(--error)",
     marginBottom: "16px",
     lineHeight: "1.4",
+    opacity: 0.85,
   },
 
   // Hints
@@ -403,7 +406,7 @@ const styles = {
     flexDirection: "column",
     gap: "6px",
     fontSize: "12px",
-    color: "#666",
+    color: "var(--text-muted)",
   },
 
   hint: {
@@ -422,26 +425,28 @@ const styles = {
   // Buttons
   button: {
     padding: "10px 16px",
-    borderRadius: "6px",
-    border: "none",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid transparent",
     fontSize: "13px",
     fontWeight: 600,
     cursor: "pointer",
     transition: "all 0.2s",
     marginRight: "8px",
     marginBottom: "8px",
-    minHeight: "44px",   // WCAG 2.5.5 touch target
+    minHeight: "44px",
     minWidth: "44px",
   },
 
   buttonPrimary: {
-    background: "#ff6b35",
-    color: "#fff",
+    background: "var(--accent-soft)",
+    color: "var(--accent)",
+    borderColor: "var(--accent)",
   },
 
   buttonSecondary: {
-    background: "#e0e0e0",
-    color: "#333",
+    background: "var(--bg-elevated)",
+    color: "var(--text-secondary)",
+    borderColor: "var(--border-soft)",
   },
 };
 

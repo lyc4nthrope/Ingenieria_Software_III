@@ -1,80 +1,46 @@
 /**
  * PriceSearchFilter.jsx
  *
- * Barra de filtros para publicaciones de precios
- * Incluye: búsqueda, rango de precio, distancia, ordenamiento
+ * Panel de filtros para publicaciones de precios (controlado externamente).
+ * El toggle de visibilidad lo maneja el padre; este componente solo
+ * muestra el formulario cuando `open === true` y siempre muestra los tags activos.
  *
  * UBICACIÓN: src/features/publications/components/PriceSearchFilter.jsx
- * FECHA: 26-02-2026
- * STATUS: Paso 3c de Proceso 2
- *
- * PROPS:
- * - filters: {Object} Filtros actuales
- * - onFiltersChange: {Function} Callback cuando cambian filtros
- * - onClearFilters: {Function} Callback para limpiar filtros
- *
- * FEATURES:
- * - Búsqueda por producto
- * - Búsqueda por tienda
- * - Rango de precio
- * - Filtro de distancia
- * - Ordenamiento (reciente, validadas, precio)
- * - Botón limpiar
  */
 
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
- * Componente: PriceSearchFilter
- * Barra de filtros para búsqueda y filtrado de publicaciones
- *
- * @param {Object} filters - Filtros actuales { productName, storeName, minPrice, maxPrice, maxDistance, sortBy }
- * @param {Function} onFiltersChange - Callback: (newFilters) => void
- * @param {Function} onClearFilters - Callback: () => void
- *
- * @example
- * <PriceSearchFilter
- *   filters={filters}
- *   onFiltersChange={(f) => setFilters(f)}
- *   onClearFilters={() => clearFilters()}
- * />
+ * @param {Object}   filters          - Filtros actuales
+ * @param {Function} onFiltersChange  - (newFilters) => void
+ * @param {Function} onClearFilters   - () => void
+ * @param {boolean}  open             - Controla si el panel de filtros está visible
  */
 export function PriceSearchFilter({
   filters = {},
   onFiltersChange,
   onClearFilters,
+  open = false,
 }) {
   const { t } = useLanguage();
   const tf = t.priceFilter;
 
-  // ─── Estados ───────────────────────────────────────────────────────────────
-
-  const [isExpanded, setIsExpanded] = useState(false);
   const [localFilters, setLocalFilters] = useState(filters);
 
-  // Contar filtros activos
   const activeFiltersCount = Object.values(localFilters).filter(
     (v) => v !== null && v !== '' && v !== 'recent'
   ).length;
 
-  // ─── Handlers ──────────────────────────────────────────────────────────────
-
   const handleInputChange = (field, value) => {
-    const updated = {
-      ...localFilters,
-      [field]: value,
-    };
+    const updated = { ...localFilters, [field]: value };
     setLocalFilters(updated);
     onFiltersChange?.(updated);
   };
 
   const handleRangeChange = (minOrMax, value) => {
     const numValue = value ? Number(value) : null;
-    const updated = {
-      ...localFilters,
-      [minOrMax]: numValue,
-    };
+    const updated = { ...localFilters, [minOrMax]: numValue };
     setLocalFilters(updated);
     onFiltersChange?.(updated);
   };
@@ -92,31 +58,47 @@ export function PriceSearchFilter({
     onClearFilters?.();
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
-
   return (
-    <div style={styles.container}>
-      {/* Header: Título y botón expandir */}
-      <div style={styles.header}>
-        <div style={styles.title}>
-          🔍 {tf.title}
-          {activeFiltersCount > 0 && (
-            <span style={styles.badge}>{activeFiltersCount}</span>
+    <div>
+      {/* Tags de filtros activos — siempre visibles si hay filtros */}
+      {activeFiltersCount > 0 && (
+        <div style={styles.tags}>
+          {localFilters.productName && (
+            <span style={styles.tag}>
+              {localFilters.productName}
+              <button style={styles.tagClose} onClick={() => handleInputChange('productName', '')}>✕</button>
+            </span>
+          )}
+          {localFilters.storeName && (
+            <span style={styles.tag}>
+              {localFilters.storeName}
+              <button style={styles.tagClose} onClick={() => handleInputChange('storeName', '')}>✕</button>
+            </span>
+          )}
+          {localFilters.minPrice && (
+            <span style={styles.tag}>
+              ${localFilters.minPrice}+
+              <button style={styles.tagClose} onClick={() => handleRangeChange('minPrice', '')}>✕</button>
+            </span>
+          )}
+          {localFilters.maxPrice && (
+            <span style={styles.tag}>
+              {tf.maxLabel(localFilters.maxPrice)}
+              <button style={styles.tagClose} onClick={() => handleRangeChange('maxPrice', '')}>✕</button>
+            </span>
+          )}
+          {localFilters.maxDistance && (
+            <span style={styles.tag}>
+              {localFilters.maxDistance}km
+              <button style={styles.tagClose} onClick={() => handleRangeChange('maxDistance', '')}>✕</button>
+            </span>
           )}
         </div>
+      )}
 
-        <button
-          style={styles.toggleButton}
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          {isExpanded ? '▼' : '▶'}
-        </button>
-      </div>
-
-      {/* Filtros expandidos */}
-      {isExpanded && (
-        <div style={styles.content}>
-          {/* Fila 1: Búsquedas */}
+      {/* Panel de filtros — solo cuando open === true */}
+      {open && (
+        <div style={styles.panel}>
           <div style={styles.row}>
             <div style={styles.formGroup}>
               <label style={styles.label}>{tf.product}</label>
@@ -128,7 +110,6 @@ export function PriceSearchFilter({
                 style={styles.input}
               />
             </div>
-
             <div style={styles.formGroup}>
               <label style={styles.label}>{tf.store}</label>
               <input
@@ -141,7 +122,6 @@ export function PriceSearchFilter({
             </div>
           </div>
 
-          {/* Fila 2: Rango de precio */}
           <div style={styles.row}>
             <div style={styles.formGroup}>
               <label style={styles.label}>{tf.minPrice}</label>
@@ -156,7 +136,6 @@ export function PriceSearchFilter({
                 />
               </div>
             </div>
-
             <div style={styles.formGroup}>
               <label style={styles.label}>{tf.maxPrice}</label>
               <div style={styles.inputGroup}>
@@ -172,7 +151,6 @@ export function PriceSearchFilter({
             </div>
           </div>
 
-          {/* Fila 3: Distancia y Ordenamiento */}
           <div style={styles.row}>
             <div style={styles.formGroup}>
               <label style={styles.label}>{tf.distance}</label>
@@ -180,13 +158,10 @@ export function PriceSearchFilter({
                 type="number"
                 placeholder={tf.distancePlaceholder}
                 value={localFilters.maxDistance || ''}
-                onChange={(e) =>
-                  handleRangeChange('maxDistance', e.target.value)
-                }
+                onChange={(e) => handleRangeChange('maxDistance', e.target.value)}
                 style={styles.input}
               />
             </div>
-
             <div style={styles.formGroup}>
               <label style={styles.label}>{tf.sortBy}</label>
               <select
@@ -197,270 +172,126 @@ export function PriceSearchFilter({
                 <option value="recent">{tf.recent}</option>
                 <option value="validated">{tf.validated}</option>
                 <option value="cheapest">{tf.cheapest}</option>
+                <option value="best_match">Mejor opción</option>
               </select>
             </div>
           </div>
 
-          {/* Botones de acción */}
           <div style={styles.actions}>
-            <button
-              style={{ ...styles.button, ...styles.buttonSecondary }}
-              onClick={handleClear}
-            >
+            <button style={styles.clearBtn} onClick={handleClear}>
               {tf.clearFilters}
             </button>
-
-            <div style={styles.spacer}></div>
-
-            {activeFiltersCount > 0 && (
-              <div style={styles.filterSummary}>
-                {activeFiltersCount === 1 ? tf.activeFilter : tf.activeFilters(activeFiltersCount)}
-              </div>
-            )}
           </div>
-        </div>
-      )}
-
-      {/* Filtros minimizados: mostrar activos */}
-      {!isExpanded && activeFiltersCount > 0 && (
-        <div style={styles.minimized}>
-          {localFilters.productName && (
-            <span style={styles.tag}>
-              🛒 {localFilters.productName}
-              <button
-                style={styles.tagClose}
-                onClick={() => handleInputChange('productName', '')}
-              >
-                ✕
-              </button>
-            </span>
-          )}
-
-          {localFilters.storeName && (
-            <span style={styles.tag}>
-              🏪 {localFilters.storeName}
-              <button
-                style={styles.tagClose}
-                onClick={() => handleInputChange('storeName', '')}
-              >
-                ✕
-              </button>
-            </span>
-          )}
-
-          {localFilters.minPrice && (
-            <span style={styles.tag}>
-              💰 ${localFilters.minPrice}+
-              <button
-                style={styles.tagClose}
-                onClick={() => handleRangeChange('minPrice', '')}
-              >
-                ✕
-              </button>
-            </span>
-          )}
-
-          {localFilters.maxPrice && (
-            <span style={styles.tag}>
-              💰 {tf.maxLabel(localFilters.maxPrice)}
-              <button
-                style={styles.tagClose}
-                onClick={() => handleRangeChange('maxPrice', '')}
-              >
-                ✕
-              </button>
-            </span>
-          )}
-
-          {localFilters.maxDistance && (
-            <span style={styles.tag}>
-              📍 {localFilters.maxDistance}km
-              <button
-                style={styles.tagClose}
-                onClick={() => handleRangeChange('maxDistance', '')}
-              >
-                ✕
-              </button>
-            </span>
-          )}
         </div>
       )}
     </div>
   );
 }
 
-// ─── Estilos ──────────────────────────────────────────────────────────────────
-
 const styles = {
-  container: {
-    background: '#fff',
-    border: '1px solid #e0e0e0',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    overflow: 'hidden',
-  },
-
-  header: {
+  tags: {
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '12px 16px',
-    background: '#fafafa',
-    cursor: 'pointer',
-    borderBottom: '1px solid #e0e0e0',
+    flexWrap: 'wrap',
+    gap: '6px',
+    marginTop: '10px',
   },
-
-  title: {
-    fontSize: '14px',
-    fontWeight: 600,
-    color: '#333',
-    display: 'flex',
+  tag: {
+    display: 'inline-flex',
     alignItems: 'center',
-    gap: '8px',
-  },
-
-  badge: {
-    background: '#ff6b35',
-    color: '#fff',
-    borderRadius: '12px',
-    padding: '2px 8px',
+    gap: '5px',
+    background: 'var(--accent-soft)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border)',
+    padding: '3px 10px',
+    borderRadius: '20px',
     fontSize: '12px',
-    fontWeight: 600,
+    fontWeight: 500,
   },
-
-  toggleButton: {
+  tagClose: {
     background: 'none',
     border: 'none',
-    fontSize: '12px',
+    color: 'var(--text-muted)',
     cursor: 'pointer',
-    color: '#666',
-    padding: '4px 8px',
+    fontSize: '11px',
+    padding: '0',
+    lineHeight: 1,
   },
-
-  content: {
+  panel: {
+    marginTop: '12px',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
     padding: '16px',
   },
-
   row: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: '16px',
     marginBottom: '16px',
   },
-
   formGroup: {
     display: 'flex',
     flexDirection: 'column',
   },
-
   label: {
     fontSize: '13px',
     fontWeight: 600,
-    color: '#333',
+    color: 'var(--text-primary)',
     marginBottom: '6px',
   },
-
   input: {
     padding: '8px 12px',
-    border: '1px solid #ddd',
-    borderRadius: '6px',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
     fontSize: '13px',
     fontFamily: 'inherit',
+    background: 'var(--bg-surface)',
+    color: 'var(--text-primary)',
   },
-
   inputGroup: {
     position: 'relative',
     display: 'flex',
     alignItems: 'center',
   },
-
   currency: {
     position: 'absolute',
     left: '12px',
     fontSize: '13px',
-    color: '#999',
+    color: 'var(--text-muted)',
     pointerEvents: 'none',
   },
-
   inputWithPrefix: {
     padding: '8px 12px 8px 28px',
-    border: '1px solid #ddd',
-    borderRadius: '6px',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
     fontSize: '13px',
     fontFamily: 'inherit',
     width: '100%',
+    background: 'var(--bg-surface)',
+    color: 'var(--text-primary)',
   },
-
   select: {
     padding: '8px 12px',
-    border: '1px solid #ddd',
-    borderRadius: '6px',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
     fontSize: '13px',
     fontFamily: 'inherit',
-    background: '#fff',
+    background: 'var(--bg-surface)',
+    color: 'var(--text-primary)',
   },
-
   actions: {
     display: 'flex',
-    gap: '12px',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
-
-  button: {
-    padding: '8px 16px',
-    borderRadius: '6px',
-    border: 'none',
+  clearBtn: {
+    padding: '7px 14px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text-secondary)',
     fontSize: '13px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-  },
-
-  buttonSecondary: {
-    background: '#f0f0f0',
-    color: '#333',
-    border: '1px solid #ddd',
-  },
-
-  spacer: {
-    flex: 1,
-  },
-
-  filterSummary: {
-    fontSize: '12px',
-    color: '#666',
     fontWeight: 500,
-  },
-
-  // Filtros minimizados
-  minimized: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '8px',
-    padding: '12px 16px',
-    background: '#f0f0f0',
-  },
-
-  tag: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-    background: '#ff6b35',
-    color: '#fff',
-    padding: '4px 10px',
-    borderRadius: '16px',
-    fontSize: '12px',
-    fontWeight: 500,
-  },
-
-  tagClose: {
-    background: 'none',
-    border: 'none',
-    color: '#fff',
     cursor: 'pointer',
-    fontSize: '12px',
-    padding: '0',
-    marginLeft: '2px',
   },
 };
 

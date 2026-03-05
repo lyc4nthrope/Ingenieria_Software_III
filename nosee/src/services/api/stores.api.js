@@ -33,22 +33,61 @@ const STORE_TYPE_ID = {
 };
 
 /**
- * Convierte POINT(lon lat) -> { latitude, longitude }.
- * Soporta respuestas textuales comunes de PostgREST para geography/geometry.
+ * Decodifica WKB (Well-Known Binary / EWKB) hex de PostGIS.
+ * Formato EWKB: 01 01000020 E6100000 [lon:8B] [lat:8B]
+ */
+function parseWKB(hexString) {
+  try {
+    const bytes = new Uint8Array(hexString.length / 2);
+    for (let i = 0; i < hexString.length; i += 2) {
+      bytes[i / 2] = parseInt(hexString.substr(i, 2), 16);
+    }
+    const view = new DataView(bytes.buffer);
+    const littleEndian = bytes[0] === 1;
+    const longitude = view.getFloat64(9, littleEndian);
+    const latitude = view.getFloat64(17, littleEndian);
+    if (Number.isFinite(longitude) && Number.isFinite(latitude)) {
+      return { latitude: Number(latitude.toFixed(7)), longitude: Number(longitude.toFixed(7)) };
+    }
+  } catch {
+    // ignorar
+  }
+  return null;
+}
+
+/**
+ * Convierte POINT(lon lat) o WKB hex -> { latitude, longitude }.
+ * Soporta WKT, EWKB hex y GeoJSON.
  */
 function parsePointText(pointText) {
-  if (!pointText || typeof pointText !== "string") return null;
+  if (!pointText) return null;
 
+  // GeoJSON object
+  if (typeof pointText === "object" && Array.isArray(pointText.coordinates)) {
+    const [lon, lat] = pointText.coordinates;
+    if (Number.isFinite(lon) && Number.isFinite(lat)) return { latitude: lat, longitude: lon };
+    return null;
+  }
+
+  if (typeof pointText !== "string") return null;
+
+  // WKT: POINT(lon lat)
   const match = pointText.match(
     /POINT\s*\(\s*([-+]?\d*\.?\d+)\s+([-+]?\d*\.?\d+)\s*\)/i,
   );
-  if (!match) return null;
+  if (match) {
+    const longitude = Number(match[1]);
+    const latitude = Number(match[2]);
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) return null;
+    return { latitude, longitude };
+  }
 
-  const longitude = Number(match[1]);
-  const latitude = Number(match[2]);
+  // WKB hex
+  if (/^[0-9a-fA-F]+$/.test(pointText) && pointText.length >= 42) {
+    return parseWKB(pointText);
+  }
 
-  if (Number.isNaN(latitude) || Number.isNaN(longitude)) return null;
-  return { latitude, longitude };
+  return null;
 }
 
 function getUiTypeByStoreTypeId(storeTypeId) {
@@ -488,11 +527,99 @@ export async function updateStore(storeId, updates = {}) {
   return { success: true, data: { ...data, type: getUiTypeByStoreTypeId(data.store_type_id) } };
 }
 
+/**
+ * Lista todas las tiendas con soporte de búsqueda por nombre.
+ * Si name está vacío, devuelve todas las tiendas (hasta el límite).
+ *
+ * @param {string=} name - Filtro opcional por nombre
+ * @param {number=} limit - Máximo de resultados (default 50)
+ */
+export async function listStores(name = "", limit = 50) {
+  try {
+    let query = supabase
+      .from("stores")
+      .select("id, name, store_type_id, address, website_url, location")
+      .order("name", { ascending: true })
+      .limit(limit);
+
+    if (name && name.trim().length >= 1) {
+      query = query.ilike("name", `%${name.trim()}%`);
+    }
+
+    const { data, error } = await withTimeout(query, REQUEST_TIMEOUT_MS, "La carga de tiendas tardó demasiado");
+
+    if (error) return { success: false, error: error.message };
+
+    const mapped = (data || []).map((store) => {
+      const point = parsePointText(store.location);
+      return {
+        ...store,
+        type: getUiTypeByStoreTypeId(store.store_type_id),
+        latitude: point?.latitude ?? null,
+        longitude: point?.longitude ?? null,
+      };
+    });
+
+    return { success: true, data: mapped };
+  } catch (err) {
+    return { success: false, error: err.message || "Error cargando tiendas" };
+  }
+}
+
+/**
+ * Obtiene publicaciones recientes de una tienda específica.
+ *
+ * @param {string|number} storeId
+ * @param {number=} limit
+ */
+export async function getStorePublications(storeId, limit = 6) {
+  if (!storeId) return { success: false, error: "storeId es obligatorio" };
+
+  try {
+    const { data, error } = await supabase
+      .from("price_publications")
+      .select("id, price, description, photo_url, created_at, product:products (id, name)")
+      .eq("store_id", storeId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) return { success: false, error: error.message };
+
+    return { success: true, data: data || [] };
+  } catch (err) {
+    return { success: false, error: err.message || "Error obteniendo publicaciones de la tienda" };
+  }
+}
+
+/**
+ * Obtiene las imágenes de evidencia de una tienda.
+ * @param {string|number} storeId
+ */
+export async function getStoreEvidences(storeId) {
+  if (!storeId) return { success: false, error: "storeId es obligatorio" };
+
+  try {
+    const { data, error } = await supabase
+      .from("store_evidences")
+      .select("id, image_url, created_at")
+      .eq("store_id", storeId)
+      .order("created_at", { ascending: true });
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data || [] };
+  } catch (err) {
+    return { success: false, error: err.message || "Error obteniendo evidencias" };
+  }
+}
+
 export default {
   createStore,
   createStoreSimple,
   uploadStoreEvidence,
   searchNearbyStores,
+  listStores,
   getStore,
   updateStore,
+  getStorePublications,
+  getStoreEvidences,
 };

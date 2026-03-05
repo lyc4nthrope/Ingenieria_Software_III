@@ -320,15 +320,28 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                 )}
 
                 {!productSearching &&
-                  productResults.map((p) => (
-                    <div
-                      key={p.id}
-                      style={styles.dropdownItem}
-                      onMouseDown={() => handleProductSelect(p)}
-                    >
-                      {p.name}
-                    </div>
-                  ))}
+                  productResults.map((p) => {
+                    const meta = [
+                      p.brand?.name,
+                      p.base_quantity != null && p.unit?.name
+                        ? `${p.base_quantity} ${p.unit.name}`
+                        : p.base_quantity != null
+                        ? p.base_quantity
+                        : p.unit?.name,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                    return (
+                      <div
+                        key={p.id}
+                        style={styles.dropdownItem}
+                        onMouseDown={() => handleProductSelect(p)}
+                      >
+                        <span>{p.name}</span>
+                        {meta && <span style={styles.dropdownSub}>{meta}</span>}
+                      </div>
+                    );
+                  })}
 
                 {!productSearching &&
                   productResults.length === 0 &&
@@ -553,33 +566,33 @@ const styles = {
   container: {
     maxWidth: "600px",
     margin: "0 auto",
-    background: "#fff",
-    border: "1px solid #e0e0e0",
-    borderRadius: "8px",
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-md)",
     padding: "24px",
   },
   title: {
     fontSize: "20px",
     fontWeight: 700,
     margin: "0 0 20px 0",
-    color: "#333",
+    color: "var(--text-primary)",
   },
   successAlert: {
-    background: "#f0fdf4",
-    border: "1px solid #bbf7d0",
-    color: "#166534",
+    background: "var(--success-soft)",
+    border: "1px solid rgba(74,222,128,0.3)",
+    color: "var(--success)",
     padding: "12px 16px",
-    borderRadius: "6px",
+    borderRadius: "var(--radius-sm)",
     marginBottom: "16px",
     fontSize: "13px",
     fontWeight: 500,
   },
   errorAlert: {
-    background: "#fef2f2",
-    border: "1px solid #fecaca",
-    color: "#991b1b",
+    background: "var(--error-soft)",
+    border: "1px solid rgba(248,113,113,0.3)",
+    color: "var(--error)",
     padding: "12px 16px",
-    borderRadius: "6px",
+    borderRadius: "var(--radius-sm)",
     marginBottom: "16px",
     fontSize: "13px",
     fontWeight: 500,
@@ -596,24 +609,26 @@ const styles = {
   label: {
     fontSize: "13px",
     fontWeight: 600,
-    color: "#333",
+    color: "var(--text-secondary)",
     marginBottom: "6px",
   },
   required: {
-    color: "#d32f2f",
+    color: "var(--error)",
   },
   input: {
     padding: "10px 12px",
-    border: "1px solid #ddd",
-    borderRadius: "6px",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
     fontSize: "13px",
     fontFamily: "inherit",
     outline: "none",
     width: "100%",
     boxSizing: "border-box",
+    background: "var(--bg-elevated)",
+    color: "var(--text-primary)",
   },
   inputError: {
-    borderColor: "#ef4444",
+    borderColor: "var(--error)",
   },
   inputGroup: {
     position: "relative",
@@ -624,47 +639,51 @@ const styles = {
     position: "absolute",
     left: "12px",
     fontSize: "13px",
-    color: "#999",
+    color: "var(--text-muted)",
     pointerEvents: "none",
   },
   inputWithPrefix: {
     padding: "10px 12px 10px 28px",
-    border: "1px solid #ddd",
-    borderRadius: "6px",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
     fontSize: "13px",
     fontFamily: "inherit",
     width: "100%",
     outline: "none",
+    background: "var(--bg-elevated)",
+    color: "var(--text-primary)",
   },
   select: {
     padding: "10px 12px",
-    border: "1px solid #ddd",
-    borderRadius: "6px",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
     fontSize: "13px",
     fontFamily: "inherit",
-    background: "#fff",
-    color: "#111827",
-    WebkitTextFillColor: "#111827",
+    background: "var(--bg-elevated)",
+    color: "var(--text-primary)",
+    WebkitTextFillColor: "var(--text-primary)",
     opacity: 1,
   },
   textarea: {
     padding: "10px 12px",
-    border: "1px solid #ddd",
-    borderRadius: "6px",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
     fontSize: "13px",
     fontFamily: "inherit",
     minHeight: "80px",
     resize: "vertical",
     outline: "none",
+    background: "var(--bg-elevated)",
+    color: "var(--text-primary)",
   },
   charCount: {
     fontSize: "12px",
-    color: "#999",
+    color: "var(--text-muted)",
     marginTop: "4px",
     textAlign: "right",
   },
   errorText: {
-    color: "#d32f2f",
+    color: "var(--error)",
     fontSize: "12px",
     marginTop: "4px",
   },
@@ -681,69 +700,69 @@ const styles = {
     top: "100%",
     left: 0,
     right: 0,
-    background: "#fff",
-    border: "1px solid #ddd",
+    background: "var(--bg-elevated)",
+    border: "1px solid var(--border)",
     borderTop: "none",
-    borderRadius: "0 0 6px 6px",
+    borderRadius: "0 0 var(--radius-sm) var(--radius-sm)",
     maxHeight: "220px",
     overflowY: "auto",
     zIndex: 50,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+    boxShadow: "var(--shadow-md)",
   },
   dropdownItem: {
     padding: "10px 12px",
     cursor: "pointer",
     fontSize: "13px",
-    borderBottom: "1px solid #f0f0f0",
+    borderBottom: "1px solid var(--border)",
     display: "flex",
     flexDirection: "column",
     gap: "2px",
-    color: "#111827",
-    background: "#ffffff",
+    color: "var(--text-primary)",
+    background: "var(--bg-elevated)",
   },
   dropdownCreate: {
-    color: "#ff6b35",
+    color: "var(--accent)",
     fontWeight: 600,
-    borderTop: "1px solid #eee",
+    borderTop: "1px solid var(--border-soft)",
   },
   dropdownState: {
     padding: "10px 12px",
-    fontSize: "13px", // Aumentamos un punto para legibilidad
-    color: "#1a1a1a", // Un negro casi puro para máximo contraste
-    fontWeight: "500", // Un poco más de grosor para que se note
-    background: "#f9f9f9", // Un fondo sutilmente diferente ayuda a resaltar
+    fontSize: "13px",
+    color: "var(--text-secondary)",
+    fontWeight: "500",
+    background: "var(--bg-surface)",
   },
   dropdownSub: {
     fontSize: "11px",
-    color: "#1a1a1a", // Cambiamos de #888 a #444 (gris oscuro/negro)
+    color: "var(--text-secondary)",
   },
   dropdownDistance: {
     fontSize: "11px",
-    color: "#ff6b35",
+    color: "var(--accent)",
     fontWeight: 600,
   },
   selectedBadge: {
     fontSize: "12px",
-    color: "#166534",
+    color: "var(--success)",
     marginTop: "4px",
   },
   geoInfo: {
-    background: "#e3f2fd",
-    border: "1px solid #90caf9",
-    color: "#01579b",
+    background: "var(--accent-soft)",
+    border: "1px solid var(--accent-glow)",
+    color: "var(--accent)",
     padding: "10px 12px",
-    borderRadius: "6px",
+    borderRadius: "var(--radius-sm)",
     fontSize: "12px",
   },
   submitBtn: {
     padding: "13px 24px",
-    borderRadius: "6px",
-    border: "none",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--accent)",
     fontSize: "14px",
     fontWeight: 600,
     cursor: "pointer",
-    background: "#ff6b35",
-    color: "#fff",
+    background: "var(--accent)",
+    color: "#080C14",
     marginTop: "4px",
   },
 };

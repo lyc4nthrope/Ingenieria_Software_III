@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createBrand,
   createProduct,
@@ -22,6 +22,8 @@ export default function ProductQuickCreateModal({
   const [categories, setCategories] = useState([]);
   const [unitTypes, setUnitTypes] = useState([]);
   const [brandResults, setBrandResults] = useState([]);
+  const [showBrandDropdown, setShowBrandDropdown] = useState(false);
+  const brandWrapperRef = useRef(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,6 +54,16 @@ export default function ProductQuickCreateModal({
     };
 
     loadCatalogs();
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (brandWrapperRef.current && !brandWrapperRef.current.contains(e.target)) {
+        setShowBrandDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   useEffect(() => {
@@ -88,7 +100,13 @@ export default function ProductQuickCreateModal({
     setIsCreatingBrand(false);
 
     if (!result.success) {
-      setError(result.error || "No se pudo registrar la marca");
+      if (result.alreadyExists && result.data) {
+        setBrandId(String(result.data.id));
+        setBrandName(result.data.name);
+        setError("Esta marca ya está registrada. Se seleccionó automáticamente.");
+      } else {
+        setError(result.error || "No se pudo registrar la marca");
+      }
       return;
     }
 
@@ -103,7 +121,16 @@ export default function ProductQuickCreateModal({
 
   const handleBrandNameChange = (value) => {
     setBrandName(value);
+    setBrandId("");
     setBrandMessage(null);
+    setShowBrandDropdown(true);
+  };
+
+  const handleBrandSelect = (brand) => {
+    setBrandName(brand.name);
+    setBrandId(String(brand.id));
+    setBrandMessage(null);
+    setShowBrandDropdown(false);
   };
 
   const handleSubmit = async (event) => {
@@ -179,30 +206,48 @@ export default function ProductQuickCreateModal({
             </select>
 
             <label style={s.label}>Marca *</label>
-            <input
-              style={s.input}
-              value={brandName}
-              onChange={(e) => handleBrandNameChange(e.target.value)}
-              placeholder="Ej: Alpina"
-              required
-              list="brand-suggestions"
-            />
-            <datalist id="brand-suggestions">
-              {brandResults.map((brand) => (
-                <option key={brand.id} value={brand.name} />
-              ))}
-            </datalist>
-            <div style={s.brandActions}>
+            <div ref={brandWrapperRef} style={s.brandRow}>
+              <div style={s.brandAutocomplete}>
+                <input
+                  style={s.input}
+                  value={brandName}
+                  onChange={(e) => handleBrandNameChange(e.target.value)}
+                  onFocus={() => brandName.trim().length >= 1 && setShowBrandDropdown(true)}
+                  placeholder="Ej: Alpina"
+                  autoComplete="off"
+                />
+                {showBrandDropdown && brandName.trim().length >= 1 && (
+                  <div style={s.brandDropdown}>
+                    {brandResults.map((brand) => (
+                      <div
+                        key={brand.id}
+                        style={s.brandDropdownItem}
+                        onMouseDown={() => handleBrandSelect(brand)}
+                      >
+                        {brand.name}
+                      </div>
+                    ))}
+                    {brandResults.length === 0 && (
+                      <div style={s.brandDropdownEmpty}>Sin coincidencias</div>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
-                style={s.brandBtn}
+                style={{
+                  ...s.brandRegisterBtn,
+                  opacity: !brandName.trim() || isCreatingBrand ? 0.5 : 1,
+                  cursor: !brandName.trim() || isCreatingBrand ? "not-allowed" : "pointer",
+                }}
                 onClick={handleCreateBrand}
                 disabled={!brandName.trim() || isCreatingBrand}
+                title="Registrar nueva marca"
               >
-                {isCreatingBrand ? "Registrando marca..." : "Registrar marca"}
+                {isCreatingBrand ? "⏳" : "＋"}
               </button>
-              {brandId && <span style={s.brandOk}>✓ Marca lista</span>}
             </div>
+            {brandId && <span style={s.brandOk}>✓ Marca lista</span>}
             {brandMessage && <div style={s.brandMessage}>{brandMessage}</div>}
 
             <div style={s.twoCols}>
@@ -261,7 +306,7 @@ const s = {
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.5)",
+    background: "rgba(0,0,0,0.6)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -271,9 +316,11 @@ const s = {
   card: {
     width: "100%",
     maxWidth: "520px",
-    background: "#fff",
-    borderRadius: "12px",
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-md)",
     padding: "24px",
+    boxShadow: "var(--shadow-lg)",
   },
   header: {
     display: "flex",
@@ -281,66 +328,102 @@ const s = {
     alignItems: "center",
     marginBottom: "12px",
   },
-  title: { margin: 0, fontSize: "18px", fontWeight: 700 },
-  closeBtn: { border: "none", background: "transparent", cursor: "pointer" },
-  loading: { padding: "12px", fontSize: "14px", color: "#666" },
+  title: { margin: 0, fontSize: "18px", fontWeight: 700, color: "var(--text-primary)" },
+  closeBtn: { border: "none", background: "transparent", cursor: "pointer", color: "var(--text-muted)", fontSize: "16px" },
+  loading: { padding: "12px", fontSize: "14px", color: "var(--text-muted)" },
   errorBox: {
-    background: "#fef2f2",
-    border: "1px solid #fecaca",
-    color: "#991b1b",
-    borderRadius: "8px",
+    background: "var(--error-soft)",
+    border: "1px solid rgba(248,113,113,0.3)",
+    color: "var(--error)",
+    borderRadius: "var(--radius-sm)",
     padding: "10px 12px",
     marginBottom: "12px",
     fontSize: "13px",
   },
   form: { display: "flex", flexDirection: "column", gap: "10px" },
-  label: { fontSize: "13px", fontWeight: 600, color: "#333" },
+  label: { fontSize: "13px", fontWeight: 600, color: "var(--text-secondary)" },
   input: {
     width: "100%",
     boxSizing: "border-box",
     padding: "10px 12px",
-    border: "1px solid #ddd",
-    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
     fontSize: "14px",
-     color: "#111827",
-    background: "#fff",
+    color: "var(--text-primary)",
+    background: "var(--bg-elevated)",
   },
   twoCols: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" },
-  hint: { marginTop: "4px", color: "#666", fontSize: "12px" },
-  brandActions: {
+  hint: { marginTop: "4px", color: "var(--text-muted)", fontSize: "12px" },
+  brandRow: {
     display: "flex",
-    gap: "8px",
-    alignItems: "center",
-    marginTop: "6px",
+    gap: "6px",
+    alignItems: "flex-start",
   },
-  brandBtn: {
-    border: "1px solid #ff6b35",
-    color: "#ff6b35",
-    background: "#fff",
-    borderRadius: "8px",
-    padding: "8px 10px",
-    fontSize: "12px",
-    fontWeight: 600,
+  brandAutocomplete: {
+    position: "relative",
+    flex: 1,
+  },
+  brandDropdown: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    background: "var(--bg-elevated)",
+    border: "1px solid var(--border)",
+    borderTop: "none",
+    borderRadius: "0 0 var(--radius-sm) var(--radius-sm)",
+    maxHeight: "180px",
+    overflowY: "auto",
+    zIndex: 60,
+    boxShadow: "var(--shadow-md)",
+  },
+  brandDropdownItem: {
+    padding: "9px 12px",
+    fontSize: "13px",
     cursor: "pointer",
+    borderBottom: "1px solid var(--border)",
+    color: "var(--text-primary)",
+    background: "var(--bg-elevated)",
   },
-  brandOk: { color: "#166534", fontSize: "12px", fontWeight: 600 },
-  brandMessage: { color: "#166534", fontSize: "12px", marginTop: "4px" },
+  brandDropdownEmpty: {
+    padding: "9px 12px",
+    fontSize: "13px",
+    color: "var(--text-muted)",
+  },
+  brandRegisterBtn: {
+    flexShrink: 0,
+    width: "40px",
+    height: "40px",
+    border: "1px solid var(--accent)",
+    color: "var(--accent)",
+    background: "var(--accent-soft)",
+    borderRadius: "var(--radius-sm)",
+    fontSize: "20px",
+    fontWeight: 700,
+    lineHeight: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brandOk: { color: "var(--success)", fontSize: "12px", fontWeight: 600, marginTop: "2px" },
+  brandMessage: { color: "var(--success)", fontSize: "12px", marginTop: "4px" },
   actions: { display: "flex", gap: "10px", marginTop: "10px" },
   cancelBtn: {
     flex: 1,
-    border: "1px solid #ddd",
-    background: "#f5f5f5",
+    border: "1px solid var(--border-soft)",
+    background: "var(--bg-elevated)",
+    color: "var(--text-secondary)",
     padding: "11px",
-    borderRadius: "8px",
+    borderRadius: "var(--radius-sm)",
     cursor: "pointer",
   },
   submitBtn: {
     flex: 2,
-    border: "none",
-    background: "#ff6b35",
-    color: "white",
+    border: "1px solid var(--accent)",
+    background: "var(--accent)",
+    color: "#080C14",
     padding: "11px",
-    borderRadius: "8px",
+    borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     fontWeight: 600,
   },
