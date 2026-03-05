@@ -99,6 +99,8 @@ export default function PublicationsPage() {
     sortBy: "recent",
   });
   const [error, setError] = useState(null);
+  const [geolocationLoading, setGeolocationLoading] = useState(false);
+  const cachedLocationRef = useRef(null);
   const [selectedPublication, setSelectedPublication] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -153,33 +155,46 @@ export default function PublicationsPage() {
    * Maneja cambios en filtros.
    * Cuando cambia maxDistance, solicita geolocalización al navegador
    * para pasar lat/lng al hook y activar el filtro de distancia en la API.
+   * Cachea la ubicación para no re-solicitarla en cada cambio de filtro.
    */
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
 
     const distanceChanged = newFilters.maxDistance !== filters.maxDistance;
 
-    if (newFilters.maxDistance && distanceChanged) {
-      if (!navigator.geolocation) {
-        setError("Tu navegador no soporta geolocalización. No se puede aplicar el filtro de distancia.");
-        setPublicationFilters(newFilters);
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        ({ coords }) => {
-          setPublicationFilters({
-            ...newFilters,
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-          });
-        },
-        () => {
-          setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.");
+    if (newFilters.maxDistance) {
+      if (cachedLocationRef.current) {
+        setPublicationFilters({
+          ...newFilters,
+          latitude: cachedLocationRef.current.latitude,
+          longitude: cachedLocationRef.current.longitude,
+        });
+      } else if (distanceChanged && !geolocationLoading) {
+        if (!navigator.geolocation) {
+          setError("Tu navegador no soporta geolocalización. No se puede aplicar el filtro de distancia.");
           setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
-        },
-      );
+          return;
+        }
+        setGeolocationLoading(true);
+        setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+        navigator.geolocation.getCurrentPosition(
+          ({ coords }) => {
+            cachedLocationRef.current = { latitude: coords.latitude, longitude: coords.longitude };
+            setGeolocationLoading(false);
+            setPublicationFilters({ latitude: coords.latitude, longitude: coords.longitude });
+          },
+          () => {
+            setGeolocationLoading(false);
+            setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.");
+            setPublicationFilters({ latitude: null, longitude: null });
+          },
+          { timeout: 10000 },
+        );
+      } else {
+        setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+      }
     } else if (!newFilters.maxDistance && filters.maxDistance) {
-      // Se eliminó la distancia → limpiar coordenadas para no contaminar futuros filtros
+      cachedLocationRef.current = null;
       setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
     } else {
       setPublicationFilters(newFilters);
@@ -517,7 +532,10 @@ const handleViewMore = async (publicationId) => {
           filters={filters}
           onFiltersChange={handleFilterChange}
           open={showFilters}
+          distanceLoading={geolocationLoading}
           onClearFilters={() => {
+            cachedLocationRef.current = null;
+            setGeolocationLoading(false);
             setFilters({
               productName: "",
               storeName: "",
