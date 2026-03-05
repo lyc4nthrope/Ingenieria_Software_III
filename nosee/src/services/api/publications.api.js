@@ -653,19 +653,31 @@ export const getPublications = async (filters = {}) => {
     const shouldApplyDistanceFilter =
       maxDistance !== null && hasCoordinates(latitude, longitude);
 
-    // Pre-filtro: IDs de productos cuyo nombre coincide con productName
+    // Pre-filtro: IDs de productos cuyo nombre O cuya marca coincide con productName
     let productIdFilter = null;
     if (productName) {
-      const { data: matchingProducts, error: productSearchError } = await supabase
-        .from("products")
-        .select("id")
-        .ilike("name", `%${productName}%`);
+      const [{ data: matchingProducts, error: productSearchError }, { data: matchingBrands }] = await Promise.all([
+        supabase.from("products").select("id").ilike("name", `%${productName}%`),
+        supabase.from("brands").select("id").ilike("name", `%${productName}%`),
+      ]);
 
       if (productSearchError) {
         return { success: false, error: productSearchError.message };
       }
 
-      productIdFilter = (matchingProducts || []).map((p) => p.id);
+      const productIdsByName = (matchingProducts || []).map((p) => p.id);
+
+      let productIdsByBrand = [];
+      if ((matchingBrands || []).length > 0) {
+        const brandIds = matchingBrands.map((b) => b.id);
+        const { data: brandProducts } = await supabase
+          .from("products")
+          .select("id")
+          .in("brand_id", brandIds);
+        productIdsByBrand = (brandProducts || []).map((p) => p.id);
+      }
+
+      productIdFilter = [...new Set([...productIdsByName, ...productIdsByBrand])];
 
       if (productIdFilter.length === 0) {
         return { success: true, data: [], count: 0, hasMore: false };
