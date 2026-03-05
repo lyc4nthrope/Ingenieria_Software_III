@@ -22,7 +22,7 @@
  * - Tiempo relativo
  */
 
-import { useState, useId } from 'react';
+import { memo, useState, useId } from 'react';
 import { formatDistanceToNow } from '@/features/publications/utils/dateUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ReportPublicationModal } from '@/features/publications/components/ReportPublicationModal';
@@ -222,6 +222,8 @@ export function PublicationCard({
               src={publication.photo_url}
               alt={publication.product?.name || tc.unknownProduct}
               style={styles.photo}
+              loading="lazy"
+              decoding="async"
             />
             <div aria-hidden="true" style={styles.photoOverlay}>
               <span style={styles.photoIcon}>{tc.photoExpand}</span>
@@ -327,8 +329,8 @@ export function PublicationCard({
             onClick={() => setPhotoExpanded(false)}
             style={{
               position: 'absolute', top: '16px', right: '16px',
-              background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.3)',
-              color: '#fff', borderRadius: '50%', width: '36px', height: '36px',
+              background: 'var(--overlay)', border: '1px solid rgba(255,255,255,0.3)',
+              color: 'var(--text-primary)', borderRadius: '50%', width: '36px', height: '36px',
               fontSize: '18px', cursor: 'pointer', display: 'flex',
               alignItems: 'center', justifyContent: 'center',
             }}
@@ -378,7 +380,7 @@ const styles = {
     height: '40px',
     borderRadius: '50%',
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--text-primary)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -473,8 +475,8 @@ const styles = {
     bottom: 0,
     left: 0,
     right: 0,
-    background: 'rgba(0,0,0,0.5)',
-    color: '#fff',
+    background: 'var(--overlay-light)',
+    color: 'var(--text-primary)',
     padding: '8px',
     textAlign: 'center',
     fontSize: '12px',
@@ -526,13 +528,13 @@ const styles = {
   voteBtnRight: {},
 
   voteBtnUpActive: {
-    background: 'rgba(16,185,129,0.12)',
-    color: '#10b981',
+    background: 'var(--success-soft)',
+    color: 'var(--success)',
   },
 
   voteBtnDownActive: {
-    background: 'rgba(239,68,68,0.10)',
-    color: '#ef4444',
+    background: 'var(--error-soft)',
+    color: 'var(--error)',
   },
 
   voteCount: {
@@ -565,8 +567,8 @@ const styles = {
   },
 
   buttonDanger: {
-    background: 'rgba(239,68,68,0.08)',
-    color: '#ef4444',
+    background: 'var(--error-soft)',
+    color: 'var(--error)',
     border: '1px solid rgba(239,68,68,0.3)',
   },
 
@@ -577,7 +579,7 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    background: 'rgba(0,0,0,0.9)',
+    background: 'var(--overlay-heavy)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -592,4 +594,4 @@ const styles = {
   },
 };
 
-export default PublicationCard;
+export default memo(PublicationCard);

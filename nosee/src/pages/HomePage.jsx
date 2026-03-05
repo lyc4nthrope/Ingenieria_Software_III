@@ -68,7 +68,7 @@ function ReportModal({ onClose, onSubmit }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.7)",
+        background: "var(--overlay)",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -341,7 +341,7 @@ const homeVoteStyles = {
   },
   btnRight: {},
   btnUpActive: {
-    background: "rgba(16,185,129,0.12)",
+    background: "var(--success-soft)",
     color: "#10b981",
   },
   btnDownActive: {
@@ -387,7 +387,7 @@ function PublicationDetailModal({ publication, onClose }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.7)",
+        background: "var(--overlay)",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -429,6 +429,8 @@ function PublicationDetailModal({ publication, onClose }) {
             maxHeight: "380px",
             objectFit: "cover",
           }}
+          loading="lazy"
+          decoding="async"
         />
         <h2 id={titleId} style={{ marginTop: 12 }}>
           {publication.product?.name || th.product}
@@ -703,8 +705,8 @@ export default function HomePage() {
             right: '20px',
             padding: '16px 20px',
             borderRadius: '8px',
-            background: feedback.type === 'success' ? '#10b981' : '#ef4444',
-            color: '#fff',
+            background: feedback.type === 'success' ? 'var(--success)' : 'var(--error)',
+            color: 'var(--text-primary)',
             fontSize: '14px',
             fontWeight: 600,
             zIndex: 2000,

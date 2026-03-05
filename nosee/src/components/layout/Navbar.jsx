@@ -4,6 +4,7 @@
  * Muestra el logo y las opciones de sesión según el estado de auth.
  * Se adapta a mobile (barra inferior) y desktop (top bar).
  */
+import { memo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   useAuthStore,
@@ -106,7 +107,7 @@ const TrophyIcon = () => (
   </svg>
 );
 
-export default function Navbar() {
+const Navbar = memo(function Navbar() {
   const { t } = useLanguage();
   const tn = t.nav;
 
@@ -259,6 +260,8 @@ export default function Navbar() {
                 src={user.avatarUrl}
                 alt={user.fullName || "Avatar"}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                loading="lazy"
+                decoding="async"
               />
             ) : (
               initials
@@ -317,4 +320,6 @@ export default function Navbar() {
       )}
     </nav>
   );
-}
+});
+
+export default Navbar;

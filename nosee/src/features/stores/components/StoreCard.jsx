@@ -3,9 +3,10 @@
  * Tarjeta visual de una tienda para el listado de tiendas.
  */
 
+import { memo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-export default function StoreCard({ store, onViewDetail }) {
+const StoreCard = memo(function StoreCard({ store, onViewDetail }) {
   const { t } = useLanguage();
   const ts = t.storesPage;
 
@@ -51,7 +52,9 @@ export default function StoreCard({ store, onViewDetail }) {
       </button>
     </div>
   );
-}
+});
+
+export default StoreCard;
 
 const styles = {
   card: {
@@ -122,7 +125,7 @@ const styles = {
     flexShrink: 0,
     padding: '8px 14px',
     background: 'var(--accent)',
-    color: '#fff',
+    color: 'var(--text-primary)',
     border: 'none',
     borderRadius: 'var(--radius-md)',
     fontSize: '13px',

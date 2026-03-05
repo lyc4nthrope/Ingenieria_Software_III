@@ -14,7 +14,7 @@
  * - Botón para crear nuevas publicaciones
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 // State Management
@@ -121,12 +121,15 @@ export default function PublicationsPage() {
     removePublication,
   } = usePublications(filters);
 
-  const normalizedPublications = publications.map((publication) => ({
-    ...publication,
-    user: publication.user || publication.users || null,
-    product: publication.product || publication.products || null,
-    store: publication.store || publication.stores || null,
-  }));
+  const normalizedPublications = useMemo(
+    () => publications.map((publication) => ({
+      ...publication,
+      user: publication.user || publication.users || null,
+      product: publication.product || publication.products || null,
+      store: publication.store || publication.stores || null,
+    })),
+    [publications]
+  );
 
   // ─────────────────────────────────────────────────────────────
   // PASO 4: Funciones de manejo de eventos
@@ -401,10 +404,10 @@ const handleViewMore = async (publicationId) => {
           <div
             style={{
               padding: "12px 16px",
-              background: "rgba(251,191,36,0.1)",
+              background: "var(--warning-soft)",
               border: "1px solid rgba(251,191,36,0.3)",
               borderRadius: "var(--radius-md)",
-              color: "#FBBF24",
+              color: "var(--warning)",
               fontSize: "13px",
               marginBottom: "16px",
             }}
@@ -420,10 +423,10 @@ const handleViewMore = async (publicationId) => {
             aria-live="assertive"
             style={{
               padding: "12px 16px",
-              background: "rgba(239,68,68,0.1)",
+              background: "var(--error-soft)",
               border: "1px solid rgba(239,68,68,0.3)",
               borderRadius: "var(--radius-md)",
-              color: "#EF4444",
+              color: "var(--error)",
               fontSize: "13px",
               marginBottom: "16px",
             }}
@@ -718,8 +721,8 @@ const handleViewMore = async (publicationId) => {
             right: '20px',
             padding: '16px 20px',
             borderRadius: '8px',
-            background: feedback.type === 'success' ? '#10b981' : '#ef4444',
-            color: '#fff',
+            background: feedback.type === 'success' ? 'var(--success)' : 'var(--error)',
+            color: 'var(--text-primary)',
             fontSize: '14px',
             fontWeight: 600,
             zIndex: 2000,

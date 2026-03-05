@@ -15,8 +15,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import AccessibilityMenu from "@/components/layout/AccessibilityMenu";
 import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 
-import HomePage from "@/pages/HomePage";
-
+const HomePage = lazy(() => import("@/pages/HomePage"));
 const LoginPage = lazy(() => import("@/features/auth/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@/features/auth/pages/RegisterPage"));
 const CallbackPage = lazy(() => import("@/features/auth/pages/CallbackPage"));
@@ -275,7 +274,7 @@ function RoleChangeToast() {
         borderRadius: "8px",
         fontSize: "0.875rem",
         fontWeight: 500,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+        boxShadow: "var(--shadow-sm)",
         zIndex: 9999,
         opacity: visible ? 1 : 0,
         transition: "opacity 0.3s",

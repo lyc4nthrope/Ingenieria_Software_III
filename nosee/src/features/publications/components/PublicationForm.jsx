@@ -360,8 +360,6 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>{tf.title}</h2>
-
       {submitSuccess && (
         <div role="status" aria-live="polite" style={styles.successAlert}>{tf.success}</div>
       )}
