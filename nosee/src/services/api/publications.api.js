@@ -887,15 +887,12 @@ export const getPublicationDetail = async (publicationId) => {
     }
 
     let comments = [];
-    const { data: commentsData, error: commentsError } = await supabase
-      .from("comments")
-      .select("id, content, created_at, user_id, parent_id")
-      .eq("publication_id", publicationId)
-      .eq("is_deleted", false)
-      .order("created_at", { ascending: true });
+    const { data: commentsData, error: commentsError } = await loadCommentsRows(publicationId);
 
     if (!commentsError && commentsData?.length) {
-      comments = await hydrateCommentUsers(commentsData);
+      comments = await hydrateCommentUsers(
+        commentsData.filter((comment) => comment.is_deleted !== true),
+      );
     }
 
     return { success: true, data: { ...data, comments } };
@@ -1929,19 +1926,37 @@ const hydrateCommentUsers = async (comments) => {
   return comments.map((c) => ({ ...c, user: usersMap[c.user_id] || null }));
 };
 
+const loadCommentsRows = async (publicationId) => {
+  const baseQuery = supabase
+    .from("comments")
+    .select("id, content, created_at, user_id, parent_id, is_deleted")
+    .eq("publication_id", publicationId)
+    .order("created_at", { ascending: true });
+
+    const withSoftDeleteFilter = await baseQuery.eq("is_deleted", false);
+  if (!withSoftDeleteFilter.error) return withSoftDeleteFilter;
+
+  // Compatibilidad: algunos entornos siguen sin la columna is_deleted.
+  if (withSoftDeleteFilter.error.code === "42703") {
+    const withoutSoftDeleteFilter = await supabase
+      .from("comments")
+      .select("id, content, created_at, user_id, parent_id")
+      .eq("publication_id", publicationId)
+      .order("created_at", { ascending: true });
+    return withoutSoftDeleteFilter;
+  }
+
+  return withSoftDeleteFilter;
+};
+
 export const getComments = async (publicationId) => {
   try {
     if (!publicationId) return { success: false, error: "ID requerido" };
 
-    const { data, error } = await supabase
-      .from("comments")
-      .select("id, content, created_at, user_id, parent_id")
-      .eq("publication_id", publicationId)
-      .eq("is_deleted", false)
-      .order("created_at", { ascending: true });
-
+    const { data, error } = await loadCommentsRows(publicationId);
     if (error) return { success: false, error: error.message };
-    return { success: true, data: await hydrateCommentUsers(data || []) };
+    const rows = (data || []).filter((comment) => comment.is_deleted !== true);
+    return { success: true, data: await hydrateCommentUsers(rows) };
   } catch (err) {
     return { success: false, error: err.message };
   }
