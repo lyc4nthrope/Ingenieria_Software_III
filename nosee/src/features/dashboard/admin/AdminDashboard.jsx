@@ -742,7 +742,7 @@ export default function AdminDashboard() {
                   <SummaryCard title={td.summaryByType} counts={reportTypeCounts} labels={td.reportTypes} />
                 </div>
 
-                <div style={s.reportFiltersGrid}>
+                <div style={s.reportFiltersGrid} className="admin-report-filters">
                   <label style={s.filterLabelWrap}>
                     <span style={s.filterLabel}>{td.filterStatusLabel}</span>
                     <select value={reportStatusFilter} onChange={(e) => setReportStatusFilter(e.target.value)} style={s.filterSelect}>
@@ -995,7 +995,7 @@ function PublicationsTable({ publications, onDelete, onView, deletingId }) {
     return <EmptyMsg text={td.noPubsView} />;
   }
   return (
-    <div style={s.table} className="admin-table">
+    <div style={s.table} className="admin-table admin-table-pubs">
       <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 1.2fr' }}>
         {[td.colProduct, td.colStore, td.colPrice, td.colAuthor, td.colDate, td.colAction].map(h => (
           <div key={h} style={s.th}>{h}</div>
@@ -1199,7 +1199,7 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
    const statusLabel = td.statusLabels?.[normalizeReportStatus(report.status)] || report.status;
   return (
     <article style={s.reportCard}>
-      <div style={s.reportTop}>
+      <div style={s.reportTop} className="admin-report-top">
         <span style={{ ...s.severityBadge, background: sev.bg, color: sev.text }}>
           {severityLabel}
         </span>
@@ -1207,7 +1207,7 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
         <span style={s.statusPill}>{statusLabel}</span>
         <span style={{ marginLeft: 'auto', fontSize: 12, color: MUTED }}>{report.time}</span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+      <div className="admin-report-info-rows" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {[
           [td.labelPublication,   `"${report.post ?? td.deletedPub}"`],
           [td.labelReportedBy,    report.reporter ?? td.anonymous],

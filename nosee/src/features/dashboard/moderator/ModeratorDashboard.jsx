@@ -447,24 +447,24 @@ function ReportCard({ report, onAction, onOpenDetails, td }) {
       </div>
 
       <div style={st.reportBody}>
-        <div style={st.reportRow}>
-          <span style={st.reportLabel}>
+        <div style={st.reportRow} className="mod-report-row">
+          <span style={st.reportLabel} className="mod-report-label">
             {td.labelPublication || "Publicación"}
           </span>
           <span style={st.reportValue}>
             "{report.post ?? (td.deletedPub || "Publicación eliminada")}"
           </span>
         </div>
-        <div style={st.reportRow}>
-          <span style={st.reportLabel}>
+        <div style={st.reportRow} className="mod-report-row">
+          <span style={st.reportLabel} className="mod-report-label">
             {td.labelReportedBy || "Reportado por"}
           </span>
           <span style={st.reportValue}>
             {report.reporter ?? (td.anonymous || "Anónimo")}
           </span>
         </div>
-        <div style={st.reportRow}>
-          <span style={st.reportLabel}>
+        <div style={st.reportRow} className="mod-report-row">
+          <span style={st.reportLabel} className="mod-report-label">
             {td.labelReportedUser || "Usuario reportado"}
           </span>
           <span style={st.reportValue}>
@@ -473,7 +473,7 @@ function ReportCard({ report, onAction, onOpenDetails, td }) {
         </div>
       </div>
 
-      <div style={st.reportActions}>
+      <div style={st.reportActions} className="mod-report-actions">
         <button
           style={st.btnDetail}
           onClick={onOpenDetails}

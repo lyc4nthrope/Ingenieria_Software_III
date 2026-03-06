@@ -1257,3 +1257,73 @@ html {
     height: 240px !important;
   }
 }
+
+/* ── Admin tables: scroll horizontal en mobile ──────── */
+.admin-table {
+  overflow: auto !important;
+}
+
+.admin-table > div {
+  min-width: 540px;
+}
+
+.admin-table-pubs > div {
+  min-width: 700px;
+}
+
+/* ── Admin dashboard: reportes y filtros mobile ─────── */
+@media (max-width: 768px) {
+  .admin-report-top {
+    flex-wrap: wrap !important;
+    row-gap: 6px !important;
+  }
+
+  .admin-report-filters {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-report-info-rows > div {
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+
+  .admin-report-info-rows > div > span:first-child {
+    width: auto !important;
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+  }
+
+  .admin-main {
+    padding: 16px 12px !important;
+  }
+}
+
+/* ── Moderator: report rows mobile ──────────────────── */
+@media (max-width: 768px) {
+  .mod-report-row {
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+
+  .mod-report-label {
+    width: auto !important;
+    font-size: 11px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+  }
+
+  .mod-report-actions {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .mod-report-actions button {
+    flex: 1 1 auto;
+    min-width: 100px;
+    justify-content: center;
+    text-align: center;
+  }
+}
