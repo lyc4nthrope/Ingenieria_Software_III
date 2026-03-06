@@ -353,7 +353,7 @@ export default function AdminDashboard() {
     try {
       const { error } = await supabase
         .from('price_publications')
-        .delete()
+        .update({ is_active: false })
         .eq('id', pubId);
       if (!error) {
         setPublications(prev => prev.filter(p => p.id !== pubId));

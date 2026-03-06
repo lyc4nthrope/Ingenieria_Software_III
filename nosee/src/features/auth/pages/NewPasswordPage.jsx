@@ -114,8 +114,7 @@ export default function NewPasswordPage() {
   // ── Redirección tras éxito ───────────────────────────────────────────
   useEffect(() => {
     if (success) {
-      const timer = setTimeout(async () => {
-        await supabase.auth.signOut();
+      const timer = setTimeout(() => {
         navigate('/login', { replace: true });
       }, 2000);
       return () => clearTimeout(timer);

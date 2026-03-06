@@ -1767,7 +1767,6 @@ export const deletePublication = async (publicationId) => {
       return { success: false, error: "ID de publicación requerido" };
     }
 
-    // Obtener usuario actual
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -1775,28 +1774,31 @@ export const deletePublication = async (publicationId) => {
       return { success: false, error: "Usuario no autenticado" };
     }
 
-    // Verificar que es el autor o admin
     const { data: publication } = await supabase
       .from("price_publications")
-      .select("user_id")
+      .select("user_id, is_active")
       .eq("id", publicationId)
-      .single();
+      .maybeSingle();
 
     const { data: userData } = await supabase
       .from("users")
       .select("role_id")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
-    // Solo autor (role 1) o admin (role 3)
-    if (publication?.user_id !== user.id && userData?.role_id !== 3) {
+    const isAuthor = publication?.user_id === user.id;
+    const isAdmin  = userData?.role_id === 3;
+
+    if (!isAuthor && !isAdmin) {
       return { success: false, error: "No puedes eliminar esta publicación" };
     }
 
-    // Eliminar
+    // Soft-delete: marcar como inactiva en lugar de borrar físicamente.
+    // Esto funciona con la política RLS estándar de UPDATE (user_id = auth.uid()),
+    // mientras que DELETE requiere una política RLS separada.
     const { error } = await supabase
       .from("price_publications")
-      .delete()
+      .update({ is_active: false })
       .eq("id", publicationId);
 
     if (error) {
@@ -1809,7 +1811,6 @@ export const deletePublication = async (publicationId) => {
     console.error("Error en deletePublication:", err);
     return { success: false, error: err.message };
   }
-  
 };
 
 // ─── UTILIDADES ───────────────────────────────────────────────────────────────
