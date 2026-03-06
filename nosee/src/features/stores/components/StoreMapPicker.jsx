@@ -413,7 +413,7 @@ export default function StoreMapPicker({
         </button>
       </div>
 
-      <div style={styles.map} role="region" aria-label={tm.title}>
+      <div style={styles.map} className="store-map-container" role="region" aria-label={tm.title}>
         <div ref={mapContainerRef} style={styles.mapCanvas} />
       </div>
 

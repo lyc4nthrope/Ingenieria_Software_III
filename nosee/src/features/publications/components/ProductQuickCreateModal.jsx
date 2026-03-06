@@ -280,7 +280,7 @@ export default function ProductQuickCreateModal({
             {brandId && <span style={s.brandOk}>✓ Marca lista</span>}
             {brandMessage && <div style={s.brandMessage}>{brandMessage}</div>}
 
-            <div style={s.twoCols}>
+            <div style={s.twoCols} className="modal-two-cols">
               <div>
                 <label htmlFor="pqc-unit" style={s.label}>Unidad *</label>
                 <select

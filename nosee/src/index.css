@@ -1243,3 +1243,17 @@ html {
     gap: 6px !important;
   }
 }
+
+/* ── Modal two-column grid ──────────────────────────── */
+@media (max-width: 480px) {
+  .modal-two-cols {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Store map responsive height ────────────────────── */
+@media (max-width: 640px) {
+  .store-map-container {
+    height: 240px !important;
+  }
+}
