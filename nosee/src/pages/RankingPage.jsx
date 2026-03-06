@@ -211,11 +211,14 @@ const s = {
   tableWrapper: {
     border: "1px solid var(--border)",
     borderRadius: "var(--radius-md)",
-    overflow: "hidden",
+    overflowX: "auto",
+    overflowY: "hidden",
     background: "var(--bg-surface)",
+    WebkitOverflowScrolling: "touch",
   },
   table: {
     width: "100%",
+    minWidth: "340px",
     borderCollapse: "collapse",
     fontSize: "0.875rem",
   },
@@ -248,6 +251,7 @@ const s = {
     display: "flex",
     alignItems: "center",
     gap: "12px",
+    minWidth: 0,
   },
   avatar: {
     width: "38px",
@@ -263,6 +267,9 @@ const s = {
     fontWeight: 600,
     color: "var(--text-primary)",
     fontSize: "0.875rem",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   roleBadge: {
     display: "inline-block",
@@ -277,5 +284,6 @@ const s = {
   points: {
     fontSize: "1rem",
     fontWeight: 700,
+    whiteSpace: "nowrap",
   },
 };

@@ -1577,7 +1577,7 @@ const s = {
   rowAvatar: { width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-elevated)', color: MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 },
   rowName:   { fontSize: 14, fontWeight: 500 },
   rowEmail:  { fontSize: 12, color: MUTED },
-  roleSelect:{ background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 6, padding: '5px 10px', fontSize: 13, cursor: 'pointer' },
+  roleSelect:{ background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 6, padding: '5px 8px', fontSize: 12, cursor: 'pointer', width: '100%', maxWidth: '100%', boxSizing: 'border-box' },
   badge:     { fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '3px 10px', textTransform: 'capitalize' },
   actionBtn: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 6, padding: '5px 12px', fontSize: 13, cursor: 'pointer' },
   actionBtnDanger: { borderColor: 'var(--error)', color: 'var(--error)' },
