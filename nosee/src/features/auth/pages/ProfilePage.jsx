@@ -6,11 +6,37 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore, selectAuthUser, selectAuthStatus } from '@/features/auth/store/authStore';
 import ProfileCard from '@/features/auth/components/ProfileCard';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { alertsApi } from '@/services/api';
 import { getUserProfileActivity, updateOwnReport, deleteOwnReport } from '@/services/api/users.api';
 import { updatePublication } from '@/services/api/publications.api';
+import { supabase } from '@/services/supabase.client';
+
+const PASSWORD_RULES = [
+  { label: 'Al menos 8 caracteres', test: (v) => v.length >= 8 },
+  { label: 'Una letra mayúscula', test: (v) => /[A-Z]/.test(v) },
+  { label: 'Un número', test: (v) => /\d/.test(v) },
+];
+
+const EyeIcon = ({ open }) => open ? (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+  </svg>
+) : (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+    <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+    <line x1="1" y1="1" x2="23" y2="23"/>
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+);
 
 // ─── Sección de alertas de precio ────────────────────────────────────────────
 function PriceAlertsSection() {
@@ -936,6 +962,41 @@ export default function ProfilePage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [pwForm, setPwForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [pwErrors, setPwErrors] = useState({});
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    const errors = {};
+    if (!PASSWORD_RULES.every((r) => r.test(pwForm.newPassword))) {
+      errors.newPassword = 'La contraseña no cumple los requisitos';
+    }
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      errors.confirmPassword = 'Las contraseñas no coinciden';
+    }
+    if (Object.keys(errors).length > 0) { setPwErrors(errors); return; }
+
+    setPwLoading(true);
+    setPwErrors({});
+    const { error } = await supabase.auth.updateUser({ password: pwForm.newPassword });
+    setPwLoading(false);
+
+    if (error) {
+      setPwErrors({ server: error.message });
+    } else {
+      setPwSuccess(true);
+      setPwForm({ newPassword: '', confirmPassword: '' });
+      setTimeout(() => {
+        setPwSuccess(false);
+        setShowPasswordForm(false);
+      }, 2500);
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/');
@@ -990,9 +1051,88 @@ export default function ProfilePage() {
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <Button variant="secondary" size="md" onClick={() => navigate('/recuperar-contrasena')}>
-            {tp.changePassword}
-          </Button>
+          {!showPasswordForm ? (
+            <Button variant="secondary" size="md" onClick={() => { setShowPasswordForm(true); setPwSuccess(false); setPwErrors({}); }}>
+              {tp.changePassword}
+            </Button>
+          ) : (
+            <form onSubmit={handleChangePassword} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
+              <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)', margin: 0 }}>
+                Nueva contraseña
+              </p>
+
+              {pwErrors.server && (
+                <div role="alert" style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--error-soft)', color: 'var(--error)', fontSize: '13px', border: '1px solid rgba(248,113,113,0.25)' }}>
+                  {pwErrors.server}
+                </div>
+              )}
+
+              {pwSuccess && (
+                <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', background: 'var(--success-soft)', color: 'var(--success)', fontSize: '13px', fontWeight: '600' }}>
+                  ✓ Contraseña actualizada correctamente
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <Input
+                  label="Nueva contraseña"
+                  id="profile-new-password"
+                  name="newPassword"
+                  type={showPw ? 'text' : 'password'}
+                  value={pwForm.newPassword}
+                  onChange={(e) => { setPwForm((p) => ({ ...p, newPassword: e.target.value })); setPwErrors((p) => ({ ...p, newPassword: '' })); }}
+                  placeholder="Mínimo 8 caracteres"
+                  error={pwErrors.newPassword}
+                  iconRight={
+                    <button type="button" onClick={() => setShowPw((v) => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }} tabIndex={-1} aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
+                      <EyeIcon open={showPw} />
+                    </button>
+                  }
+                  autoComplete="new-password"
+                  required
+                  disabled={pwLoading}
+                />
+
+                {pwForm.newPassword.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                    {PASSWORD_RULES.map((rule) => {
+                      const met = rule.test(pwForm.newPassword);
+                      return (
+                        <div key={rule.label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: met ? 'var(--success)' : 'var(--text-muted)' }}>
+                          <span style={{ opacity: met ? 1 : 0.4 }}><CheckIcon /></span>
+                          {rule.label}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <Input
+                label="Confirmar contraseña"
+                id="profile-confirm-password"
+                name="confirmPassword"
+                type="password"
+                value={pwForm.confirmPassword}
+                onChange={(e) => { setPwForm((p) => ({ ...p, confirmPassword: e.target.value })); setPwErrors((p) => ({ ...p, confirmPassword: '' })); }}
+                placeholder="Repite tu nueva contraseña"
+                error={pwErrors.confirmPassword}
+                autoComplete="new-password"
+                required
+                disabled={pwLoading}
+              />
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <Button type="submit" size="md" loading={pwLoading} disabled={pwLoading}>
+                  Guardar contraseña
+                </Button>
+                <Button type="button" variant="ghost" size="md" onClick={() => { setShowPasswordForm(false); setPwForm({ newPassword: '', confirmPassword: '' }); setPwErrors({}); }} disabled={pwLoading}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          )}
+
           <Button variant="danger" size="md" onClick={handleLogout} loading={status === 'loading'}>
             {tp.logout}
           </Button>
