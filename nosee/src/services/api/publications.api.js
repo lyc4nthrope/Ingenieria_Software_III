@@ -1866,20 +1866,24 @@ export async function createProduct(name) {
     };
   }
 
-  const { data: existingProduct, error: existingError } = await supabase
+  const { data: existingProducts, error: existingError } = await supabase
     .from("products")
     .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
-    .ilike("name", normalizedName)
-    .limit(1)
-    .maybeSingle();
+    .ilike("name", normalizedName);
 
   if (existingError) {
     return { success: false, error: existingError.message };
   }
 
-  // Si ya existe (case-insensitive), no creamos duplicado y retornamos el existente.
-  if (existingProduct) {
-    return { success: false, error: "Este producto ya está registrado.", alreadyExists: true, data: existingProduct };
+  if (existingProducts && existingProducts.length > 0) {
+    const exactDuplicate = existingProducts.find((p) =>
+      Number(p.brand_id) === brandId &&
+      Number(p.unit_type_id) === unitTypeId &&
+      Number(p.base_quantity) === baseQuantity
+    );
+    if (exactDuplicate) {
+      return { success: false, error: "Este producto ya está registrado con la misma marca, unidad y cantidad.", alreadyExists: true, data: exactDuplicate };
+    }
   }
 
   let resolvedBrandId = brandId;
@@ -1913,11 +1917,10 @@ export async function createProduct(name) {
       name: normalizedName,
       category_id: categoryId,
       unit_type_id: unitTypeId,
-      brand_id: brandId,
+      brand_id: resolvedBrandId,
       base_quantity: baseQuantity,
     })
     .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
-    .select("id, name, category_id")
     .single();
 
   if (error) {
