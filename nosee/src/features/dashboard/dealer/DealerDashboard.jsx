@@ -47,11 +47,11 @@ export default function RepartidorDashboard() {
     .reduce((acc, h) => acc + h.total, 0);
 
   return (
-    <div style={r.root}>
+    <div style={r.root} className="dash-root">
       {/* ── Sidebar ───────────────────────────────────────────────── */}
-      <aside style={r.sidebar}>
+      <aside style={r.sidebar} className="dash-sidebar">
         {/* Estado online */}
-        <div style={r.onlineBox}>
+        <div style={r.onlineBox} className="dash-online-box">
           <span style={r.onlineDot} />
           <span style={r.onlineLabel}>{td.onlineLabel}</span>
         </div>
@@ -76,7 +76,7 @@ export default function RepartidorDashboard() {
         </nav>
 
         {/* Stats rápidas */}
-        <div style={r.quickStats}>
+        <div style={r.quickStats} className="dash-quick-stats">
           <div style={r.quickStat}>
             <div style={r.qValue}>{activeOrders.length}</div>
             <div style={r.qLabel}>{td.statActive}</div>
@@ -94,7 +94,7 @@ export default function RepartidorDashboard() {
       </aside>
 
       {/* ── Main ─────────────────────────────────────────────────── */}
-      <main style={r.main}>
+      <main style={r.main} className="dash-main">
 
         {/* Pedidos activos */}
         {activeTab === 'activos' && (

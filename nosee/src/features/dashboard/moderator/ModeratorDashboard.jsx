@@ -261,8 +261,8 @@ export default function ModeratorDashboard() {
   const pendingCount = reports.length;
 
   return (
-    <div style={st.root}>
-      <aside style={st.sidebar}>
+    <div style={st.root} className="dash-root">
+      <aside style={st.sidebar} className="dash-sidebar">
         <nav style={st.nav}>
           {[
             {
@@ -290,7 +290,7 @@ export default function ModeratorDashboard() {
         </nav>
       </aside>
 
-      <main style={st.main}>
+      <main style={st.main} className="dash-main">
         {activeTab === "reportes" && (
           <>
             <header style={st.header}>

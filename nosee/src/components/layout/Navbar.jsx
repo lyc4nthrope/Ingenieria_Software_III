@@ -4,7 +4,7 @@
  * Muestra el logo y las opciones de sesión según el estado de auth.
  * Se adapta a mobile (barra inferior) y desktop (top bar).
  */
-import { memo } from "react";
+import { memo, useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   useAuthStore,
@@ -107,6 +107,40 @@ const TrophyIcon = () => (
   </svg>
 );
 
+const MenuIcon = ({ open }) =>
+  open ? (
+    <svg
+      aria-hidden="true"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  ) : (
+    <svg
+      aria-hidden="true"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+
 const Navbar = memo(function Navbar() {
   const { t } = useLanguage();
   const tn = t.nav;
@@ -117,6 +151,12 @@ const Navbar = memo(function Navbar() {
   const { logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   const isActive = (path) => location.pathname === path;
 
@@ -194,64 +234,89 @@ const Navbar = memo(function Navbar() {
 
   return (
     <nav style={navStyle} className="main-nav" aria-label={tn.label}>
-      {/* Logo */}
       <Link to="/" style={logoStyle}>
         NØ<span style={{ color: "var(--text-secondary)" }}>SEE</span>
       </Link>
 
       {!isInitialized ? null : isAuthenticated ? (
         <>
-          <Link
-            to="/"
-            style={navLinkStyle(isActive("/"))}
-            aria-current={isActive("/") ? "page" : undefined}
+          <button
+            type="button"
+            className="nav-hamburger"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-expanded={mobileMenuOpen}
+            aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
           >
-            <HomeIcon />
-            <span className="nav-label">{tn.home}</span>
-          </Link>
+            <MenuIcon open={mobileMenuOpen} />
+          </button>
 
-          <Link
-            to="/publicaciones"
-            style={navLinkStyle(isActive("/publicaciones"))}
-            aria-current={isActive("/publicaciones") ? "page" : undefined}
-          >
-            <TagIcon />
-            <span className="nav-label">{tn.products}</span>
-          </Link>
-
-          <Link
-            to="/tiendas"
-            style={navLinkStyle(isActive("/tiendas"))}
-            aria-current={isActive("/tiendas") ? "page" : undefined}
-          >
-            <StoreIcon />
-            <span className="nav-label">{tn.stores}</span>
-          </Link>
-
-          <Link
-            to="/ranking"
-            style={navLinkStyle(isActive("/ranking"))}
-            aria-current={isActive("/ranking") ? "page" : undefined}
-          >
-            <TrophyIcon />
-            <span className="nav-label">{tn.ranking}</span>
-          </Link>
-
-          {dashboardConfig && (
-            <Link
-              to={dashboardConfig.path}
-              style={navLinkStyle(isActive(dashboardConfig.path))}
-              aria-current={isActive(dashboardConfig.path) ? "page" : undefined}
-            >
-              {dashboardConfig.label}
-            </Link>
+          {mobileMenuOpen && (
+            <div
+              style={{ position: "fixed", inset: 0, top: "60px", zIndex: 98 }}
+              onClick={() => setMobileMenuOpen(false)}
+              aria-hidden="true"
+            />
           )}
+
+          <div className={`nav-links${mobileMenuOpen ? " nav-links--open" : ""}`}>
+            <Link
+              to="/"
+              style={navLinkStyle(isActive("/"))}
+              aria-current={isActive("/") ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <HomeIcon />
+              <span className="nav-label">{tn.home}</span>
+            </Link>
+
+            <Link
+              to="/publicaciones"
+              style={navLinkStyle(isActive("/publicaciones"))}
+              aria-current={isActive("/publicaciones") ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <TagIcon />
+              <span className="nav-label">{tn.products}</span>
+            </Link>
+
+            <Link
+              to="/tiendas"
+              style={navLinkStyle(isActive("/tiendas"))}
+              aria-current={isActive("/tiendas") ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <StoreIcon />
+              <span className="nav-label">{tn.stores}</span>
+            </Link>
+
+            <Link
+              to="/ranking"
+              style={navLinkStyle(isActive("/ranking"))}
+              aria-current={isActive("/ranking") ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <TrophyIcon />
+              <span className="nav-label">{tn.ranking}</span>
+            </Link>
+
+            {dashboardConfig && (
+              <Link
+                to={dashboardConfig.path}
+                style={navLinkStyle(isActive(dashboardConfig.path))}
+                aria-current={isActive(dashboardConfig.path) ? "page" : undefined}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {dashboardConfig.label}
+              </Link>
+            )}
+          </div>
 
           <Link
             to="/perfil"
             style={avatarStyle}
             title={tn.myProfile}
             aria-label={tn.myProfile}
+            onClick={() => setMobileMenuOpen(false)}
           >
             {user?.avatarUrl ? (
               <img

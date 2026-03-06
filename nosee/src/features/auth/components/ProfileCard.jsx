@@ -258,6 +258,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
 
             {/* Stats */}
             <div
+              className="profile-stats-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(3, 1fr)",

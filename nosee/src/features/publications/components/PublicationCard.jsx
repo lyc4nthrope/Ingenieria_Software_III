@@ -234,7 +234,7 @@ export function PublicationCard({
       </div>
 
       {/* Votos + Acciones */}
-      <div style={styles.actionsRow}>
+      <div style={styles.actionsRow} className="pub-actions-row">
         {/* Grupo de votos estilo Reddit */}
         <div style={styles.voteGroup}>
           <button
