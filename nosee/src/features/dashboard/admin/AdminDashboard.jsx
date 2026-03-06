@@ -346,13 +346,15 @@ export default function AdminDashboard() {
     if (!window.confirm(td.confirmDeletePub)) return;
     setDeletingPub(pubId);
     try {
-      const result = await deletePublication(pubId);
-      if (result.success) {
+      const { error } = await supabase
+        .from('price_publications')
+        .delete()
+        .eq('id', pubId);
+      if (!error) {
         setPublications(prev => prev.filter(p => p.id !== pubId));
-        // Actualizar stat
         setStats(prev => ({ ...prev, pubs: Math.max(0, (prev.pubs || 1) - 1) }));
       } else {
-        alert(td.errorDeletePub(result.error));
+        alert(td.errorDeletePub(error.message));
       }
     } catch {
       alert(td.errorDeletePubGeneric);

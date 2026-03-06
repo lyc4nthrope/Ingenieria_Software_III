@@ -749,7 +749,8 @@ export const getPublications = async (filters = {}) => {
         .select(
           publicationListSelect,
           withCount ? { count: "planned" } : undefined,
-        );
+        )
+        .eq("is_active", true);
 
       // Filtro por producto (IDs pre-filtrados por nombre)
       if (productIdFilter !== null) {
