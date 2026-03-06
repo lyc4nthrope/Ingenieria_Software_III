@@ -191,7 +191,7 @@ export function PublicationCard({
             {publication.product?.name || tc.unknownProduct}
           </div>
           <div style={styles.storeName}>
-            <span aria-hidden="true">🏪 </span>{publication.store?.name || tc.noStore}
+            <span aria-hidden="true">{Number(publication.store?.store_type_id) === 2 ? '🌐' : '🏪'} </span>{publication.store?.name || tc.noStore}
           </div>
         </div>
 

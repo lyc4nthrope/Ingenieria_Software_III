@@ -600,12 +600,6 @@ export default function PublicationDetailModal({ publication, onClose }) {
 
         <img src={mainImage} alt={publication?.product?.name || td.noName} style={styles.image} />
 
-        {isVirtualStore && publication?.store?.website_url && (
-          <a href={publication.store.website_url} target="_blank" rel="noreferrer" style={styles.linkButton}>
-            {td.virtualStoreLink}
-          </a>
-        )}
-
         <h2 id={titleId} style={styles.title}>{publication?.product?.name || td.noName}</h2>
         <p style={styles.meta}>
           {td.unit} {publication?.product?.base_quantity || "-"} {publication?.product?.unit_type?.abbreviation || ""}
@@ -629,7 +623,20 @@ export default function PublicationDetailModal({ publication, onClose }) {
 
         <div>
           <h3 style={styles.sectionTitle}>{td.storeLocation}</h3>
-          {hasCoordinates ? (
+          {isVirtualStore ? (
+            publication?.store?.website_url ? (
+              <a
+                href={publication.store.website_url}
+                target="_blank"
+                rel="noreferrer"
+                style={styles.linkButton}
+              >
+                {td.virtualStoreLink}
+              </a>
+            ) : (
+              <p style={styles.commentItem}>{td.noCoordinates}</p>
+            )
+          ) : hasCoordinates ? (
             <div style={styles.mapWrapper}>
               <PublicationLocationMap latitude={latitude} longitude={longitude} storeName={publication?.store?.name} td={td} />
             </div>
