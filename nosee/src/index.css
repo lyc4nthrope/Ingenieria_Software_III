@@ -904,10 +904,6 @@ html {
     gap: 4px !important;
   }
 
-  .admin-nav-label {
-    display: none;
-  }
-
   .admin-main {
     padding: 20px 16px !important;
     overflow-y: unset !important;
