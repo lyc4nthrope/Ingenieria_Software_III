@@ -275,7 +275,12 @@ export default function AdminDashboard() {
   // Abre el modal de confirmación
   const handleBanToggle = (userId) => {
     const target = users.find(u => u.id === userId);
-    if (target) setBanModal(target);
+    if (!target) return;
+    if (target.role === 'Admin') {
+      alert(td.errorBanAdmin || 'No puedes desactivar una cuenta de administrador.');
+      return;
+    }
+    setBanModal(target);
   };
 
   // Ejecuta el baneo/desbaneo + desactiva publicaciones si es un baneo

@@ -219,6 +219,15 @@ export default function ModeratorDashboard() {
   const handleResolve = async (action, report, notes = "") => {
     try {
       if (action === "baneado" && report.reportedUserId) {
+        const { data: targetUser } = await supabase
+          .from("users")
+          .select("role_id")
+          .eq("id", report.reportedUserId)
+          .single();
+        if (targetUser?.role_id >= 2) {
+          showToast("No puedes banear a un moderador o administrador. Solo el administrador puede realizar esta acción.", "error");
+          return;
+        }
         await supabase
           .from("users")
           .update({ is_active: false })

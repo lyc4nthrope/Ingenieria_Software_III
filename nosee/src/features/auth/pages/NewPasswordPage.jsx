@@ -75,7 +75,7 @@ function SuccessView() {
         fontSize: '14px', color: 'var(--text-secondary)',
         lineHeight: '1.6', marginBottom: '24px',
       }}>
-        Tu contraseña fue cambiada correctamente. Redirigiendo a tu perfil…
+        Tu contraseña fue cambiada correctamente. Redirigiendo al inicio de sesión…
       </p>
       {/* Spinner de espera */}
       <div style={{
@@ -114,7 +114,10 @@ export default function NewPasswordPage() {
   // ── Redirección tras éxito ───────────────────────────────────────────
   useEffect(() => {
     if (success) {
-      const timer = setTimeout(() => navigate('/perfil', { replace: true }), 2000);
+      const timer = setTimeout(async () => {
+        await supabase.auth.signOut();
+        navigate('/login', { replace: true });
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [success, navigate]);
