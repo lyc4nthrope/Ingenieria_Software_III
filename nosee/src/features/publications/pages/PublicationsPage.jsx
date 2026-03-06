@@ -361,7 +361,8 @@ const handleViewMore = async (publicationId) => {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: "16px",
+            flexWrap: "wrap",
+            gap: "12px",
             marginBottom: "4px",
           }}
         >

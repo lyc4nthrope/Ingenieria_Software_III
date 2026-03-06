@@ -142,8 +142,6 @@ const Navbar = memo(function Navbar() {
     borderBottom: "1px solid var(--border)",
     display: "flex",
     alignItems: "center",
-    padding: "0 20px",
-    gap: "16px",
   };
 
   const logoStyle = {
@@ -195,7 +193,7 @@ const Navbar = memo(function Navbar() {
     : user?.email?.[0]?.toUpperCase() || "U";
 
   return (
-    <nav style={navStyle} aria-label={tn.label}>
+    <nav style={navStyle} className="main-nav" aria-label={tn.label}>
       {/* Logo */}
       <Link to="/" style={logoStyle}>
         NØ<span style={{ color: "var(--text-secondary)" }}>SEE</span>

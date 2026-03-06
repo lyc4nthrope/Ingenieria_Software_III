@@ -149,7 +149,8 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: '16px',
+    flexWrap: 'wrap',
+    gap: '12px',
   },
   title: {
     margin: 0,

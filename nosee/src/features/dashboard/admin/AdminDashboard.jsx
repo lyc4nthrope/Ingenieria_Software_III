@@ -542,10 +542,10 @@ export default function AdminDashboard() {
     : reports.filter(r => r.status === 'pending').length || null;
 
   return (
-    <div style={s.root}>
+    <div style={s.root} className="admin-root">
       {/* ── Sidebar ──────────────────────────────────────────────── */}
-      <aside style={s.sidebar}>
-        <nav style={s.nav}>
+      <aside style={s.sidebar} className="admin-sidebar">
+        <nav style={s.nav} className="admin-sidebar-nav">
           {[
             { key: 'overview', icon: '▦', label: td.navOverview },
             { key: 'users',    icon: '◉', label: td.navUsers },
@@ -559,7 +559,7 @@ export default function AdminDashboard() {
               onClick={() => setActiveSection(item.key)}
             >
               <span style={s.navIcon}>{item.icon}</span>
-              <span>{item.label}</span>
+              <span className="admin-nav-label">{item.label}</span>
               {item.badge > 0 && <span style={s.navBadge}>{item.badge}</span>}
             </button>
           ))}
@@ -567,14 +567,14 @@ export default function AdminDashboard() {
       </aside>
 
       {/* ── Contenido principal ───────────────────────────────────── */}
-      <main style={s.main}>
+      <main style={s.main} className="admin-main">
 
         {/* ── OVERVIEW ─────────────────────────────────────────── */}
         {activeSection === 'overview' && (
           <>
             <SectionHeader title={td.overviewTitle} sub={td.overviewSub} />
 
-            <div style={s.statsGrid}>
+            <div style={s.statsGrid} className="admin-stats-grid">
               {[
                 { label: td.statUsers,       value: stats.users,       icon: '◉' },
                 { label: td.statPubs,        value: stats.pubs,        icon: '◈' },
@@ -932,7 +932,7 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
   return (
-    <div style={s.table}>
+    <div style={s.table} className="admin-table">
       <div style={s.tableHead}>
         {[td.colUser, td.colRole, td.colRep, td.colStatus, td.colActions].map((h) => (
           <div key={h} style={s.th}>{h}</div>
@@ -995,7 +995,7 @@ function PublicationsTable({ publications, onDelete, onView, deletingId }) {
     return <EmptyMsg text={td.noPubsView} />;
   }
   return (
-    <div style={s.table}>
+    <div style={s.table} className="admin-table">
       <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr 0.8fr 0.8fr 1.2fr' }}>
         {[td.colProduct, td.colStore, td.colPrice, td.colAuthor, td.colDate, td.colAction].map(h => (
           <div key={h} style={s.th}>{h}</div>

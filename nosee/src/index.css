@@ -863,6 +863,66 @@ html {
   }
 }
 
+/* ── Navbar responsive ──────────────────────────────── */
+.main-nav {
+  padding: 0 20px;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .main-nav {
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .nav-label {
+    display: none;
+  }
+}
+
+/* ── Admin Dashboard responsive ─────────────────────── */
+@media (max-width: 768px) {
+  .admin-root {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow: auto !important;
+    min-height: 100vh;
+  }
+
+  .admin-sidebar {
+    width: 100% !important;
+    height: auto !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 10px 8px !important;
+    flex-shrink: unset !important;
+  }
+
+  .admin-sidebar-nav {
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    gap: 4px !important;
+  }
+
+  .admin-nav-label {
+    display: none;
+  }
+
+  .admin-main {
+    padding: 20px 16px !important;
+    overflow-y: unset !important;
+    height: auto !important;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .admin-table {
+    overflow-x: auto !important;
+  }
+}
+
 /* ── WCAG 2.3.3: respetar preferencia del SO sin necesidad del menú ── */
 @media (prefers-reduced-motion: reduce) {
   *,
