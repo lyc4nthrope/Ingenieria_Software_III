@@ -109,6 +109,8 @@ export const usePublications = (initialFilters = {}, options = {}) => {
   const activeRequestIdRef = useRef(0);
   const { refetchOnTabActive = false } = options;
   const inFlightRef = useRef(false);
+  const pendingPageRef = useRef(null);
+  const latestFetchRef = useRef(null);
   const deferredFetchRef = useRef(null);
   const lastFetchAtRef = useRef(0);
   const publicationsCountRef = useRef(0);
@@ -160,7 +162,8 @@ export const usePublications = (initialFilters = {}, options = {}) => {
       deferredFetchRef.current = null;
 
       if (inFlightRef.current) {
-        debugPublications('fetch:skipped-inflight', { currentPage });
+        pendingPageRef.current = currentPage;
+        debugPublications('fetch:queued-inflight', { currentPage });
         return;
       }
 
@@ -269,10 +272,26 @@ export const usePublications = (initialFilters = {}, options = {}) => {
         }
         inFlightRef.current = false;
         lastFetchAtRef.current = Date.now();
+
+        // Si durante la petición llegó una búsqueda/filtro más reciente,
+        // ejecutamos la última pendiente para no perder los últimos caracteres tecleados.
+        if (isMountedRef.current && pendingPageRef.current !== null) {
+          const nextPage = pendingPageRef.current;
+          pendingPageRef.current = null;
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              latestFetchRef.current?.(nextPage);
+            }
+          }, 0);
+        }
       }
     },
     [filters]
   );
+
+  useEffect(() => {
+    latestFetchRef.current = fetchPublications;
+  }, [fetchPublications]);
 
   // ─── Efectos ───────────────────────────────────────────────────────────────
 

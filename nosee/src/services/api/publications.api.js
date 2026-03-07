@@ -1131,15 +1131,25 @@ export const getPublications = async (filters = {}) => {
       return cloned;
     })();
 
+    // Filtro de seguridad en cliente para evitar inconsistencias por tipos/queries.
+    // Garantiza que min/max price siempre se respeten antes de paginar.
+    const priceGuardedPublications = fullySortedPublications.filter((publication) => {
+      const numericPrice = Number(publication?.price);
+      if (!Number.isFinite(numericPrice)) return false;
+      if (Number.isFinite(normalizedMinPrice) && numericPrice < normalizedMinPrice) return false;
+      if (Number.isFinite(normalizedMaxPrice) && numericPrice > normalizedMaxPrice) return false;
+      return true;
+    });
+
     const paginatedData = requiresClientSort
-      ? fullySortedPublications.slice(offset, offset + limit)
-      : fullySortedPublications;
+      ? priceGuardedPublications.slice(offset, offset + limit)
+      : priceGuardedPublications;
 
     const effectiveCount = Number.isFinite(count)
       ? count
-      : (requiresClientSort ? fullySortedPublications.length : offset + paginatedData.length);
+      : (requiresClientSort ? priceGuardedPublications.length : offset + paginatedData.length);
     const effectiveHasMore = requiresClientSort
-      ? offset + limit < fullySortedPublications.length
+      ? offset + limit < priceGuardedPublications.length
       : paginatedData.length === limit && offset + paginatedData.length < effectiveCount;
 
     return {
