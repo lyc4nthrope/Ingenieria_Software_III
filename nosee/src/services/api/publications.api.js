@@ -58,6 +58,36 @@ const normalizeSearchText = (value = "") =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+const normalizeBarcodeValue = (value = "") =>
+  String(value || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase();
+
+const isMissingBarcodeColumnError = (error) =>
+  error?.code === "42703" && String(error?.message || "").toLowerCase().includes("barcode");
+
+let hasProductsBarcodeColumnCache = null;
+
+const supportsProductsBarcodeColumn = async () => {
+  if (hasProductsBarcodeColumnCache !== null) return hasProductsBarcodeColumnCache;
+
+  const { error } = await supabase.from("products").select("barcode").limit(1);
+
+  if (!error) {
+    hasProductsBarcodeColumnCache = true;
+    return true;
+  }
+
+  if (isMissingBarcodeColumnError(error)) {
+    hasProductsBarcodeColumnCache = false;
+    return false;
+  }
+
+  // Falla segura: no bloquear creación/edición si hay un error temporal.
+  // No cacheamos para poder reintentar más adelante.
+  return false;
+};
 
 const REQUEST_TIMEOUT_MS = 12000;
 const BACKGROUND_REQUEST_TIMEOUT_MS = 20000;
@@ -1858,6 +1888,37 @@ export const searchProducts = async (query, limit = 10) => {
   }
 };
 
+export const findProductByBarcode = async (barcode) => {
+  const normalizedBarcode = normalizeBarcodeValue(barcode);
+  if (!normalizedBarcode || normalizedBarcode.length < 4) {
+    return { success: true, data: null };
+  }
+
+  try {
+    const supportsBarcode = await supportsProductsBarcodeColumn();
+    if (!supportsBarcode) return { success: true, data: null };
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, name, category_id, base_quantity, barcode, brand:brands(name), unit:unit_types(name)")
+      .eq("barcode", normalizedBarcode)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingBarcodeColumnError(error)) {
+        hasProductsBarcodeColumnCache = false;
+        return { success: true, data: null };
+      }
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: data || null };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
 /**
  * Obtener listado base de productos para el formulario de publicación
  */
@@ -2208,6 +2269,8 @@ export async function createProduct(name) {
   const brandId = Number(name?.brandId);
   const brandName = String(name?.brandName || "").trim();
   const baseQuantity = Number(name?.baseQuantity);
+  const normalizedBarcode = normalizeBarcodeValue(name?.barcode);
+  let supportsBarcode = false;
   if (!normalizedName || normalizedName.length < 2) {
     return {
       success: false,
@@ -2223,9 +2286,39 @@ export async function createProduct(name) {
     };
   }
 
+  if (normalizedBarcode && normalizedBarcode.length < 4) {
+    return {
+      success: false,
+      error: "El código de barras debe tener al menos 4 caracteres",
+    };
+  }
+
+  if (normalizedBarcode) {
+    supportsBarcode = await supportsProductsBarcodeColumn();
+  }
+
+  if (supportsBarcode && normalizedBarcode) {
+    const { data: existingByBarcode, error: barcodeLookupError } = await supabase
+      .from("products")
+      .select("id, name, category_id, brand_id, unit_type_id, base_quantity, barcode")
+      .eq("barcode", normalizedBarcode)
+      .limit(1)
+      .maybeSingle();
+
+    if (barcodeLookupError) {
+      if (isMissingBarcodeColumnError(barcodeLookupError)) {
+        hasProductsBarcodeColumnCache = false;
+      } else {
+        return { success: false, error: barcodeLookupError.message };
+      }
+    } else if (existingByBarcode) {
+      return { success: true, data: existingByBarcode };
+    }
+  }
+
   const { data: existingProducts, error: existingError } = await supabase
     .from("products")
-    .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
+    .select("id, name, category_id, brand_id, unit_type_id, base_quantity, barcode")
     .ilike("name", normalizedName);
 
   if (existingError) {
@@ -2268,26 +2361,51 @@ export async function createProduct(name) {
     };
   }
 
-  const { data, error } = await supabase
-    .from("products")
-    .insert({
+  const insertPayload = {
       name: normalizedName,
       category_id: categoryId,
       unit_type_id: unitTypeId,
       brand_id: resolvedBrandId,
       base_quantity: baseQuantity,
-    })
-    .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
+    };
+
+  if (supportsBarcode && normalizedBarcode) {
+    insertPayload.barcode = normalizedBarcode;
+  }
+
+  const productSelect = supportsBarcode
+    ? "id, name, category_id, brand_id, unit_type_id, base_quantity, barcode"
+    : "id, name, category_id, brand_id, unit_type_id, base_quantity";
+
+  const { data, error } = await supabase
+    .from("products")
+    .insert(insertPayload)
+    .select(productSelect)
     .single();
 
   if (error) {
     if (error.code === "23505") {
-      const { data: duplicateProduct } = await supabase
-        .from("products")
-        .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
-        .ilike("name", normalizedName)
-        .limit(1)
-        .maybeSingle();
+      let duplicateProduct = null;
+
+      if (supportsBarcode && normalizedBarcode) {
+        const { data: duplicateByBarcode } = await supabase
+          .from("products")
+          .select(productSelect)
+          .eq("barcode", normalizedBarcode)
+          .limit(1)
+          .maybeSingle();
+        duplicateProduct = duplicateByBarcode || null;
+      }
+
+      if (!duplicateProduct) {
+        const { data: duplicateByName } = await supabase
+          .from("products")
+          .select(productSelect)
+          .ilike("name", normalizedName)
+          .limit(1)
+          .maybeSingle();
+        duplicateProduct = duplicateByName || null;
+      }
 
       if (duplicateProduct) {
         return { success: true, data: duplicateProduct };
@@ -2562,6 +2680,7 @@ export default {
   reportPublication,
   checkUserReportStatus,
   searchProducts,
+  findProductByBarcode,
   createProduct,
   searchProductsAndBrands,
   getProducts,

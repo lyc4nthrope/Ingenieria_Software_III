@@ -20,10 +20,64 @@ import { Spinner } from "@/components/ui";
 import PhotoUploader from "./PhotoUploader";
 import StoreCreateModal from "@/features/stores/components/StoreCreateModal";
 import ProductQuickCreateModal from "./ProductQuickCreateModal";
+import BarcodeScannerModal from "./BarcodeScannerModal";
 import * as publicationsApi from "@/services/api/publications.api";
 import * as storesApi from "@/services/api/stores.api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
+
+const ENABLE_AUTO_STORE = String(import.meta.env.VITE_ENABLE_AUTO_STORE ?? "true").toLowerCase() !== "false";
+const ENABLE_BARCODE_SCAN = String(import.meta.env.VITE_ENABLE_BARCODE_SCAN ?? "true").toLowerCase() !== "false";
+
+const toRadians = (value) => (Number(value) * Math.PI) / 180;
+
+const getDistanceMeters = (fromLat, fromLon, toLat, toLon) => {
+  const earthRadius = 6371000;
+  const dLat = toRadians(toLat - fromLat);
+  const dLon = toRadians(toLon - fromLon);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  return earthRadius * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+};
+
+const formatDistance = (distanceMeters) => {
+  if (!Number.isFinite(distanceMeters) || distanceMeters < 0) return "";
+  if (distanceMeters < 1000) return `${Math.round(distanceMeters)} m`;
+  return `${(distanceMeters / 1000).toFixed(1)} km`;
+};
+
+const fetchProductNameFromBarcode = async (barcode) => {
+  if (!barcode) return "";
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(
+      `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`,
+      { signal: controller.signal },
+    );
+
+    if (!response.ok) return "";
+    const payload = await response.json();
+    const product = payload?.product || {};
+
+    return (
+      product.product_name_es ||
+      product.product_name ||
+      product.generic_name_es ||
+      product.generic_name ||
+      ""
+    ).trim();
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
 
 
 export function PublicationForm({ mode = "create", publicationId = null, onSuccess }) {
@@ -54,9 +108,12 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   const [productSearching, setProductSearching] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
+  const [scannedBarcode, setScannedBarcode] = useState("");
   const productTimerRef = useRef(null);
   const productRequestIdRef = useRef(0);
   const productWrapperRef = useRef(null);
+  const [barcodeStatus, setBarcodeStatus] = useState("");
 
   // ─── Store autocomplete ────────────────────────────────────────────────────
   const [storeQuery, setStoreQuery] = useState("");
@@ -67,6 +124,8 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   const storeTimerRef = useRef(null);
   const storeRequestIdRef = useRef(0);
   const storeWrapperRef = useRef(null);
+  const [autoStoreMessage, setAutoStoreMessage] = useState("");
+  const autoStoreAttemptedRef = useRef(false);
 
   // ─── Índice activo para navegación por teclado ─────────────────────────────
   const [activeProductIndex, setActiveProductIndex] = useState(-1);
@@ -182,6 +241,63 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     };
   }, [productQuery, storeQuery, performProductSearch, performStoreSearch]);
 
+  useEffect(() => {
+    if (!ENABLE_AUTO_STORE || mode !== "create") return;
+    if (autoStoreAttemptedRef.current) return;
+    if (formData.storeId || storeQuery.trim().length > 0) return;
+
+    const userLat = Number(latitude);
+    const userLon = Number(longitude);
+    if (!Number.isFinite(userLat) || !Number.isFinite(userLon)) return;
+
+    autoStoreAttemptedRef.current = true;
+    setAutoStoreMessage("Detectando tienda cercana...");
+    let isCancelled = false;
+
+    (async () => {
+      const storesResult = await storesApi.listStores("", 250);
+      if (isCancelled) return;
+
+      if (!storesResult.success) {
+        setAutoStoreMessage("No se pudo detectar tienda automática. Puedes seleccionarla manualmente.");
+        return;
+      }
+
+      const nearest = (storesResult.data || [])
+        .filter(
+          (store) =>
+            store.type === "physical" &&
+            Number.isFinite(Number(store.latitude)) &&
+            Number.isFinite(Number(store.longitude)),
+        )
+        .map((store) => ({
+          ...store,
+          distanceMeters: getDistanceMeters(
+            userLat,
+            userLon,
+            Number(store.latitude),
+            Number(store.longitude),
+          ),
+        }))
+        .sort((left, right) => left.distanceMeters - right.distanceMeters)[0];
+
+      if (!nearest) {
+        setAutoStoreMessage("No encontramos tiendas físicas cercanas. Puedes escoger una manualmente.");
+        return;
+      }
+
+      updateField("storeId", nearest.id);
+      setStoreQuery(nearest.name);
+      setAutoStoreMessage(
+        `Tienda detectada automáticamente: ${nearest.name}${nearest.distanceMeters != null ? ` (${formatDistance(nearest.distanceMeters)})` : ""}`,
+      );
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [formData.storeId, latitude, longitude, mode, storeQuery, updateField]);
+
   // ─── Producto: búsqueda debounced ─────────────────────────────────────────
   const handleProductQueryChange = (e) => {
     const val = e.target.value;
@@ -204,6 +320,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   const handleProductSelect = (product) => {
     updateField("productId", String(product.id));
     setProductQuery(product.name);
+    setScannedBarcode("");
     setShowProductDropdown(false);
   };
 
@@ -263,6 +380,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     const val = e.target.value;
     setStoreQuery(val);
     updateField("storeId", "");
+    setAutoStoreMessage("");
     clearTimeout(storeTimerRef.current);
 
     if (!val.trim() || val.length < 2) {
@@ -280,12 +398,46 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   const handleStoreSelect = (store) => {
     updateField("storeId", store.id);
     setStoreQuery(store.name);
+    setAutoStoreMessage("");
     setShowStoreDropdown(false);
   };
 
   const handleStoreCreated = (store) => {
     handleStoreSelect(store);
+    setAutoStoreMessage("");
     setShowStoreModal(false);
+  };
+
+  const handleBarcodeDetected = async (barcode) => {
+    const normalizedBarcode = String(barcode || "").trim();
+    if (!normalizedBarcode) return;
+
+    setScannedBarcode(normalizedBarcode);
+    setBarcodeStatus(`Código detectado: ${normalizedBarcode}. Buscando producto...`);
+
+    const localProductResult = await publicationsApi.findProductByBarcode(normalizedBarcode);
+    if (localProductResult.success && localProductResult.data) {
+      handleProductSelect(localProductResult.data);
+      setBarcodeStatus(
+        `Código ${normalizedBarcode} detectado. Producto local encontrado: ${localProductResult.data.name}`,
+      );
+      return;
+    }
+
+    const productName = await fetchProductNameFromBarcode(normalizedBarcode);
+
+    if (productName) {
+      setProductQuery(productName);
+      updateField("productId", "");
+      setShowProductDropdown(true);
+      await performProductSearch(productName);
+      setBarcodeStatus(`Código ${normalizedBarcode} detectado. Sugerencia: ${productName}`);
+      return;
+    }
+
+    setBarcodeStatus(
+      `Código ${normalizedBarcode} detectado, pero no hubo coincidencia automática. Puedes seleccionar o crear el producto manualmente.`,
+    );
   };
 
   const hasExactStoreMatch = storeResults.some(
@@ -375,6 +527,15 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
           <label htmlFor="pub-product" style={styles.label}>
             {tf.productLabel} <span style={styles.required}>*</span>
           </label>
+          {ENABLE_BARCODE_SCAN && (
+            <button
+              type="button"
+              style={styles.secondaryActionBtn}
+              onClick={() => setShowBarcodeModal(true)}
+            >
+              Escanear código de barras
+            </button>
+          )}
           <div ref={productWrapperRef} style={styles.autocompleteContainer}>
             <input
               id="pub-product"
@@ -475,6 +636,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
           {formData.productId && (
             <div style={styles.selectedBadge}>{tf.productSelected}</div>
           )}
+          {barcodeStatus && <div style={styles.infoText}>{barcodeStatus}</div>}
           {errors.productId && (
             <div id="pub-product-error" role="alert" style={styles.errorText}>{errors.productId}</div>
           )}
@@ -585,6 +747,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
           {formData.storeId && (
             <div style={styles.selectedBadge}>{tf.storeSelected}</div>
           )}
+          {autoStoreMessage && <div style={styles.infoText}>{autoStoreMessage}</div>}
           {errors.storeId && (
             <div id="pub-store-error" role="alert" style={styles.errorText}>{errors.storeId}</div>
           )}
@@ -692,8 +855,16 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
       {showProductModal && (
         <ProductQuickCreateModal
           initialName={productQuery.trim()}
+          initialBarcode={scannedBarcode}
           onSuccess={handleProductCreated}
           onClose={() => setShowProductModal(false)}
+        />
+      )}
+      {ENABLE_BARCODE_SCAN && (
+        <BarcodeScannerModal
+          open={showBarcodeModal}
+          onClose={() => setShowBarcodeModal(false)}
+          onDetected={handleBarcodeDetected}
         />
       )}
       <CelebrationOverlay
@@ -896,6 +1067,11 @@ const styles = {
     color: "var(--success)",
     marginTop: "4px",
   },
+  infoText: {
+    marginTop: "4px",
+    fontSize: "12px",
+    color: "var(--text-secondary)",
+  },
   geoInfo: {
     background: "var(--accent-soft)",
     border: "1px solid var(--accent-glow)",
@@ -914,6 +1090,18 @@ const styles = {
     background: "var(--accent)",
     color: "#080C14",
     marginTop: "4px",
+  },
+  secondaryActionBtn: {
+    alignSelf: "flex-start",
+    marginBottom: "8px",
+    fontSize: "12px",
+    fontWeight: 600,
+    padding: "7px 10px",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--border)",
+    background: "transparent",
+    color: "var(--text-primary)",
+    cursor: "pointer",
   },
 };
 

@@ -12,6 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function ProductQuickCreateModal({
   initialName = "",
+  initialBarcode = "",
   onSuccess,
   onClose,
 }) {
@@ -20,6 +21,7 @@ export default function ProductQuickCreateModal({
   const [categoryId, setCategoryId] = useState("");
   const [unitTypeId, setUnitTypeId] = useState("");
   const [baseQuantity, setBaseQuantity] = useState("");
+  const [barcode, setBarcode] = useState(() => String(initialBarcode || ""));
   const [brandName, setBrandName] = useState("");
   const [brandId, setBrandId] = useState("");
   const [celebrationMsg, setCelebrationMsg] = useState(null);
@@ -158,6 +160,7 @@ export default function ProductQuickCreateModal({
       categoryId,
       unitTypeId,
       baseQuantity,
+      barcode,
       brandId,
       brandName,
     });
@@ -212,6 +215,18 @@ export default function ProductQuickCreateModal({
               placeholder="Ej: Leche Entera"
               required
             />
+
+            <label htmlFor="pqc-barcode" style={s.label}>Código de barras (opcional)</label>
+            <input
+              id="pqc-barcode"
+              style={s.input}
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              placeholder="Ej: 7702001043509"
+              inputMode="numeric"
+              autoComplete="off"
+            />
+            <div style={s.hint}>Si existe, ayuda a evitar duplicados y acelera próximas búsquedas.</div>
 
             <label htmlFor="pqc-category" style={s.label}>Categoría *</label>
             <select
