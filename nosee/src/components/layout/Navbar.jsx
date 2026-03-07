@@ -364,6 +364,10 @@ const Navbar = memo(function Navbar() {
         </>
       ) : (
         <>
+          <Link to="/ranking" style={navLinkStyle(isActive("/ranking"))}>
+            <TrophyIcon />
+            <span className="nav-label">{tn.ranking}</span>
+          </Link>
           <Link to="/login" style={navLinkStyle(isActive("/login"))}>
             {tn.login}
           </Link>
