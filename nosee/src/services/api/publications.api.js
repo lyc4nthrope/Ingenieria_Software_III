@@ -816,6 +816,45 @@ export const getPublications = async (filters = {}) => {
       productIdFilter = [...new Set([...productIdsByName, ...productIdsByBrand])];
 
       if (productIdFilter.length === 0) {
+        const [{ data: broadProducts }, { data: broadBrands }] = await Promise.all([
+          supabase
+            .from("products")
+            .select("id, name, brand:brands(id, name)")
+            .limit(2000),
+          supabase
+            .from("brands")
+            .select("id, name")
+            .limit(800),
+        ]);
+
+        const fallbackMatchingProducts = (broadProducts || []).filter((product) => {
+          const normalizedName = normalizeSearchText(product.name);
+          const normalizedBrandName = normalizeSearchText(product?.brand?.name || "");
+          return (
+            normalizedName.includes(normalizedProductSearchTerm) ||
+            normalizedBrandName.includes(normalizedProductSearchTerm)
+          );
+        });
+
+        const fallbackMatchingBrands = (broadBrands || []).filter((brand) =>
+          normalizeSearchText(brand.name).includes(normalizedProductSearchTerm),
+        );
+
+        const fallbackProductIdsByName = fallbackMatchingProducts.map((p) => p.id);
+        let fallbackProductIdsByBrand = [];
+        if (fallbackMatchingBrands.length > 0) {
+          const fallbackBrandIds = fallbackMatchingBrands.map((b) => b.id);
+          const { data: fallbackBrandProducts } = await supabase
+            .from("products")
+            .select("id")
+            .in("brand_id", fallbackBrandIds);
+          fallbackProductIdsByBrand = (fallbackBrandProducts || []).map((p) => p.id);
+        }
+
+        productIdFilter = [...new Set([...fallbackProductIdsByName, ...fallbackProductIdsByBrand])];
+      }
+
+      if (productIdFilter.length === 0) {
         return { success: true, data: [], count: 0, hasMore: false };
       }
     }
@@ -847,16 +886,34 @@ export const getPublications = async (filters = {}) => {
     // (solo sin filtro de distancia, que ya maneja storeName client-side)
     let storeNameFilter = null;
     if (storeName && !shouldApplyDistanceFilter) {
+      const normalizedStoreSearchTerm = normalizeSearchText(storeName);
       const { data: matchingStores, error: storeSearchError } = await supabase
         .from("stores")
-        .select("id")
+        .select("id, name")
         .ilike("name", `%${storeName}%`);
 
       if (storeSearchError) {
         return { success: false, error: storeSearchError.message };
       }
 
-      storeNameFilter = (matchingStores || []).map((s) => s.id);
+      storeNameFilter = (matchingStores || [])
+        .filter((store) =>
+          normalizeSearchText(store.name || "").includes(normalizedStoreSearchTerm),
+        )
+        .map((s) => s.id);
+
+      if (storeNameFilter.length === 0) {
+        const { data: broadStores } = await supabase
+          .from("stores")
+          .select("id, name")
+          .limit(1500);
+
+        storeNameFilter = (broadStores || [])
+          .filter((store) =>
+            normalizeSearchText(store.name || "").includes(normalizedStoreSearchTerm),
+          )
+          .map((s) => s.id);
+      }
 
       if (storeNameFilter.length === 0) {
         return { success: true, data: [], count: 0, hasMore: false };
@@ -1698,7 +1755,7 @@ export const searchProductsAndBrands = async (query, limit = 8) => {
     const seen = new Set();
     const suggestions = [];
 
-    const normalizedProducts = (productsData || []).filter((product) => {
+    let normalizedProducts = (productsData || []).filter((product) => {
       const productName = normalizeSearchText(product.name);
       const brandName = normalizeSearchText(product?.brand?.name || "");
       return productName.includes(normalizedTerm) || brandName.includes(normalizedTerm);
@@ -1716,9 +1773,33 @@ export const searchProductsAndBrands = async (query, limit = 8) => {
       });
     }
 
-    const normalizedBrands = (brandsData || []).filter((brand) =>
+    let normalizedBrands = (brandsData || []).filter((brand) =>
       normalizeSearchText(brand.name).includes(normalizedTerm),
     );
+
+    // Fallback acento-insensible/mayúsculas cuando ILIKE no devuelve candidatos.
+    if (normalizedProducts.length === 0 && normalizedBrands.length === 0) {
+      const [{ data: broadProducts }, { data: broadBrands }] = await Promise.all([
+        supabase
+          .from("products")
+          .select("id, name, brand:brands(id, name)")
+          .limit(safeLimit * 40),
+        supabase
+          .from("brands")
+          .select("id, name")
+          .limit(safeLimit * 20),
+      ]);
+
+      normalizedProducts = (broadProducts || []).filter((product) => {
+        const productName = normalizeSearchText(product.name);
+        const brandName = normalizeSearchText(product?.brand?.name || "");
+        return productName.includes(normalizedTerm) || brandName.includes(normalizedTerm);
+      });
+
+      normalizedBrands = (broadBrands || []).filter((brand) =>
+        normalizeSearchText(brand.name).includes(normalizedTerm),
+      );
+    }
 
     for (const brand of normalizedBrands) {
       const key = `brand-${brand.id}`;
