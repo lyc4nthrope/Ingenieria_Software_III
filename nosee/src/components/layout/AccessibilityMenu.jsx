@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage, LANG_OPTIONS } from "@/contexts/LanguageContext";
+import { useLocation } from "react-router-dom";
 
 const STORAGE_KEY = "nosee-accessibility-settings";
 const FONT_STEP = 0.1;
@@ -38,6 +39,29 @@ function applyAccessibilitySettings(settings) {
   root.classList.toggle("a11y-text-align-left", settings.textAlignLeft);
   root.classList.toggle("a11y-page-structure", settings.pageStructure);
   root.classList.toggle("a11y-light-mode", settings.lightMode);
+}
+
+function applyInlineFontScaling(scale) {
+  if (typeof document === "undefined") return;
+  const nodes = document.querySelectorAll("[style*='font-size']");
+
+  nodes.forEach((node) => {
+    const el = /** @type {HTMLElement} */ (node);
+    const inlineSize = el.style.fontSize;
+    if (!inlineSize) return;
+
+    if (!el.dataset.a11yBaseFontSize) {
+      const match = inlineSize.trim().match(/^([0-9]*\.?[0-9]+)px$/);
+      if (!match) return;
+      el.dataset.a11yBaseFontSize = match[1];
+    }
+
+    const base = Number(el.dataset.a11yBaseFontSize);
+    if (!Number.isFinite(base)) return;
+
+    const next = Number((base * scale).toFixed(3));
+    el.style.fontSize = `${next}px`;
+  });
 }
 
 function readStoredSettings() {
@@ -113,6 +137,7 @@ function AccessibilityIcon() {
 // ── Componente principal ─────────────────────────────────────────────────────
 export default function AccessibilityMenu() {
   const { lang, setLang, t } = useLanguage();
+  const location = useLocation();
   const ta = t.a11y;
 
   const [isOpen, setIsOpen] = useState(false);
@@ -126,6 +151,23 @@ export default function AccessibilityMenu() {
     applyAccessibilitySettings(settings);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    applyInlineFontScaling(settings.fontScale);
+  }, [settings.fontScale, location.pathname]);
+
+  useEffect(() => {
+    if (settings.fontScale === 1) return undefined;
+
+    const observer = new MutationObserver(() => {
+      window.requestAnimationFrame(() => {
+        applyInlineFontScaling(settings.fontScale);
+      });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [settings.fontScale]);
 
   // Cerrar dropdown de idioma al hacer clic fuera
   useEffect(() => {

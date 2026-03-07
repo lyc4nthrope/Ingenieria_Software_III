@@ -780,8 +780,9 @@ html {
 }
 
 .a11y-hide-images img,
-.a11y-hide-images svg,
-.a11y-hide-images video {
+.a11y-hide-images picture,
+.a11y-hide-images video,
+.a11y-hide-images canvas {
   display: none !important;
 }
 
@@ -812,6 +813,8 @@ html {
 .a11y-line-height body,
 .a11y-line-height p,
 .a11y-line-height li,
+.a11y-line-height span,
+.a11y-line-height div,
 .a11y-line-height input,
 .a11y-line-height textarea,
 .a11y-line-height button {
@@ -820,6 +823,8 @@ html {
 
 .a11y-text-align-left p,
 .a11y-text-align-left li,
+.a11y-text-align-left span,
+.a11y-text-align-left div,
 .a11y-text-align-left h1,
 .a11y-text-align-left h2,
 .a11y-text-align-left h3,
@@ -859,6 +864,12 @@ html {
   }
 
   .a11y-actions-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .a11y-info-features {
     grid-template-columns: 1fr;
   }
 }

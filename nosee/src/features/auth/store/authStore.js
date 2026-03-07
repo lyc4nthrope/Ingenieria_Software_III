@@ -87,7 +87,11 @@ export const useAuthStore = create((set, get) => ({
     set({ status: AsyncStateEnum.LOADING });
 
     try {
-      const { data: sessionData } = await authApi.getSession();
+      const sessionResult = await authApi.getSession();
+      if (!sessionResult?.success) {
+        throw new Error(sessionResult?.error || 'No se pudo obtener la sesión actual');
+      }
+      const sessionData = sessionResult.data;
 
       if (sessionData) {
         const profileResult = await usersApi.getUserProfile(sessionData.user.id);
@@ -275,11 +279,9 @@ register: async (email, password, metadata = {}) => {
   // ACCIÓN: logout
   // ════════════════════════════════════════════════════════════════
   logout: async () => {
-    // Cancelamos el listener antes de limpiar el estado para evitar
-    // que onAuthStateChange(SIGNED_OUT) dispare un set() redundante
-    // sobre un store que ya estamos reseteando.
-    const unsub = get()._unsubscribeAuthListener;
-    if (unsub) unsub();
+    // Conservamos el listener activo para que los siguientes inicios de sesión
+    // en la misma ejecución sigan recibiendo eventos de auth.
+    const activeListener = get()._unsubscribeAuthListener;
 
     set({ status: AsyncStateEnum.LOADING });
 
@@ -291,7 +293,7 @@ register: async (email, password, metadata = {}) => {
     set({
       ...initialState,
       isInitialized:            true,
-      _unsubscribeAuthListener: null,
+      _unsubscribeAuthListener: activeListener,
     });
   },
 
@@ -355,6 +357,7 @@ register: async (email, password, metadata = {}) => {
    * @param {boolean} permanent - true = borrado total, false = solo desactivar
    */
   deleteAccount: async (permanent = false) => {
+    const activeListener = get()._unsubscribeAuthListener;
     set({ status: AsyncStateEnum.LOADING, error: null });
 
     const action = permanent
@@ -373,7 +376,7 @@ register: async (email, password, metadata = {}) => {
     set({
       ...initialState,
       isInitialized:            true,
-      _unsubscribeAuthListener: null,
+      _unsubscribeAuthListener: activeListener,
     });
 
     return { success: true };

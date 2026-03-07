@@ -14,12 +14,12 @@ export default function RepartidorDashboard() {
   const td = t.dealerDashboard;
 
   const STATUS_INFO = {
-    pendiente: { label: td.statusPendiente, color: 'var(--info)', bg: '#60A5FA18' },
-    comprando: { label: td.statusComprando, color: '#FCD34D', bg: '#FCD34D18' },
-    en_camino: { label: td.statusEnCamino,  color: '#34D399', bg: '#34D39918' },
-    llegando:  { label: td.statusLlegando,  color: '#C8F135', bg: '#C8F13518' },
-    entregado: { label: td.statusEntregado, color: '#34D399', bg: '#34D39918' },
-    cancelado: { label: td.statusCancelado, color: 'var(--error)', bg: '#F8717118' },
+    pendiente: { label: td.statusPendiente, color: 'var(--info)', bg: 'var(--info-soft)' },
+    comprando: { label: td.statusComprando, color: 'var(--warning)', bg: 'var(--warning-soft)' },
+    en_camino: { label: td.statusEnCamino,  color: 'var(--success)', bg: 'var(--success-soft)' },
+    llegando:  { label: td.statusLlegando,  color: 'var(--accent)', bg: 'var(--accent-soft)' },
+    entregado: { label: td.statusEntregado, color: 'var(--success)', bg: 'var(--success-soft)' },
+    cancelado: { label: td.statusCancelado, color: 'var(--error)', bg: 'var(--error-soft)' },
   };
 
   const [orders, setOrders] = useState([]);

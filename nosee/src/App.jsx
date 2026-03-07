@@ -44,8 +44,14 @@ const PublicationsPage = lazy(
 const CreatePublicationPage = lazy(
   () => import("@/features/publications/pages/CreatePublicationPage")
 );
+const EditPublicationPage = lazy(
+  () => import("@/features/publications/pages/EditPublicationPage")
+);
 const CreateStorePage = lazy(
   () => import("@/features/stores/pages/CreateStorePage")
+);
+const EditStorePage = lazy(
+  () => import("@/features/stores/pages/EditStorePage")
 );
 const StoresPage = lazy(
   () => import("@/features/stores/pages/StoresPage")
@@ -157,12 +163,28 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/publicaciones/editar/:id"
+          element={
+            <ProtectedRoute>
+              <EditPublicationPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/tiendas/nueva"
           element={
             <ProtectedRoute>
               <CreateStorePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tiendas/editar/:id"
+          element={
+            <ProtectedRoute>
+              <EditStorePage />
             </ProtectedRoute>
           }
         />
@@ -267,7 +289,7 @@ function RoleChangeToast() {
       style={{
         position: "fixed",
         bottom: "24px",
-        right: "24px",
+        right: "12px",
         background: "var(--bg-elevated)",
         color: "var(--text-primary)",
         padding: "12px 16px 12px 20px",
@@ -278,7 +300,7 @@ function RoleChangeToast() {
         zIndex: 9999,
         opacity: visible ? 1 : 0,
         transition: "opacity 0.3s",
-        maxWidth: "320px",
+        maxWidth: "min(320px, calc(100vw - 24px))",
         display: "flex",
         alignItems: "center",
         gap: "10px",

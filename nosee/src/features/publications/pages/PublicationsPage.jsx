@@ -14,7 +14,7 @@
  * - Botón para crear nuevas publicaciones
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 // State Management
@@ -289,7 +289,7 @@ export default function PublicationsPage() {
     setError(result.error || tp.errorDelete);
   };
 
-const handleViewMore = async (publicationId) => {
+  const handleViewMore = useCallback(async (publicationId) => {
     setDetailLoading(true);
     setError(null);
 
@@ -302,7 +302,7 @@ const handleViewMore = async (publicationId) => {
 
     setSelectedPublication(result.data);
     setDetailLoading(false);
-  };
+  }, [tp.errorDetail]);
 
   // Abre el modal de detalle si la URL tiene ?pub=<id>
   useEffect(() => {
@@ -316,8 +316,7 @@ const handleViewMore = async (publicationId) => {
         return next;
       });
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [handleViewMore, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (searchQuery.trim().length < 2) {

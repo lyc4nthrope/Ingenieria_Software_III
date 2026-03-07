@@ -1074,7 +1074,7 @@ function PublicationsTable({ publications, onDelete, onView, deletingId }) {
           <div style={{ ...s.td, ...s.tdNum }}>
             ${typeof p.price === 'number' ? p.price.toLocaleString('es-CO') : p.price || '—'}
           </div>
-          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.authorName || p.userName || p.user?.full_name || '—'}</div>
+          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.storeName || p.store?.name || '—'}</div>
           <div style={{ ...s.td, fontSize: 12, color: MUTED }}>
             {p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-CO') : '—'}
           </div>
@@ -1666,8 +1666,8 @@ const s = {
   modalTextarea: { width: '100%', background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 8, padding: 10, fontSize: 13, resize: 'vertical' },
 
 
-  btnDelete:  { background: '#F8717115', border: '1px solid #F87171', color: 'var(--error)', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
-  btnBan:     { background: '#FCD34D15', border: '1px solid #FCD34D', color: 'var(--warning)', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
+  btnDelete:  { background: 'var(--error-soft)', border: '1px solid var(--error)', color: 'var(--error)', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
+  btnBan:     { background: 'var(--warning-soft)', border: '1px solid var(--warning)', color: 'var(--warning)', borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 },
   btnDismiss: { background: 'none', border: `1px solid ${BORDER}`, color: MUTED, borderRadius: 7, padding: '7px 14px', fontSize: 13, cursor: 'pointer' },
 
   configCard: { background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' },
