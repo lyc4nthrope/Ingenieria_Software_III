@@ -154,9 +154,15 @@ function PriceAlertsSection() {
         onSubmit={handleCreate}
         aria-labelledby="price-alerts-title"
         aria-describedby="price-alerts-desc"
-        style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'flex-end' }}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '8px',
+          marginBottom: '16px',
+          alignItems: 'flex-end',
+        }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '120px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
           <label htmlFor="alert-product-combobox" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
             {tpa.productLabel} <span aria-hidden="true" style={{ color: 'var(--error)' }}>*</span>
             <span className="sr-only">{tpa.required}</span>
@@ -268,7 +274,7 @@ function PriceAlertsSection() {
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '120px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
           <label htmlFor="alert-target-price" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
             {tpa.targetPriceLabel} <span aria-hidden="true" style={{ color: 'var(--error)' }}>*</span>
             <span className="sr-only">{tpa.required}</span>
@@ -290,7 +296,7 @@ function PriceAlertsSection() {
           type="submit"
           disabled={saving}
           aria-busy={saving}
-          style={{ ...btnStyle, alignSelf: 'flex-end' }}
+          style={{ ...btnStyle, justifySelf: 'end' }}
         >
           {saving ? tpa.saving : tpa.addAlert}
         </button>
@@ -382,7 +388,8 @@ function PriceAlertsSection() {
 const inputStyle = {
   padding: '8px 12px', borderRadius: 'var(--radius-md)',
   border: '1px solid var(--border)', fontSize: '13px',
-  flex: 1, minWidth: '120px',
+  width: '100%',
+  boxSizing: 'border-box',
 };
 const btnStyle = {
   padding: '8px 16px', borderRadius: 'var(--radius-md)',
