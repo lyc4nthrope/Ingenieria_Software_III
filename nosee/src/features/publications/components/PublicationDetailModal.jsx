@@ -572,7 +572,7 @@ export default function PublicationDetailModal({ publication, onClose }) {
   const initialComments = publication?.comments || [];
 
   const isVirtualStore = Number(publication?.store?.store_type_id) === 2;
-  const hasPhoto = !!publication?.photo_url && !isVirtualStore;
+  const hasPhoto = !!publication?.photo_url;
   const mainImage = hasPhoto ? publication.photo_url : DEFAULT_VIRTUAL_IMAGE;
   const { latitude, longitude } = parseStoreLocation(publication?.store?.location);
   const hasCoordinates =

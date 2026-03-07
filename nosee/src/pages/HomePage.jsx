@@ -201,6 +201,7 @@ function PublicationCard({
   const th = t.home;
   const publicationImage = resolvePublicationPhoto(pub);
   const [isVoting, setIsVoting] = useState(false);
+  const [photoExpanded, setPhotoExpanded] = useState(false);
 
   const handleImageError = (event) => {
     event.currentTarget.src = FALLBACK_IMAGE;
@@ -225,9 +226,34 @@ function PublicationCard({
   const upActive = pub.user_vote === 1;
   const downActive = pub.user_vote === -1;
 
+  useEffect(() => {
+    if (!photoExpanded) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setPhotoExpanded(false);
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [photoExpanded]);
+
   return (
-    <article className="card">
-      <div className="card-image-wrap">
+    <>
+      <article className="card">
+      <div
+        className="card-image-wrap"
+        role="button"
+        tabIndex={0}
+        aria-label={`Expandir foto de ${pubName}`}
+        onClick={() => setPhotoExpanded(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setPhotoExpanded(true);
+          }
+        }}
+        style={{ cursor: "zoom-in" }}
+      >
         <img
           src={publicationImage}
           alt={pubName}
@@ -316,7 +342,60 @@ function PublicationCard({
           )}
         </div>
       </div>
-    </article>
+      </article>
+
+      {photoExpanded && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Foto ampliada de ${pubName}`}
+          onClick={() => setPhotoExpanded(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1200,
+            background: "rgba(0, 0, 0, 0.88)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "24px",
+          }}
+        >
+          <button
+            type="button"
+            aria-label={th.close}
+            onClick={() => setPhotoExpanded(false)}
+            style={{
+              position: "absolute",
+              top: "16px",
+              right: "16px",
+              width: "38px",
+              height: "38px",
+              borderRadius: "50%",
+              border: "1px solid rgba(255,255,255,0.35)",
+              background: "rgba(0,0,0,0.45)",
+              color: "#fff",
+              fontSize: "20px",
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </button>
+          <img
+            src={publicationImage}
+            alt={pubName}
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "min(1100px, 100%)",
+              maxHeight: "85vh",
+              objectFit: "contain",
+              borderRadius: "10px",
+              boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
+            }}
+          />
+        </div>
+      )}
+    </>
   );
 }
 
@@ -465,6 +544,8 @@ export default function HomePage() {
   const {
     publications,
     loading,
+    hasMore,
+    loadMore,
     setFilters,
     validatePublication,
     downvotePublication,
@@ -484,6 +565,7 @@ export default function HomePage() {
   const CATS_PER_PAGE = 8;
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
+  const infiniteSentinelRef = useRef(null);
 
   useEffect(() => {
     publicationsApi.getProductCategories().then((result) => {
@@ -601,6 +683,28 @@ export default function HomePage() {
     }
   };
 
+  useEffect(() => {
+    const sentinel = infiniteSentinelRef.current;
+    if (!sentinel || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting && !loading) {
+          loadMore();
+        }
+      },
+      {
+        root: null,
+        rootMargin: "300px 0px",
+        threshold: 0,
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadMore]);
+
   return (
     <div className="home-wrapper">
       <section className="banner">
@@ -659,27 +763,46 @@ export default function HomePage() {
 
       <div className="layout">
         <div className="feed">
-          {loading ? (
+          {loading && normalizedPublications.length === 0 ? (
             <p role="status" aria-live="polite">
               {th.loading}
             </p>
-          ) : normalizedPublications.length === 0 ? (
+          ) : !loading && normalizedPublications.length === 0 ? (
             <p role="status" aria-live="polite">{th.noPublications}</p>
           ) : (
-            normalizedPublications.map((pub) => (
-              <PublicationCard
-                key={pub.id}
-                pub={pub}
-                isAuthenticated={isAuthenticated}
-                currentUserId={user?.id}
-                userIsAdmin={isAdmin(user?.role)}
-                onValidate={handleValidate}
-                onDownvote={handleDownvote}
-                onReport={handleReport}
-                onDelete={handleDelete}
-                onOpenDetail={handleOpenDetail}
-              />
-            ))
+            <>
+              {normalizedPublications.map((pub) => (
+                <PublicationCard
+                  key={pub.id}
+                  pub={pub}
+                  isAuthenticated={isAuthenticated}
+                  currentUserId={user?.id}
+                  userIsAdmin={isAdmin(user?.role)}
+                  onValidate={handleValidate}
+                  onDownvote={handleDownvote}
+                  onReport={handleReport}
+                  onDelete={handleDelete}
+                  onOpenDetail={handleOpenDetail}
+                />
+              ))}
+
+              <div
+                ref={infiniteSentinelRef}
+                aria-hidden="true"
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  padding: "20px 0 8px",
+                  minHeight: "36px",
+                }}
+              >
+                {loading && (
+                  <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+                    {th.loading}
+                  </span>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

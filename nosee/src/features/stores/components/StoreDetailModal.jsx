@@ -206,6 +206,7 @@ export default function StoreDetailModal({ store, onClose }) {
   const [loadingPubs, setLoadingPubs] = useState(true);
   const [evidences, setEvidences] = useState([]);
   const [expandedEvidence, setExpandedEvidence] = useState(null);
+  const [evidenceError, setEvidenceError] = useState(null);
 
   const isPhysical = store.type === 'physical';
   const hasLocation = isPhysical && Number.isFinite(store.latitude) && Number.isFinite(store.longitude);
@@ -213,20 +214,33 @@ export default function StoreDetailModal({ store, onClose }) {
   useEffect(() => {
     let cancelled = false;
     setLoadingPubs(true);
+    setEvidenceError(null);
 
-    Promise.all([
-      getStorePublications(store.id, 6),
-      isPhysical ? getStoreEvidences(store.id) : Promise.resolve({ success: true, data: [] }),
-    ]).then(([pubsRes, evidRes]) => {
-      if (!cancelled) {
-        setPublications(pubsRes.success ? pubsRes.data : []);
-        setEvidences(evidRes.success ? evidRes.data : []);
-        setLoadingPubs(false);
+    (async () => {
+      try {
+        const [pubsRes, evidRes] = await Promise.allSettled([
+          getStorePublications(store.id, 6),
+          isPhysical ? getStoreEvidences(store.id) : Promise.resolve({ success: true, data: [] }),
+        ]);
+
+        if (cancelled) return;
+
+        const pubsValue = pubsRes.status === "fulfilled" ? pubsRes.value : { success: false, data: [] };
+        const evidValue = evidRes.status === "fulfilled" ? evidRes.value : { success: false, data: [] };
+
+        setPublications(pubsValue.success ? pubsValue.data : []);
+        setEvidences(evidValue.success ? evidValue.data : []);
+
+        if (!evidValue.success && isPhysical) {
+          setEvidenceError(evidValue.error || td.noEvidences);
+        }
+      } finally {
+        if (!cancelled) setLoadingPubs(false);
       }
-    });
+    })();
 
     return () => { cancelled = true; };
-  }, [store.id, isPhysical]);
+  }, [store.id, isPhysical, td.noEvidences]);
 
   // Cerrar con Escape
   useEffect(() => {
@@ -295,7 +309,7 @@ export default function StoreDetailModal({ store, onClose }) {
             <div style={styles.section}>
               <h3 style={styles.sectionTitle}>{td.evidences}</h3>
               {loadingPubs ? null : evidences.length === 0 ? (
-                <p style={styles.muted}>{td.noEvidences}</p>
+                <p style={styles.muted}>{evidenceError || td.noEvidences}</p>
               ) : (
                 <div style={styles.evidenceGrid}>
                   {evidences.map((ev) => (

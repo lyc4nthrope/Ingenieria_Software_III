@@ -16,7 +16,7 @@
  * - searchProducts()         : Autocomplete de productos
  * - searchStores()           : Autocomplete de tiendas + distancia
  * - updatePublication()      : Editar propia publicación
- * - deletePublication()      : Eliminar propia publicación
+ * - deletePublication()      : Eliminar publicación (soft-delete por defecto, hard-delete admin opcional)
  */
 
 import { supabase } from "@/services/supabase.client";
@@ -107,6 +107,25 @@ const isTimeoutMessage = (message = "") => {
 const hasCoordinates = (lat, lng) =>
   Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
 
+const parseWKBPoint = (hexString) => {
+  try {
+    if (typeof hexString !== "string" || hexString.length < 42) return null;
+    const bytes = new Uint8Array(hexString.length / 2);
+    for (let i = 0; i < hexString.length; i += 2) {
+      bytes[i / 2] = parseInt(hexString.substr(i, 2), 16);
+    }
+    const view = new DataView(bytes.buffer);
+    const littleEndian = bytes[0] === 1;
+    const longitude = view.getFloat64(9, littleEndian);
+    const latitude = view.getFloat64(17, littleEndian);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { latitude, longitude };
+  } catch {
+    return null;
+  }
+};
+
 const parseStoreLocation = (locationValue) => {
   if (!locationValue) return { latitude: null, longitude: null };
 
@@ -121,8 +140,23 @@ const parseStoreLocation = (locationValue) => {
     }
   }
 
+  if (
+    typeof locationValue === "object" &&
+    hasCoordinates(locationValue.latitude, locationValue.longitude)
+  ) {
+    return {
+      latitude: Number(locationValue.latitude),
+      longitude: Number(locationValue.longitude),
+    };
+  }
+
   if (typeof locationValue !== "string") {
     return { latitude: null, longitude: null };
+  }
+
+  if (/^[0-9a-fA-F]+$/.test(locationValue)) {
+    const wkbPoint = parseWKBPoint(locationValue);
+    return wkbPoint || { latitude: null, longitude: null };
   }
 
   const pointMatch = locationValue.match(
@@ -347,6 +381,10 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
   });
 
   const hasSearchTerm = String(filters.productName || "").trim().length > 0 || String(filters.storeName || "").trim().length > 0;
+  const normalizedSortBy = String(filters.sortBy || SORT_OPTIONS.RECENT);
+  const shouldSortByScore =
+    normalizedSortBy === SORT_OPTIONS.BEST_MATCH ||
+    (normalizedSortBy === SORT_OPTIONS.RECENT && hasSearchTerm);
 
   return publications
     .map((publication) => {
@@ -391,7 +429,7 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
       };
     })
     .sort((a, b) => {
-      if (hasSearchTerm) {
+      if (shouldSortByScore) {
         return (b.search_score || 0) - (a.search_score || 0);
       }
       return 0;
@@ -650,6 +688,16 @@ export const getPublications = async (filters = {}) => {
     } = filters;
      const offset = (page - 1) * limit;
 
+    let normalizedMinPrice = minPrice;
+    let normalizedMaxPrice = maxPrice;
+    if (
+      Number.isFinite(Number(normalizedMinPrice)) &&
+      Number.isFinite(Number(normalizedMaxPrice)) &&
+      Number(normalizedMinPrice) > Number(normalizedMaxPrice)
+    ) {
+      [normalizedMinPrice, normalizedMaxPrice] = [normalizedMaxPrice, normalizedMinPrice];
+    }
+
     const shouldApplyDistanceFilter =
       maxDistance !== null && hasCoordinates(latitude, longitude);
 
@@ -758,11 +806,11 @@ export const getPublications = async (filters = {}) => {
       }
 
       // Filtro por rango de precio
-      if (minPrice !== null) {
-        query = query.gte("price", minPrice);
+      if (normalizedMinPrice !== null) {
+        query = query.gte("price", normalizedMinPrice);
       }
-      if (maxPrice !== null) {
-        query = query.lte("price", maxPrice);
+      if (normalizedMaxPrice !== null) {
+        query = query.lte("price", normalizedMaxPrice);
       }
 
       // Filtro por tienda (IDs pre-filtrados por nombre, sin filtro de distancia)
@@ -803,7 +851,7 @@ export const getPublications = async (filters = {}) => {
       const { data: storesData, error: storesError } = await withTimeout(
         supabase
           .from("stores")
-          .select("id, name, location"),
+          .select("id, name, location, latitude, longitude"),
         REQUEST_TIMEOUT_MS,
         "Tiempo de espera agotado obteniendo tiendas cercanas",
       );
@@ -829,7 +877,7 @@ export const getPublications = async (filters = {}) => {
             }
 
             const { latitude: storeLat, longitude: storeLng } = parseStoreLocation(
-              store.location,
+              store.location || store,
             );
 
             if (!hasCoordinates(storeLat, storeLng)) return false;
@@ -912,7 +960,10 @@ export const getPublications = async (filters = {}) => {
 
     const publicationsWithCoordinates = publicationsWithRelations.map((pub) => {
       const storeCoordinates = parseStoreLocation(
-        pub?.store?.location || pub?.stores?.location,
+        pub?.store?.location ||
+          pub?.stores?.location ||
+          pub?.store ||
+          pub?.stores,
       );
 
       const publicationWithCoords = {
@@ -942,14 +993,18 @@ export const getPublications = async (filters = {}) => {
         ),
       };
     });
+    const hasSearchTerm =
+      String(productName || "").trim().length > 0 ||
+      String(storeName || "").trim().length > 0;
     const shouldUseBestMatch =
       SEARCH_SORT_FIELDS.has(sortBy) &&
-      (sortBy === SORT_OPTIONS.BEST_MATCH || String(productName || "").trim() || String(storeName || "").trim());
+      (sortBy === SORT_OPTIONS.BEST_MATCH || (sortBy === SORT_OPTIONS.RECENT && hasSearchTerm));
 
     const rankedPublications = shouldUseBestMatch
       ? await enrichSearchRankingSignals(publicationsWithCoordinates, {
           productName,
           storeName,
+          sortBy,
         })
       : publicationsWithCoordinates;
 
@@ -1755,14 +1810,18 @@ export const updatePublication = async (publicationId, updates) => {
  * Eliminar una publicación (solo el autor o admin)
  *
  * @param {number} publicationId - ID de la publicación
+ * @param {Object} [options]
+ * @param {boolean} [options.permanent=false] - Si true, elimina físicamente (solo admin)
  *
  * @returns {Promise} { success, error }
  *
  * @example
  * const result = await deletePublication(123);
  */
-export const deletePublication = async (publicationId) => {
+export const deletePublication = async (publicationId, options = {}) => {
   try {
+    const { permanent = false } = options;
+
     if (!publicationId) {
       return { success: false, error: "ID de publicación requerido" };
     }
@@ -1789,13 +1848,55 @@ export const deletePublication = async (publicationId) => {
     const isAuthor = publication?.user_id === user.id;
     const isAdmin  = userData?.role_id === 3;
 
+    if (!publication) {
+      return { success: false, error: "La publicación no existe" };
+    }
+
     if (!isAuthor && !isAdmin) {
       return { success: false, error: "No puedes eliminar esta publicación" };
     }
 
-    // Soft-delete: marcar como inactiva en lugar de borrar físicamente.
-    // Esto funciona con la política RLS estándar de UPDATE (user_id = auth.uid()),
-    // mientras que DELETE requiere una política RLS separada.
+    if (permanent) {
+      if (!isAdmin) {
+        return {
+          success: false,
+          error: "Solo un administrador puede eliminar permanentemente una publicación",
+        };
+      }
+
+      const { error: votesDeleteError } = await supabase
+        .from("publication_votes")
+        .delete()
+        .eq("publication_id", publicationId);
+
+      if (votesDeleteError) {
+        console.error("Error eliminando votos de publicación:", votesDeleteError);
+        return { success: false, error: votesDeleteError.message };
+      }
+
+      const { error: reportsDeleteError } = await supabase
+        .from("reports")
+        .delete()
+        .eq("publication_id", publicationId);
+
+      if (reportsDeleteError) {
+        console.error("Error eliminando reportes de publicación:", reportsDeleteError);
+        return { success: false, error: reportsDeleteError.message };
+      }
+
+      const { error: publicationDeleteError } = await supabase
+        .from("price_publications")
+        .delete()
+        .eq("id", publicationId);
+
+      if (publicationDeleteError) {
+        console.error("Error eliminando publicación permanentemente:", publicationDeleteError);
+        return { success: false, error: publicationDeleteError.message };
+      }
+
+      return { success: true };
+    }
+
     const { error } = await supabase
       .from("price_publications")
       .update({ is_active: false })

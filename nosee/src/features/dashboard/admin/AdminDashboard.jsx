@@ -237,7 +237,7 @@ export default function AdminDashboard() {
         setUsers(result.data.map((u) => ({
           id:     u.id,
           name:   u.fullName || '',
-          email:  u.email,
+          email:  u.email || 'No disponible',
           role:   u.role,
           status: u.isActive ? 'activo' : 'baneado',
           rep:    u.reputationPoints || 0,
@@ -298,15 +298,15 @@ export default function AdminDashboard() {
       if (isBanning) {
         await supabase
           .from('price_publications')
-          .update({ status: 'rejected' })
+          .update({ is_active: false })
           .eq('user_id', target.id)
-          .eq('status', 'active');
+          .eq('is_active', true);
 
         // Refrescar la lista de publicaciones si ya estaba cargada
         if (pubsLoaded) {
           setPublications(prev =>
-            prev.map(p => p.userId === target.id && p.status === 'active'
-              ? { ...p, status: 'rejected' }
+            prev.map(p => p.user_id === target.id && p.is_active
+              ? { ...p, is_active: false, status: 'hidden' }
               : p
             )
           );
@@ -351,15 +351,13 @@ export default function AdminDashboard() {
     if (!window.confirm(td.confirmDeletePub)) return;
     setDeletingPub(pubId);
     try {
-      const { error } = await supabase
-        .from('price_publications')
-        .update({ is_active: false })
-        .eq('id', pubId);
-      if (!error) {
+      const result = await deletePublication(pubId, { permanent: true });
+      if (result.success) {
         setPublications(prev => prev.filter(p => p.id !== pubId));
+        setReports(prev => prev.filter(r => r.publicationId !== pubId));
         setStats(prev => ({ ...prev, pubs: Math.max(0, (prev.pubs || 1) - 1) }));
       } else {
-        alert(td.errorDeletePub(error.message));
+        alert(td.errorDeletePub(result.error || td.errorDeletePubGeneric));
       }
     } catch {
       alert(td.errorDeletePubGeneric);
@@ -463,7 +461,15 @@ export default function AdminDashboard() {
 
   const handleQuickAction = async (report, action) => {
     if (action === 'delete' && report.publicationId) {
-      await supabase.from('price_publications').delete().eq('id', report.publicationId);
+      const result = await deletePublication(report.publicationId, { permanent: true });
+      if (!result.success) {
+        alert(td.errorDeletePub(result.error || td.errorDeletePubGeneric));
+        return;
+      }
+
+      setPublications(prev => prev.filter((p) => p.id !== report.publicationId));
+      setReports(prev => prev.filter((item) => item.publicationId !== report.publicationId));
+      return;
     }
     if (action === 'ban' && report.reportedUserId) {
       await supabase.from('users').update({ is_active: false }).eq('id', report.reportedUserId);

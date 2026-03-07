@@ -412,8 +412,10 @@ export async function deleteOwnReport(reportId) {
 }
 
 export async function updateReportReview(reportId, payload) {
+  const normalizedStatus = String(payload?.status || "").toUpperCase();
+
   // Si el reporte se resuelve, deducir reputación al usuario reportado
-  if (payload.status === "RESOLVED") {
+  if (normalizedStatus === "RESOLVED") {
     const { data: report } = await supabase
       .from("reports")
       .select("reported_user_id")
@@ -432,7 +434,10 @@ export async function updateReportReview(reportId, payload) {
 
   const { error } = await supabase
     .from("reports")
-    .update(payload)
+    .update({
+      ...payload,
+      status: normalizedStatus || payload?.status,
+    })
     .eq("id", reportId);
 
   if (error) return { success: false, error: error.message };

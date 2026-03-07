@@ -12,6 +12,7 @@ import {
 import RegisterForm from "@/features/auth/components/RegisterForm";
 import { resendConfirmation } from "@/services/api/auth.api";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { getRolePath } from "@/utils/roleUtils";
 
 // Vista de verificación de email
 function VerificationView({ email, onResend }) {
@@ -133,7 +134,10 @@ export default function RegisterPage() {
 
   // Solo redirigir si ya terminó la inicialización y está logueado
   useEffect(() => {
-    if (isInitialized && isAuthenticated) navigate("/", { replace: true });
+    if (isInitialized && isAuthenticated) {
+      const user = useAuthStore.getState().user;
+      navigate(getRolePath(user?.role), { replace: true });
+    }
   }, [isInitialized, isAuthenticated, navigate]);
 
   const handleRegister = async (email, password, metadata) => {
@@ -144,7 +148,8 @@ export default function RegisterPage() {
         setRegisteredEmail(email);
         setNeedsVerification(true);
       } else {
-        navigate("/", { replace: true });
+        const user = useAuthStore.getState().user;
+        navigate(getRolePath(user?.role), { replace: true });
       }
     }
   };

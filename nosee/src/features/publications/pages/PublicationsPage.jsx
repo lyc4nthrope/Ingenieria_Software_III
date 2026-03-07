@@ -108,10 +108,13 @@ export default function PublicationsPage() {
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [searchFocused, setSearchFocused] = useState(false);
   const searchBoxRef = useRef(null);
+  const infiniteSentinelRef = useRef(null);
 
   const {
     publications,
     loading,
+    hasMore,
+    loadMore,
     setFilters: setPublicationFilters,
     clearFilters,
     validatePublication,
@@ -154,7 +157,10 @@ export default function PublicationsPage() {
     setSearchQuery(query);
     const newFilters = { ...filters, productName: query };
     setFilters(newFilters);
-    setPublicationFilters({ productName: query, sortBy: "best_match" });
+    setPublicationFilters({
+      ...newFilters,
+      sortBy: query?.trim() ? "best_match" : (newFilters.sortBy || "recent"),
+    });
   };
 
   /**
@@ -334,6 +340,28 @@ const handleViewMore = async (publicationId) => {
     return () => document.removeEventListener("mousedown", closeOnOutsideClick);
   }, []);
 
+  useEffect(() => {
+    const sentinel = infiniteSentinelRef.current;
+    if (!sentinel || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting && !loading) {
+          loadMore();
+        }
+      },
+      {
+        root: null,
+        rootMargin: "300px 0px",
+        threshold: 0,
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadMore]);
+
 
   // ─────────────────────────────────────────────────────────────
   // PASO 5: Render - Estructura de la página
@@ -463,6 +491,12 @@ const handleViewMore = async (publicationId) => {
               value={searchQuery}
               onFocus={() => setSearchFocused(true)}
               onChange={(e) => handleSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSearch(searchQuery);
+                }
+              }}
               style={{
                 flex: 1,
                 background: "transparent",
@@ -493,10 +527,13 @@ const handleViewMore = async (publicationId) => {
                     key={`${item.type}-${item.id}`}
                     type="button"
                     onClick={() => {
-                      setSearchQuery(item.value);
+                      const nextQuery = item.value;
+                      const nextFilters = { ...filters, productName: nextQuery, sortBy: "best_match" };
+                      setSearchQuery(nextQuery);
+                      setFilters(nextFilters);
                       setSearchSuggestions([]);
                       setSearchFocused(false);
-                      setPublicationFilters({ productName: item.value, sortBy: "best_match" });
+                      setPublicationFilters(nextFilters);
                     }}
                     style={{
                       width: "100%",
@@ -675,27 +712,26 @@ const handleViewMore = async (publicationId) => {
           </div>
         )}
 
-        {/* Indicador de "Cargar más" (para infinite scroll futuro) */}
-        {normalizedPublications.length > 0 && !loading && (
+        {/* Scroll infinito */}
+        {normalizedPublications.length > 0 && (
           <div
+            ref={infiniteSentinelRef}
+            aria-hidden="true"
             style={{
               display: "flex",
               justifyContent: "center",
               marginTop: "32px",
               paddingTop: "32px",
               borderTop: "1px solid var(--border)",
+              minHeight: "48px",
             }}
           >
-            <Button
-              variant="ghost"
-              size="md"
-              onClick={() => {
-                // En producción: loadMore()
-                console.log("Cargar más publicaciones");
-              }}
-            >
-              {tp.loadMore}
-            </Button>
+            {loading && (
+              <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+                {tp.loading}
+              </span>
+            )}
+            {!hasMore && !loading && <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>•</span>}
           </div>
         )}
       </section>

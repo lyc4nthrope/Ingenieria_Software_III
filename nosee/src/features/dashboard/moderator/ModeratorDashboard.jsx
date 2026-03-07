@@ -185,7 +185,7 @@ export default function ModeratorDashboard() {
     const { data: authData } = await supabase.auth.getUser();
     const nextStatus = normalizeReportStatus(updates.status || report.status);
     const payload = {
-      status: nextStatus.toLowerCase(),
+      status: nextStatus,
       mod_notes: updates.modNotes ?? report.modNotes ?? null,
       action_taken: updates.actionTaken ?? report.actionTaken ?? null,
       reviewed_by: authData?.user?.id || null,
@@ -228,23 +228,38 @@ export default function ModeratorDashboard() {
           showToast("No puedes banear a un moderador o administrador. Solo el administrador puede realizar esta acción.", "error");
           return;
         }
-        await supabase
+        const { error: banUserError } = await supabase
           .from("users")
           .update({ is_active: false })
           .eq("id", report.reportedUserId);
-        await supabase
+        if (banUserError) {
+          showToast("Error al banear el usuario reportado.", "error");
+          return;
+        }
+
+        const { error: hidePublicationsError } = await supabase
           .from("price_publications")
-          .update({ status: "rejected" })
+          .update({ is_active: false })
           .eq("user_id", report.reportedUserId)
-          .eq("status", "active");
+          .eq("is_active", true);
+        if (hidePublicationsError) {
+          showToast("Usuario baneado, pero falló ocultar sus publicaciones.", "error");
+        }
       }
       if (action === "eliminar_publicacion" && report.publicationId) {
         const { error } = await supabase.rpc("deactivate_publication", {
           pub_id: report.publicationId,
         });
         if (error) {
-          showToast("Error al desactivar la publicación", "error");
-          return;
+          const { error: fallbackError } = await supabase
+            .from("price_publications")
+            .update({ is_active: false })
+            .eq("id", report.publicationId)
+            .eq("is_active", true);
+          if (fallbackError) {
+            showToast("Error al desactivar la publicación", "error");
+            return;
+          }
         }
       }
       const nextStatus = action === "descartado" ? "REJECTED" : "RESOLVED";

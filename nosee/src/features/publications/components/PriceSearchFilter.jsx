@@ -482,6 +482,10 @@ export function PriceSearchFilter({
     onClearFilters?.();
   };
 
+  const applyFiltersNow = () => {
+    onFiltersChange?.(localFilters);
+  };
+
   return (
     <div>
       {activeFiltersCount > 0 && (
@@ -549,6 +553,7 @@ export function PriceSearchFilter({
                   placeholder="0"
                   value={localFilters.minPrice || ''}
                   onChange={(e) => handleRangeChange('minPrice', e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyFiltersNow(); } }}
                   style={styles.inputWithPrefix}
                 />
               </div>
@@ -562,6 +567,7 @@ export function PriceSearchFilter({
                   placeholder="999999"
                   value={localFilters.maxPrice || ''}
                   onChange={(e) => handleRangeChange('maxPrice', e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyFiltersNow(); } }}
                   style={styles.inputWithPrefix}
                 />
               </div>
@@ -577,6 +583,7 @@ export function PriceSearchFilter({
                   placeholder={tf.distancePlaceholder}
                   value={localFilters.maxDistance || ''}
                   onChange={(e) => handleRangeChange('maxDistance', e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyFiltersNow(); } }}
                   style={{
                     ...styles.input,
                     paddingRight: distanceLoading ? '80px' : '12px',
@@ -597,6 +604,7 @@ export function PriceSearchFilter({
               <select
                 value={localFilters.sortBy || 'recent'}
                 onChange={(e) => handleInputChange('sortBy', e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyFiltersNow(); } }}
                 style={styles.select}
               >
                 <option value="recent">{tf.recent}</option>
