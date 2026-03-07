@@ -1884,14 +1884,33 @@ export const deletePublication = async (publicationId, options = {}) => {
         return { success: false, error: reportsDeleteError.message };
       }
 
-      const { error: publicationDeleteError } = await supabase
+      const { error: commentsDeleteError } = await supabase
+        .from("comments")
+        .delete()
+        .eq("publication_id", publicationId);
+
+      if (commentsDeleteError) {
+        console.error("Error eliminando comentarios de publicación:", commentsDeleteError);
+        return { success: false, error: commentsDeleteError.message };
+      }
+
+      const { data: deletedRows, error: publicationDeleteError } = await supabase
         .from("price_publications")
         .delete()
-        .eq("id", publicationId);
+        .eq("id", publicationId)
+        .select("id");
 
       if (publicationDeleteError) {
         console.error("Error eliminando publicación permanentemente:", publicationDeleteError);
         return { success: false, error: publicationDeleteError.message };
+      }
+
+      if (!Array.isArray(deletedRows) || deletedRows.length === 0) {
+        return {
+          success: false,
+          error:
+            "No se pudo eliminar permanentemente la publicación en base de datos (posible restricción de permisos/RLS).",
+        };
       }
 
       return { success: true };
