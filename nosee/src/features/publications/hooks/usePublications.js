@@ -42,6 +42,7 @@ const getRuntimeState = () => {
 
 const areFiltersEqual = (a = {}, b = {}) => {
   const keys = [
+    'productId',
     'productName',
     'storeName',
     'minPrice',
@@ -114,6 +115,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
 
   // Filtros
   const [filters, setFilters] = useState({
+    productId: null,
     productName: '',
     storeName: '',
     minPrice: null,
@@ -219,7 +221,11 @@ export const usePublications = (initialFilters = {}, options = {}) => {
           if (currentPage === 1) {
             setPublications(result.data);
           } else {
-            setPublications((prev) => [...prev, ...result.data]);
+            setPublications((prev) => {
+              const seen = new Set(prev.map((pub) => pub.id));
+              const incoming = (result.data || []).filter((pub) => !seen.has(pub.id));
+              return [...prev, ...incoming];
+            });
           }
 
           setTotalCount(result.count || 0);
@@ -380,6 +386,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
    */
   const clearFilters = useCallback(() => {
      const resetFilters = {
+      productId: null,
       productName: '',
       storeName: '',
       minPrice: null,
@@ -413,7 +420,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
    * Cargar más resultados (infinite scroll)
    */
   const loadMore = useCallback(() => {
-    if (hasMore && !loading) {
+    if (hasMore && !loading && !inFlightRef.current) {
       fetchPublications(page + 1);
     }
   }, [hasMore, loading, page, fetchPublications]);

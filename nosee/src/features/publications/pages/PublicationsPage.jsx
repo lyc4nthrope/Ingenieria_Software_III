@@ -92,6 +92,7 @@ export default function PublicationsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
+    productId: null,
     productName: "",
     storeName: "",
     minPrice: null,
@@ -156,7 +157,7 @@ export default function PublicationsPage() {
   const handleSearch = (query) => {
     setSearchQuery(query);
     setFilters((prev) => {
-      const merged = { ...prev, productName: query };
+      const merged = { ...prev, productId: null, productName: query };
       setPublicationFilters({
         ...merged,
         sortBy: query?.trim() ? "best_match" : (merged.sortBy || "recent"),
@@ -190,7 +191,6 @@ export default function PublicationsPage() {
           return;
         }
         setGeolocationLoading(true);
-        setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
         navigator.geolocation.getCurrentPosition(
           ({ coords }) => {
             cachedLocationRef.current = { latitude: coords.latitude, longitude: coords.longitude };
@@ -535,7 +535,12 @@ export default function PublicationsPage() {
                       const nextQuery = item.value;
                       setSearchQuery(nextQuery);
                       setFilters((prev) => {
-                        const nextFilters = { ...prev, productName: nextQuery, sortBy: "best_match" };
+                        const nextFilters = {
+                          ...prev,
+                          productId: item.type === "product" ? item.id : null,
+                          productName: nextQuery,
+                          sortBy: "best_match",
+                        };
                         setPublicationFilters(nextFilters);
                         return nextFilters;
                       });
@@ -608,6 +613,7 @@ export default function PublicationsPage() {
             cachedLocationRef.current = null;
             setGeolocationLoading(false);
             setFilters({
+              productId: null,
               productName: "",
               storeName: "",
               minPrice: null,

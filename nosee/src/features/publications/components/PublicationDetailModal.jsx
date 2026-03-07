@@ -615,12 +615,6 @@ export default function PublicationDetailModal({ publication, onClose }) {
           <span aria-hidden="true">👎</span> {negativeVotes}
         </p>
 
-        <CommentsSection
-          publicationId={publication?.id}
-          initialComments={initialComments}
-          td={td}
-        />
-
         <div>
           <h3 style={styles.sectionTitle}>{td.storeLocation}</h3>
           {isVirtualStore ? (
@@ -644,6 +638,12 @@ export default function PublicationDetailModal({ publication, onClose }) {
             <p style={styles.commentItem}>{td.noCoordinates}</p>
           )}
         </div>
+
+        <CommentsSection
+          publicationId={publication?.id}
+          initialComments={initialComments}
+          td={td}
+        />
       </div>
     </div>
   );

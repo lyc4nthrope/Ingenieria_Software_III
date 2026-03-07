@@ -309,6 +309,61 @@ img {
   line-height: 1.4;
 }
 
+.engagement-banner {
+  background: linear-gradient(135deg, var(--accent-soft), rgba(56, 189, 248, 0.04));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, auto));
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.engagement-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-soft);
+  font-size: 0.875rem;
+}
+
+.engagement-mission {
+  grid-column: 1 / -1;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.engagement-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.engagement-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.engagement-link:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .categories-carousel {
   display: flex;
   align-items: center;
@@ -423,6 +478,10 @@ img {
 
   .banner p {
     font-size: 0.9375rem;
+  }
+
+  .engagement-banner {
+    grid-template-columns: 1fr;
   }
 }
 

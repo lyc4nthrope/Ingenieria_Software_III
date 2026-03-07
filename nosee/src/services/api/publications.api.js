@@ -719,6 +719,7 @@ export const getPublications = async (filters = {}) => {
     });
 
     const {
+      productId = null,
       productName = "",
       storeName = "",
       minPrice = null,
@@ -761,7 +762,11 @@ export const getPublications = async (filters = {}) => {
 
     // Pre-filtro: IDs de productos cuyo nombre O cuya marca coincide con productName
     let productIdFilter = null;
-    if (productName) {
+    const normalizedProductId = Number(productId);
+
+    if (Number.isFinite(normalizedProductId) && normalizedProductId > 0) {
+      productIdFilter = [normalizedProductId];
+    } else if (productName) {
       const productSearchTerm = String(productName).trim();
       const normalizedProductSearchTerm = normalizeSearchText(productSearchTerm);
       const seedTerm = productSearchTerm.length >= 3 ? productSearchTerm.slice(0, 3) : productSearchTerm;
@@ -889,7 +894,7 @@ export const getPublications = async (filters = {}) => {
         .from("price_publications")
         .select(
           publicationListSelect,
-          withCount ? { count: "planned" } : undefined,
+          withCount ? { count: "exact" } : undefined,
         )
         .eq("is_active", true);
 
@@ -1130,11 +1135,18 @@ export const getPublications = async (filters = {}) => {
       ? fullySortedPublications.slice(offset, offset + limit)
       : fullySortedPublications;
 
+    const effectiveCount = Number.isFinite(count)
+      ? count
+      : (requiresClientSort ? fullySortedPublications.length : offset + paginatedData.length);
+    const effectiveHasMore = requiresClientSort
+      ? offset + limit < fullySortedPublications.length
+      : paginatedData.length === limit && offset + paginatedData.length < effectiveCount;
+
     return {
       success: true,
       data: paginatedData,
-      count: count ?? fullySortedPublications.length,
-      hasMore: offset + limit < (count ?? fullySortedPublications.length),
+      count: effectiveCount,
+      hasMore: effectiveHasMore,
     };
   } catch (err) {
     const runtimeState = getRuntimeNetworkState();

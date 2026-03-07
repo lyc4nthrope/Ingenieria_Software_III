@@ -440,7 +440,7 @@ export function PriceSearchFilter({
 
   useEffect(() => {
     setLocalFilters((prev) => {
-      const keys = ['productName', 'storeName', 'minPrice', 'maxPrice', 'maxDistance', 'sortBy'];
+      const keys = ['productId', 'productName', 'storeName', 'minPrice', 'maxPrice', 'maxDistance', 'sortBy'];
       return keys.some((k) => prev[k] !== filters[k]) ? { ...filters } : prev;
     });
   }, [filters]);
@@ -487,6 +487,7 @@ export function PriceSearchFilter({
 
   const handleClear = () => {
     const cleared = {
+      productId: null,
       productName: '',
       storeName: '',
       minPrice: null,
