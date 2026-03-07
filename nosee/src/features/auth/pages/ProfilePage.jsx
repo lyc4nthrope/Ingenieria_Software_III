@@ -44,6 +44,7 @@ function PriceAlertsSection() {
   const tpa = t.profile.priceAlerts;
   const [alerts, setAlerts] = useState([]);
   const [matchingAlerts, setMatchingAlerts] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [productQuery, setProductQuery] = useState('');
   const [productOptions, setProductOptions] = useState([]);
@@ -62,6 +63,10 @@ function PriceAlertsSection() {
     const matchesResult = await alertsApi.checkMatchingAlerts();
     if (matchesResult.success) {
       setMatchingAlerts(matchesResult.data || []);
+    }
+    const notificationsResult = await alertsApi.getUserAlertNotifications(8);
+    if (notificationsResult.success) {
+      setNotifications(notificationsResult.data || []);
     }
     setLoading(false);
   }, []);
@@ -360,6 +365,43 @@ function PriceAlertsSection() {
               );
             })}
           </ul>
+        </div>
+      )}
+
+      {!loading && (
+        <div
+          style={{
+            marginBottom: '12px',
+            padding: '10px 12px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            background: 'var(--bg-base)',
+          }}
+        >
+          <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+            {tpa.notificationsTitle}
+          </p>
+          {notifications.length === 0 ? (
+            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
+              {tpa.notificationsEmpty}
+            </p>
+          ) : (
+            <ul style={{ margin: 0, paddingLeft: '16px', color: 'var(--text-secondary)' }}>
+              {notifications.slice(0, 5).map((notification) => {
+                const pub = notification.publication;
+                const productName = pub?.product?.name || tpa.unknownProduct(notification?.alert?.id || '?');
+                const brandName = pub?.product?.brand?.name ? ` · ${pub.product.brand.name}` : '';
+                const currentPrice = Number(pub?.price || 0).toLocaleString();
+                const target = Number(notification?.alert?.target_price || 0).toLocaleString();
+                const store = pub?.store?.name || tpa.unknownStore;
+                return (
+                  <li key={notification.id} style={{ fontSize: '12px', marginBottom: '4px' }}>
+                    {tpa.notificationItem(productName, brandName, currentPrice, target, store)}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       )}
 

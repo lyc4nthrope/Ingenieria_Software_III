@@ -163,3 +163,44 @@ export const checkMatchingAlerts = async () => {
     return { success: false, data: [] };
   }
 };
+
+/** Obtener notificaciones in-app recientes de alertas de precio */
+export const getUserAlertNotifications = async (limit = 10) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: 'No autenticado', data: [] };
+
+    const safeLimit = Math.max(1, Math.min(Number(limit) || 10, 30));
+    const { data, error } = await supabase
+      .from('price_alert_notifications')
+      .select(`
+        id,
+        created_at,
+        status,
+        alert:price_alerts!price_alert_notifications_alert_id_fkey (
+          id,
+          target_price
+        ),
+        publication:price_publications!price_alert_notifications_publication_id_fkey (
+          id,
+          price,
+          photo_url,
+          product:products (
+            name,
+            brand:brands(name)
+          ),
+          store:stores(name)
+        )
+      `)
+      .eq('user_id', user.id)
+      .eq('channel', 'in_app')
+      .eq('status', 'sent')
+      .order('created_at', { ascending: false })
+      .limit(safeLimit);
+
+    if (error) return { success: false, error: error.message, data: [] };
+    return { success: true, data: data || [] };
+  } catch (err) {
+    return { success: false, error: err.message, data: [] };
+  }
+};

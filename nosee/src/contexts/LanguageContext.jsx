@@ -313,6 +313,10 @@ export const TRANSLATIONS = {
         unknownStore: "Tienda no disponible",
         matchesTitle: "Tienes alertas que ya cumplen el precio objetivo:",
         matchItem: (name, currentPrice, targetPrice) => `${name}: $${currentPrice} (objetivo $${targetPrice})`,
+        notificationsTitle: "Notificaciones recientes",
+        notificationsEmpty: "Aún no hay notificaciones de alertas activadas.",
+        notificationItem: (name, brandName, currentPrice, targetPrice, store) =>
+          `${name}${brandName}: $${currentPrice} (objetivo $${targetPrice}) en ${store}.`,
         saving: "Guardando...",
         addAlert: "+ Agregar alerta",
         loading: "Cargando alertas...",
@@ -1142,6 +1146,10 @@ export const TRANSLATIONS = {
         unknownStore: "Store unavailable",
         matchesTitle: "You have alerts already matching your target price:",
         matchItem: (name, currentPrice, targetPrice) => `${name}: $${currentPrice} (target $${targetPrice})`,
+        notificationsTitle: "Recent notifications",
+        notificationsEmpty: "No triggered alert notifications yet.",
+        notificationItem: (name, brandName, currentPrice, targetPrice, store) =>
+          `${name}${brandName}: $${currentPrice} (target $${targetPrice}) at ${store}.`,
         saving: "Saving...",
         addAlert: "+ Add alert",
         loading: "Loading alerts...",
