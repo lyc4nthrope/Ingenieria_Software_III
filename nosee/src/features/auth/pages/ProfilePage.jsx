@@ -151,6 +151,7 @@ function PriceAlertsSection() {
 
       {/* Formulario nueva alerta */}
       <form
+        id="price-alerts-form"
         onSubmit={handleCreate}
         aria-labelledby="price-alerts-title"
         aria-describedby="price-alerts-desc"
@@ -292,15 +293,35 @@ function PriceAlertsSection() {
             style={inputStyle}
           />
         </div>
+      </form>
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '10px',
+          marginBottom: '16px',
+        }}
+      >
+        {!loading && alerts.length === 0 ? (
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+            {tpa.empty}
+          </p>
+        ) : (
+          <span />
+        )}
+
         <button
           type="submit"
+          form="price-alerts-form"
           disabled={saving}
           aria-busy={saving}
-          style={{ ...btnStyle, gridColumn: '1 / -1', justifySelf: 'end', alignSelf: 'end' }}
+          style={{ ...btnStyle, alignSelf: 'end' }}
         >
           {saving ? tpa.saving : tpa.addAlert}
         </button>
-      </form>
+      </div>
 
       {error && (
         <p
@@ -348,9 +369,7 @@ function PriceAlertsSection() {
           {tpa.loading}
         </p>
       ) : alerts.length === 0 ? (
-        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'right', margin: '4px 0 0' }}>
-          {tpa.empty}
-        </p>
+        <span />
       ) : (
         <ul
           aria-label={tpa.listLabel}
