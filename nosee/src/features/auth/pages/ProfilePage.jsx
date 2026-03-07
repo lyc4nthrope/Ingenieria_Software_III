@@ -296,7 +296,7 @@ function PriceAlertsSection() {
           type="submit"
           disabled={saving}
           aria-busy={saving}
-          style={{ ...btnStyle, justifySelf: 'end' }}
+          style={{ ...btnStyle, gridColumn: '1 / -1', justifySelf: 'end', alignSelf: 'end' }}
         >
           {saving ? tpa.saving : tpa.addAlert}
         </button>
@@ -348,7 +348,9 @@ function PriceAlertsSection() {
           {tpa.loading}
         </p>
       ) : alerts.length === 0 ? (
-        <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tpa.empty}</p>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'right', margin: '4px 0 0' }}>
+          {tpa.empty}
+        </p>
       ) : (
         <ul
           aria-label={tpa.listLabel}
