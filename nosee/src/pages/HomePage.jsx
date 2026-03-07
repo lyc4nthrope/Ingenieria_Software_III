@@ -827,29 +827,30 @@ export default function HomePage() {
       <section className="banner">
         <h1>{th.title}</h1>
         <p>{th.subtitle}</p>
-        <div className="engagement-inline" aria-label="Progreso de actividad">
-          <p className="engagement-summary">
-            Racha {engagement.streak} d · {engagement.points} pts
-          </p>
-          <div className="engagement-mission">
-            Mision diaria: interactua con 3 publicaciones ({engagement.dailyActions}/3)
-            {engagement.missionCompleted ? " - completada" : ""}
-          </div>
-          <div className="engagement-progress" aria-hidden="true">
-            <span
-              style={{
-                width: `${Math.min(100, (engagement.dailyActions / 3) * 100)}%`,
-              }}
-            />
-          </div>
-          <div className="engagement-actions">
-            <a href="/publicaciones/nueva" className="engagement-link">
-              Publicar ahora
-            </a>
-            <a href="/ranking" className="engagement-link">
-              Ver ranking
-            </a>
-          </div>
+      </section>
+
+      <section className="engagement-inline" aria-label="Progreso de actividad">
+        <p className="engagement-summary">
+          Racha {engagement.streak} d · {engagement.points} pts
+        </p>
+        <div className="engagement-mission">
+          Mision diaria: interactua con 3 publicaciones ({engagement.dailyActions}/3)
+          {engagement.missionCompleted ? " - completada" : ""}
+        </div>
+        <div className="engagement-progress" aria-hidden="true">
+          <span
+            style={{
+              width: `${Math.min(100, (engagement.dailyActions / 3) * 100)}%`,
+            }}
+          />
+        </div>
+        <div className="engagement-actions">
+          <a href="/publicaciones/nueva" className="engagement-link">
+            Publicar ahora
+          </a>
+          <a href="/ranking" className="engagement-link">
+            Ver ranking
+          </a>
         </div>
       </section>
 

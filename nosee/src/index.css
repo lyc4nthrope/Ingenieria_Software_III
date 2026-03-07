@@ -310,11 +310,11 @@ img {
 }
 
 .engagement-inline {
-  margin-top: 12px;
+  margin-top: 4px;
   padding: 10px 12px;
   border-radius: var(--radius-md);
   border: 1px solid rgba(123, 144, 189, 0.28);
-  background: rgba(11, 18, 32, 0.38);
+  background: rgba(11, 18, 32, 0.2);
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
   text-align: left;
