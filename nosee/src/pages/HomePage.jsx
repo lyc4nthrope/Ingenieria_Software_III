@@ -14,7 +14,6 @@ import { optimizeCloudinaryUrl } from "@/services/cloudinary";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const FALLBACK_IMAGE = "https://via.placeholder.com/400x300?text=Sin+foto";
-const ENGAGEMENT_STORAGE_KEY = "nosee-engagement-state";
 
 const buildCloudinaryImageUrl = (publicId) => {
   if (!publicId || !CLOUDINARY_CLOUD_NAME) return null;
@@ -580,12 +579,6 @@ export default function HomePage() {
   const [detailPublication, setDetailPublication] = useState(null);
   const [reportingPublication, setReportingPublication] = useState(null);
   const [feedback, setFeedback] = useState(null);
-  const [engagement, setEngagement] = useState({
-    streak: 1,
-    points: 0,
-    dailyActions: 0,
-    missionCompleted: false,
-  });
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [categoryPage, setCategoryPage] = useState(0);
@@ -593,94 +586,6 @@ export default function HomePage() {
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
   const infiniteSentinelRef = useRef(null);
-
-  const getDateKey = () => new Date().toISOString().slice(0, 10);
-
-  useEffect(() => {
-    const today = getDateKey();
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-
-    try {
-      const raw = window.localStorage.getItem(ENGAGEMENT_STORAGE_KEY);
-      if (!raw) {
-        const initial = {
-          lastVisit: today,
-          streak: 1,
-          points: 0,
-          dailyActions: 0,
-          missionCompleted: false,
-        };
-        setEngagement({
-          streak: initial.streak,
-          points: initial.points,
-          dailyActions: initial.dailyActions,
-          missionCompleted: initial.missionCompleted,
-        });
-        window.localStorage.setItem(ENGAGEMENT_STORAGE_KEY, JSON.stringify(initial));
-        return;
-      }
-
-      const parsed = JSON.parse(raw);
-      const lastVisit = parsed.lastVisit || today;
-      const nextStreak =
-        lastVisit === today ? Number(parsed.streak) || 1 :
-        lastVisit === yesterday ? (Number(parsed.streak) || 1) + 1 :
-        1;
-
-      const next = {
-        lastVisit: today,
-        streak: nextStreak,
-        points: Number(parsed.points) || 0,
-        dailyActions: lastVisit === today ? Number(parsed.dailyActions) || 0 : 0,
-        missionCompleted: lastVisit === today ? Boolean(parsed.missionCompleted) : false,
-      };
-
-      setEngagement({
-        streak: next.streak,
-        points: next.points,
-        dailyActions: next.dailyActions,
-        missionCompleted: next.missionCompleted,
-      });
-      window.localStorage.setItem(ENGAGEMENT_STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      setEngagement({
-        streak: 1,
-        points: 0,
-        dailyActions: 0,
-        missionCompleted: false,
-      });
-    }
-  }, []);
-
-  const registerEngagementAction = useCallback(() => {
-    setEngagement((prev) => {
-      const today = getDateKey();
-      const nextActions = Math.min(prev.dailyActions + 1, 3);
-      const reachedMission = !prev.missionCompleted && nextActions >= 3;
-      const nextPoints =
-        prev.points + (prev.dailyActions < 3 ? 5 : 0) + (reachedMission ? 15 : 0);
-
-      const next = {
-        streak: prev.streak,
-        points: nextPoints,
-        dailyActions: nextActions,
-        missionCompleted: prev.missionCompleted || reachedMission,
-      };
-
-      window.localStorage.setItem(
-        ENGAGEMENT_STORAGE_KEY,
-        JSON.stringify({
-          lastVisit: today,
-          streak: next.streak,
-          points: next.points,
-          dailyActions: next.dailyActions,
-          missionCompleted: next.missionCompleted,
-        }),
-      );
-
-      return next;
-    });
-  }, []);
 
   useEffect(() => {
     publicationsApi.getProductCategories().then((result) => {
@@ -734,9 +639,8 @@ export default function HomePage() {
       await publicationsApi.getPublicationDetail(publicationId);
     if (detailResult.success) {
       setDetailPublication(detailResult.data);
-      registerEngagementAction();
     }
-  }, [registerEngagementAction]);
+  }, []);
 
   const handleValidate = useCallback(async (publicationId, userVote) => {
     if (userVote === 1) {
@@ -744,9 +648,8 @@ export default function HomePage() {
     } else {
       if (userVote === -1) await unvotePublication(publicationId);
       await validatePublication(publicationId);
-      registerEngagementAction();
     }
-  }, [registerEngagementAction, unvotePublication, validatePublication]);
+  }, [unvotePublication, validatePublication]);
 
   const handleDownvote = useCallback(async (publicationId, userVote) => {
     if (userVote === -1) {
@@ -754,9 +657,8 @@ export default function HomePage() {
     } else {
       if (userVote === 1) await unvotePublication(publicationId);
       await downvotePublication(publicationId);
-      registerEngagementAction();
     }
-  }, [downvotePublication, registerEngagementAction, unvotePublication]);
+  }, [downvotePublication, unvotePublication]);
 
   const handleReport = useCallback((publication) => {
     if (!isAuthenticated) return;
@@ -776,7 +678,6 @@ export default function HomePage() {
     
     // Mostrar feedback al usuario
     if (result.success) {
-      registerEngagementAction();
       setFeedback({
         type: 'success',
         message: result.message || '✅ Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE.'
@@ -790,7 +691,7 @@ export default function HomePage() {
     
     // Auto-cerrar el feedback después de 5 segundos
     setTimeout(() => setFeedback(null), 5000);
-  }, [registerEngagementAction, reportPublication, reportingPublication]);
+  }, [reportPublication, reportingPublication]);
 
   const handleDelete = useCallback(async (publicationId) => {
     if (!confirm(th.confirmDelete)) return;
@@ -827,31 +728,6 @@ export default function HomePage() {
       <section className="banner">
         <h1>{th.title}</h1>
         <p>{th.subtitle}</p>
-      </section>
-
-      <section className="engagement-inline" aria-label="Progreso de actividad">
-        <p className="engagement-summary">
-          Racha {engagement.streak} d · {engagement.points} pts
-        </p>
-        <div className="engagement-mission">
-          Mision diaria: interactua con 3 publicaciones ({engagement.dailyActions}/3)
-          {engagement.missionCompleted ? " - completada" : ""}
-        </div>
-        <div className="engagement-progress" aria-hidden="true">
-          <span
-            style={{
-              width: `${Math.min(100, (engagement.dailyActions / 3) * 100)}%`,
-            }}
-          />
-        </div>
-        <div className="engagement-actions">
-          <a href="/publicaciones/nueva" className="engagement-link">
-            Publicar ahora
-          </a>
-          <a href="/ranking" className="engagement-link">
-            Ver ranking
-          </a>
-        </div>
       </section>
 
       {categories.length > 0 && (() => {
