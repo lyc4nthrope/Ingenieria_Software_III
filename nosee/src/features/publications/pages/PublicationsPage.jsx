@@ -95,6 +95,7 @@ export default function PublicationsPage() {
     productId: null,
     productName: "",
     storeName: "",
+    categoryId: null,
     minPrice: null,
     maxPrice: null,
     maxDistance: null,
@@ -106,6 +107,7 @@ export default function PublicationsPage() {
   const [selectedPublication, setSelectedPublication] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [categories, setCategories] = useState([]);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [searchFocused, setSearchFocused] = useState(false);
   const searchBoxRef = useRef(null);
@@ -305,6 +307,12 @@ export default function PublicationsPage() {
   }, [tp.errorDetail]);
 
   // Abre el modal de detalle si la URL tiene ?pub=<id>
+  useEffect(() => {
+    publicationsApi.getProductCategories().then((result) => {
+      if (result.success) setCategories(result.data || []);
+    });
+  }, []);
+
   useEffect(() => {
     const pubId = searchParams.get("pub");
     if (!pubId) return;
@@ -609,6 +617,7 @@ export default function PublicationsPage() {
           onFiltersChange={handleFilterChange}
           open={showFilters}
           distanceLoading={geolocationLoading}
+          categories={categories}
           onClearFilters={() => {
             cachedLocationRef.current = null;
             setGeolocationLoading(false);
@@ -616,6 +625,7 @@ export default function PublicationsPage() {
               productId: null,
               productName: "",
               storeName: "",
+              categoryId: null,
               minPrice: null,
               maxPrice: null,
               maxDistance: null,

@@ -455,6 +455,35 @@ export async function getTopUsersByReputation(limit = 20) {
     .order("reputation_points", { ascending: false })
     .limit(limit);
 
-  if (error) return { success: false, error: error.message };
+  if (error) {
+    const fallback = await supabase
+      .from("price_publications")
+      .select("user_id, user:users!price_publications_user_id_fkey(id, full_name, avatar_url, reputation_points, roles(name))")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+
+    if (fallback.error) return { success: false, error: error.message };
+
+    const byUser = new Map();
+    for (const row of fallback.data || []) {
+      const user = row.user;
+      const id = user?.id || row.user_id;
+      if (!id || byUser.has(id)) continue;
+      byUser.set(id, {
+        id,
+        full_name: user?.full_name || "Usuario",
+        avatar_url: user?.avatar_url || null,
+        reputation_points: Number(user?.reputation_points || 0),
+        roles: user?.roles || null,
+      });
+    }
+
+    const ranked = Array.from(byUser.values())
+      .sort((a, b) => b.reputation_points - a.reputation_points)
+      .slice(0, limit);
+
+    return { success: true, data: ranked };
+  }
   return { success: true, data: data ?? [] };
 }

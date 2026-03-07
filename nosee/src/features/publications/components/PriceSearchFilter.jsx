@@ -432,6 +432,7 @@ export function PriceSearchFilter({
   onClearFilters,
   open = false,
   distanceLoading = false,
+  categories = [],
 }) {
   const { t } = useLanguage();
   const tf = t.priceFilter;
@@ -440,7 +441,7 @@ export function PriceSearchFilter({
 
   useEffect(() => {
     setLocalFilters((prev) => {
-      const keys = ['productId', 'productName', 'storeName', 'minPrice', 'maxPrice', 'maxDistance', 'sortBy'];
+      const keys = ['productId', 'productName', 'storeName', 'categoryId', 'minPrice', 'maxPrice', 'maxDistance', 'sortBy'];
       return keys.some((k) => prev[k] !== filters[k]) ? { ...filters } : prev;
     });
   }, [filters]);
@@ -490,6 +491,7 @@ export function PriceSearchFilter({
       productId: null,
       productName: '',
       storeName: '',
+      categoryId: null,
       minPrice: null,
       maxPrice: null,
       maxDistance: null,
@@ -517,6 +519,12 @@ export function PriceSearchFilter({
             <span style={styles.tag}>
               🏬 {localFilters.storeName}
               <button style={styles.tagClose} onClick={() => handleStoreChange('', null)}>✕</button>
+            </span>
+          )}
+          {localFilters.categoryId && (
+            <span style={styles.tag}>
+              🏷 {categories.find((c) => c.id === localFilters.categoryId)?.name || "Categoría"}
+              <button style={styles.tagClose} onClick={() => handleInputChange('categoryId', null)}>✕</button>
             </span>
           )}
           {localFilters.minPrice && (
@@ -557,6 +565,27 @@ export function PriceSearchFilter({
                 placeholder={tf.storePlaceholder}
                 inputStyle={styles.input}
               />
+            </div>
+          </div>
+
+          <div style={{ ...styles.row, gridTemplateColumns: '1fr' }}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Categoría</label>
+              <select
+                value={localFilters.categoryId ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  handleInputChange('categoryId', raw === '' ? null : Number(raw));
+                }}
+                style={styles.select}
+              >
+                <option value="">Todas las categorías</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
