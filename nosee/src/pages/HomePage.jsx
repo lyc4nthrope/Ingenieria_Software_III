@@ -191,6 +191,7 @@ function PublicationCard({
   isAuthenticated,
   currentUserId,
   userIsAdmin,
+  onRequireAuth,
   onValidate,
   onDownvote,
   onReport,
@@ -214,7 +215,11 @@ function PublicationCard({
   const pubName = pub.product?.name || th.product;
 
   const handleVote = async (action) => {
-    if (isVoting || !isAuthenticated) return;
+    if (isVoting) return;
+    if (!isAuthenticated) {
+      onRequireAuth?.();
+      return;
+    }
     setIsVoting(true);
     try {
       await action(pub.id);
@@ -282,12 +287,14 @@ function PublicationCard({
               type="button"
               aria-label={th.validateLabel(pubName)}
               aria-pressed={upActive}
-              disabled={isVoting || !isAuthenticated}
+              aria-disabled={isVoting || !isAuthenticated}
+              disabled={isVoting}
               title={!isAuthenticated ? th.loginToVote : undefined}
               onClick={() => handleVote(onValidate)}
               style={{
                 ...homeVoteStyles.btn,
                 ...homeVoteStyles.btnLeft,
+                ...(!isAuthenticated ? homeVoteStyles.btnDisabled : {}),
                 ...(upActive ? homeVoteStyles.btnUpActive : {}),
               }}
             >
@@ -298,12 +305,14 @@ function PublicationCard({
               type="button"
               aria-label={`Votar negativamente ${pubName}`}
               aria-pressed={downActive}
-              disabled={isVoting || !isAuthenticated}
+              aria-disabled={isVoting || !isAuthenticated}
+              disabled={isVoting}
               title={!isAuthenticated ? th.loginToVote : undefined}
               onClick={() => handleVote(onDownvote)}
               style={{
                 ...homeVoteStyles.btn,
                 ...homeVoteStyles.btnRight,
+                ...(!isAuthenticated ? homeVoteStyles.btnDisabled : {}),
                 ...(downActive ? homeVoteStyles.btnDownActive : {}),
               }}
             >
@@ -314,10 +323,17 @@ function PublicationCard({
 
           <button
             className="card-action-button"
-            onClick={() => onReport(pub)}
+            onClick={() => {
+              if (!isAuthenticated) {
+                onRequireAuth?.();
+                return;
+              }
+              onReport(pub);
+            }}
             aria-label={th.reportLabel(pubName)}
-            disabled={!isAuthenticated}
+            aria-disabled={!isAuthenticated}
             title={!isAuthenticated ? th.loginToReport : th.report}
+            style={!isAuthenticated ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
           >
             {th.report}
           </button>
@@ -422,6 +438,10 @@ const homeVoteStyles = {
     borderRight: "1px solid var(--border)",
   },
   btnRight: {},
+  btnDisabled: {
+    opacity: 0.6,
+    cursor: "not-allowed",
+  },
   btnUpActive: {
     background: "var(--success-soft)",
     color: "#10b981",
@@ -647,6 +667,10 @@ export default function HomePage() {
     setReportingPublication(publication);
   };
 
+  const handleRequireAuth = () => {
+    alert(th.loginRequiredAction || "Debes iniciar sesión para interactuar.");
+  };
+
   const handleReportSubmit = async (reportPayload) => {
     if (!reportingPublication) return;
     
@@ -710,7 +734,6 @@ export default function HomePage() {
       <section className="banner">
         <h1>{th.title}</h1>
         <p>{th.subtitle}</p>
-        {!isAuthenticated && <p>{th.loginCta}</p>}
       </section>
 
       {categories.length > 0 && (() => {
@@ -778,6 +801,7 @@ export default function HomePage() {
                   isAuthenticated={isAuthenticated}
                   currentUserId={user?.id}
                   userIsAdmin={isAdmin(user?.role)}
+                  onRequireAuth={handleRequireAuth}
                   onValidate={handleValidate}
                   onDownvote={handleDownvote}
                   onReport={handleReport}
