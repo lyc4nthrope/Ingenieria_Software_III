@@ -291,7 +291,7 @@ img {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 12px 18px;
+  padding: 14px 18px;
   text-align: center;
   width: 100%;
   margin: 0;
@@ -309,36 +309,50 @@ img {
   line-height: 1.4;
 }
 
-.engagement-banner {
-  background: linear-gradient(135deg, var(--accent-soft), rgba(56, 189, 248, 0.04));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 12px 14px;
+.engagement-inline {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(123, 144, 189, 0.28);
+  background: rgba(11, 18, 32, 0.38);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  text-align: left;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, auto));
-  gap: 8px 12px;
-  align-items: center;
+  gap: 8px;
 }
 
-.engagement-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-soft);
-  font-size: 0.875rem;
+.engagement-summary {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .engagement-mission {
-  grid-column: 1 / -1;
+  margin: 0;
   font-size: 0.875rem;
   color: var(--text-secondary);
 }
 
+.engagement-progress {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(123, 144, 189, 0.22);
+}
+
+.engagement-progress span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #34d399, var(--accent));
+  transition: width 0.24s ease;
+}
+
 .engagement-actions {
-  grid-column: 1 / -1;
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -348,20 +362,20 @@ img {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  font-size: 0.8125rem;
-  font-weight: 700;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(123, 144, 189, 0.26);
+  background: rgba(123, 144, 189, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .engagement-link:hover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
+  border-color: rgba(56, 189, 248, 0.52);
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--text-primary);
 }
 
 .categories-carousel {
@@ -480,8 +494,13 @@ img {
     font-size: 0.9375rem;
   }
 
-  .engagement-banner {
-    grid-template-columns: 1fr;
+  .engagement-inline {
+    padding: 10px;
+  }
+
+  .engagement-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }
 
