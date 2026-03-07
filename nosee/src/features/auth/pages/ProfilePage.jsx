@@ -2,7 +2,7 @@
  * ProfilePage - Página de perfil del usuario autenticado
  * Ruta protegida: solo accesible si hay sesión activa.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore, selectAuthUser, selectAuthStatus } from '@/features/auth/store/authStore';
 import ProfileCard from '@/features/auth/components/ProfileCard';
 import Button from '@/components/ui/Button';
@@ -43,32 +43,81 @@ function PriceAlertsSection() {
   const { t } = useLanguage();
   const tpa = t.profile.priceAlerts;
   const [alerts, setAlerts] = useState([]);
+  const [matchingAlerts, setMatchingAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [productId, setProductId] = useState('');
+  const [productQuery, setProductQuery] = useState('');
+  const [productOptions, setProductOptions] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [searchingProducts, setSearchingProducts] = useState(false);
+  const [showProductOptions, setShowProductOptions] = useState(false);
   const [targetPrice, setTargetPrice] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const productComboRef = useRef(null);
 
   const fetchAlerts = useCallback(async () => {
     setLoading(true);
     const result = await alertsApi.getUserAlerts();
     if (result.success) setAlerts(result.data);
+    const matchesResult = await alertsApi.checkMatchingAlerts();
+    if (matchesResult.success) {
+      setMatchingAlerts(matchesResult.data || []);
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
 
+  useEffect(() => {
+    const query = productQuery.trim();
+    if (query.length < 2) {
+      setProductOptions([]);
+      setSearchingProducts(false);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setSearchingProducts(true);
+      const result = await alertsApi.searchAlertProducts(query, 8);
+      if (result.success) {
+        setProductOptions(result.data || []);
+      } else {
+        setProductOptions([]);
+      }
+      setSearchingProducts(false);
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [productQuery]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (!productComboRef.current) return;
+      if (!productComboRef.current.contains(event.target)) {
+        setShowProductOptions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!productId || !targetPrice) return;
+    if (!selectedProduct?.productId) {
+      setError(tpa.selectProductError);
+      return;
+    }
+    if (!targetPrice) return;
     setSaving(true);
     setError(null);
     const result = await alertsApi.createAlert({
-      productId: Number(productId),
+      productId: Number(selectedProduct.productId),
       targetPrice: Number(targetPrice),
     });
     if (result.success) {
-      setProductId('');
+      setProductQuery('');
+      setSelectedProduct(null);
+      setProductOptions([]);
       setTargetPrice('');
       fetchAlerts();
     } else {
@@ -108,26 +157,120 @@ function PriceAlertsSection() {
         style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'flex-end' }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '120px' }}>
-          <label htmlFor="alert-product-id" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-            {tpa.productIdLabel} <span aria-hidden="true">*</span>
+          <label htmlFor="alert-product-combobox" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+            {tpa.productLabel} <span aria-hidden="true" style={{ color: 'var(--error)' }}>*</span>
             <span className="sr-only">{tpa.required}</span>
           </label>
-          <input
-            id="alert-product-id"
-            type="number"
-            placeholder={tpa.productIdPlaceholder}
-            value={productId}
-            onChange={(e) => setProductId(e.target.value)}
-            required
-            aria-required="true"
-            aria-invalid={error ? 'true' : undefined}
-            aria-describedby={error ? 'alert-form-error' : undefined}
-            style={inputStyle}
-          />
+          <div ref={productComboRef} style={{ position: 'relative' }}>
+            <input
+              id="alert-product-combobox"
+              type="text"
+              placeholder={tpa.productPlaceholder}
+              value={productQuery}
+              onChange={(e) => {
+                const next = e.target.value;
+                setProductQuery(next);
+                setSelectedProduct(null);
+                setShowProductOptions(true);
+              }}
+              onFocus={() => setShowProductOptions(true)}
+              required
+              aria-required="true"
+              aria-autocomplete="list"
+              aria-expanded={showProductOptions}
+              aria-controls="alert-product-options"
+              aria-invalid={error ? 'true' : undefined}
+              aria-describedby={error ? 'alert-form-error' : undefined}
+              style={inputStyle}
+            />
+
+            {showProductOptions && (
+              <div
+                id="alert-product-options"
+                role="listbox"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  top: 'calc(100% + 6px)',
+                  zIndex: 50,
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-surface)',
+                  boxShadow: '0 8px 22px rgba(0,0,0,0.16)',
+                  maxHeight: '260px',
+                  overflowY: 'auto',
+                }}
+              >
+                {searchingProducts ? (
+                  <p style={{ margin: 0, padding: '10px 12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    {tpa.searchingProducts}
+                  </p>
+                ) : productQuery.trim().length < 2 ? (
+                  <p style={{ margin: 0, padding: '10px 12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    {tpa.searchHint}
+                  </p>
+                ) : productOptions.length === 0 ? (
+                  <p style={{ margin: 0, padding: '10px 12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    {tpa.noProductResults}
+                  </p>
+                ) : (
+                  productOptions.map((option) => {
+                    const displayName = option.brandName
+                      ? `${option.productName} · ${option.brandName}`
+                      : option.productName;
+                    const currentPrice = Number(option.price || 0).toLocaleString();
+                    return (
+                      <button
+                        key={option.publicationId}
+                        type="button"
+                        role="option"
+                        aria-selected={selectedProduct?.publicationId === option.publicationId}
+                        onClick={() => {
+                          setSelectedProduct(option);
+                          setProductQuery(displayName);
+                          setShowProductOptions(false);
+                          setError(null);
+                        }}
+                        style={{
+                          width: '100%',
+                          border: 'none',
+                          borderBottom: '1px solid var(--border)',
+                          background: selectedProduct?.publicationId === option.publicationId ? 'var(--bg-base)' : 'transparent',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          gap: '10px',
+                          padding: '10px 12px',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <img
+                          src={option.photoUrl || 'https://via.placeholder.com/56x56?text=Foto'}
+                          alt={displayName}
+                          style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}
+                          onError={(event) => {
+                            event.currentTarget.src = 'https://via.placeholder.com/56x56?text=Foto';
+                          }}
+                        />
+                        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {displayName}
+                          </span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            ${currentPrice} · {option.storeName || tpa.unknownStore}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '120px' }}>
           <label htmlFor="alert-target-price" style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-            {tpa.targetPriceLabel} <span aria-hidden="true">*</span>
+            {tpa.targetPriceLabel} <span aria-hidden="true" style={{ color: 'var(--error)' }}>*</span>
             <span className="sr-only">{tpa.required}</span>
           </label>
           <input
@@ -161,6 +304,36 @@ function PriceAlertsSection() {
         >
           <span aria-hidden="true">⚠ </span>{error}
         </p>
+      )}
+
+      {matchingAlerts.length > 0 && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            marginBottom: '12px',
+            padding: '10px 12px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid rgba(16,185,129,0.35)',
+            background: 'rgba(16,185,129,0.12)',
+          }}
+        >
+          <p style={{ margin: '0 0 8px', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+            {tpa.matchesTitle}
+          </p>
+          <ul style={{ margin: 0, paddingLeft: '16px', color: 'var(--text-secondary)' }}>
+            {matchingAlerts.slice(0, 3).map((match) => {
+              const name = match?.publication?.products?.name || tpa.unknownProduct(match?.alert?.product_id);
+              const currentPrice = Number(match?.publication?.price || 0).toLocaleString();
+              const target = Number(match?.alert?.target_price || 0).toLocaleString();
+              return (
+                <li key={match?.alert?.id} style={{ fontSize: '12px' }}>
+                  {tpa.matchItem(name, currentPrice, target)}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
 
       {/* Lista de alertas */}

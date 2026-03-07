@@ -62,6 +62,73 @@ export const deleteAlert = async (alertId) => {
   }
 };
 
+/** Buscar productos para crear alertas con vista previa de publicación */
+export const searchAlertProducts = async (query, limit = 8) => {
+  try {
+    const term = String(query || '').trim();
+    if (term.length < 2) return { success: true, data: [] };
+
+    const safeLimit = Math.max(3, Math.min(Number(limit) || 8, 20));
+
+    const { data: productsData, error: productsError } = await supabase
+      .from('products')
+      .select(`
+        id,
+        name,
+        brand:brands(name)
+      `)
+      .ilike('name', `%${term}%`)
+      .limit(safeLimit * 2);
+
+    if (productsError) return { success: false, error: productsError.message };
+
+    const productIds = (productsData || []).map((p) => p.id).filter(Boolean);
+    if (!productIds.length) return { success: true, data: [] };
+
+    const productsById = new Map((productsData || []).map((p) => [p.id, p]));
+
+    const { data, error } = await supabase
+      .from('price_publications')
+      .select(`
+        id,
+        product_id,
+        price,
+        photo_url,
+        created_at,
+        store:stores!price_publications_store_id_fkey (
+          id,
+          name
+        )
+      `)
+      .eq('is_active', true)
+      .in('product_id', productIds)
+      .order('created_at', { ascending: false })
+      .limit(safeLimit * 4);
+
+    if (error) return { success: false, error: error.message };
+
+    const normalized = (data || []).map((row) => {
+      const product = productsById.get(row.product_id);
+      return {
+        publicationId: row.id,
+        productId: row.product_id,
+        productName: product?.name || 'Producto',
+        brandName: product?.brand?.name || '',
+        storeName: row.store?.name || '',
+        price: row.price,
+        photoUrl: row.photo_url || null,
+      };
+    });
+
+    return {
+      success: true,
+      data: normalized.slice(0, safeLimit),
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};
+
 /** Verificar si alguna publicación activa cumple las alertas del usuario */
 export const checkMatchingAlerts = async () => {
   try {
