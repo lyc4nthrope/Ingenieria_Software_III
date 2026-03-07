@@ -451,19 +451,19 @@ export async function updateReportReview(reportId, payload) {
 export async function getTopUsersByReputation(limit = 20) {
   const { data, error } = await supabase
     .from("users")
-    .select("id, full_name, avatar_url, reputation_points, role_id, roles(name)")
+    .select("id, full_name, avatar_url, reputation_points")
     .order("reputation_points", { ascending: false })
     .limit(limit);
 
-  if (error) {
+  if (error || !Array.isArray(data) || data.length === 0) {
     const fallback = await supabase
       .from("price_publications")
-      .select("user_id, user:users!price_publications_user_id_fkey(id, full_name, avatar_url, reputation_points, roles(name))")
+      .select("user_id, user:users!price_publications_user_id_fkey(id, full_name, avatar_url, reputation_points)")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(1000);
 
-    if (fallback.error) return { success: false, error: error.message };
+    if (fallback.error) return { success: false, error: (error?.message || fallback.error.message) };
 
     const byUser = new Map();
     for (const row of fallback.data || []) {
@@ -475,7 +475,6 @@ export async function getTopUsersByReputation(limit = 20) {
         full_name: user?.full_name || "Usuario",
         avatar_url: user?.avatar_url || null,
         reputation_points: Number(user?.reputation_points || 0),
-        roles: user?.roles || null,
       });
     }
 
