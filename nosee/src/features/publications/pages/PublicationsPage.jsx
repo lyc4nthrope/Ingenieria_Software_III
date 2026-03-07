@@ -155,11 +155,13 @@ export default function PublicationsPage() {
    */
   const handleSearch = (query) => {
     setSearchQuery(query);
-    const newFilters = { ...filters, productName: query };
-    setFilters(newFilters);
-    setPublicationFilters({
-      ...newFilters,
-      sortBy: query?.trim() ? "best_match" : (newFilters.sortBy || "recent"),
+    setFilters((prev) => {
+      const merged = { ...prev, productName: query };
+      setPublicationFilters({
+        ...merged,
+        sortBy: query?.trim() ? "best_match" : (merged.sortBy || "recent"),
+      });
+      return merged;
     });
   };
 
@@ -202,7 +204,7 @@ export default function PublicationsPage() {
           () => {
             setGeolocationLoading(false);
             setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.");
-            setPublicationFilters({ latitude: null, longitude: null });
+            setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
           },
           { timeout: 10000 },
         );
@@ -532,12 +534,14 @@ const handleViewMore = async (publicationId) => {
                     type="button"
                     onClick={() => {
                       const nextQuery = item.value;
-                      const nextFilters = { ...filters, productName: nextQuery, sortBy: "best_match" };
                       setSearchQuery(nextQuery);
-                      setFilters(nextFilters);
+                      setFilters((prev) => {
+                        const nextFilters = { ...prev, productName: nextQuery, sortBy: "best_match" };
+                        setPublicationFilters(nextFilters);
+                        return nextFilters;
+                      });
                       setSearchSuggestions([]);
                       setSearchFocused(false);
-                      setPublicationFilters(nextFilters);
                     }}
                     style={{
                       width: "100%",

@@ -52,6 +52,12 @@ const SEARCH_SORT_FIELDS = new Set([
 ]);
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const normalizeSearchText = (value = "") =>
+  String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
 const REQUEST_TIMEOUT_MS = 12000;
 const BACKGROUND_REQUEST_TIMEOUT_MS = 20000;
@@ -382,6 +388,8 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
 
   const hasSearchTerm = String(filters.productName || "").trim().length > 0 || String(filters.storeName || "").trim().length > 0;
   const normalizedSortBy = String(filters.sortBy || SORT_OPTIONS.RECENT);
+  const normalizedProductQuery = normalizeSearchText(filters.productName || "");
+  const normalizedStoreQuery = normalizeSearchText(filters.storeName || "");
   const shouldSortByScore =
     normalizedSortBy === SORT_OPTIONS.BEST_MATCH ||
     (normalizedSortBy === SORT_OPTIONS.RECENT && hasSearchTerm);
@@ -393,6 +401,11 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
       const userReputation = Number(publication?.user?.reputation_points || 0);
       const storeEvidences = Number(evidencesByStore[publication.store_id] || 0);
       const stats = productPriceStats[publication.product_id] || null;
+      const productName = publication?.product?.name || publication?.products?.name || "";
+      const productBrand = publication?.product?.brand?.name || publication?.products?.brand?.name || "";
+      const storeName = publication?.store?.name || publication?.stores?.name || "";
+      const normalizedProductText = normalizeSearchText(`${productName} ${productBrand}`);
+      const normalizedStoreText = normalizeSearchText(storeName);
 
       const distanceScore = Number.isFinite(publication.distance_km)
         ? clamp(1 - publication.distance_km / 50, 0, 1)
@@ -406,13 +419,44 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
         ? clamp(((stats.total / Math.max(stats.count, 1)) - Number(publication.price)) / Math.max(stats.total / Math.max(stats.count, 1), 1) + 0.5, 0, 1)
         : 0.5;
 
+      const productTextScore = normalizedProductQuery
+        ? normalizedProductText === normalizedProductQuery
+          ? 1
+          : normalizedProductText.startsWith(normalizedProductQuery)
+            ? 0.92
+            : normalizedProductText.includes(normalizedProductQuery)
+              ? 0.78
+              : 0
+        : 0.5;
+
+      const storeTextScore = normalizedStoreQuery
+        ? normalizedStoreText === normalizedStoreQuery
+          ? 1
+          : normalizedStoreText.startsWith(normalizedStoreQuery)
+            ? 0.9
+            : normalizedStoreText.includes(normalizedStoreQuery)
+              ? 0.72
+              : 0
+        : 0.5;
+
+      const textScore =
+        normalizedProductQuery || normalizedStoreQuery
+          ? clamp(
+              (normalizedProductQuery ? productTextScore * 0.75 : 0) +
+                (normalizedStoreQuery ? storeTextScore * 0.25 : 0),
+              0,
+              1,
+            )
+          : 0.5;
+
       const searchScore =
-        0.26 * distanceScore +
-        0.22 * priceScore +
-        0.2 * voteScore +
-        0.14 * reportScore +
-        0.12 * reputationScore +
-        0.06 * evidenceScore;
+        0.45 * textScore +
+        0.2 * priceScore +
+        0.14 * distanceScore +
+        0.1 * voteScore +
+        0.06 * reportScore +
+        0.03 * reputationScore +
+        0.02 * evidenceScore;
 
       return {
         ...publication,
@@ -421,6 +465,7 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
           reports_active: reportSignals.active,
           reports_with_evidence: reportSignals.evidences,
           store_evidences: storeEvidences,
+          text_score: Number(textScore.toFixed(4)),
           user_reputation_points: userReputation,
           product_avg_price: stats ? stats.total / Math.max(stats.count, 1) : null,
           product_min_price: stats ? stats.min : null,
@@ -688,35 +733,66 @@ export const getPublications = async (filters = {}) => {
     } = filters;
      const offset = (page - 1) * limit;
 
-    let normalizedMinPrice = minPrice;
-    let normalizedMaxPrice = maxPrice;
+    const hasMinPrice = minPrice !== null && minPrice !== undefined && String(minPrice).trim() !== "";
+    const hasMaxPrice = maxPrice !== null && maxPrice !== undefined && String(maxPrice).trim() !== "";
+
+    let normalizedMinPrice = hasMinPrice ? Number(minPrice) : null;
+    let normalizedMaxPrice = hasMaxPrice ? Number(maxPrice) : null;
     if (
-      Number.isFinite(Number(normalizedMinPrice)) &&
-      Number.isFinite(Number(normalizedMaxPrice)) &&
-      Number(normalizedMinPrice) > Number(normalizedMaxPrice)
+      Number.isFinite(normalizedMinPrice) &&
+      Number.isFinite(normalizedMaxPrice) &&
+      normalizedMinPrice > normalizedMaxPrice
     ) {
       [normalizedMinPrice, normalizedMaxPrice] = [normalizedMaxPrice, normalizedMinPrice];
     }
 
+    const normalizedMaxDistance = Number(maxDistance);
     const shouldApplyDistanceFilter =
-      maxDistance !== null && hasCoordinates(latitude, longitude);
+      Number.isFinite(normalizedMaxDistance) &&
+      normalizedMaxDistance > 0 &&
+      hasCoordinates(latitude, longitude);
 
     // Pre-filtro: IDs de productos cuyo nombre O cuya marca coincide con productName
     let productIdFilter = null;
     if (productName) {
-      const [{ data: matchingProducts, error: productSearchError }, { data: matchingBrands }] = await Promise.all([
-        supabase.from("products").select("id").ilike("name", `%${productName}%`),
-        supabase.from("brands").select("id").ilike("name", `%${productName}%`),
+      const productSearchTerm = String(productName).trim();
+      const normalizedProductSearchTerm = normalizeSearchText(productSearchTerm);
+      const seedTerm = productSearchTerm.length >= 3 ? productSearchTerm.slice(0, 3) : productSearchTerm;
+
+      const [{ data: rawProducts, error: productSearchError }, { data: rawBrands }] = await Promise.all([
+        supabase
+          .from("products")
+          .select("id, name, brand:brands(id, name)")
+          .ilike("name", `%${seedTerm}%`)
+          .limit(400),
+        supabase
+          .from("brands")
+          .select("id, name")
+          .ilike("name", `%${seedTerm}%`)
+          .limit(120),
       ]);
 
       if (productSearchError) {
         return { success: false, error: productSearchError.message };
       }
 
-      const productIdsByName = (matchingProducts || []).map((p) => p.id);
+      const matchingProducts = (rawProducts || []).filter((product) => {
+        const normalizedName = normalizeSearchText(product.name);
+        const normalizedBrandName = normalizeSearchText(product?.brand?.name || "");
+        return (
+          normalizedName.includes(normalizedProductSearchTerm) ||
+          normalizedBrandName.includes(normalizedProductSearchTerm)
+        );
+      });
+
+      const matchingBrands = (rawBrands || []).filter((brand) =>
+        normalizeSearchText(brand.name).includes(normalizedProductSearchTerm),
+      );
+
+      const productIdsByName = matchingProducts.map((p) => p.id);
 
       let productIdsByBrand = [];
-      if ((matchingBrands || []).length > 0) {
+      if (matchingBrands.length > 0) {
         const brandIds = matchingBrands.map((b) => b.id);
         const { data: brandProducts } = await supabase
           .from("products")
@@ -816,10 +892,10 @@ export const getPublications = async (filters = {}) => {
       }
 
       // Filtro por rango de precio
-      if (normalizedMinPrice !== null) {
+      if (Number.isFinite(normalizedMinPrice)) {
         query = query.gte("price", normalizedMinPrice);
       }
-      if (normalizedMaxPrice !== null) {
+      if (Number.isFinite(normalizedMaxPrice)) {
         query = query.lte("price", normalizedMaxPrice);
       }
 
@@ -871,7 +947,7 @@ export const getPublications = async (filters = {}) => {
         return { success: false, error: storesError.message };
       }
 
-      const searchDistancesKm = [Number(maxDistance)].filter(
+      const searchDistancesKm = [normalizedMaxDistance].filter(
         (distance, index, distances) =>
           Number.isFinite(distance) && distance > 0 && distances.indexOf(distance) === index,
       );
@@ -1030,7 +1106,15 @@ export const getPublications = async (filters = {}) => {
         });
       }
       if (sortBy === SORT_OPTIONS.BEST_MATCH) {
-        return cloned.sort((a, b) => (Number(b.search_score || 0) - Number(a.search_score || 0)));
+        return cloned.sort((a, b) => {
+          const byText = Number(b.search_signals?.text_score || 0) - Number(a.search_signals?.text_score || 0);
+          if (byText !== 0) return byText;
+
+          const byPrice = Number(a.price || 0) - Number(b.price || 0);
+          if (byPrice !== 0) return byPrice;
+
+          return Number(b.search_score || 0) - Number(a.search_score || 0);
+        });
       }
       return cloned;
     })();
@@ -1563,18 +1647,20 @@ export const searchProductsAndBrands = async (query, limit = 8) => {
 
     const safeLimit = Math.max(3, Math.min(Number(limit) || 8, 20));
     const term = query.trim();
+    const normalizedTerm = normalizeSearchText(term);
+    const seedTerm = term.length >= 3 ? term.slice(0, 3) : term;
 
     const [{ data: productsData, error: productsError }, { data: brandsData, error: brandsError }] = await Promise.all([
       supabase
         .from("products")
         .select("id, name, brand:brands(id, name)")
-        .ilike("name", `%${term}%`)
-        .limit(safeLimit),
+        .ilike("name", `%${seedTerm}%`)
+        .limit(safeLimit * 5),
       supabase
         .from("brands")
         .select("id, name")
-        .ilike("name", `%${term}%`)
-        .limit(Math.ceil(safeLimit / 2)),
+        .ilike("name", `%${seedTerm}%`)
+        .limit(safeLimit * 3),
     ]);
 
     if (productsError) return { success: false, error: productsError.message };
@@ -1583,7 +1669,13 @@ export const searchProductsAndBrands = async (query, limit = 8) => {
     const seen = new Set();
     const suggestions = [];
 
-    for (const product of productsData || []) {
+    const normalizedProducts = (productsData || []).filter((product) => {
+      const productName = normalizeSearchText(product.name);
+      const brandName = normalizeSearchText(product?.brand?.name || "");
+      return productName.includes(normalizedTerm) || brandName.includes(normalizedTerm);
+    });
+
+    for (const product of normalizedProducts) {
       const key = `product-${product.id}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -1595,7 +1687,11 @@ export const searchProductsAndBrands = async (query, limit = 8) => {
       });
     }
 
-    for (const brand of brandsData || []) {
+    const normalizedBrands = (brandsData || []).filter((brand) =>
+      normalizeSearchText(brand.name).includes(normalizedTerm),
+    );
+
+    for (const brand of normalizedBrands) {
       const key = `brand-${brand.id}`;
       if (seen.has(key)) continue;
       seen.add(key);
