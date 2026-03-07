@@ -449,11 +449,21 @@ export async function updateReportReview(reportId, payload) {
  * @param {number} limit - Máximo de usuarios a retornar (default 20)
  */
 export async function getTopUsersByReputation(limit = 20) {
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
+
+  const publicRanking = await supabase.rpc("get_public_user_ranking", {
+    p_limit: safeLimit,
+  });
+
+  if (!publicRanking.error && Array.isArray(publicRanking.data) && publicRanking.data.length > 0) {
+    return { success: true, data: publicRanking.data };
+  }
+
   const { data, error } = await supabase
     .from("users")
     .select("id, full_name, avatar_url, reputation_points")
     .order("reputation_points", { ascending: false })
-    .limit(limit);
+    .limit(safeLimit);
 
   if (error || !Array.isArray(data) || data.length === 0) {
     const fallback = await supabase
@@ -463,7 +473,10 @@ export async function getTopUsersByReputation(limit = 20) {
       .order("created_at", { ascending: false })
       .limit(1000);
 
-    if (fallback.error) return { success: false, error: (error?.message || fallback.error.message) };
+    if (fallback.error) {
+      const firstError = publicRanking.error?.message || error?.message || fallback.error.message;
+      return { success: false, error: firstError };
+    }
 
     const byUser = new Map();
     for (const row of fallback.data || []) {
@@ -480,7 +493,7 @@ export async function getTopUsersByReputation(limit = 20) {
 
     const ranked = Array.from(byUser.values())
       .sort((a, b) => b.reputation_points - a.reputation_points)
-      .slice(0, limit);
+      .slice(0, safeLimit);
 
     return { success: true, data: ranked };
   }
