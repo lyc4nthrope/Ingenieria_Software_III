@@ -738,6 +738,13 @@ export const getPublications = async (filters = {}) => {
 
     let normalizedMinPrice = hasMinPrice ? Number(minPrice) : null;
     let normalizedMaxPrice = hasMaxPrice ? Number(maxPrice) : null;
+
+    if (Number.isFinite(normalizedMinPrice) && normalizedMinPrice < 0) {
+      normalizedMinPrice = null;
+    }
+    if (Number.isFinite(normalizedMaxPrice) && normalizedMaxPrice < 0) {
+      normalizedMaxPrice = null;
+    }
     if (
       Number.isFinite(normalizedMinPrice) &&
       Number.isFinite(normalizedMaxPrice) &&

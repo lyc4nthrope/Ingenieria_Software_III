@@ -463,10 +463,26 @@ export function PriceSearchFilter({
   };
 
   const handleRangeChange = (minOrMax, value) => {
-    const numValue = value ? Number(value) : null;
+    if (value === '') {
+      const updated = { ...localFilters, [minOrMax]: null };
+      setLocalFilters(updated);
+      onFiltersChange?.(updated);
+      return;
+    }
+
+    const parsedValue = Number(value);
+    if (!Number.isFinite(parsedValue)) return;
+
+    const numValue = Math.max(0, parsedValue);
     const updated = { ...localFilters, [minOrMax]: numValue };
     setLocalFilters(updated);
     onFiltersChange?.(updated);
+  };
+
+  const blockNegativeKeys = (e) => {
+    if (e.key === '-' || e.key === 'Minus') {
+      e.preventDefault();
+    }
   };
 
   const handleClear = () => {
@@ -551,9 +567,13 @@ export function PriceSearchFilter({
                 <input
                   type="number"
                   placeholder="0"
-                  value={localFilters.minPrice || ''}
+                  value={localFilters.minPrice ?? ''}
                   onChange={(e) => handleRangeChange('minPrice', e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyFiltersNow(); } }}
+                  onKeyDown={(e) => {
+                    blockNegativeKeys(e);
+                    if (e.key === 'Enter') { e.preventDefault(); applyFiltersNow(); }
+                  }}
+                  min="0"
                   style={styles.inputWithPrefix}
                 />
               </div>
@@ -565,9 +585,13 @@ export function PriceSearchFilter({
                 <input
                   type="number"
                   placeholder="999999"
-                  value={localFilters.maxPrice || ''}
+                  value={localFilters.maxPrice ?? ''}
                   onChange={(e) => handleRangeChange('maxPrice', e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyFiltersNow(); } }}
+                  onKeyDown={(e) => {
+                    blockNegativeKeys(e);
+                    if (e.key === 'Enter') { e.preventDefault(); applyFiltersNow(); }
+                  }}
+                  min="0"
                   style={styles.inputWithPrefix}
                 />
               </div>
