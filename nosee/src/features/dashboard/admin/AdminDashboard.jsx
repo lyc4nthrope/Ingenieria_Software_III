@@ -347,14 +347,62 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeletePublication = async (pubId) => {
-    if (!window.confirm(td.confirmDeletePub)) return;
+  const handleDeletePublication = async (publicationInput) => {
+    const publication =
+      typeof publicationInput === 'object'
+        ? publicationInput
+        : publications.find((p) => p.id === publicationInput);
+
+    const pubId = publication?.id || publicationInput;
+    const isActive = publication?.is_active === true;
+
+    if (!pubId) return;
+
+    let action = 'delete';
+
+    if (isActive) {
+      const decision = window.prompt(
+        'La publicación está activa. Escribe "ocultar" para ocultarla o "eliminar" para borrarla permanentemente.',
+      );
+      if (decision === null) return;
+      const normalizedDecision = String(decision).trim().toLowerCase();
+      if (normalizedDecision === 'ocultar') action = 'hide';
+      else if (normalizedDecision === 'eliminar') action = 'delete';
+      else {
+        alert('Opción inválida. Debes escribir "ocultar" o "eliminar".');
+        return;
+      }
+    } else if (!window.confirm('Esta publicación ya está oculta y se eliminará permanentemente. ¿Deseas continuar?')) {
+      return;
+    }
+
     setDeletingPub(pubId);
     try {
+      if (action === 'hide') {
+        const { error } = await supabase
+          .from('price_publications')
+          .update({ is_active: false })
+          .eq('id', pubId)
+          .eq('is_active', true);
+
+        if (error) {
+          alert(td.errorDeletePub(error.message));
+          return;
+        }
+
+        setPublications((prev) =>
+          prev.map((p) => (p.id === pubId ? { ...p, is_active: false, status: 'hidden' } : p)),
+        );
+        setSelectedPub((prev) => (prev?.id === pubId ? { ...prev, is_active: false, status: 'hidden' } : prev));
+        alert('Publicación ocultada correctamente.');
+        return;
+      }
+
       const result = await deletePublication(pubId, { permanent: true });
       if (result.success) {
         setPublications(prev => prev.filter(p => p.id !== pubId));
         setReports(prev => prev.filter(r => r.publicationId !== pubId));
+        setSelectedPub((prev) => (prev?.id === pubId ? null : prev));
         setStats(prev => ({ ...prev, pubs: Math.max(0, (prev.pubs || 1) - 1) }));
       } else {
         alert(td.errorDeletePub(result.error || td.errorDeletePubGeneric));
@@ -724,7 +772,7 @@ export default function AdminDashboard() {
                   if (ok) setSelectedPub(prev => prev ? { ...prev, ...updates } : null);
                 }}
                 onDelete={() => {
-                  handleDeletePublication(selectedPub.id);
+                  handleDeletePublication(selectedPub);
                   setSelectedPub(null);
                 }}
               />
@@ -1040,7 +1088,7 @@ function PublicationsTable({ publications, onDelete, onView, deletingId }) {
             </button>
             <button
               style={s.btnDelete}
-              onClick={() => onDelete(p.id)}
+              onClick={() => onDelete(p)}
               disabled={deletingId === p.id}
               title={td.colAction}
             >
