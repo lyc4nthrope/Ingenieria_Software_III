@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useId } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
 
 import {
   useAuthStore,
@@ -186,7 +186,7 @@ const SadFaceIcon = () => (
 );
 
 // ─── PublicationCard ──────────────────────────────────────────────────────────
-function PublicationCard({
+const PublicationCard = memo(function PublicationCard({
   pub,
   isAuthenticated,
   currentUserId,
@@ -222,7 +222,7 @@ function PublicationCard({
     }
     setIsVoting(true);
     try {
-      await action(pub.id);
+      await action();
     } finally {
       setIsVoting(false);
     }
@@ -290,7 +290,7 @@ function PublicationCard({
               aria-disabled={isVoting || !isAuthenticated}
               disabled={isVoting}
               title={!isAuthenticated ? th.loginToVote : undefined}
-              onClick={() => handleVote(onValidate)}
+              onClick={() => handleVote(() => onValidate(pub.id, pub.user_vote))}
               style={{
                 ...homeVoteStyles.btn,
                 ...homeVoteStyles.btnLeft,
@@ -308,7 +308,7 @@ function PublicationCard({
               aria-disabled={isVoting || !isAuthenticated}
               disabled={isVoting}
               title={!isAuthenticated ? th.loginToVote : undefined}
-              onClick={() => handleVote(onDownvote)}
+              onClick={() => handleVote(() => onDownvote(pub.id, pub.user_vote))}
               style={{
                 ...homeVoteStyles.btn,
                 ...homeVoteStyles.btnRight,
@@ -413,7 +413,7 @@ function PublicationCard({
       )}
     </>
   );
-}
+});
 
 const homeVoteStyles = {
   group: {
@@ -634,52 +634,46 @@ export default function HomePage() {
     [publications],
   );
 
-  const handleOpenDetail = async (publicationId) => {
+  const handleOpenDetail = useCallback(async (publicationId) => {
     const detailResult =
       await publicationsApi.getPublicationDetail(publicationId);
     if (detailResult.success) {
       setDetailPublication(detailResult.data);
     }
-  };
+  }, []);
 
-  const handleValidate = async (publicationId) => {
-    const pub = publications.find((p) => p.id === publicationId);
-    if (pub?.user_vote === 1) {
+  const handleValidate = useCallback(async (publicationId, userVote) => {
+    if (userVote === 1) {
       await unvotePublication(publicationId);
     } else {
-      if (pub?.user_vote === -1) await unvotePublication(publicationId);
+      if (userVote === -1) await unvotePublication(publicationId);
       await validatePublication(publicationId);
     }
-  };
+  }, [unvotePublication, validatePublication]);
 
-  const handleDownvote = async (publicationId) => {
-    const pub = publications.find((p) => p.id === publicationId);
-    if (pub?.user_vote === -1) {
+  const handleDownvote = useCallback(async (publicationId, userVote) => {
+    if (userVote === -1) {
       await unvotePublication(publicationId);
     } else {
-      if (pub?.user_vote === 1) await unvotePublication(publicationId);
+      if (userVote === 1) await unvotePublication(publicationId);
       await downvotePublication(publicationId);
     }
-  };
+  }, [downvotePublication, unvotePublication]);
 
-  const handleReport = (publication) => {
+  const handleReport = useCallback((publication) => {
     if (!isAuthenticated) return;
     setReportingPublication(publication);
-  };
+  }, [isAuthenticated]);
 
   const handleRequireAuth = () => {
     alert(th.loginRequiredAction || "Debes iniciar sesión para interactuar.");
   };
 
-  const handleReportSubmit = async (reportPayload) => {
+  const handleReportSubmit = useCallback(async (reportPayload) => {
     if (!reportingPublication) return;
-    
-    console.log('[📋 HomePage] Enviando reporte con payload:', reportPayload);
-    
+
     const result = await reportPublication(reportingPublication.id, reportPayload);
-    
-    console.log('[📋 HomePage] Resultado del reporte:', result);
-    
+
     setReportingPublication(null);
     
     // Mostrar feedback al usuario
@@ -697,15 +691,15 @@ export default function HomePage() {
     
     // Auto-cerrar el feedback después de 5 segundos
     setTimeout(() => setFeedback(null), 5000);
-  };
+  }, [reportPublication, reportingPublication]);
 
-  const handleDelete = async (publicationId) => {
+  const handleDelete = useCallback(async (publicationId) => {
     if (!confirm(th.confirmDelete)) return;
     const result = await publicationsApi.deletePublication(publicationId);
     if (result.success) {
       removePublication(publicationId);
     }
-  };
+  }, [removePublication, th.confirmDelete]);
 
   useEffect(() => {
     const sentinel = infiniteSentinelRef.current;

@@ -524,14 +524,10 @@ export const usePublications = (initialFilters = {}, options = {}) => {
   const reportPublication = useCallback(
     async (publicationId, reportPayload) => {
       try {
-        console.log('[📋 HOOK] Reportando publicación:', { publicationId, reportPayload });
-        
         const result = await publicationsApi.reportPublication(
           publicationId,
           reportPayload
         );
-
-        console.log('[📋 HOOK] Resultado del reporte:', result);
 
         if (result.success) {
           // Actualizar contador en la lista
@@ -547,7 +543,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
           return result;
         }
       } catch (err) {
-        console.error('[📋 HOOK] Error reportando publicación:', err);
+        console.error('Error reportando publicación:', err);
         return { 
           success: false, 
           error: err.message,
