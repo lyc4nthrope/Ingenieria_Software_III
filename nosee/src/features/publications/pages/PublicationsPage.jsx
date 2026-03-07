@@ -193,7 +193,11 @@ export default function PublicationsPage() {
           ({ coords }) => {
             cachedLocationRef.current = { latitude: coords.latitude, longitude: coords.longitude };
             setGeolocationLoading(false);
-            setPublicationFilters({ latitude: coords.latitude, longitude: coords.longitude });
+            setPublicationFilters({
+              ...newFilters,
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+            });
           },
           () => {
             setGeolocationLoading(false);

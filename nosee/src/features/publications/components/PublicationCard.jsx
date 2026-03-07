@@ -164,6 +164,9 @@ export function PublicationCard({
     publication.timestamp || publication.created_at,
     t.timeAgo
   );
+  const productName = publication.product?.name || tc.unknownProduct;
+  const productBrand = publication.product?.brand?.name || publication.product?.brand_name || "";
+  const productDisplay = productBrand ? `${productName} · ${productBrand}` : productName;
 
   return (
     <div style={styles.card}>
@@ -188,7 +191,7 @@ export function PublicationCard({
       <div style={styles.body}>
         <div style={styles.productInfo}>
           <div style={styles.productName}>
-            {publication.product?.name || tc.unknownProduct}
+            {productDisplay}
           </div>
           <div style={styles.storeName}>
             <span aria-hidden="true">{Number(publication.store?.store_type_id) === 2 ? '🌐' : '🏪'} </span>{publication.store?.name || tc.noStore}
@@ -221,7 +224,7 @@ export function PublicationCard({
           >
             <img
               src={optimizeCloudinaryUrl(publication.photo_url, { width: 600 })}
-              alt={publication.product?.name || tc.unknownProduct}
+              alt={productDisplay}
               style={styles.photo}
               loading="lazy"
               decoding="async"
@@ -282,7 +285,7 @@ export function PublicationCard({
 
           <button
             type="button"
-            aria-label={tc.viewMoreLabel(publication.product?.name || tc.unknownProduct)}
+            aria-label={tc.viewMoreLabel(productDisplay)}
             style={{ ...styles.button, ...styles.buttonSecondary }}
             onClick={() => onViewMore?.(publication.id)}
           >
@@ -292,7 +295,7 @@ export function PublicationCard({
           {(isAuthor || isAdmin) && (
             <button
               type="button"
-              aria-label={tc.deleteLabel(publication.product?.name || tc.unknownProduct)}
+              aria-label={tc.deleteLabel(productDisplay)}
               aria-busy={isDeleting || undefined}
               style={{ ...styles.button, ...styles.buttonDanger }}
               onClick={handleDelete}
@@ -340,7 +343,7 @@ export function PublicationCard({
           </button>
           <img
             src={publication.photo_url}
-            alt={publication.product?.name || tc.unknownProduct}
+            alt={productDisplay}
             style={styles.photoModalImg}
           />
         </div>

@@ -786,10 +786,20 @@ export const getPublications = async (filters = {}) => {
       "user_id",
       "user:users!price_publications_user_id_fkey (id, full_name, reputation_points)",
       "product_id",
-      "product:products (id, name, category_id, base_quantity, unit_type:unit_types (id, name, abbreviation))",
+      "product:products (id, name, category_id, base_quantity, brand:brands (id, name), unit_type:unit_types (id, name, abbreviation))",
       "store_id",
       "store:stores!price_publications_store_id_fkey (id, name, address, location, store_type_id, website_url)",
     ].join(",");
+
+    const requiresClientSort =
+      sortBy === SORT_OPTIONS.VALIDATED || sortBy === SORT_OPTIONS.BEST_MATCH;
+
+    const prefetchedRows = requiresClientSort
+      ? Math.min(offset + limit * 5, 500)
+      : limit;
+
+    const queryRangeStart = requiresClientSort ? 0 : offset;
+    const queryRangeEnd = queryRangeStart + prefetchedRows - 1;
 
     const buildPublicationsQuery = (nearbyStoreIds, { withCount = true } = {}) => {
       let query = supabase
@@ -829,7 +839,7 @@ export const getPublications = async (filters = {}) => {
           query = query.order("price", { ascending: true });
           break;
         case "validated":
-          query = query.order("confidence_score", { ascending: false });
+          query = query.order("created_at", { ascending: false });
           break;
         case "best_match":
           query = query.order("created_at", { ascending: false });
@@ -840,7 +850,7 @@ export const getPublications = async (filters = {}) => {
           break;
       }
 
-      return query.range(offset, offset + limit - 1);
+      return query.range(queryRangeStart, queryRangeEnd);
     };
 
     let appliedDistanceKm = null;
@@ -1010,11 +1020,30 @@ export const getPublications = async (filters = {}) => {
 
     const enrichedPublications = await enrichPublicationsWithVoteCounts(rankedPublications);
 
+    const fullySortedPublications = (() => {
+      const cloned = [...enrichedPublications];
+      if (sortBy === SORT_OPTIONS.VALIDATED) {
+        return cloned.sort((a, b) => {
+          const byVotes = (Number(b.validated_count || 0) - Number(a.validated_count || 0));
+          if (byVotes !== 0) return byVotes;
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        });
+      }
+      if (sortBy === SORT_OPTIONS.BEST_MATCH) {
+        return cloned.sort((a, b) => (Number(b.search_score || 0) - Number(a.search_score || 0)));
+      }
+      return cloned;
+    })();
+
+    const paginatedData = requiresClientSort
+      ? fullySortedPublications.slice(offset, offset + limit)
+      : fullySortedPublications;
+
     return {
       success: true,
-      data: enrichedPublications,
-      count: count ?? rankedPublications.length,
-      hasMore: offset + limit < (count ?? rankedPublications.length),
+      data: paginatedData,
+      count: count ?? fullySortedPublications.length,
+      hasMore: offset + limit < (count ?? fullySortedPublications.length),
     };
   } catch (err) {
     const runtimeState = getRuntimeNetworkState();
