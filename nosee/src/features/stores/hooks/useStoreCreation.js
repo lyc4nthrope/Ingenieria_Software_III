@@ -9,6 +9,13 @@ const STORE_TYPE_ID = {
   [StoreTypeEnum.VIRTUAL]: 2,
 };
 
+const normalizeNameForSignature = (value = '') =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
 const initialFormData = {
   name: '',
   type: StoreTypeEnum.PHYSICAL,
@@ -173,6 +180,59 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
     setNearbyStoreMessage('Detectando tienda cercana...');
 
     const timer = setTimeout(async () => {
+      const mapPlaceResult = await storesApi.detectMapPlaceAtLocation(lat, lon);
+      if (cancelled) return;
+
+      if (mapPlaceResult.success && mapPlaceResult.data?.placeName) {
+        const mapName = mapPlaceResult.data.placeName;
+        const mapAddress = mapPlaceResult.data.address || '';
+        const mapSearchResult = await storesApi.searchNearbyStores(mapName, lat, lon, 500);
+        if (cancelled) return;
+
+        if (mapSearchResult.success) {
+          const mapMatch = (mapSearchResult.data || [])
+            .filter((store) => store.type === StoreTypeEnum.PHYSICAL || store.type === 'physical')
+            .sort((a, b) => (Number(a.distanceMeters) || 1e12) - (Number(b.distanceMeters) || 1e12))[0];
+
+          if (mapMatch) {
+            const mapLat = Number(mapMatch.latitude);
+            const mapLon = Number(mapMatch.longitude);
+            const hasCoords = Number.isFinite(mapLat) && Number.isFinite(mapLon);
+            const signature = `map:${mapMatch.id}:${lat.toFixed(5)}:${lon.toFixed(5)}`;
+
+            if (lastAutoFillSignatureRef.current !== signature) {
+              setFormData((prev) => ({
+                ...prev,
+                name: mapMatch.name || mapName || prev.name,
+                address: mapAddress || mapMatch.address || prev.address || '',
+                latitude: hasCoords ? mapLat : prev.latitude,
+                longitude: hasCoords ? mapLon : prev.longitude,
+              }));
+              lastAutoFillSignatureRef.current = signature;
+            }
+
+            const distance =
+              mapMatch.distanceMeters < 1000
+                ? `${Math.round(mapMatch.distanceMeters)} m`
+                : `${(mapMatch.distanceMeters / 1000).toFixed(1)} km`;
+            setNearbyStoreMessage(`Tienda detectada por mapa: ${mapMatch.name} (${distance}). Nombre, dirección y ubicación autocompletados.`);
+            return;
+          }
+        }
+
+        const fallbackSignature = `map-name:${normalizeNameForSignature(mapName)}:${lat.toFixed(5)}:${lon.toFixed(5)}`;
+        if (lastAutoFillSignatureRef.current !== fallbackSignature) {
+          setFormData((prev) => ({
+            ...prev,
+            name: mapName || prev.name,
+            address: mapAddress || prev.address || '',
+          }));
+          lastAutoFillSignatureRef.current = fallbackSignature;
+        }
+        setNearbyStoreMessage(`Lugar detectado en mapa: ${mapName}. Nombre y dirección autocompletados.`);
+        return;
+      }
+
       const nearestResult = await storesApi.findNearestPhysicalStore(lat, lon, {
         maxCandidates: 1500,
         batchSize: 250,

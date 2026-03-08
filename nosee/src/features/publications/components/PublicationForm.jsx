@@ -346,6 +346,30 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     let isCancelled = false;
 
     (async () => {
+      const mapPlaceResult = await storesApi.detectMapPlaceAtLocation(userLat, userLon);
+      if (isCancelled) return;
+
+      if (mapPlaceResult.success && mapPlaceResult.data?.placeName) {
+        const mapName = mapPlaceResult.data.placeName;
+        const mapSearchResult = await storesApi.searchNearbyStores(mapName, userLat, userLon, 500);
+        if (isCancelled) return;
+
+        if (mapSearchResult.success) {
+          const mapMatch = (mapSearchResult.data || [])
+            .filter((store) => store.type === "physical")
+            .sort((a, b) => (Number(a.distanceMeters) || 1e12) - (Number(b.distanceMeters) || 1e12))[0];
+
+          if (mapMatch) {
+            updateField("storeId", mapMatch.id);
+            setStoreQuery(mapMatch.name);
+            setAutoStoreMessage(
+              `Tienda detectada por mapa: ${mapMatch.name}${mapMatch.distanceMeters != null ? ` (${formatDistance(mapMatch.distanceMeters)})` : ""}`,
+            );
+            return;
+          }
+        }
+      }
+
       const storesResult = await storesApi.findNearestPhysicalStore(
         userLat,
         userLon,

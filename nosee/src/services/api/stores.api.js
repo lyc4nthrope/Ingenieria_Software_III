@@ -11,6 +11,7 @@ import { supabase } from "@/services/supabase.client";
 
 const DEFAULT_RADIUS_METERS = 150;
 const REQUEST_TIMEOUT_MS = 12000;
+const NOMINATIM_TIMEOUT_MS = 6000;
 
 async function withTimeout(promise, timeoutMs = REQUEST_TIMEOUT_MS, timeoutMessage = "Tiempo de espera agotado") {
   let timeoutId;
@@ -582,6 +583,102 @@ export async function listStores(name = "", limit = 50) {
   }
 }
 
+const normalizeText = (value = "") =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const inferChainName = (payload = {}) => {
+  const parts = [
+    payload?.name,
+    payload?.display_name,
+    payload?.namedetails?.name,
+    payload?.namedetails?.official_name,
+    payload?.extratags?.brand,
+    payload?.extratags?.name,
+    payload?.address?.shop,
+    payload?.address?.supermarket,
+    payload?.address?.retail,
+  ]
+    .filter(Boolean)
+    .map((v) => String(v));
+
+  const haystack = normalizeText(parts.join(" "));
+  if (!haystack) return "";
+
+  if (/\bd1\b/.test(haystack)) return "D1";
+  if (/\bara\b/.test(haystack)) return "Ara";
+  if (haystack.includes("olimpica")) return "Olímpica";
+  if (haystack.includes("exito")) return "Éxito";
+  if (haystack.includes("jumbo")) return "Jumbo";
+  if (haystack.includes("carulla")) return "Carulla";
+
+  const rawName =
+    payload?.name ||
+    payload?.namedetails?.name ||
+    payload?.extratags?.brand ||
+    payload?.extratags?.name ||
+    String(payload?.display_name || "").split(",")[0] ||
+    "";
+
+  return String(rawName).trim();
+};
+
+/**
+ * Detecta comercio en el punto del mapa (POI) usando Nominatim.
+ * Prioriza cadenas conocidas (D1/Ara) para autocompletado.
+ */
+export async function detectMapPlaceAtLocation(latitude, longitude) {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return { success: false, error: "Coordenadas inválidas para detección en mapa" };
+  }
+
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = setTimeout(() => controller?.abort(), NOMINATIM_TIMEOUT_MS);
+
+  try {
+    const url = new URL("https://nominatim.openstreetmap.org/reverse");
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("lat", String(lat));
+    url.searchParams.set("lon", String(lon));
+    url.searchParams.set("zoom", "18");
+    url.searchParams.set("addressdetails", "1");
+    url.searchParams.set("namedetails", "1");
+    url.searchParams.set("extratags", "1");
+
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      signal: controller?.signal,
+    });
+
+    if (!response.ok) {
+      return { success: true, data: null };
+    }
+
+    const payload = await response.json();
+    const placeName = inferChainName(payload);
+    const address = String(payload?.display_name || "").trim();
+
+    if (!placeName) return { success: true, data: null };
+
+    return {
+      success: true,
+      data: {
+        placeName,
+        address,
+      },
+    };
+  } catch {
+    return { success: true, data: null };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 /**
  * Busca la tienda física más cercana al usuario recorriendo tiendas por lotes.
  * Evita el sesgo por orden alfabético + límite bajo en autodetección.
@@ -722,6 +819,7 @@ export default {
   uploadStoreEvidence,
   searchNearbyStores,
   listStores,
+  detectMapPlaceAtLocation,
   findNearestPhysicalStore,
   getStore,
   updateStore,
