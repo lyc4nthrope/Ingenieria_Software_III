@@ -16,6 +16,13 @@ const normalizeNameForSignature = (value = '') =>
     .toLowerCase()
     .trim();
 
+const formatDistanceLabel = (distanceMeters) => {
+  const distance = Number(distanceMeters);
+  if (!Number.isFinite(distance) || distance < 0) return 'distancia no disponible';
+  if (distance < 1000) return `${Math.round(distance)} m`;
+  return `${(distance / 1000).toFixed(1)} km`;
+};
+
 const initialFormData = {
   name: '',
   type: StoreTypeEnum.PHYSICAL,
@@ -211,11 +218,9 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
               lastAutoFillSignatureRef.current = signature;
             }
 
-            const distance =
-              mapMatch.distanceMeters < 1000
-                ? `${Math.round(mapMatch.distanceMeters)} m`
-                : `${(mapMatch.distanceMeters / 1000).toFixed(1)} km`;
-            setNearbyStoreMessage(`Tienda detectada por mapa: ${mapMatch.name} (${distance}). Nombre, dirección y ubicación autocompletados.`);
+            const distance = formatDistanceLabel(mapMatch.distanceMeters);
+            const distanceText = distance === 'distancia no disponible' ? distance : `a ${distance}`;
+            setNearbyStoreMessage(`Tienda detectada por mapa: ${mapMatch.name} (${distanceText}). Nombre, dirección y ubicación autocompletados.`);
             return;
           }
         }
@@ -250,10 +255,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
         return;
       }
 
-      const distance =
-        nearest.distanceMeters < 1000
-          ? `${Math.round(nearest.distanceMeters)} m`
-          : `${(nearest.distanceMeters / 1000).toFixed(1)} km`;
+      const distance = formatDistanceLabel(nearest.distanceMeters);
 
       const signature = `${nearest.id}:${lat.toFixed(5)}:${lon.toFixed(5)}`;
       if (lastAutoFillSignatureRef.current !== signature) {
@@ -273,7 +275,8 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
         lastAutoFillSignatureRef.current = signature;
       }
 
-      setNearbyStoreMessage(`Tienda cercana detectada: ${nearest.name} (${distance}). Nombre, dirección y ubicación autocompletados.`);
+      const distanceText = distance === 'distancia no disponible' ? distance : `a ${distance}`;
+      setNearbyStoreMessage(`Tienda cercana detectada: ${nearest.name} (${distanceText}). Nombre, dirección y ubicación autocompletados.`);
     }, 250);
 
     return () => {
