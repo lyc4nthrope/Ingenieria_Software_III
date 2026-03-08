@@ -163,8 +163,13 @@ export default function AdminDashboard() {
   const [selectedPub, setSelectedPub]         = useState(null); // pub abierta en modal
   const [deletingStoreId, setDeletingStoreId] = useState(null);
   const [deletingBrandId, setDeletingBrandId] = useState(null);
+  const [deletingProductId, setDeletingProductId] = useState(null);
   const [selectedStore, setSelectedStore]     = useState(null);
   const [selectedBrand, setSelectedBrand]     = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [unpublishedLoading, setUnpublishedLoading] = useState(false);
+  const [unpublishedLoaded, setUnpublishedLoaded] = useState(false);
+  const [unpublishedResources, setUnpublishedResources] = useState({ stores: [], products: [] });
 
   // Reportes
   const [reports, setReports]                 = useState([]);
@@ -208,9 +213,17 @@ export default function AdminDashboard() {
   // Cargar datos de sección cuando se activa (lazy loading)
   useEffect(() => {
     if (activeSection === 'content'  && !pubsLoaded)     loadPublications();
+    if (activeSection === 'content'  && pubFilter === 'unpublished' && !unpublishedLoaded) loadUnpublishedResources();
     if (activeSection === 'reports'  && !reportsLoaded)  loadReports();
     if (activeSection === 'config'   && !catsLoaded)     loadCategories();
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeSection !== 'content') return;
+    if (pubFilter !== 'unpublished') return;
+    if (unpublishedLoaded || unpublishedLoading) return;
+    loadUnpublishedResources();
+  }, [activeSection, pubFilter, unpublishedLoaded, unpublishedLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Stats reales ─────────────────────────────────────────────────────────
   // Contamos directamente en Supabase para tener números en tiempo real.
@@ -445,6 +458,50 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadUnpublishedResources = async () => {
+    setUnpublishedLoading(true);
+    try {
+      const [{ data: refs, error: refsError }, { data: storesData, error: storesError }, { data: productsData, error: productsError }] = await Promise.all([
+        supabase
+          .from('price_publications')
+          .select('store_id, product_id')
+          .limit(10000),
+        supabase
+          .from('stores')
+          .select('id, name, address, website_url, store_type_id, created_by, created_at')
+          .order('name', { ascending: true })
+          .limit(10000),
+        supabase
+          .from('products')
+          .select('id, name, barcode, base_quantity, created_at, brand:brands(id, name), unit:unit_types(id, name, abbreviation)')
+          .order('name', { ascending: true })
+          .limit(10000),
+      ]);
+
+      if (refsError || storesError || productsError) {
+        alert(refsError?.message || storesError?.message || productsError?.message || 'No se pudieron cargar recursos no publicados');
+        return;
+      }
+
+      const usedStoreIds = new Set((refs || []).map((r) => r.store_id).filter(Boolean));
+      const usedProductIds = new Set((refs || []).map((r) => r.product_id).filter(Boolean));
+
+      const orphanStores = (storesData || [])
+        .filter((store) => !usedStoreIds.has(store.id))
+        .map((store) => ({
+          ...store,
+          typeLabel: Number(store.store_type_id) === 1 ? 'Física' : Number(store.store_type_id) === 2 ? 'Virtual' : 'N/A',
+        }));
+      const orphanProducts = (productsData || [])
+        .filter((product) => !usedProductIds.has(product.id));
+
+      setUnpublishedResources({ stores: orphanStores, products: orphanProducts });
+    } finally {
+      setUnpublishedLoading(false);
+      setUnpublishedLoaded(true);
+    }
+  };
+
   const handleViewStore = async (publication) => {
     const storeId = publication?.storeId || publication?.store?.id || publication?.store_id;
     if (!storeId) return;
@@ -487,6 +544,10 @@ export default function AdminDashboard() {
       }
 
       setPublications((prev) => prev.filter((p) => (p.storeId || p.store?.id || p.store_id) !== storeId));
+      setUnpublishedResources((prev) => ({
+        ...prev,
+        stores: prev.stores.filter((s) => s.id !== storeId),
+      }));
       setSelectedStore((prev) => (prev?.id === storeId ? null : prev));
       setSelectedPub((prev) => ((prev?.storeId || prev?.store?.id || prev?.store_id) === storeId ? null : prev));
     } finally {
@@ -554,6 +615,38 @@ export default function AdminDashboard() {
       setSelectedBrand((prev) => (prev?.id === brandId ? null : prev));
     } finally {
       setDeletingBrandId(null);
+    }
+  };
+
+  const handleViewProduct = (product) => {
+    setSelectedProduct(product || null);
+  };
+
+  const handleDeleteProduct = async (product) => {
+    const productId = product?.productId || product?.id;
+    const productName = product?.productName || product?.name || 'este producto';
+    if (!productId) return;
+    if (!window.confirm(`¿Seguro que deseas eliminar "${productName}"?`)) return;
+
+    setDeletingProductId(productId);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+      if (error) {
+        alert(`No se pudo eliminar el producto: ${error.message}`);
+        return;
+      }
+
+      setUnpublishedResources((prev) => ({
+        ...prev,
+        products: prev.products.filter((p) => p.id !== productId),
+      }));
+      setSelectedProduct((prev) => (prev?.id === productId ? null : prev));
+    } finally {
+      setDeletingProductId(null);
     }
   };
 
@@ -861,6 +954,7 @@ export default function AdminDashboard() {
                 { key: 'all',     label: td.filterAll },
                 { key: 'visible', label: td.filterVisible },
                 { key: 'hidden',  label: td.filterHidden },
+                { key: 'unpublished', label: 'No publicadas' },
               ].map(f => (
                 <button
                   key={f.key}
@@ -872,7 +966,22 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {pubsLoading ? (
+            {pubFilter === 'unpublished' ? (
+              unpublishedLoading ? (
+                <LoadingState label="Cargando recursos no publicados..." />
+              ) : (
+                <UnpublishedResourcesTable
+                  stores={unpublishedResources.stores}
+                  products={unpublishedResources.products}
+                  onViewStore={handleViewStore}
+                  onDeleteStore={handleDeleteStore}
+                  onViewProduct={handleViewProduct}
+                  onDeleteProduct={handleDeleteProduct}
+                  deletingStoreId={deletingStoreId}
+                  deletingProductId={deletingProductId}
+                />
+              )
+            ) : pubsLoading ? (
               <LoadingState label={td.loadingPubs} />
             ) : (
               <PublicationsTable
@@ -927,6 +1036,15 @@ export default function AdminDashboard() {
                   handleDeleteBrand(selectedBrand);
                 }}
                 isDeleting={deletingBrandId === selectedBrand.id}
+              />
+            )}
+
+            {selectedProduct && (
+              <ProductDetailModal
+                product={selectedProduct}
+                onClose={() => setSelectedProduct(null)}
+                onDelete={() => handleDeleteProduct(selectedProduct)}
+                isDeleting={deletingProductId === selectedProduct.id}
               />
             )}
           </>
@@ -1776,6 +1894,130 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
           </button>
           <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ProductDetailModal({ product, onClose, onDelete, isDeleting }) {
+  const quantity = product?.base_quantity != null && product?.unit?.abbreviation
+    ? `${product.base_quantity} ${product.unit.abbreviation}`
+    : product?.base_quantity != null && product?.unit?.name
+      ? `${product.base_quantity} ${product.unit.name}`
+      : product?.base_quantity ?? '—';
+
+  return (
+    <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
+      <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>Detalle de producto</h2>
+            <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {product.id}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+        <div style={s.detailGrid}>
+          <DetailRow label="Producto" value={product?.name || '—'} />
+          <DetailRow label="Marca" value={product?.brand?.name || 'Sin marca'} />
+          <DetailRow label="Código de barras" value={product?.barcode || 'Sin código'} />
+          <DetailRow label="Cantidad base" value={quantity} />
+          <DetailRow label="Creado el" value={product?.created_at ? new Date(product.created_at).toLocaleString('es-CO') : '—'} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+          <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
+            {isDeleting ? 'Eliminando...' : 'Eliminar producto'}
+          </button>
+          <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UnpublishedResourcesTable({
+  stores,
+  products,
+  onViewStore,
+  onDeleteStore,
+  onViewProduct,
+  onDeleteProduct,
+  deletingStoreId,
+  deletingProductId,
+}) {
+  if ((!stores || stores.length === 0) && (!products || products.length === 0)) {
+    return <EmptyMsg text="No hay tiendas ni productos sin publicaciones." />;
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div style={s.table}>
+        <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr' }}>
+          {['Tiendas no publicadas', 'Tipo', 'Acciones'].map((h) => (
+            <div key={h} style={s.th}>{h}</div>
+          ))}
+        </div>
+        {(stores || []).length === 0 ? (
+          <div style={{ padding: '14px 20px', color: MUTED, fontSize: 13 }}>No hay tiendas no publicadas.</div>
+        ) : (
+          (stores || []).map((store) => (
+            <div key={store.id} style={{ ...s.tableRow, gridTemplateColumns: '2fr 1fr 1fr' }}>
+              <div style={s.td}>
+                <div>
+                  <div style={s.rowName}>{store.name || '—'}</div>
+                  <div style={{ fontSize: 12, color: MUTED }}>{store.address || 'Sin dirección'}</div>
+                </div>
+              </div>
+              <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{store.typeLabel || '—'}</div>
+              <div style={{ ...s.td, gap: 6 }}>
+                <button style={{ ...s.filterBtn, padding: '5px 10px', fontSize: 12 }} onClick={() => onViewStore(store)}>
+                  Ver detalle
+                </button>
+                <button
+                  style={s.btnDelete}
+                  onClick={() => onDeleteStore(store)}
+                  disabled={deletingStoreId === store.id}
+                >
+                  {deletingStoreId === store.id ? '...' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div style={s.table}>
+        <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr' }}>
+          {['Productos no publicados', 'Marca', 'Acciones'].map((h) => (
+            <div key={h} style={s.th}>{h}</div>
+          ))}
+        </div>
+        {(products || []).length === 0 ? (
+          <div style={{ padding: '14px 20px', color: MUTED, fontSize: 13 }}>No hay productos no publicados.</div>
+        ) : (
+          (products || []).map((product) => (
+            <div key={product.id} style={{ ...s.tableRow, gridTemplateColumns: '2fr 1fr 1fr' }}>
+              <div style={s.td}>
+                <div>
+                  <div style={s.rowName}>{product.name || '—'}</div>
+                  <div style={{ fontSize: 12, color: MUTED }}>Código: {product.barcode || 'Sin código'}</div>
+                </div>
+              </div>
+              <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{product.brand?.name || 'Sin marca'}</div>
+              <div style={{ ...s.td, gap: 6 }}>
+                <button style={{ ...s.filterBtn, padding: '5px 10px', fontSize: 12 }} onClick={() => onViewProduct(product)}>
+                  Ver detalle
+                </button>
+                <button
+                  style={s.btnDelete}
+                  onClick={() => onDeleteProduct(product)}
+                  disabled={deletingProductId === product.id}
+                >
+                  {deletingProductId === product.id ? '...' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
