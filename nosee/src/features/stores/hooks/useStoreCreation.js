@@ -26,6 +26,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(mode === 'edit' && !!storeId);
+  const [nearbyStoreMessage, setNearbyStoreMessage] = useState('');
 
   // Cargar tienda si estamos editando
   useEffect(() => {
@@ -153,6 +154,55 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
     return { success: true };
   };
 
+  useEffect(() => {
+    if (mode !== 'create') return;
+    if (formData.type !== StoreTypeEnum.PHYSICAL) {
+      setNearbyStoreMessage('');
+      return;
+    }
+
+    const lat = Number(formData.latitude);
+    const lon = Number(formData.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      setNearbyStoreMessage('');
+      return;
+    }
+
+    let cancelled = false;
+    setNearbyStoreMessage('Detectando tienda cercana...');
+
+    const timer = setTimeout(async () => {
+      const nearestResult = await storesApi.findNearestPhysicalStore(lat, lon, {
+        maxCandidates: 1500,
+        batchSize: 250,
+      });
+      if (cancelled) return;
+
+      if (!nearestResult.success) {
+        setNearbyStoreMessage('No se pudo detectar tienda cercana automáticamente.');
+        return;
+      }
+
+      const nearest = nearestResult.data;
+      if (!nearest) {
+        setNearbyStoreMessage('No encontramos tiendas físicas cercanas.');
+        return;
+      }
+
+      const distance =
+        nearest.distanceMeters < 1000
+          ? `${Math.round(nearest.distanceMeters)} m`
+          : `${(nearest.distanceMeters / 1000).toFixed(1)} km`;
+
+      setNearbyStoreMessage(`Tienda cercana detectada: ${nearest.name} (${distance})`);
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [formData.latitude, formData.longitude, formData.type, mode]);
+
   const submit = async () => {
     setSubmitError('');
     setSubmitSuccess('');
@@ -245,6 +295,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
     submitError,
     submitSuccess,
     isLoading,
+    nearbyStoreMessage,
     updateField,
     setLocation,
     addEvidenceFile,

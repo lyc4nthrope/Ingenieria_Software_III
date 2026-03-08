@@ -22,6 +22,7 @@ export default function StoreForm({ storeId = null, mode = 'create', onSuccess }
     submitError,
     submitSuccess,
     isLoading,
+    nearbyStoreMessage,
     updateField,
     setLocation,
     addEvidenceFile,
@@ -109,6 +110,7 @@ export default function StoreForm({ storeId = null, mode = 'create', onSuccess }
             onAddressChange={(value) => updateField("address", value)}
             error={errors.location}
           />
+          {nearbyStoreMessage ? <div style={styles.info}>{nearbyStoreMessage}</div> : null}
 
           <StoreEvidenceUploader
             evidenceFiles={formData.evidenceFiles}
@@ -191,6 +193,11 @@ const styles = {
     color: "var(--text-primary)",
   },
   error: { color: "var(--error)", fontSize: "12px", fontWeight: 600 },
+  info: {
+    color: "var(--text-secondary)",
+    fontSize: "12px",
+    fontWeight: 600,
+  },
   alertError: {
     border: "1px solid rgba(248,113,113,0.3)",
     background: "var(--error-soft)",
