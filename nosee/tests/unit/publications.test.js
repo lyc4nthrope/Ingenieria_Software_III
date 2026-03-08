@@ -352,7 +352,7 @@ describe("dateUtils", () => {
         formatDate,
       } = require("../../src/features/publications/utils/dateUtils.js");
 
-      const date = new Date("2024-02-26");
+      const date = new Date("2024-02-26T12:00:00.000Z");
       const result = formatDate(date);
 
       // Resultado esperado: "26 Feb 2024" (puede variar por zona horaria)

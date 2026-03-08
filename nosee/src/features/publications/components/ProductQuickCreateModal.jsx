@@ -10,9 +10,61 @@ import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
 import { playSuccessSound } from "@/utils/celebrationSound";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+const normalizeText = (value = "") =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const CATEGORY_HINT_KEYWORDS = {
+  lacteos: ["lacteo", "lacteos", "milk", "yogurt", "yoghurt", "queso", "cheese", "mantequilla", "butter"],
+  bebidas: ["bebida", "drink", "juice", "jugo", "soda", "refresco", "agua", "water", "cafe", "coffee", "te"],
+  snacks: ["snack", "papas", "chips", "galleta", "cookie", "chocolate", "candy", "dulce", "barra"],
+  panaderia: ["pan", "panaderia", "bakery", "tostada", "bizcocho", "ponque", "cake"],
+  carnes: ["carne", "beef", "pollo", "chicken", "pork", "cerdo", "atun", "tuna", "pescado", "fish"],
+  frutas: ["fruta", "fruit", "manzana", "banana", "banano", "naranja", "uva", "fresa"],
+  verduras: ["verdura", "vegetable", "tomate", "cebolla", "zanahoria", "papa", "pepino", "lechuga"],
+  granos: ["grano", "rice", "arroz", "lenteja", "frijol", "garbanzo", "avena", "cereal"],
+  aseo: ["aseo", "limpieza", "cleaning", "detergente", "jabon", "soap", "shampoo", "higiene"],
+};
+
+const findCategoryByHint = (categories = [], hint = "") => {
+  if (!hint || !categories.length) return null;
+  const normalizedHint = normalizeText(hint);
+
+  const directMatch = categories.find((category) => {
+    const normalizedCategory = normalizeText(category.name);
+    return (
+      normalizedCategory.includes(normalizedHint) ||
+      normalizedHint.includes(normalizedCategory)
+    );
+  });
+  if (directMatch) return directMatch;
+
+  for (const category of categories) {
+    const normalizedCategory = normalizeText(category.name);
+    const categoryKeywords = Object.entries(CATEGORY_HINT_KEYWORDS).find(([key]) =>
+      normalizedCategory.includes(key),
+    )?.[1];
+
+    if (!categoryKeywords?.length) continue;
+    const hasKeyword = categoryKeywords.some((keyword) =>
+      normalizedHint.includes(normalizeText(keyword)),
+    );
+    if (hasKeyword) return category;
+  }
+
+  return null;
+};
+
 export default function ProductQuickCreateModal({
   initialName = "",
   initialBarcode = "",
+  initialBrandName = "",
+  initialCategoryHint = "",
+  initialBaseQuantity = "",
+  initialUnitAbbreviation = "",
   onSuccess,
   onClose,
 }) {
@@ -20,9 +72,9 @@ export default function ProductQuickCreateModal({
   const [name, setName] = useState(() => initialName);
   const [categoryId, setCategoryId] = useState("");
   const [unitTypeId, setUnitTypeId] = useState("");
-  const [baseQuantity, setBaseQuantity] = useState("");
+  const [baseQuantity, setBaseQuantity] = useState(() => String(initialBaseQuantity || ""));
   const [barcode, setBarcode] = useState(() => String(initialBarcode || ""));
-  const [brandName, setBrandName] = useState("");
+  const [brandName, setBrandName] = useState(() => String(initialBrandName || ""));
   const [brandId, setBrandId] = useState("");
   const [celebrationMsg, setCelebrationMsg] = useState(null);
   const pendingSuccessRef = useRef(null);
@@ -63,6 +115,24 @@ export default function ProductQuickCreateModal({
 
     loadCatalogs();
   }, []);
+
+  const suggestedCategoryId = useMemo(() => {
+    if (!initialCategoryHint || !categories.length) return "";
+    const suggestedCategory = findCategoryByHint(categories, initialCategoryHint);
+    return suggestedCategory ? String(suggestedCategory.id) : "";
+  }, [categories, initialCategoryHint]);
+
+  const suggestedUnitTypeId = useMemo(() => {
+    if (!initialUnitAbbreviation || !unitTypes.length) return "";
+    const normalizedHintUnit = String(initialUnitAbbreviation).toLowerCase().trim();
+    const suggestedUnit = unitTypes.find(
+      (unit) => String(unit.abbreviation || "").toLowerCase().trim() === normalizedHintUnit,
+    );
+    return suggestedUnit ? String(suggestedUnit.id) : "";
+  }, [unitTypes, initialUnitAbbreviation]);
+
+  const effectiveCategoryId = categoryId || suggestedCategoryId;
+  const effectiveUnitTypeId = unitTypeId || suggestedUnitTypeId;
 
   useEffect(() => {
     const handler = (e) => {
@@ -157,8 +227,8 @@ export default function ProductQuickCreateModal({
     setIsSubmitting(true);
     const result = await createProduct({
       name,
-      categoryId,
-      unitTypeId,
+      categoryId: effectiveCategoryId,
+      unitTypeId: effectiveUnitTypeId,
       baseQuantity,
       barcode,
       brandId,
@@ -215,6 +285,11 @@ export default function ProductQuickCreateModal({
               placeholder="Ej: Leche Entera"
               required
             />
+            {(initialBrandName || initialCategoryHint || initialBaseQuantity || initialUnitAbbreviation) && (
+              <div style={s.hint}>
+                Sugerencias cargadas desde código de barras. Puedes editarlas antes de guardar.
+              </div>
+            )}
 
             <label htmlFor="pqc-barcode" style={s.label}>Código de barras (opcional)</label>
             <input
@@ -232,7 +307,7 @@ export default function ProductQuickCreateModal({
             <select
               id="pqc-category"
               style={s.input}
-              value={categoryId}
+              value={effectiveCategoryId}
               onChange={(e) => setCategoryId(e.target.value)}
               required
             >
@@ -301,7 +376,7 @@ export default function ProductQuickCreateModal({
                 <select
                   id="pqc-unit"
                   style={s.input}
-                  value={unitTypeId}
+                  value={effectiveUnitTypeId}
                   onChange={(e) => setUnitTypeId(e.target.value)}
                   required
                 >

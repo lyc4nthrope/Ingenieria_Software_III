@@ -28,6 +28,7 @@ import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
 
 const ENABLE_AUTO_STORE = String(import.meta.env.VITE_ENABLE_AUTO_STORE ?? "true").toLowerCase() !== "false";
 const ENABLE_BARCODE_SCAN = String(import.meta.env.VITE_ENABLE_BARCODE_SCAN ?? "true").toLowerCase() !== "false";
+const AUTO_STORE_CANDIDATES_LIMIT = 120;
 
 const toRadians = (value) => (Number(value) * Math.PI) / 180;
 
@@ -49,8 +50,66 @@ const formatDistance = (distanceMeters) => {
   return `${(distanceMeters / 1000).toFixed(1)} km`;
 };
 
-const fetchProductNameFromBarcode = async (barcode) => {
-  if (!barcode) return "";
+const normalizeUnitAbbreviation = (value = "") => {
+  const normalized = String(value || "")
+    .toLowerCase()
+    .replace(/\./g, "")
+    .trim();
+
+  const aliases = {
+    gramos: "g",
+    gramo: "g",
+    gr: "g",
+    g: "g",
+    kilogramo: "kg",
+    kilogramos: "kg",
+    kg: "kg",
+    mililitros: "ml",
+    mililitro: "ml",
+    ml: "ml",
+    litros: "l",
+    litro: "l",
+    lt: "l",
+    l: "l",
+    unidad: "u",
+    unidades: "u",
+    und: "u",
+    un: "u",
+    u: "u",
+  };
+
+  return aliases[normalized] || normalized;
+};
+
+const parseQuantityHint = (value = "") => {
+  const raw = String(value || "")
+    .toLowerCase()
+    .replace(",", ".");
+
+  const match = raw.match(/(\d+(?:\.\d+)?)\s*(kg|g|gr|gramos?|l|lt|litros?|ml|unidad(?:es)?|und|un|u)\b/i);
+  if (!match) return { baseQuantity: "", unitAbbreviation: "" };
+
+  const quantity = Number(match[1]);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return { baseQuantity: "", unitAbbreviation: "" };
+  }
+
+  return {
+    baseQuantity: String(quantity),
+    unitAbbreviation: normalizeUnitAbbreviation(match[2]),
+  };
+};
+
+const fetchProductPrefillFromBarcode = async (barcode) => {
+  if (!barcode) {
+    return {
+      productName: "",
+      brandName: "",
+      categoryHint: "",
+      baseQuantity: "",
+      unitAbbreviation: "",
+    };
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -61,19 +120,45 @@ const fetchProductNameFromBarcode = async (barcode) => {
       { signal: controller.signal },
     );
 
-    if (!response.ok) return "";
+    if (!response.ok) {
+      return {
+        productName: "",
+        brandName: "",
+        categoryHint: "",
+        baseQuantity: "",
+        unitAbbreviation: "",
+      };
+    }
     const payload = await response.json();
     const product = payload?.product || {};
 
-    return (
+    const productName = (
       product.product_name_es ||
       product.product_name ||
       product.generic_name_es ||
       product.generic_name ||
       ""
     ).trim();
+
+    const brandName = String(product.brands || "").split(",")[0]?.trim() || "";
+    const categoryHint = String(product.categories || "").split(",")[0]?.trim() || "";
+    const quantityHint = parseQuantityHint(product.quantity);
+
+    return {
+      productName,
+      brandName,
+      categoryHint,
+      baseQuantity: quantityHint.baseQuantity,
+      unitAbbreviation: quantityHint.unitAbbreviation,
+    };
   } catch {
-    return "";
+    return {
+      productName: "",
+      brandName: "",
+      categoryHint: "",
+      baseQuantity: "",
+      unitAbbreviation: "",
+    };
   } finally {
     clearTimeout(timeoutId);
   }
@@ -110,6 +195,12 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   const [showProductModal, setShowProductModal] = useState(false);
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
   const [scannedBarcode, setScannedBarcode] = useState("");
+  const [barcodePrefill, setBarcodePrefill] = useState({
+    brandName: "",
+    categoryHint: "",
+    baseQuantity: "",
+    unitAbbreviation: "",
+  });
   const productTimerRef = useRef(null);
   const productRequestIdRef = useRef(0);
   const productWrapperRef = useRef(null);
@@ -255,7 +346,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     let isCancelled = false;
 
     (async () => {
-      const storesResult = await storesApi.listStores("", 250);
+      const storesResult = await storesApi.listStores("", AUTO_STORE_CANDIDATES_LIMIT);
       if (isCancelled) return;
 
       if (!storesResult.success) {
@@ -263,23 +354,22 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
         return;
       }
 
-      const nearest = (storesResult.data || [])
-        .filter(
-          (store) =>
-            store.type === "physical" &&
-            Number.isFinite(Number(store.latitude)) &&
-            Number.isFinite(Number(store.longitude)),
-        )
-        .map((store) => ({
-          ...store,
-          distanceMeters: getDistanceMeters(
-            userLat,
-            userLon,
-            Number(store.latitude),
-            Number(store.longitude),
-          ),
-        }))
-        .sort((left, right) => left.distanceMeters - right.distanceMeters)[0];
+      let nearest = null;
+      for (const store of storesResult.data || []) {
+        if (store.type !== "physical") continue;
+        if (!Number.isFinite(Number(store.latitude)) || !Number.isFinite(Number(store.longitude))) continue;
+
+        const distanceMeters = getDistanceMeters(
+          userLat,
+          userLon,
+          Number(store.latitude),
+          Number(store.longitude),
+        );
+
+        if (!nearest || distanceMeters < nearest.distanceMeters) {
+          nearest = { ...store, distanceMeters };
+        }
+      }
 
       if (!nearest) {
         setAutoStoreMessage("No encontramos tiendas físicas cercanas. Puedes escoger una manualmente.");
@@ -321,6 +411,12 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     updateField("productId", String(product.id));
     setProductQuery(product.name);
     setScannedBarcode("");
+    setBarcodePrefill({
+      brandName: "",
+      categoryHint: "",
+      baseQuantity: "",
+      unitAbbreviation: "",
+    });
     setShowProductDropdown(false);
   };
 
@@ -339,12 +435,6 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     (p) => p.name.toLowerCase() === productQuery.trim().toLowerCase(),
   );
 
-  // Opciones totales del dropdown de producto (resultados + opción crear si aplica)
-  const productOptions = [
-    ...productResults,
-    ...(!productResults.length && productQuery.trim().length >= 2 ? [] :
-      (!hasExactProductMatch && productQuery.trim().length >= 2 ? [{ __isCreate: true }] : [])),
-  ];
   // Si hay resultados y no hay coincidencia exacta, se añade opción crear al final
   const productDropdownItems = [
     ...productResults,
@@ -424,14 +514,20 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
       return;
     }
 
-    const productName = await fetchProductNameFromBarcode(normalizedBarcode);
+    const prefillData = await fetchProductPrefillFromBarcode(normalizedBarcode);
+    setBarcodePrefill({
+      brandName: prefillData.brandName || "",
+      categoryHint: prefillData.categoryHint || "",
+      baseQuantity: prefillData.baseQuantity || "",
+      unitAbbreviation: prefillData.unitAbbreviation || "",
+    });
 
-    if (productName) {
-      setProductQuery(productName);
+    if (prefillData.productName) {
+      setProductQuery(prefillData.productName);
       updateField("productId", "");
       setShowProductDropdown(true);
-      await performProductSearch(productName);
-      setBarcodeStatus(`Código ${normalizedBarcode} detectado. Sugerencia: ${productName}`);
+      await performProductSearch(prefillData.productName);
+      setBarcodeStatus(`Código ${normalizedBarcode} detectado. Sugerencia: ${prefillData.productName}`);
       return;
     }
 
@@ -444,12 +540,6 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     (s) => s.name.toLowerCase() === storeQuery.trim().toLowerCase(),
   );
 
-  const storeDropdownItems = [
-    ...storeResults,
-    ...(!hasExactStoreMatch && productQuery.trim().length >= 2 ? [] :
-      (!hasExactStoreMatch && storeQuery.trim().length >= 2 ? [{ __isCreate: true }] : [])),
-  ];
-  // Simplificado:
   const storeDropdownItemsFinal = [
     ...storeResults,
     ...(!hasExactStoreMatch && storeQuery.trim().length >= 2 ? [{ __isCreate: true }] : []),
@@ -856,6 +946,10 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
         <ProductQuickCreateModal
           initialName={productQuery.trim()}
           initialBarcode={scannedBarcode}
+          initialBrandName={barcodePrefill.brandName}
+          initialCategoryHint={barcodePrefill.categoryHint}
+          initialBaseQuantity={barcodePrefill.baseQuantity}
+          initialUnitAbbreviation={barcodePrefill.unitAbbreviation}
           onSuccess={handleProductCreated}
           onClose={() => setShowProductModal(false)}
         />

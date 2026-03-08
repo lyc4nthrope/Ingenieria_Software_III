@@ -159,7 +159,7 @@ export const checkMatchingAlerts = async () => {
     }
 
     return { success: true, data: matches };
-  } catch (err) {
+  } catch (_err) {
     return { success: false, data: [] };
   }
 };

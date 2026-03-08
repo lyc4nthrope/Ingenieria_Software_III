@@ -2263,6 +2263,7 @@ export const _calculateDistance = calculateDistance;
  * @param {string} name - Nombre del producto
  */
 export async function createProduct(name) {
+  const isLegacyNameOnlyMode = typeof name === "string";
   const normalizedName = String(name?.name || name || "").trim();
   const categoryId = Number(name?.categoryId);
   const unitTypeId = Number(name?.unitTypeId);
@@ -2275,6 +2276,29 @@ export async function createProduct(name) {
     return {
       success: false,
       error: "El nombre del producto debe tener al menos 2 caracteres",
+    };
+  }
+
+  // Compatibilidad legacy: cuando llega solo el nombre, intenta reutilizar un producto existente.
+  if (isLegacyNameOnlyMode) {
+    const { data: existingByName, error: existingByNameError } = await supabase
+      .from("products")
+      .select("id, name, category_id")
+      .ilike("name", normalizedName)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingByNameError) {
+      return { success: false, error: existingByNameError.message };
+    }
+
+    if (existingByName) {
+      return { success: true, data: existingByName };
+    }
+
+    return {
+      success: false,
+      error: "Debes indicar categoría, unidad de medida y cantidad base válida",
     };
   }
 
@@ -2316,9 +2340,13 @@ export async function createProduct(name) {
     }
   }
 
+  const existingProductsSelect = supportsBarcode
+    ? "id, name, category_id, brand_id, unit_type_id, base_quantity, barcode"
+    : "id, name, category_id, brand_id, unit_type_id, base_quantity";
+
   const { data: existingProducts, error: existingError } = await supabase
     .from("products")
-    .select("id, name, category_id, brand_id, unit_type_id, base_quantity, barcode")
+    .select(existingProductsSelect)
     .ilike("name", normalizedName);
 
   if (existingError) {

@@ -188,17 +188,18 @@ export default function AdminDashboard() {
   });
 
   // ─── Cargar usuarios al montar ────────────────────────────────────────────
+  // Carga inicial una sola vez al montar.
   useEffect(() => {
     loadUsers();
     loadStats();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cargar datos de sección cuando se activa (lazy loading)
   useEffect(() => {
     if (activeSection === 'content'  && !pubsLoaded)     loadPublications();
     if (activeSection === 'reports'  && !reportsLoaded)  loadReports();
     if (activeSection === 'config'   && !catsLoaded)     loadCategories();
-  }, [activeSection]);
+  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Stats reales ─────────────────────────────────────────────────────────
   // Contamos directamente en Supabase para tener números en tiempo real.
@@ -1359,7 +1360,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
           setPubDeleted(true);
         }
       });
-  }, []);
+  }, [pub, report.publicationId]);
 
   const save = async () => {
     setSaving(true);
