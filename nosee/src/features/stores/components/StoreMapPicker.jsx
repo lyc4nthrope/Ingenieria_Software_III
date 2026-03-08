@@ -132,6 +132,7 @@ export default function StoreMapPicker({
   const [loadingAddress, setLoadingAddress] = useState(false);
   const [leafletError, setLeafletError] = useState("");
   const hasInitializedWithGeo = useRef(false);
+  const lastExternalSyncRef = useRef("");
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
@@ -301,6 +302,26 @@ export default function StoreMapPicker({
     });
     setMarkerPosition(nextLat, nextLon);
   }, [hasLocation, hasCoords, geoLatitude, geoLongitude, setMarkerPosition]);
+
+  // Sincronizar el marcador/mapa cuando coordenadas externas cambian
+  // (por ejemplo, por autocompletado de tienda cercana).
+  useEffect(() => {
+    if (!mapInstanceRef.current || !markerRef.current) return;
+    if (!hasCoords) return;
+
+    const nextLat = Number(latitude);
+    const nextLon = Number(longitude);
+    if (!Number.isFinite(nextLat) || !Number.isFinite(nextLon)) return;
+    const signature = `${nextLat.toFixed(6)}:${nextLon.toFixed(6)}`;
+    if (lastExternalSyncRef.current === signature) return;
+    lastExternalSyncRef.current = signature;
+
+    markerRef.current.setLatLng([nextLat, nextLon]);
+    mapInstanceRef.current.setView([nextLat, nextLon], mapInstanceRef.current.getZoom(), {
+      animate: false,
+    });
+    setStatus(tMapRef.current.statusAutoFilled || "Ubicación autocompletada.");
+  }, [hasCoords, latitude, longitude]);
 
   // ─── Handlers de la UI ───────────────────────────────────────────────────────
 
