@@ -583,6 +583,94 @@ export async function listStores(name = "", limit = 50) {
 }
 
 /**
+ * Busca la tienda física más cercana al usuario recorriendo tiendas por lotes.
+ * Evita el sesgo por orden alfabético + límite bajo en autodetección.
+ *
+ * @param {number} latitude
+ * @param {number} longitude
+ * @param {Object=} options
+ * @param {number=} options.maxCandidates
+ * @param {number=} options.batchSize
+ */
+export async function findNearestPhysicalStore(
+  latitude,
+  longitude,
+  { maxCandidates = 1500, batchSize = 250 } = {},
+) {
+  const userLat = Number(latitude);
+  const userLon = Number(longitude);
+  if (!Number.isFinite(userLat) || !Number.isFinite(userLon)) {
+    return { success: false, error: "Coordenadas inválidas para detectar tienda cercana" };
+  }
+
+  const safeMaxCandidates = Math.max(100, Math.min(Number(maxCandidates) || 1500, 5000));
+  const safeBatchSize = Math.max(50, Math.min(Number(batchSize) || 250, 500));
+
+  let nearest = null;
+  let scanned = 0;
+  let offset = 0;
+
+  try {
+    while (scanned < safeMaxCandidates) {
+      const remaining = safeMaxCandidates - scanned;
+      const currentBatch = Math.min(safeBatchSize, remaining);
+      const from = offset;
+      const to = offset + currentBatch - 1;
+
+      const { data, error } = await withTimeout(
+        supabase
+          .from("stores")
+          .select("id, name, store_type_id, address, website_url, location")
+          .eq("store_type_id", STORE_TYPE_ID.physical)
+          .not("location", "is", null)
+          .order("id", { ascending: true })
+          .range(from, to),
+        REQUEST_TIMEOUT_MS,
+        "La detección automática de tienda tardó demasiado",
+      );
+
+      if (error) return { success: false, error: error.message };
+
+      const batch = data || [];
+      if (batch.length === 0) break;
+
+      for (const store of batch) {
+        const point = parsePointText(store.location);
+        if (!point) continue;
+
+        const distanceMeters = getDistanceMeters(
+          userLat,
+          userLon,
+          point.latitude,
+          point.longitude,
+        );
+
+        if (!nearest || distanceMeters < nearest.distanceMeters) {
+          nearest = {
+            ...store,
+            type: getUiTypeByStoreTypeId(store.store_type_id),
+            latitude: point.latitude,
+            longitude: point.longitude,
+            distanceMeters,
+          };
+        }
+      }
+
+      scanned += batch.length;
+      offset += batch.length;
+      if (batch.length < currentBatch) break;
+    }
+
+    return { success: true, data: nearest, meta: { scanned } };
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message || "Error detectando tienda cercana",
+    };
+  }
+}
+
+/**
  * Obtiene publicaciones recientes de una tienda específica.
  *
  * @param {string|number} storeId
@@ -634,6 +722,7 @@ export default {
   uploadStoreEvidence,
   searchNearbyStores,
   listStores,
+  findNearestPhysicalStore,
   getStore,
   updateStore,
   getStorePublications,

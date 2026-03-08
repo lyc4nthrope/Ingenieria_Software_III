@@ -28,7 +28,7 @@ import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
 
 const ENABLE_AUTO_STORE = String(import.meta.env.VITE_ENABLE_AUTO_STORE ?? "true").toLowerCase() !== "false";
 const ENABLE_BARCODE_SCAN = String(import.meta.env.VITE_ENABLE_BARCODE_SCAN ?? "true").toLowerCase() !== "false";
-const AUTO_STORE_CANDIDATES_LIMIT = 120;
+const AUTO_STORE_CANDIDATES_LIMIT = 1500;
 
 const toRadians = (value) => (Number(value) * Math.PI) / 180;
 
@@ -346,31 +346,53 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     let isCancelled = false;
 
     (async () => {
-      const storesResult = await storesApi.listStores("", AUTO_STORE_CANDIDATES_LIMIT);
+      const storesResult = await storesApi.findNearestPhysicalStore(
+        userLat,
+        userLon,
+        { maxCandidates: AUTO_STORE_CANDIDATES_LIMIT, batchSize: 250 },
+      );
       if (isCancelled) return;
 
       if (!storesResult.success) {
-        setAutoStoreMessage("No se pudo detectar tienda automática. Puedes seleccionarla manualmente.");
+        const fallbackResult = await storesApi.listStores("", 300);
+        if (isCancelled) return;
+
+        if (!fallbackResult.success) {
+          setAutoStoreMessage("No se pudo detectar tienda automática. Puedes seleccionarla manualmente.");
+          return;
+        }
+
+        let fallbackNearest = null;
+        for (const store of fallbackResult.data || []) {
+          if (store.type !== "physical") continue;
+          if (!Number.isFinite(Number(store.latitude)) || !Number.isFinite(Number(store.longitude))) continue;
+
+          const distanceMeters = getDistanceMeters(
+            userLat,
+            userLon,
+            Number(store.latitude),
+            Number(store.longitude),
+          );
+
+          if (!fallbackNearest || distanceMeters < fallbackNearest.distanceMeters) {
+            fallbackNearest = { ...store, distanceMeters };
+          }
+        }
+
+        if (!fallbackNearest) {
+          setAutoStoreMessage("No encontramos tiendas físicas cercanas. Puedes escoger una manualmente.");
+          return;
+        }
+
+        updateField("storeId", fallbackNearest.id);
+        setStoreQuery(fallbackNearest.name);
+        setAutoStoreMessage(
+          `Tienda detectada automáticamente: ${fallbackNearest.name}${fallbackNearest.distanceMeters != null ? ` (${formatDistance(fallbackNearest.distanceMeters)})` : ""}`,
+        );
         return;
       }
 
-      let nearest = null;
-      for (const store of storesResult.data || []) {
-        if (store.type !== "physical") continue;
-        if (!Number.isFinite(Number(store.latitude)) || !Number.isFinite(Number(store.longitude))) continue;
-
-        const distanceMeters = getDistanceMeters(
-          userLat,
-          userLon,
-          Number(store.latitude),
-          Number(store.longitude),
-        );
-
-        if (!nearest || distanceMeters < nearest.distanceMeters) {
-          nearest = { ...store, distanceMeters };
-        }
-      }
-
+      const nearest = storesResult.data;
       if (!nearest) {
         setAutoStoreMessage("No encontramos tiendas físicas cercanas. Puedes escoger una manualmente.");
         return;
@@ -379,7 +401,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
       updateField("storeId", nearest.id);
       setStoreQuery(nearest.name);
       setAutoStoreMessage(
-        `Tienda detectada automáticamente: ${nearest.name}${nearest.distanceMeters != null ? ` (${formatDistance(nearest.distanceMeters)})` : ""}`,
+        `Tienda detectada automáticamente: ${nearest.name}${nearest.distanceMeters != null ? ` (${formatDistance(nearest.distanceMeters)})` : ""}${storesResult.meta?.scanned ? ` · revisadas ${storesResult.meta.scanned}` : ""}`,
       );
     })();
 
