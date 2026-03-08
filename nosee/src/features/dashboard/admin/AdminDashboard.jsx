@@ -119,9 +119,15 @@ const formatPublicationSummary = (publication) => {
 
 const normalizePublicationForAdmin = (publication) => ({
   ...publication,
+  authorName: publication?.user?.full_name || null,
   userName: publication?.user?.full_name || null,
+  userId: publication?.user?.id || publication?.user_id || null,
   productName: publication?.product?.name || null,
+  productId: publication?.product?.id || publication?.product_id || null,
+  brandId: publication?.product?.brand?.id || null,
+  brandName: publication?.product?.brand?.name || null,
   storeName: publication?.store?.name || null,
+  storeId: publication?.store?.id || publication?.store_id || null,
   createdAt: publication?.created_at || null,
   photoUrl: publication?.photo_url || null,
   confidenceScore: publication?.confidence_score ?? null,
@@ -154,6 +160,10 @@ export default function AdminDashboard() {
   const [pubFilter, setPubFilter]             = useState('all');
   const [deletingPub, setDeletingPub]         = useState(null);
   const [selectedPub, setSelectedPub]         = useState(null); // pub abierta en modal
+  const [deletingStoreId, setDeletingStoreId] = useState(null);
+  const [deletingBrandId, setDeletingBrandId] = useState(null);
+  const [selectedStore, setSelectedStore]     = useState(null);
+  const [selectedBrand, setSelectedBrand]     = useState(null);
 
   // Reportes
   const [reports, setReports]                 = useState([]);
@@ -334,7 +344,7 @@ export default function AdminDashboard() {
           id, price, photo_url, description, confidence_score, is_active, created_at,
           user_id, store_id, product_id,
           user:users!price_publications_user_id_fkey (id, full_name, reputation_points),
-          product:products (id, name, base_quantity, unit_type:unit_types (id, name, abbreviation)),
+          product:products (id, name, base_quantity, brand:brands(id, name), unit_type:unit_types (id, name, abbreviation)),
           store:stores!price_publications_store_id_fkey (id, name, address)
         `)
         .order('created_at', { ascending: false })
@@ -431,6 +441,116 @@ export default function AdminDashboard() {
     } catch {
       alert(td.errorEditPubGeneric);
       return false;
+    }
+  };
+
+  const handleViewStore = async (publication) => {
+    const storeId = publication?.storeId || publication?.store?.id || publication?.store_id;
+    if (!storeId) return;
+
+    const { data, error } = await supabase
+      .from('stores')
+      .select('id, name, address, website_url, store_type_id, created_by, created_at')
+      .eq('id', storeId)
+      .maybeSingle();
+
+    if (error || !data) {
+      alert(error?.message || 'No se pudo cargar el detalle de la tienda');
+      return;
+    }
+
+    const relatedCount = publications.filter((p) => (p.storeId || p.store?.id || p.store_id) === storeId).length;
+    setSelectedStore({
+      ...data,
+      typeLabel: Number(data.store_type_id) === 1 ? 'Física' : Number(data.store_type_id) === 2 ? 'Virtual' : 'N/A',
+      relatedCount,
+    });
+  };
+
+  const handleDeleteStore = async (publication) => {
+    const storeId = publication?.storeId || publication?.store?.id || publication?.store_id || publication?.id;
+    const storeName = publication?.storeName || publication?.store?.name || publication?.name || 'esta tienda';
+    if (!storeId) return;
+    if (!window.confirm(`¿Seguro que deseas eliminar "${storeName}"?`)) return;
+
+    setDeletingStoreId(storeId);
+    try {
+      const { error } = await supabase
+        .from('stores')
+        .delete()
+        .eq('id', storeId);
+
+      if (error) {
+        alert(`No se pudo eliminar la tienda: ${error.message}`);
+        return;
+      }
+
+      setPublications((prev) => prev.filter((p) => (p.storeId || p.store?.id || p.store_id) !== storeId));
+      setSelectedStore((prev) => (prev?.id === storeId ? null : prev));
+      setSelectedPub((prev) => ((prev?.storeId || prev?.store?.id || prev?.store_id) === storeId ? null : prev));
+    } finally {
+      setDeletingStoreId(null);
+    }
+  };
+
+  const handleViewBrand = async (publication) => {
+    const brandId = publication?.brandId || publication?.product?.brand?.id;
+    if (!brandId) {
+      alert('Este producto no tiene marca asociada');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('brands')
+      .select('id, name, created_at')
+      .eq('id', brandId)
+      .maybeSingle();
+
+    if (error || !data) {
+      alert(error?.message || 'No se pudo cargar el detalle de la marca');
+      return;
+    }
+
+    const { count: productsCount } = await supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('brand_id', brandId);
+
+    setSelectedBrand({
+      ...data,
+      productsCount: productsCount ?? 0,
+    });
+  };
+
+  const handleDeleteBrand = async (publication) => {
+    const brandId = publication?.brandId || publication?.product?.brand?.id || publication?.id;
+    const brandName = publication?.brandName || publication?.product?.brand?.name || publication?.name || 'esta marca';
+    if (!brandId) {
+      alert('Este producto no tiene marca asociada');
+      return;
+    }
+    if (!window.confirm(`¿Seguro que deseas eliminar la marca "${brandName}"?`)) return;
+
+    setDeletingBrandId(brandId);
+    try {
+      const { error } = await supabase
+        .from('brands')
+        .delete()
+        .eq('id', brandId);
+
+      if (error) {
+        alert(`No se pudo eliminar la marca: ${error.message}`);
+        return;
+      }
+
+      setPublications((prev) => prev.map((p) => (
+        (p.brandId || p.product?.brand?.id) === brandId
+          ? { ...p, brandId: null, brandName: null, product: { ...p.product, brand: null } }
+          : p
+      )));
+      setSelectedBrand((prev) => (prev?.id === brandId ? null : prev));
+    } finally {
+      setDeletingBrandId(null);
     }
   };
 
@@ -760,7 +880,13 @@ export default function AdminDashboard() {
                 })}
                 onDelete={handleDeletePublication}
                 onView={(p) => setSelectedPub(p)}
+                onViewStore={handleViewStore}
+                onDeleteStore={handleDeleteStore}
+                onViewBrand={handleViewBrand}
+                onDeleteBrand={handleDeleteBrand}
                 deletingId={deletingPub}
+                deletingStoreId={deletingStoreId}
+                deletingBrandId={deletingBrandId}
               />
             )}
 
@@ -776,6 +902,28 @@ export default function AdminDashboard() {
                   handleDeletePublication(selectedPub);
                   setSelectedPub(null);
                 }}
+              />
+            )}
+
+            {selectedStore && (
+              <StoreDetailModal
+                store={selectedStore}
+                onClose={() => setSelectedStore(null)}
+                onDelete={() => {
+                  handleDeleteStore(selectedStore);
+                }}
+                isDeleting={deletingStoreId === selectedStore.id}
+              />
+            )}
+
+            {selectedBrand && (
+              <BrandDetailModal
+                brand={selectedBrand}
+                onClose={() => setSelectedBrand(null)}
+                onDelete={() => {
+                  handleDeleteBrand(selectedBrand);
+                }}
+                isDeleting={deletingBrandId === selectedBrand.id}
               />
             )}
           </>
@@ -1050,7 +1198,18 @@ function UsersTable({ users, onRoleChange, onBanToggle, changingRole }) {
 }
 
 // ─── PublicationsTable ────────────────────────────────────────────────────────
-function PublicationsTable({ publications, onDelete, onView, deletingId }) {
+function PublicationsTable({
+  publications,
+  onDelete,
+  onView,
+  onViewStore,
+  onDeleteStore,
+  onViewBrand,
+  onDeleteBrand,
+  deletingId,
+  deletingStoreId,
+  deletingBrandId,
+}) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
   if (publications.length === 0) {
@@ -1068,14 +1227,49 @@ function PublicationsTable({ publications, onDelete, onView, deletingId }) {
           <div style={s.td}>
             <div>
               <div style={s.rowName}>{p.productName || p.product?.name || '—'}</div>
+              <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>{p.brandName || p.product?.brand?.name || 'Sin marca'}</div>
               <StatusBadge status={p.is_active ? 'active' : 'hidden'} />
+              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                <button
+                  style={{ ...s.filterBtn, padding: '4px 8px', fontSize: 11 }}
+                  onClick={() => onViewBrand(p)}
+                >
+                  Ver detalle
+                </button>
+                <button
+                  style={{ ...s.btnDelete, padding: '4px 8px', fontSize: 11 }}
+                  onClick={() => onDeleteBrand(p)}
+                  disabled={deletingBrandId === (p.brandId || p.product?.brand?.id)}
+                >
+                  {deletingBrandId === (p.brandId || p.product?.brand?.id) ? '...' : 'Eliminar'}
+                </button>
+              </div>
             </div>
           </div>
-           <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.authorName || p.userName || p.user?.full_name || '—'}</div>
+          <div style={s.td}>
+            <div>
+              <div style={s.rowName}>{p.storeName || p.store?.name || '—'}</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                <button
+                  style={{ ...s.filterBtn, padding: '4px 8px', fontSize: 11 }}
+                  onClick={() => onViewStore(p)}
+                >
+                  Ver detalle
+                </button>
+                <button
+                  style={{ ...s.btnDelete, padding: '4px 8px', fontSize: 11 }}
+                  onClick={() => onDeleteStore(p)}
+                  disabled={deletingStoreId === (p.storeId || p.store?.id || p.store_id)}
+                >
+                  {deletingStoreId === (p.storeId || p.store?.id || p.store_id) ? '...' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          </div>
           <div style={{ ...s.td, ...s.tdNum }}>
             ${typeof p.price === 'number' ? p.price.toLocaleString('es-CO') : p.price || '—'}
           </div>
-          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.storeName || p.store?.name || '—'}</div>
+          <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{p.authorName || p.userName || p.user?.full_name || '—'}</div>
           <div style={{ ...s.td, fontSize: 12, color: MUTED }}>
             {p.createdAt ? new Date(p.createdAt).toLocaleDateString('es-CO') : '—'}
           </div>
@@ -1510,6 +1704,63 @@ function ReportDetailsModal({ report, onClose, onSave }) {
           <button onClick={save} style={{ ...s.filterBtn, ...s.filterBtnActive }} disabled={saving}>
             {saving ? '...' : td.saveReportBtn}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StoreDetailModal({ store, onClose, onDelete, isDeleting }) {
+  return (
+    <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
+      <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>Detalle de tienda</h2>
+            <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {store.id}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+        <div style={s.detailGrid}>
+          <DetailRow label="Nombre" value={store.name || '—'} />
+          <DetailRow label="Tipo" value={store.typeLabel || '—'} />
+          <DetailRow label="Dirección" value={store.address || '—'} />
+          <DetailRow label="Web" value={store.website_url || '—'} />
+          <DetailRow label="Creada el" value={store.created_at ? new Date(store.created_at).toLocaleString('es-CO') : '—'} />
+          <DetailRow label="Publicaciones (vista actual)" value={store.relatedCount ?? 0} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+          <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
+            {isDeleting ? 'Eliminando...' : 'Eliminar tienda'}
+          </button>
+          <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
+  return (
+    <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
+      <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>Detalle de marca</h2>
+            <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {brand.id}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+        <div style={s.detailGrid}>
+          <DetailRow label="Nombre" value={brand.name || '—'} />
+          <DetailRow label="Productos asociados" value={brand.productsCount ?? 0} />
+          <DetailRow label="Creada el" value={brand.created_at ? new Date(brand.created_at).toLocaleString('es-CO') : '—'} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+          <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
+            {isDeleting ? 'Eliminando...' : 'Eliminar marca'}
+          </button>
+          <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
         </div>
       </div>
     </div>
