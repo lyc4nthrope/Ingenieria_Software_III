@@ -1307,6 +1307,7 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
   const [saved, setSaved]   = useState(false);
 
   const productName = pub.productName || pub.product?.name || '—';
+  const brandName   = pub.brandName   || pub.product?.brand?.name || 'Sin marca';
   const storeName   = pub.storeName   || pub.store?.name   || '—';
   const authorName  = pub.authorName  || pub.userName || pub.user?.full_name || '—';
   const createdAt   = pub.createdAt   ? new Date(pub.createdAt).toLocaleString('es-CO') : '—';
@@ -1344,6 +1345,7 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
           </div>
           <div style={s.detailGrid}>
             <DetailRow label={td.pubProductLabel} value={productName} />
+            <DetailRow label="Marca" value={brandName} />
             <DetailRow label={td.pubStoreLabel}   value={storeName} />
             <DetailRow label={td.pubPriceLabel}   value={`$${typeof pub.price === 'number' ? pub.price.toLocaleString('es-CO') : pub.price || '—'}`} />
             <DetailRow label={td.pubAuthorLabel}  value={authorName} />
