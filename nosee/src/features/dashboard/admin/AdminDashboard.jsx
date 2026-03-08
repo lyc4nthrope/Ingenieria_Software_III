@@ -1230,7 +1230,9 @@ function PublicationsTable({
           <div style={s.td}>
             <div>
               <div style={s.rowName}>{p.productName || p.product?.name || '—'}</div>
-              <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>{p.brandName || p.product?.brand?.name || 'Sin marca'}</div>
+              <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
+                Marca: {p.brandName || p.product?.brand?.name || 'Sin marca'}
+              </div>
               <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
                 Código: {p.productBarcode || p.product?.barcode || 'Sin código'}
               </div>
@@ -1764,7 +1766,7 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
         <div style={s.detailGrid}>
           <DetailRow label="Producto" value={brand.productName || '—'} />
           <DetailRow label="Código de barras" value={brand.productBarcode || 'Sin código'} />
-          <DetailRow label="Nombre" value={brand.name || '—'} />
+          <DetailRow label="Marca" value={brand.name || '—'} />
           <DetailRow label="Productos asociados" value={brand.productsCount ?? 0} />
           <DetailRow label="Creada el" value={brand.created_at ? new Date(brand.created_at).toLocaleString('es-CO') : '—'} />
         </div>
