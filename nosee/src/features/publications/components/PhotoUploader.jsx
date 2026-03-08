@@ -38,7 +38,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
  *   disabled={isSubmitting}
  * />
  */
-export function PhotoUploader({ onUpload, disabled = false }) {
+export function PhotoUploader({ onUpload, disabled = false, extraActions = null }) {
   // ─── Hooks ────────────────────────────────────────────────────────────────
 
   const { t } = useLanguage();
@@ -215,6 +215,7 @@ export function PhotoUploader({ onUpload, disabled = false }) {
         >
           <span aria-hidden="true">📷 </span>{tu.cameraButton}
         </button>
+        {extraActions}
       </div>
     </div>
   );

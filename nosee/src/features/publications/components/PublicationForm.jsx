@@ -617,15 +617,6 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
           <label htmlFor="pub-product" style={styles.label}>
             {tf.productLabel} <span style={styles.required}>*</span>
           </label>
-          {ENABLE_BARCODE_SCAN && (
-            <button
-              type="button"
-              style={styles.secondaryActionBtn}
-              onClick={() => setShowBarcodeModal(true)}
-            >
-              Escanear código de barras
-            </button>
-          )}
           <div ref={productWrapperRef} style={styles.autocompleteContainer}>
             <input
               id="pub-product"
@@ -911,6 +902,18 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
           <PhotoUploader
             onUpload={(url) => handleInputChange("photoUrl", url)}
             disabled={isSubmitting}
+            extraActions={
+              ENABLE_BARCODE_SCAN ? (
+                <button
+                  type="button"
+                  style={styles.inlineActionBtn}
+                  onClick={() => setShowBarcodeModal(true)}
+                  disabled={isSubmitting}
+                >
+                  <span aria-hidden="true">▥ </span>Escanear código
+                </button>
+              ) : null
+            }
           />
           {errors.photoUrl && (
             <div id="pub-photo-error" role="alert" style={styles.errorText}>{errors.photoUrl}</div>
@@ -1185,15 +1188,13 @@ const styles = {
     color: "#080C14",
     marginTop: "4px",
   },
-  secondaryActionBtn: {
-    alignSelf: "flex-start",
-    marginBottom: "8px",
+  inlineActionBtn: {
     fontSize: "12px",
-    fontWeight: 600,
-    padding: "7px 10px",
+    fontWeight: 500,
+    padding: "10px 14px",
     borderRadius: "var(--radius-sm)",
     border: "1px solid var(--border)",
-    background: "transparent",
+    background: "var(--bg-surface)",
     color: "var(--text-primary)",
     cursor: "pointer",
   },
