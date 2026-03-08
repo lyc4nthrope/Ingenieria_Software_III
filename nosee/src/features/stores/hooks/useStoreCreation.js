@@ -197,16 +197,23 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
 
       const signature = `${nearest.id}:${lat.toFixed(5)}:${lon.toFixed(5)}`;
       if (lastAutoFillSignatureRef.current !== signature) {
+        const nearestLat = Number(nearest.latitude);
+        const nearestLon = Number(nearest.longitude);
+        const hasNearestCoords = Number.isFinite(nearestLat) && Number.isFinite(nearestLon);
+
         setFormData((prev) => ({
           ...prev,
           // Autocompleta nombre y dirección con la tienda detectada.
           name: nearest.name || prev.name,
           address: nearest.address || prev.address || '',
+          // También autocompleta ubicación del local para mover el marcador del mapa.
+          latitude: hasNearestCoords ? nearestLat : prev.latitude,
+          longitude: hasNearestCoords ? nearestLon : prev.longitude,
         }));
         lastAutoFillSignatureRef.current = signature;
       }
 
-      setNearbyStoreMessage(`Tienda cercana detectada: ${nearest.name} (${distance}). Nombre y dirección autocompletados.`);
+      setNearbyStoreMessage(`Tienda cercana detectada: ${nearest.name} (${distance}). Nombre, dirección y ubicación autocompletados.`);
     }, 250);
 
     return () => {
