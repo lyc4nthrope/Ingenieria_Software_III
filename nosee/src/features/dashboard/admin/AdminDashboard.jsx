@@ -124,6 +124,7 @@ const normalizePublicationForAdmin = (publication) => ({
   userId: publication?.user?.id || publication?.user_id || null,
   productName: publication?.product?.name || null,
   productId: publication?.product?.id || publication?.product_id || null,
+  productBarcode: publication?.product?.barcode || null,
   brandId: publication?.product?.brand?.id || null,
   brandName: publication?.product?.brand?.name || null,
   storeName: publication?.store?.name || null,
@@ -344,7 +345,7 @@ export default function AdminDashboard() {
           id, price, photo_url, description, confidence_score, is_active, created_at,
           user_id, store_id, product_id,
           user:users!price_publications_user_id_fkey (id, full_name, reputation_points),
-          product:products (id, name, base_quantity, brand:brands(id, name), unit_type:unit_types (id, name, abbreviation)),
+          product:products (id, name, barcode, base_quantity, brand:brands(id, name), unit_type:unit_types (id, name, abbreviation)),
           store:stores!price_publications_store_id_fkey (id, name, address)
         `)
         .order('created_at', { ascending: false })
@@ -519,6 +520,8 @@ export default function AdminDashboard() {
     setSelectedBrand({
       ...data,
       productsCount: productsCount ?? 0,
+      productName: publication?.productName || publication?.product?.name || null,
+      productBarcode: publication?.productBarcode || publication?.product?.barcode || null,
     });
   };
 
@@ -1228,6 +1231,9 @@ function PublicationsTable({
             <div>
               <div style={s.rowName}>{p.productName || p.product?.name || '—'}</div>
               <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>{p.brandName || p.product?.brand?.name || 'Sin marca'}</div>
+              <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
+                Código: {p.productBarcode || p.product?.barcode || 'Sin código'}
+              </div>
               <StatusBadge status={p.is_active ? 'active' : 'hidden'} />
               <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                 <button
@@ -1307,6 +1313,7 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
   const [saved, setSaved]   = useState(false);
 
   const productName = pub.productName || pub.product?.name || '—';
+  const productBarcode = pub.productBarcode || pub.product?.barcode || 'Sin código';
   const brandName   = pub.brandName   || pub.product?.brand?.name || 'Sin marca';
   const storeName   = pub.storeName   || pub.store?.name   || '—';
   const authorName  = pub.authorName  || pub.userName || pub.user?.full_name || '—';
@@ -1345,6 +1352,7 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
           </div>
           <div style={s.detailGrid}>
             <DetailRow label={td.pubProductLabel} value={productName} />
+            <DetailRow label="Código de barras" value={productBarcode} />
             <DetailRow label="Marca" value={brandName} />
             <DetailRow label={td.pubStoreLabel}   value={storeName} />
             <DetailRow label={td.pubPriceLabel}   value={`$${typeof pub.price === 'number' ? pub.price.toLocaleString('es-CO') : pub.price || '—'}`} />
@@ -1754,6 +1762,8 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
         </div>
         <div style={s.detailGrid}>
+          <DetailRow label="Producto" value={brand.productName || '—'} />
+          <DetailRow label="Código de barras" value={brand.productBarcode || 'Sin código'} />
           <DetailRow label="Nombre" value={brand.name || '—'} />
           <DetailRow label="Productos asociados" value={brand.productsCount ?? 0} />
           <DetailRow label="Creada el" value={brand.created_at ? new Date(brand.created_at).toLocaleString('es-CO') : '—'} />
