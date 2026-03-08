@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { storesApi } from '@/services/api';
 import { StoreTypeEnum, validateStoreForm } from '@/features/stores/schemas';
 import { uploadImageToCloudinary } from '@/services/cloudinary';
@@ -27,6 +27,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(mode === 'edit' && !!storeId);
   const [nearbyStoreMessage, setNearbyStoreMessage] = useState('');
+  const lastAutoFillSignatureRef = useRef('');
 
   // Cargar tienda si estamos editando
   useEffect(() => {
@@ -194,7 +195,18 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
           ? `${Math.round(nearest.distanceMeters)} m`
           : `${(nearest.distanceMeters / 1000).toFixed(1)} km`;
 
-      setNearbyStoreMessage(`Tienda cercana detectada: ${nearest.name} (${distance})`);
+      const signature = `${nearest.id}:${lat.toFixed(5)}:${lon.toFixed(5)}`;
+      if (lastAutoFillSignatureRef.current !== signature) {
+        setFormData((prev) => ({
+          ...prev,
+          // Autocompleta nombre y dirección con la tienda detectada.
+          name: nearest.name || prev.name,
+          address: nearest.address || prev.address || '',
+        }));
+        lastAutoFillSignatureRef.current = signature;
+      }
+
+      setNearbyStoreMessage(`Tienda cercana detectada: ${nearest.name} (${distance}). Nombre y dirección autocompletados.`);
     }, 250);
 
     return () => {
