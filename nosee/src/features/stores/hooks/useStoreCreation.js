@@ -205,7 +205,11 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
             const mapLat = Number(mapMatch.latitude);
             const mapLon = Number(mapMatch.longitude);
             const hasCoords = Number.isFinite(mapLat) && Number.isFinite(mapLon);
-            const signature = `map:${mapMatch.id}:${lat.toFixed(5)}:${lon.toFixed(5)}`;
+            const signature = `map:${mapMatch.id}`;
+
+            if (lastAutoFillSignatureRef.current === signature) {
+              return;
+            }
 
             if (lastAutoFillSignatureRef.current !== signature) {
               setFormData((prev) => ({
@@ -219,8 +223,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
             }
 
             const distance = formatDistanceLabel(mapMatch.distanceMeters);
-            const distanceText = distance === 'distancia no disponible' ? distance : `a ${distance}`;
-            setNearbyStoreMessage(`Tienda detectada por mapa: ${mapMatch.name} (${distanceText}). Nombre, dirección y ubicación autocompletados.`);
+            setNearbyStoreMessage(`Tienda detectada por mapa, distancia de la ubicación actual: "${mapMatch.name}" a ${distance}. Nombre, dirección y ubicación autocompletados.`);
             return;
           }
         }
@@ -257,7 +260,11 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
 
       const distance = formatDistanceLabel(nearest.distanceMeters);
 
-      const signature = `${nearest.id}:${lat.toFixed(5)}:${lon.toFixed(5)}`;
+      const signature = `nearest:${nearest.id}`;
+      if (lastAutoFillSignatureRef.current === signature) {
+        return;
+      }
+
       if (lastAutoFillSignatureRef.current !== signature) {
         const nearestLat = Number(nearest.latitude);
         const nearestLon = Number(nearest.longitude);
@@ -275,8 +282,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
         lastAutoFillSignatureRef.current = signature;
       }
 
-      const distanceText = distance === 'distancia no disponible' ? distance : `a ${distance}`;
-      setNearbyStoreMessage(`Tienda cercana detectada: ${nearest.name} (${distanceText}). Nombre, dirección y ubicación autocompletados.`);
+      setNearbyStoreMessage(`Tienda detectada por base de datos, distancia de la ubicación actual: "${nearest.name}" a ${distance}. Nombre, dirección y ubicación autocompletados.`);
     }, 250);
 
     return () => {
