@@ -519,7 +519,6 @@ export default function HomePage() {
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
   const infiniteSentinelRef = useRef(null);
-  const loadingRef = useRef(loading);
 
   useEffect(() => {
     publicationsApi.getProductCategories().then((result) => {
@@ -660,17 +659,13 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    loadingRef.current = loading;
-  }, [loading]);
-
-  useEffect(() => {
     const sentinel = infiniteSentinelRef.current;
     if (!sentinel || !hasMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        if (entry?.isIntersecting && !loadingRef.current) {
+        if (entry?.isIntersecting && !loading) {
           loadMore();
         }
       },
@@ -683,7 +678,7 @@ export default function HomePage() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loadMore]);
+  }, [hasMore, loading, loadMore]);
 
   return (
     <div className="home-wrapper">
@@ -749,42 +744,49 @@ export default function HomePage() {
           ) : !loading && normalizedPublications.length === 0 ? (
             <p role="status" aria-live="polite">{th.noPublications}</p>
           ) : (
-            <>
-              {normalizedPublications.map((pub) => (
-                <PublicationCard
-                  key={pub.id}
-                  pub={pub}
-                  isAuthenticated={isAuthenticated}
-                  currentUserId={user?.id}
-                  userIsAdmin={isAdmin(user?.role)}
-                  onRequireAuth={handleRequireAuth}
-                  onValidate={handleValidate}
-                  onDownvote={handleDownvote}
-                  onReport={handleReport}
-                  onDelete={handleDelete}
-                  onOpenDetail={handleOpenDetail}
-                />
-              ))}
-
-              <div
-                ref={infiniteSentinelRef}
-                aria-hidden="true"
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  padding: "20px 0 8px",
-                  minHeight: "36px",
-                }}
-              >
-                {loading && (
-                  <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-                    {th.loading}
-                  </span>
-                )}
-              </div>
-            </>
+            normalizedPublications.map((pub) => (
+              <PublicationCard
+                key={pub.id}
+                pub={pub}
+                isAuthenticated={isAuthenticated}
+                currentUserId={user?.id}
+                userIsAdmin={isAdmin(user?.role)}
+                onRequireAuth={handleRequireAuth}
+                onValidate={handleValidate}
+                onDownvote={handleDownvote}
+                onReport={handleReport}
+                onDelete={handleDelete}
+                onOpenDetail={handleOpenDetail}
+              />
+            ))
           )}
         </div>
+
+        {normalizedPublications.length > 0 && (
+          <div
+            ref={infiniteSentinelRef}
+            aria-hidden="true"
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginTop: "28px",
+              paddingTop: "24px",
+              borderTop: "1px solid var(--border)",
+              minHeight: "48px",
+            }}
+          >
+            {loading && (
+              <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+                {th.loading}
+              </span>
+            )}
+            {!hasMore && !loading && (
+              <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+                •
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {detailPublication && (
