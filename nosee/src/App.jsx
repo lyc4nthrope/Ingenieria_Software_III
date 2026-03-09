@@ -373,6 +373,8 @@ function AppShell() {
           display: "flex",
           flexDirection: "column",
           overflow: "auto",
+          overflowX: "hidden",
+          WebkitOverflowScrolling: "touch",
         }}
       >
         {isOffline ? <ConnectionErrorView /> : null}

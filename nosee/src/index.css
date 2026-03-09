@@ -436,6 +436,8 @@ img {
   display: flex;
   flex-direction: column;
   height: 100%;
+  content-visibility: auto;
+  contain-intrinsic-size: 560px;
 }
 
 .card:hover {

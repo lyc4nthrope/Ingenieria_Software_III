@@ -276,6 +276,8 @@ const PublicationCard = memo(function PublicationCard({
           alt={pubName}
           className="card-image"
           loading="lazy"
+          decoding="async"
+          fetchPriority="low"
           onError={handleImageError}
         />
       </div>
@@ -519,6 +521,8 @@ export default function HomePage() {
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
   const infiniteSentinelRef = useRef(null);
+  const loadingRef = useRef(loading);
+  const wasIntersectingRef = useRef(false);
 
   useEffect(() => {
     publicationsApi.getProductCategories().then((result) => {
@@ -659,26 +663,48 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
     const sentinel = infiniteSentinelRef.current;
     if (!sentinel || !hasMore) return;
+
+    const mobileMq =
+      typeof window !== "undefined" && window.matchMedia
+        ? window.matchMedia("(max-width: 768px)")
+        : null;
+    const rootMargin = mobileMq?.matches ? "120px 0px" : "300px 0px";
+    const scrollRoot =
+      typeof document !== "undefined"
+        ? document.getElementById("main-content")
+        : null;
 
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        if (entry?.isIntersecting && !loading) {
+        if (!entry) return;
+
+        if (!entry.isIntersecting) {
+          wasIntersectingRef.current = false;
+          return;
+        }
+
+        if (!wasIntersectingRef.current && !loadingRef.current) {
+          wasIntersectingRef.current = true;
           loadMore();
         }
       },
       {
-        root: null,
-        rootMargin: "300px 0px",
+        root: scrollRoot,
+        rootMargin,
         threshold: 0,
       }
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loading, loadMore]);
+  }, [hasMore, loadMore]);
 
   return (
     <div className="home-wrapper">
