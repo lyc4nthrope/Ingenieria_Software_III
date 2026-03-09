@@ -126,6 +126,9 @@ export default function PublicationsPage() {
     reportPublication,
     removePublication,
   } = usePublications(filters);
+  const loadingRef = useRef(loading);
+  const hasMoreRef = useRef(hasMore);
+  const lastLoadTriggerAtRef = useRef(0);
 
   const normalizedPublications = useMemo(
     () => publications.map((publication) => ({
@@ -136,6 +139,22 @@ export default function PublicationsPage() {
     })),
     [publications]
   );
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
+
+  const triggerLoadMoreIfNeeded = useCallback(() => {
+    const now = Date.now();
+    if (now - lastLoadTriggerAtRef.current < 450) return;
+    if (!hasMoreRef.current || loadingRef.current) return;
+    lastLoadTriggerAtRef.current = now;
+    loadMore();
+  }, [loadMore]);
 
   // ─────────────────────────────────────────────────────────────
   // PASO 4: Funciones de manejo de eventos
@@ -329,9 +348,31 @@ export default function PublicationsPage() {
 
   // Abre el modal de detalle si la URL tiene ?pub=<id>
   useEffect(() => {
-    publicationsApi.getProductCategories().then((result) => {
-      if (result.success) setCategories(result.data || []);
-    });
+    let active = true;
+
+    const loadCategories = async () => {
+      const firstAttempt = await publicationsApi.getProductCategories();
+      if (firstAttempt.success) {
+        if (active) setCategories(firstAttempt.data || []);
+        return;
+      }
+
+      const secondAttempt = await publicationsApi.getProductCategories();
+      if (secondAttempt.success) {
+        if (active) setCategories(secondAttempt.data || []);
+        return;
+      }
+
+      console.error(
+        "No se pudieron cargar categorías en PublicationsPage:",
+        secondAttempt.error || firstAttempt.error,
+      );
+    };
+
+    loadCategories();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -378,23 +419,52 @@ export default function PublicationsPage() {
     const sentinel = infiniteSentinelRef.current;
     if (!sentinel || !hasMore) return;
 
+    const mobileMq =
+      typeof window !== "undefined" && window.matchMedia
+        ? window.matchMedia("(max-width: 768px)")
+        : null;
+    const rootMargin = mobileMq?.matches ? "120px 0px" : "300px 0px";
+    const scrollRoot =
+      typeof document !== "undefined"
+        ? document.getElementById("main-content")
+        : null;
+
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        if (entry?.isIntersecting && !loading) {
-          loadMore();
+        if (entry?.isIntersecting) {
+          triggerLoadMoreIfNeeded();
         }
       },
       {
-        root: null,
-        rootMargin: "300px 0px",
+        root: scrollRoot,
+        rootMargin,
         threshold: 0,
       }
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loading, loadMore]);
+  }, [hasMore, triggerLoadMoreIfNeeded]);
+
+  useEffect(() => {
+    const scrollRoot =
+      typeof document !== "undefined"
+        ? document.getElementById("main-content")
+        : null;
+    if (!scrollRoot) return;
+
+    const onScroll = () => {
+      const distanceToBottom =
+        scrollRoot.scrollHeight - scrollRoot.scrollTop - scrollRoot.clientHeight;
+      if (distanceToBottom <= 260) {
+        triggerLoadMoreIfNeeded();
+      }
+    };
+
+    scrollRoot.addEventListener("scroll", onScroll, { passive: true });
+    return () => scrollRoot.removeEventListener("scroll", onScroll);
+  }, [triggerLoadMoreIfNeeded]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

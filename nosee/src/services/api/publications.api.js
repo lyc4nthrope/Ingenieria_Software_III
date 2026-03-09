@@ -1040,7 +1040,7 @@ export const getPublications = async (filters = {}) => {
       const { data: storesData, error: storesError } = await withTimeout(
         supabase
           .from("stores")
-          .select("id, name, location, latitude, longitude"),
+          .select("id, name, location"),
         REQUEST_TIMEOUT_MS,
         "Tiempo de espera agotado obteniendo tiendas cercanas",
       );
@@ -2557,13 +2557,23 @@ export const createBrand = async (name) => {
 };
 
 export const getProductCategories = async () => {
-  const { data, error } = await supabase
-    .from("product_categories")
-    .select("id, name")
-    .order("name", { ascending: true });
+  try {
+    const executeQuery = () =>
+      supabase
+        .from("product_categories")
+        .select("id, name")
+        .order("name", { ascending: true });
 
-  if (error) return { success: false, error: error.message };
-  return { success: true, data: data || [] };
+    const { data, error } = await runWithSessionRetry(
+      executeQuery,
+      getAdaptiveRequestTimeout(),
+    );
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data || [] };
+  } catch (err) {
+    return { success: false, error: err?.message || "Error cargando categorías" };
+  }
 };
 
 export const getUnitTypes = async () => {

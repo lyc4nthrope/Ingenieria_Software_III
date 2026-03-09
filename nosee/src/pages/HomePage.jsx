@@ -522,12 +522,34 @@ export default function HomePage() {
   const lastLocationCoordsRef = useRef(null);
   const infiniteSentinelRef = useRef(null);
   const loadingRef = useRef(loading);
-  const wasIntersectingRef = useRef(false);
+  const hasMoreRef = useRef(hasMore);
+  const lastLoadTriggerAtRef = useRef(0);
 
   useEffect(() => {
-    publicationsApi.getProductCategories().then((result) => {
-      if (result.success) setCategories(result.data);
-    });
+    let active = true;
+
+    const loadCategories = async () => {
+      const firstAttempt = await publicationsApi.getProductCategories();
+
+      if (firstAttempt.success) {
+        if (active) setCategories(firstAttempt.data || []);
+        return;
+      }
+
+      // Reintento corto para fallos transitorios en móvil (token/red al volver al tab).
+      const secondAttempt = await publicationsApi.getProductCategories();
+      if (secondAttempt.success) {
+        if (active) setCategories(secondAttempt.data || []);
+        return;
+      }
+
+      console.error("No se pudieron cargar categorías:", secondAttempt.error || firstAttempt.error);
+    };
+
+    loadCategories();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleCategorySelect = (catId) => {
@@ -667,6 +689,18 @@ export default function HomePage() {
   }, [loading]);
 
   useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
+
+  const triggerLoadMoreIfNeeded = useCallback(() => {
+    const now = Date.now();
+    if (now - lastLoadTriggerAtRef.current < 450) return;
+    if (!hasMoreRef.current || loadingRef.current) return;
+    lastLoadTriggerAtRef.current = now;
+    loadMore();
+  }, [loadMore]);
+
+  useEffect(() => {
     const sentinel = infiniteSentinelRef.current;
     if (!sentinel || !hasMore) return;
 
@@ -684,15 +718,8 @@ export default function HomePage() {
       (entries) => {
         const entry = entries[0];
         if (!entry) return;
-
-        if (!entry.isIntersecting) {
-          wasIntersectingRef.current = false;
-          return;
-        }
-
-        if (!wasIntersectingRef.current && !loadingRef.current) {
-          wasIntersectingRef.current = true;
-          loadMore();
+        if (entry.isIntersecting) {
+          triggerLoadMoreIfNeeded();
         }
       },
       {
@@ -704,7 +731,26 @@ export default function HomePage() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loadMore]);
+  }, [hasMore, triggerLoadMoreIfNeeded]);
+
+  useEffect(() => {
+    const scrollRoot =
+      typeof document !== "undefined"
+        ? document.getElementById("main-content")
+        : null;
+    if (!scrollRoot) return;
+
+    const onScroll = () => {
+      const distanceToBottom =
+        scrollRoot.scrollHeight - scrollRoot.scrollTop - scrollRoot.clientHeight;
+      if (distanceToBottom <= 260) {
+        triggerLoadMoreIfNeeded();
+      }
+    };
+
+    scrollRoot.addEventListener("scroll", onScroll, { passive: true });
+    return () => scrollRoot.removeEventListener("scroll", onScroll);
+  }, [triggerLoadMoreIfNeeded]);
 
   return (
     <div className="home-wrapper">
