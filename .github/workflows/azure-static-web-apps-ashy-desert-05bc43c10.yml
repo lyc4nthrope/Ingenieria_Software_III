@@ -45,6 +45,15 @@ jobs:
           output_location: "dist" # Built app content directory - optional
           github_id_token: ${{ steps.idtoken.outputs.result }}
           ###### End of Repository/Build Configurations ######
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
+          VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
+          VITE_CLOUDINARY_UPLOAD_FOLDER: ${{ secrets.VITE_CLOUDINARY_UPLOAD_FOLDER }}
+          VITE_ENABLE_AUTO_STORE: ${{ secrets.VITE_ENABLE_AUTO_STORE }}
+          VITE_ENABLE_BARCODE_SCAN: ${{ secrets.VITE_ENABLE_BARCODE_SCAN }}
+          VITE_GA_MEASUREMENT_ID: ${{ secrets.VITE_GA_MEASUREMENT_ID }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
