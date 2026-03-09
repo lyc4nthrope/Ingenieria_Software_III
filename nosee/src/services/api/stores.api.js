@@ -545,19 +545,27 @@ export async function updateStore(storeId, updates = {}) {
 }
 
 /**
- * Lista todas las tiendas con soporte de búsqueda por nombre.
- * Si name está vacío, devuelve todas las tiendas (hasta el límite).
+ * Lista tiendas con soporte de búsqueda y paginación.
  *
  * @param {string=} name - Filtro opcional por nombre
- * @param {number=} limit - Máximo de resultados (default 50)
+ * @param {number|object=} optionsOrLimit - límite legacy o { limit, page }
  */
-export async function listStores(name = "", limit = 50) {
+export async function listStores(name = "", optionsOrLimit = 20) {
   try {
+    const resolvedOptions =
+      typeof optionsOrLimit === "number"
+        ? { limit: optionsOrLimit, page: 1 }
+        : (optionsOrLimit || {});
+
+    const safeLimit = Math.max(5, Math.min(Number(resolvedOptions.limit) || 20, 60));
+    const safePage = Math.max(1, Number(resolvedOptions.page) || 1);
+    const offset = (safePage - 1) * safeLimit;
+
     let query = supabase
       .from("stores")
       .select("id, name, store_type_id, address, website_url, location")
       .order("name", { ascending: true })
-      .limit(limit);
+      .range(offset, offset + safeLimit - 1);
 
     if (name && name.trim().length >= 1) {
       query = query.ilike("name", `%${name.trim()}%`);
@@ -577,7 +585,12 @@ export async function listStores(name = "", limit = 50) {
       };
     });
 
-    return { success: true, data: mapped };
+    return {
+      success: true,
+      data: mapped,
+      hasMore: mapped.length === safeLimit,
+      page: safePage,
+    };
   } catch (err) {
     return { success: false, error: err.message || "Error cargando tiendas" };
   }

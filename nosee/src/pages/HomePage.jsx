@@ -12,6 +12,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { isAdmin } from "@/types";
 import { ReportPublicationModal } from "@/features/publications/components/ReportPublicationModal";
 import { optimizeCloudinaryUrl } from "@/services/cloudinary";
+import { INFINITE_SCROLL_CONFIG } from "@/config/infiniteScroll";
+import { useInfiniteScrollTrigger } from "@/hooks/useInfiniteScrollTrigger";
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const FALLBACK_IMAGE = "https://via.placeholder.com/400x300?text=Sin+foto";
@@ -507,7 +509,7 @@ export default function HomePage() {
     unvotePublication,
     reportPublication,
     removePublication,
-  } = usePublications({ limit: 12 });
+  } = usePublications({ limit: INFINITE_SCROLL_CONFIG.homePageSize });
 
   const { latitude, longitude } = useGeoLocation({ autoFetch: true });
 
@@ -520,11 +522,6 @@ export default function HomePage() {
   const CATS_PER_PAGE = 8;
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
-  const infiniteSentinelRef = useRef(null);
-  const loadingRef = useRef(loading);
-  const hasMoreRef = useRef(hasMore);
-  const lastLoadTriggerAtRef = useRef(0);
-  const lastScrollTopRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -684,98 +681,13 @@ export default function HomePage() {
     return () => window.removeEventListener("nosee:store-updated", handleStoreUpdated);
   }, []);
 
-  useEffect(() => {
-    loadingRef.current = loading;
-  }, [loading]);
-
-  useEffect(() => {
-    hasMoreRef.current = hasMore;
-  }, [hasMore]);
-
-  const triggerLoadMoreIfNeeded = useCallback(() => {
-    const now = Date.now();
-    if (now - lastLoadTriggerAtRef.current < 350) return;
-    if (!hasMoreRef.current || loadingRef.current) return;
-    lastLoadTriggerAtRef.current = now;
-    loadMore();
-  }, [loadMore]);
-
-  useEffect(() => {
-    const scrollRoot =
-      typeof document !== "undefined"
-        ? document.getElementById("main-content")
-        : null;
-    if (!scrollRoot || !hasMore) return;
-
-    let ticking = false;
-
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-
-      window.requestAnimationFrame(() => {
-        ticking = false;
-        const currentTop = scrollRoot.scrollTop;
-        const isScrollingDown = currentTop > lastScrollTopRef.current + 1;
-        lastScrollTopRef.current = currentTop;
-        if (!isScrollingDown) return;
-
-        const distanceToBottom =
-          scrollRoot.scrollHeight - currentTop - scrollRoot.clientHeight;
-
-        if (distanceToBottom <= 320) {
-          triggerLoadMoreIfNeeded();
-        }
-      });
-    };
-
-    scrollRoot.addEventListener("scroll", onScroll, { passive: true });
-    return () => scrollRoot.removeEventListener("scroll", onScroll);
-  }, [hasMore, triggerLoadMoreIfNeeded]);
-
-  useEffect(() => {
-    const sentinel = infiniteSentinelRef.current;
-    const scrollRoot =
-      typeof document !== "undefined"
-        ? document.getElementById("main-content")
-        : null;
-    if (!sentinel || !scrollRoot || !hasMore) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          triggerLoadMoreIfNeeded();
-        }
-      },
-      {
-        root: scrollRoot,
-        rootMargin: "220px 0px",
-        threshold: 0,
-      },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, triggerLoadMoreIfNeeded]);
-
-  useEffect(() => {
-    if (!hasMore || loading) return;
-    const scrollRoot =
-      typeof document !== "undefined"
-        ? document.getElementById("main-content")
-        : null;
-    if (!scrollRoot) return;
-
-    const distanceToBottom =
-      scrollRoot.scrollHeight - scrollRoot.scrollTop - scrollRoot.clientHeight;
-
-    if (distanceToBottom <= 420) {
-      const id = window.setTimeout(() => {
-        triggerLoadMoreIfNeeded();
-      }, 90);
-      return () => window.clearTimeout(id);
-    }
-  }, [hasMore, loading, normalizedPublications.length, triggerLoadMoreIfNeeded]);
+  useInfiniteScrollTrigger({
+    hasMore,
+    loading,
+    onLoadMore: loadMore,
+    triggerDistancePx: INFINITE_SCROLL_CONFIG.triggerDistancePx,
+    cooldownMs: INFINITE_SCROLL_CONFIG.cooldownMs,
+  });
 
   return (
     <div className="home-wrapper">
@@ -861,7 +773,6 @@ export default function HomePage() {
 
         {normalizedPublications.length > 0 && (
           <div
-            ref={infiniteSentinelRef}
             aria-hidden="true"
             style={{
               display: "flex",

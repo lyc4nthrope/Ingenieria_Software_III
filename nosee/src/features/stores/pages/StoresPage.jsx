@@ -4,6 +4,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { listStores } from '@/services/api/stores.api';
 import StoreCard from '@/features/stores/components/StoreCard';
 import StoreDetailModal from '@/features/stores/components/StoreDetailModal';
+import { INFINITE_SCROLL_CONFIG } from '@/config/infiniteScroll';
+import { useInfiniteScrollTrigger } from '@/hooks/useInfiniteScrollTrigger';
 
 const SearchIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -21,27 +23,66 @@ export default function StoresPage() {
   const [search, setSearch] = useState('');
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState(null);
   const [selectedStore, setSelectedStore] = useState(null);
 
   const debounceRef = useRef(null);
+  const pageRef = useRef(page);
+  const searchRef = useRef(search);
 
-  const fetchStores = useCallback(async (query) => {
-    setLoading(true);
+  const fetchStores = useCallback(async ({ query, pageToLoad, append }) => {
+    if (pageToLoad === 1) setLoading(true);
+    else setLoadingMore(true);
     setError(null);
-    const result = await listStores(query);
+    const result = await listStores(query, { limit: INFINITE_SCROLL_CONFIG.storesPageSize, page: pageToLoad });
     if (result.success) {
-      setStores(result.data);
+      const incoming = result.data || [];
+      setStores((prev) => {
+        if (!append) return incoming;
+        const seen = new Set(prev.map((item) => item.id));
+        const merged = incoming.filter((item) => !seen.has(item.id));
+        return [...prev, ...merged];
+      });
+      setPage(pageToLoad);
+      setHasMore(Boolean(result.hasMore));
     } else {
       setError(result.error);
     }
-    setLoading(false);
+    if (pageToLoad === 1) setLoading(false);
+    else setLoadingMore(false);
   }, []);
 
   // Carga inicial
   useEffect(() => {
-    fetchStores('');
+    fetchStores({ query: '', pageToLoad: 1, append: false });
   }, [fetchStores]);
+
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
+  useEffect(() => {
+    searchRef.current = search;
+  }, [search]);
+
+  const loadNextPage = useCallback(() => {
+    fetchStores({
+      query: searchRef.current,
+      pageToLoad: pageRef.current + 1,
+      append: true,
+    });
+  }, [fetchStores]);
+
+  useInfiniteScrollTrigger({
+    hasMore,
+    loading: loading || loadingMore,
+    onLoadMore: loadNextPage,
+    triggerDistancePx: INFINITE_SCROLL_CONFIG.triggerDistancePx,
+    cooldownMs: INFINITE_SCROLL_CONFIG.cooldownMs,
+  });
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -49,7 +90,7 @@ export default function StoresPage() {
 
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      fetchStores(value);
+      fetchStores({ query: value, pageToLoad: 1, append: false });
     }, DEBOUNCE_MS);
   };
 
@@ -115,16 +156,23 @@ export default function StoresPage() {
       )}
 
       {!loading && !error && stores.length > 0 && (
-        <ul style={styles.list} aria-label={ts.title}>
-          {stores.map((store) => (
-            <li key={store.id} style={styles.listItem}>
-              <StoreCard
-                store={store}
-                onViewDetail={setSelectedStore}
-              />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul style={styles.list} aria-label={ts.title}>
+            {stores.map((store) => (
+              <li key={store.id} style={styles.listItem}>
+                <StoreCard
+                  store={store}
+                  onViewDetail={setSelectedStore}
+                />
+              </li>
+            ))}
+          </ul>
+
+          <div aria-hidden="true" style={styles.paginationHint}>
+            {loadingMore && <p style={styles.muted}>{ts.loading}</p>}
+            {!hasMore && !loadingMore && <p style={styles.muted}>•</p>}
+          </div>
+        </>
       )}
 
       {/* Modal de detalle */}
@@ -231,5 +279,10 @@ const styles = {
   listItem: {
     margin: 0,
     padding: 0,
+  },
+  paginationHint: {
+    textAlign: 'center',
+    minHeight: '32px',
+    paddingTop: '8px',
   },
 };

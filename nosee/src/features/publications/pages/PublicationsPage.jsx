@@ -32,6 +32,8 @@ import PublicationDetailModal from "@/features/publications/components/Publicati
 
 import { usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
+import { INFINITE_SCROLL_CONFIG } from "@/config/infiniteScroll";
+import { useInfiniteScrollTrigger } from "@/hooks/useInfiniteScrollTrigger";
 
 // Iconos SVG inline
 const SearchIcon = () => (
@@ -100,6 +102,7 @@ export default function PublicationsPage() {
     maxPrice: null,
     maxDistance: null,
     sortBy: "recent",
+    limit: INFINITE_SCROLL_CONFIG.publicationsPageSize,
   });
   const [error, setError] = useState(null);
   const [geolocationLoading, setGeolocationLoading] = useState(false);
@@ -111,7 +114,6 @@ export default function PublicationsPage() {
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [searchFocused, setSearchFocused] = useState(false);
   const searchBoxRef = useRef(null);
-  const infiniteSentinelRef = useRef(null);
 
   const {
     publications,
@@ -126,10 +128,6 @@ export default function PublicationsPage() {
     reportPublication,
     removePublication,
   } = usePublications(filters);
-  const loadingRef = useRef(loading);
-  const hasMoreRef = useRef(hasMore);
-  const lastLoadTriggerAtRef = useRef(0);
-  const lastScrollTopRef = useRef(0);
 
   const normalizedPublications = useMemo(
     () => publications.map((publication) => ({
@@ -141,21 +139,13 @@ export default function PublicationsPage() {
     [publications]
   );
 
-  useEffect(() => {
-    loadingRef.current = loading;
-  }, [loading]);
-
-  useEffect(() => {
-    hasMoreRef.current = hasMore;
-  }, [hasMore]);
-
-  const triggerLoadMoreIfNeeded = useCallback(() => {
-    const now = Date.now();
-    if (now - lastLoadTriggerAtRef.current < 350) return;
-    if (!hasMoreRef.current || loadingRef.current) return;
-    lastLoadTriggerAtRef.current = now;
-    loadMore();
-  }, [loadMore]);
+  useInfiniteScrollTrigger({
+    hasMore,
+    loading,
+    onLoadMore: loadMore,
+    triggerDistancePx: INFINITE_SCROLL_CONFIG.triggerDistancePx,
+    cooldownMs: INFINITE_SCROLL_CONFIG.cooldownMs,
+  });
 
   // ─────────────────────────────────────────────────────────────
   // PASO 4: Funciones de manejo de eventos
@@ -415,82 +405,6 @@ export default function PublicationsPage() {
     document.addEventListener("mousedown", closeOnOutsideClick);
     return () => document.removeEventListener("mousedown", closeOnOutsideClick);
   }, []);
-
-  useEffect(() => {
-    const scrollRoot =
-      typeof document !== "undefined"
-        ? document.getElementById("main-content")
-        : null;
-    if (!scrollRoot || !hasMore) return;
-
-    let ticking = false;
-
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-
-      window.requestAnimationFrame(() => {
-        ticking = false;
-        const currentTop = scrollRoot.scrollTop;
-        const isScrollingDown = currentTop > lastScrollTopRef.current + 1;
-        lastScrollTopRef.current = currentTop;
-        if (!isScrollingDown) return;
-
-        const distanceToBottom =
-          scrollRoot.scrollHeight - currentTop - scrollRoot.clientHeight;
-        if (distanceToBottom <= 320) {
-          triggerLoadMoreIfNeeded();
-        }
-      });
-    };
-
-    scrollRoot.addEventListener("scroll", onScroll, { passive: true });
-    return () => scrollRoot.removeEventListener("scroll", onScroll);
-  }, [hasMore, triggerLoadMoreIfNeeded]);
-
-  useEffect(() => {
-    const sentinel = infiniteSentinelRef.current;
-    const scrollRoot =
-      typeof document !== "undefined"
-        ? document.getElementById("main-content")
-        : null;
-    if (!sentinel || !scrollRoot || !hasMore) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          triggerLoadMoreIfNeeded();
-        }
-      },
-      {
-        root: scrollRoot,
-        rootMargin: "220px 0px",
-        threshold: 0,
-      },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, triggerLoadMoreIfNeeded]);
-
-  useEffect(() => {
-    if (!hasMore || loading) return;
-    const scrollRoot =
-      typeof document !== "undefined"
-        ? document.getElementById("main-content")
-        : null;
-    if (!scrollRoot) return;
-
-    const distanceToBottom =
-      scrollRoot.scrollHeight - scrollRoot.scrollTop - scrollRoot.clientHeight;
-
-    if (distanceToBottom <= 420) {
-      const id = window.setTimeout(() => {
-        triggerLoadMoreIfNeeded();
-      }, 90);
-      return () => window.clearTimeout(id);
-    }
-  }, [hasMore, loading, normalizedPublications.length, triggerLoadMoreIfNeeded]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -879,7 +793,6 @@ export default function PublicationsPage() {
         {/* Scroll infinito */}
         {normalizedPublications.length > 0 && (
           <div
-            ref={infiniteSentinelRef}
             aria-hidden="true"
             style={{
               display: "flex",
