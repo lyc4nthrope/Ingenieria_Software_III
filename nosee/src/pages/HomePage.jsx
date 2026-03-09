@@ -7,6 +7,7 @@ import {
 
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
+import PublicationDetailModal from "@/features/publications/components/PublicationDetailModal";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { isAdmin } from "@/types";
 import { ReportPublicationModal } from "@/features/publications/components/ReportPublicationModal";
@@ -457,101 +458,6 @@ const homeVoteStyles = {
     textAlign: "center",
   },
 };
-
-// ─── PublicationDetailModal ───────────────────────────────────────────────────
-function PublicationDetailModal({ publication, onClose }) {
-  const { t } = useLanguage();
-  const th = t.home;
-  const titleId = useId();
-  const closeButtonRef = useRef(null);
-
-  useEffect(() => {
-    closeButtonRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleEscape = (event) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [onClose]);
-
-  if (!publication) return null;
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      onClick={onClose}
-      onKeyDown={(e) => { if (e.key === 'Escape') onClose(e); }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "var(--overlay)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: "16px",
-        zIndex: 999,
-      }}
-    >
-      <article
-        role="button"
-        tabIndex={0}
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-        style={{
-          width: "min(800px, 100%)",
-          maxHeight: "90vh",
-          overflow: "auto",
-          background: "var(--bg-surface)",
-          borderRadius: "12px",
-          border: "1px solid var(--border)",
-          padding: "16px",
-        }}
-      >
-        <button
-          ref={closeButtonRef}
-          onClick={onClose}
-          type="button"
-          aria-label={th.closeDetail}
-          className="card-action-button"
-          style={{ marginBottom: 12 }}
-        >
-          {th.close}
-        </button>
-        <img
-          src={resolvePublicationPhoto(publication)}
-          alt={publication.product?.name || th.product}
-          style={{
-            width: "100%",
-            borderRadius: 8,
-            maxHeight: "380px",
-            objectFit: "cover",
-          }}
-          loading="lazy"
-          decoding="async"
-        />
-        <h2 id={titleId} style={{ marginTop: 12 }}>
-          {publication.product?.name || th.product}
-        </h2>
-        <p>
-          <strong>{th.price}</strong> ${publication.price?.toLocaleString()}
-        </p>
-        <p>
-          <strong>{th.storeLabel}</strong>{" "}
-          {publication.store?.name || th.store}
-        </p>
-        <p>
-          <strong>{th.description}</strong>{" "}
-          {publication.description || th.noDescription}
-        </p>
-      </article>
-    </div>
-  );
-}
 
 // ─── HomePage ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
