@@ -20,6 +20,7 @@ export function useInfiniteScrollTrigger({
   const lastScrollTopRef = useRef(0);
   const lastLoadTriggerAtRef = useRef(0);
   const userScrolledDownRef = useRef(false);
+  const lastActiveRootRef = useRef(null);
 
   useEffect(() => {
     hasMoreRef.current = hasMore;
@@ -33,14 +34,30 @@ export function useInfiniteScrollTrigger({
     onLoadMoreRef.current = onLoadMore;
   }, [onLoadMore]);
 
-  const getScrollRoot = useCallback(() => {
-    if (typeof document === "undefined") return null;
-    return (
-      document.getElementById(scrollRootId) ||
-      document.scrollingElement ||
-      document.documentElement
-    );
+  const getScrollRoots = useCallback(() => {
+    if (typeof document === "undefined") return [];
+
+    const candidates = [
+      document.getElementById(scrollRootId),
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+    ].filter(Boolean);
+
+    // Remover duplicados manteniendo orden.
+    return [...new Set(candidates)];
   }, [scrollRootId]);
+
+  const pickScrollableRoot = useCallback(() => {
+    const roots = getScrollRoots();
+    if (roots.length === 0) return null;
+
+    if (lastActiveRootRef.current && roots.includes(lastActiveRootRef.current)) {
+      return lastActiveRootRef.current;
+    }
+
+    return roots.find((root) => root.scrollHeight > root.clientHeight + 1) || roots[0];
+  }, [getScrollRoots]);
 
   const triggerLoadMoreIfNeeded = useCallback(() => {
     const now = Date.now();
@@ -54,13 +71,19 @@ export function useInfiniteScrollTrigger({
   useEffect(() => {
     if (!enabled || !hasMore) return;
 
-    const scrollRoot = getScrollRoot();
-
-    if (!scrollRoot) return;
-
+    const scrollRoots = getScrollRoots();
+    if (scrollRoots.length === 0) return;
     let ticking = false;
 
-    const onScroll = () => {
+    const onScroll = (event) => {
+      const source = event?.currentTarget;
+      const scrollRoot =
+        source && source.scrollHeight > source.clientHeight
+          ? source
+          : pickScrollableRoot();
+      if (!scrollRoot) return;
+
+      lastActiveRootRef.current = scrollRoot;
       if (ticking) return;
       ticking = true;
 
@@ -82,15 +105,20 @@ export function useInfiniteScrollTrigger({
       });
     };
 
-    scrollRoot.addEventListener("scroll", onScroll, { passive: true });
-    return () => scrollRoot.removeEventListener("scroll", onScroll);
-  }, [enabled, hasMore, getScrollRoot, triggerDistancePx, triggerLoadMoreIfNeeded]);
+    scrollRoots.forEach((root) =>
+      root.addEventListener("scroll", onScroll, { passive: true }),
+    );
+
+    return () => {
+      scrollRoots.forEach((root) => root.removeEventListener("scroll", onScroll));
+    };
+  }, [enabled, hasMore, getScrollRoots, pickScrollableRoot, triggerDistancePx, triggerLoadMoreIfNeeded]);
 
   useEffect(() => {
     if (!enabled || !hasMore || loading) return;
     if (!userScrolledDownRef.current) return;
 
-    const scrollRoot = getScrollRoot();
+    const scrollRoot = pickScrollableRoot();
     if (!scrollRoot) return;
 
     const distanceToBottom =
@@ -104,7 +132,7 @@ export function useInfiniteScrollTrigger({
       });
       return () => window.cancelAnimationFrame(id);
     }
-  }, [enabled, hasMore, loading, getScrollRoot, triggerDistancePx, triggerLoadMoreIfNeeded]);
+  }, [enabled, hasMore, loading, pickScrollableRoot, triggerDistancePx, triggerLoadMoreIfNeeded]);
 }
 
 export default useInfiniteScrollTrigger;
