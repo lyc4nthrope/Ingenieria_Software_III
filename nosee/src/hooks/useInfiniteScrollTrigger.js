@@ -59,6 +59,34 @@ export function useInfiniteScrollTrigger({
     return roots.find((root) => root.scrollHeight > root.clientHeight + 1) || roots[0];
   }, [getScrollRoots]);
 
+  const getScrollMetrics = useCallback((source) => {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return null;
+    }
+
+    // Scroll del viewport (caso común en mobile browsers).
+    if (source === window || source === document) {
+      const currentTop =
+        window.scrollY ||
+        document.documentElement.scrollTop ||
+        document.body.scrollTop ||
+        0;
+      const scrollHeight = Math.max(
+        document.documentElement.scrollHeight || 0,
+        document.body.scrollHeight || 0,
+      );
+      const clientHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      return { currentTop, scrollHeight, clientHeight };
+    }
+
+    if (!source) return null;
+    return {
+      currentTop: source.scrollTop || 0,
+      scrollHeight: source.scrollHeight || 0,
+      clientHeight: source.clientHeight || 0,
+    };
+  }, []);
+
   const triggerLoadMoreIfNeeded = useCallback(() => {
     const now = Date.now();
     if (now - lastLoadTriggerAtRef.current < cooldownMs) return;
@@ -72,32 +100,29 @@ export function useInfiniteScrollTrigger({
     if (!enabled || !hasMore) return;
 
     const scrollRoots = getScrollRoots();
-    if (scrollRoots.length === 0) return;
+    const targets = [window, ...scrollRoots];
     let ticking = false;
 
     const onScroll = (event) => {
       const source = event?.currentTarget;
-      const scrollRoot =
-        source && source.scrollHeight > source.clientHeight
-          ? source
-          : pickScrollableRoot();
-      if (!scrollRoot) return;
-
-      lastActiveRootRef.current = scrollRoot;
+      const fallbackRoot = pickScrollableRoot();
+      const chosenSource = source || fallbackRoot || window;
+      lastActiveRootRef.current = chosenSource;
       if (ticking) return;
       ticking = true;
 
       window.requestAnimationFrame(() => {
         ticking = false;
 
-        const currentTop = scrollRoot.scrollTop;
+        const metrics = getScrollMetrics(chosenSource);
+        if (!metrics) return;
+        const { currentTop, scrollHeight, clientHeight } = metrics;
         const isScrollingDown = currentTop > lastScrollTopRef.current + 1;
         lastScrollTopRef.current = currentTop;
         if (!isScrollingDown) return;
         userScrolledDownRef.current = true;
 
-        const distanceToBottom =
-          scrollRoot.scrollHeight - currentTop - scrollRoot.clientHeight;
+        const distanceToBottom = scrollHeight - currentTop - clientHeight;
 
         if (distanceToBottom <= triggerDistancePx) {
           triggerLoadMoreIfNeeded();
@@ -105,24 +130,24 @@ export function useInfiniteScrollTrigger({
       });
     };
 
-    scrollRoots.forEach((root) =>
-      root.addEventListener("scroll", onScroll, { passive: true }),
+    targets.forEach((target) =>
+      target.addEventListener("scroll", onScroll, { passive: true }),
     );
 
     return () => {
-      scrollRoots.forEach((root) => root.removeEventListener("scroll", onScroll));
+      targets.forEach((target) => target.removeEventListener("scroll", onScroll));
     };
-  }, [enabled, hasMore, getScrollRoots, pickScrollableRoot, triggerDistancePx, triggerLoadMoreIfNeeded]);
+  }, [enabled, hasMore, getScrollRoots, getScrollMetrics, pickScrollableRoot, triggerDistancePx, triggerLoadMoreIfNeeded]);
 
   useEffect(() => {
     if (!enabled || !hasMore || loading) return;
     if (!userScrolledDownRef.current) return;
 
-    const scrollRoot = pickScrollableRoot();
-    if (!scrollRoot) return;
-
+    const activeSource = lastActiveRootRef.current || pickScrollableRoot() || window;
+    const metrics = getScrollMetrics(activeSource);
+    if (!metrics) return;
     const distanceToBottom =
-      scrollRoot.scrollHeight - scrollRoot.scrollTop - scrollRoot.clientHeight;
+      metrics.scrollHeight - metrics.currentTop - metrics.clientHeight;
 
     // Si sigue pegado al fondo después de renderizar la página anterior,
     // continuar la carga para mantener el scroll fluido.
@@ -132,7 +157,7 @@ export function useInfiniteScrollTrigger({
       });
       return () => window.cancelAnimationFrame(id);
     }
-  }, [enabled, hasMore, loading, pickScrollableRoot, triggerDistancePx, triggerLoadMoreIfNeeded]);
+  }, [enabled, hasMore, loading, getScrollMetrics, pickScrollableRoot, triggerDistancePx, triggerLoadMoreIfNeeded]);
 }
 
 export default useInfiniteScrollTrigger;
