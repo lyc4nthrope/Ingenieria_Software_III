@@ -165,8 +165,15 @@ export function PublicationCard({
     t.timeAgo
   );
   const productName = publication.product?.name || tc.unknownProduct;
-  const productBrand = publication.product?.brand?.name || publication.product?.brand_name || "";
-  const productDisplay = productBrand ? `${productName} · ${productBrand}` : productName;
+  const productBrand = publication.product?.brand?.name || publication.product?.brands?.name || publication.product?.brand_name || "Sin marca";
+  const unitValue =
+    publication.product?.base_quantity != null &&
+    (publication.product?.unit_type?.abbreviation || publication.product?.unit_type?.name)
+      ? `${publication.product.base_quantity} ${publication.product.unit_type?.abbreviation || publication.product.unit_type?.name}`
+      : publication.product?.unit_type?.abbreviation ||
+        publication.product?.unit_type?.name ||
+        "Sin unidad";
+  const productDisplay = productName;
 
   return (
     <div style={styles.card}>
@@ -193,7 +200,23 @@ export function PublicationCard({
           <div style={styles.productName}>
             {productDisplay}
           </div>
-          <div style={styles.storeName}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '4px 10px',
+            fontSize: '12px',
+            color: 'var(--text-muted)',
+            marginTop: '4px',
+          }}>
+            <span>
+              <strong style={{ color: 'var(--text-secondary)' }}>Marca:</strong> {productBrand}
+            </span>
+            <span>
+              <strong style={{ color: 'var(--text-secondary)' }}>Unidad:</strong> {unitValue}
+            </span>
+          </div>
+          <div style={{ ...styles.storeName, marginTop: '4px' }}>
+            <strong style={{ color: 'var(--text-secondary)' }}>Tienda:</strong>{' '}
             <span aria-hidden="true">{Number(publication.store?.store_type_id) === 2 ? '🌐' : '🏪'} </span>{publication.store?.name || tc.noStore}
           </div>
         </div>
