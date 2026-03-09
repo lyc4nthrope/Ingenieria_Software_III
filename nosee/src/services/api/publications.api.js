@@ -970,9 +970,12 @@ export const getPublications = async (filters = {}) => {
     const requiresClientSort =
       sortBy === SORT_OPTIONS.VALIDATED || sortBy === SORT_OPTIONS.BEST_MATCH;
 
-    const prefetchedRows = requiresClientSort
-      ? Math.min(offset + limit * 5, 500)
-      : limit;
+    const prefetchedRows =
+      sortBy === SORT_OPTIONS.VALIDATED
+        ? Math.min(Math.max(offset + limit * 20, 500), 2500)
+        : requiresClientSort
+          ? Math.min(offset + limit * 5, 500)
+          : limit;
 
     const queryRangeStart = requiresClientSort ? 0 : offset;
     const queryRangeEnd = queryRangeStart + prefetchedRows - 1;
@@ -1302,7 +1305,15 @@ export const getPublicationDetail = async (publicationId) => {
         `
         *,
         user:users!price_publications_user_id_fkey (id, full_name, reputation_points),
-        product:products (id, name, base_quantity, unit_type:unit_types (id, name, abbreviation)),
+        product:products (
+          id,
+          name,
+          barcode,
+          category:product_categories(name),
+          brand:brands(name),
+          base_quantity,
+          unit_type:unit_types (id, name, abbreviation)
+        ),
         store:stores!price_publications_store_id_fkey (id, name, address, location, store_type_id, website_url),
         votes:publication_votes (id, vote_type, user_id)
         `,

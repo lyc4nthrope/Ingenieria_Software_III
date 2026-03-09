@@ -510,24 +510,15 @@ export async function getStore(storeId) {
 export async function updateStore(storeId, updates = {}) {
   if (!storeId) return { success: false, error: "storeId es obligatorio" };
 
-  const userResult = await getCurrentUserId();
-  if (!userResult.success) return userResult;
-
-  const { data: store, error: storeError } = await supabase
-    .from("stores")
-    .select("id, created_by")
-    .eq("id", storeId)
-    .single();
-
-  if (storeError) return { success: false, error: storeError.message };
-  if (store?.created_by !== userResult.data) {
-    return { success: false, error: "Solo el creador puede editar la tienda" };
-  }
-
   const safeUpdates = {};
   if (typeof updates.name === "string") safeUpdates.name = updates.name.trim();
   if (typeof updates.address === "string") safeUpdates.address = updates.address.trim() || null;
   if (typeof updates.websiteUrl === "string") safeUpdates.website_url = updates.websiteUrl.trim() || null;
+  if (Number.isFinite(Number(updates.latitude)) && Number.isFinite(Number(updates.longitude))) {
+    const lat = Number(updates.latitude);
+    const lon = Number(updates.longitude);
+    safeUpdates.location = `POINT(${lon} ${lat})`;
+  }
 
   if (Object.keys(safeUpdates).length === 0) {
     return { success: false, error: "No hay campos para actualizar" };
@@ -537,11 +528,20 @@ export async function updateStore(storeId, updates = {}) {
     .from("stores")
     .update(safeUpdates)
     .eq("id", storeId)
-    .select("id, name, address, website_url, store_type_id")
+    .select("id, name, address, website_url, store_type_id, location")
     .single();
 
   if (error) return { success: false, error: error.message };
-  return { success: true, data: { ...data, type: getUiTypeByStoreTypeId(data.store_type_id) } };
+  const point = parsePointText(data.location);
+  return {
+    success: true,
+    data: {
+      ...data,
+      type: getUiTypeByStoreTypeId(data.store_type_id),
+      latitude: point?.latitude ?? null,
+      longitude: point?.longitude ?? null,
+    },
+  };
 }
 
 /**

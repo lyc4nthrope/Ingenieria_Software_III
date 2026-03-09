@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { getStorePublications, getStoreEvidences } from '@/services/api/stores.api';
+import { getStorePublications, getStoreEvidences, updateStore } from '@/services/api/stores.api';
 import { optimizeCloudinaryUrl } from '@/services/cloudinary';
 
 const LEAFLET_CSS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
@@ -207,9 +207,27 @@ export default function StoreDetailModal({ store, onClose }) {
   const [evidences, setEvidences] = useState([]);
   const [expandedEvidence, setExpandedEvidence] = useState(null);
   const [evidenceError, setEvidenceError] = useState(null);
+  const [localStore, setLocalStore] = useState(store);
+  const [editAddress, setEditAddress] = useState(store.address || '');
+  const [editLatitude, setEditLatitude] = useState(
+    Number.isFinite(Number(store.latitude)) ? String(store.latitude) : ''
+  );
+  const [editLongitude, setEditLongitude] = useState(
+    Number.isFinite(Number(store.longitude)) ? String(store.longitude) : ''
+  );
+  const [savingStore, setSavingStore] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
 
-  const isPhysical = store.type === 'physical';
-  const hasLocation = isPhysical && Number.isFinite(store.latitude) && Number.isFinite(store.longitude);
+  const isPhysical = localStore.type === 'physical';
+  const hasLocation = isPhysical && Number.isFinite(localStore.latitude) && Number.isFinite(localStore.longitude);
+
+  useEffect(() => {
+    setLocalStore(store);
+    setEditAddress(store.address || '');
+    setEditLatitude(Number.isFinite(Number(store.latitude)) ? String(store.latitude) : '');
+    setEditLongitude(Number.isFinite(Number(store.longitude)) ? String(store.longitude) : '');
+    setSaveMessage('');
+  }, [store]);
 
   useEffect(() => {
     let cancelled = false;
@@ -219,7 +237,7 @@ export default function StoreDetailModal({ store, onClose }) {
     (async () => {
       try {
         const [pubsRes, evidRes] = await Promise.allSettled([
-          getStorePublications(store.id, 6),
+          getStorePublications(localStore.id, 6),
           isPhysical ? getStoreEvidences(store.id) : Promise.resolve({ success: true, data: [] }),
         ]);
 
@@ -240,7 +258,37 @@ export default function StoreDetailModal({ store, onClose }) {
     })();
 
     return () => { cancelled = true; };
-  }, [store.id, isPhysical, td.noEvidences]);
+  }, [localStore.id, isPhysical, store.id, td.noEvidences]);
+
+  const handleSaveStore = async () => {
+    if (!isPhysical) return;
+    setSavingStore(true);
+    setSaveMessage('');
+    const parsedLat = Number(editLatitude);
+    const parsedLon = Number(editLongitude);
+    const payload = {
+      address: editAddress,
+      latitude: Number.isFinite(parsedLat) ? parsedLat : undefined,
+      longitude: Number.isFinite(parsedLon) ? parsedLon : undefined,
+    };
+
+    const result = await updateStore(localStore.id, payload);
+    setSavingStore(false);
+
+    if (!result.success) {
+      setSaveMessage(result.error || 'No se pudo actualizar la tienda');
+      return;
+    }
+
+    setLocalStore((prev) => ({
+      ...prev,
+      ...result.data,
+      address: result.data.address ?? prev.address,
+      latitude: result.data.latitude,
+      longitude: result.data.longitude,
+    }));
+    setSaveMessage('Tienda actualizada correctamente');
+  };
 
   // Cerrar con Escape
   useEffect(() => {
@@ -264,7 +312,7 @@ export default function StoreDetailModal({ store, onClose }) {
           <div style={styles.headerLeft}>
             <span aria-hidden="true" style={styles.icon}>{isPhysical ? '🏬' : '🌐'}</span>
             <div>
-              <h2 style={styles.storeName}>{store.name}</h2>
+              <h2 style={styles.storeName}>{localStore.name}</h2>
               <span style={{ ...styles.typeBadge, ...(isPhysical ? styles.badgePhysical : styles.badgeVirtual) }}>
                 {isPhysical ? t.storesPage.physical : t.storesPage.virtual}
               </span>
@@ -286,15 +334,54 @@ export default function StoreDetailModal({ store, onClose }) {
           <div style={styles.infoRow}>
             <span style={styles.infoLabel}>{td.address}</span>
             <span style={styles.infoValue}>
-              {store.address || td.noAddress}
+              {localStore.address || td.noAddress}
+              {isPhysical && (
+                <div style={styles.editBlock}>
+                  <label style={styles.editLabel}>Editar dirección</label>
+                  <input
+                    type="text"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    style={styles.editInput}
+                    placeholder="Dirección"
+                  />
+                  <div style={styles.coordsRow}>
+                    <input
+                      type="number"
+                      step="any"
+                      value={editLatitude}
+                      onChange={(e) => setEditLatitude(e.target.value)}
+                      style={styles.editInput}
+                      placeholder="Latitud"
+                    />
+                    <input
+                      type="number"
+                      step="any"
+                      value={editLongitude}
+                      onChange={(e) => setEditLongitude(e.target.value)}
+                      style={styles.editInput}
+                      placeholder="Longitud"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveStore}
+                    disabled={savingStore}
+                    style={styles.saveBtn}
+                  >
+                    {savingStore ? 'Guardando...' : 'Guardar ubicación'}
+                  </button>
+                  {saveMessage ? <span style={styles.saveMsg}>{saveMessage}</span> : null}
+                </div>
+              )}
             </span>
           </div>
 
-          {!isPhysical && store.website_url && (
+          {!isPhysical && localStore.website_url && (
             <div style={styles.infoRow}>
               <span style={styles.infoLabel}>{td.website}</span>
               <a
-                href={store.website_url}
+                href={localStore.website_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={styles.link}
@@ -322,7 +409,7 @@ export default function StoreDetailModal({ store, onClose }) {
                     >
                       <img
                         src={optimizeCloudinaryUrl(ev.image_url, { width: 400 })}
-                        alt={store.name}
+                        alt={localStore.name}
                         style={styles.evidenceImg}
                         loading="lazy"
                         decoding="async"
@@ -354,7 +441,7 @@ export default function StoreDetailModal({ store, onClose }) {
               </button>
               <img
                 src={expandedEvidence}
-                alt={store.name}
+                alt={localStore.name}
                 style={styles.lightboxImg}
               />
             </div>
@@ -364,9 +451,10 @@ export default function StoreDetailModal({ store, onClose }) {
           <div style={styles.section}>
             {hasLocation ? (
               <StoreMap
-                latitude={store.latitude}
-                longitude={store.longitude}
-                storeName={store.name}
+                key={`${localStore.latitude}-${localStore.longitude}-${localStore.name}`}
+                latitude={localStore.latitude}
+                longitude={localStore.longitude}
+                storeName={localStore.name}
                 td={td}
               />
             ) : (
@@ -500,6 +588,54 @@ const styles = {
   },
   infoValue: {
     color: 'var(--text-primary)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  editBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    marginTop: '6px',
+    padding: '8px',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm, 6px)',
+    background: 'var(--bg-elevated)',
+  },
+  editLabel: {
+    fontSize: '12px',
+    fontWeight: 600,
+    color: 'var(--text-secondary)',
+  },
+  coordsRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '6px',
+  },
+  editInput: {
+    width: '100%',
+    padding: '8px 10px',
+    borderRadius: 'var(--radius-sm, 6px)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-surface)',
+    color: 'var(--text-primary)',
+    fontSize: '13px',
+    boxSizing: 'border-box',
+  },
+  saveBtn: {
+    alignSelf: 'flex-start',
+    border: '1px solid var(--accent)',
+    background: 'var(--accent-soft)',
+    color: 'var(--accent)',
+    borderRadius: 'var(--radius-sm, 6px)',
+    padding: '6px 10px',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  saveMsg: {
+    fontSize: '12px',
+    color: 'var(--text-muted)',
   },
   link: {
     color: 'var(--accent)',

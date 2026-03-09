@@ -602,12 +602,42 @@ export default function PublicationDetailModal({ publication, onClose }) {
 
         <h2 id={titleId} style={styles.title}>{publication?.product?.name || td.noName}</h2>
         <p style={styles.meta}>
+          <strong>Marca:</strong> {publication?.product?.brand?.name || "Sin marca"} ·{" "}
+          <strong>Categoría:</strong> {publication?.product?.category?.name || "Sin categoría"}
+        </p>
+        <p style={styles.meta}>
+          <strong>Código de barras:</strong> {publication?.product?.barcode || "Sin código"}
+        </p>
+        <p style={styles.meta}>
           {td.unit} {publication?.product?.base_quantity || "-"} {publication?.product?.unit_type?.abbreviation || ""}
         </p>
+        <p style={styles.meta}>
+          <strong>{td.price}:</strong> ${Number(publication?.price || 0).toLocaleString("es-CO")}
+        </p>
+        <p style={styles.meta}>
+          <strong>{td.storeLabel}:</strong> {publication?.store?.name || "-"}
+        </p>
+        <p style={styles.meta}>
+          <strong>Dirección:</strong> {publication?.store?.address || "No disponible"}
+        </p>
+        {publication?.store?.website_url && (
+          <p style={styles.meta}>
+            <strong>Sitio web:</strong>{" "}
+            <a href={publication.store.website_url} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+              {publication.store.website_url}
+            </a>
+          </p>
+        )}
         <p style={styles.description}>{publication?.description || td.noDescription}</p>
 
         <p style={styles.meta}>
           {td.publishedBy} {publication?.user?.full_name || td.unknownUser} · {td.score} {publication?.user?.reputation_points ?? 0}
+        </p>
+        <p style={styles.meta}>
+          <strong>Fecha:</strong>{" "}
+          {publication?.created_at
+            ? new Date(publication.created_at).toLocaleString("es-CO")
+            : "No disponible"}
         </p>
         <p style={styles.meta}>
           {td.votes}{" "}
