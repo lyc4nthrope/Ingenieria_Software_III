@@ -635,6 +635,30 @@ export default function HomePage() {
   }, [removePublication, th.confirmDelete]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleStoreUpdated = (event) => {
+      const updatedStore = event?.detail?.updatedStore;
+      const updatedStoreId = updatedStore?.id || event?.detail?.storeId;
+      if (!updatedStoreId) return;
+
+      setDetailPublication((prev) => {
+        if (!prev?.store?.id || prev.store.id !== updatedStoreId) return prev;
+        return {
+          ...prev,
+          store: {
+            ...prev.store,
+            ...updatedStore,
+          },
+        };
+      });
+    };
+
+    window.addEventListener("nosee:store-updated", handleStoreUpdated);
+    return () => window.removeEventListener("nosee:store-updated", handleStoreUpdated);
+  }, []);
+
+  useEffect(() => {
     const sentinel = infiniteSentinelRef.current;
     if (!sentinel || !hasMore) return;
 
