@@ -519,6 +519,7 @@ export default function HomePage() {
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
   const infiniteSentinelRef = useRef(null);
+  const loadingRef = useRef(loading);
 
   useEffect(() => {
     publicationsApi.getProductCategories().then((result) => {
@@ -659,13 +660,17 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
     const sentinel = infiniteSentinelRef.current;
     if (!sentinel || !hasMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        if (entry?.isIntersecting && !loading) {
+        if (entry?.isIntersecting && !loadingRef.current) {
           loadMore();
         }
       },
@@ -678,7 +683,7 @@ export default function HomePage() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loading, loadMore]);
+  }, [hasMore, loadMore]);
 
   return (
     <div className="home-wrapper">
