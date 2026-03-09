@@ -1240,12 +1240,15 @@ export const getPublications = async (filters = {}) => {
       ? priceGuardedPublications.slice(offset, offset + limit)
       : priceGuardedPublications;
 
-    const effectiveCount = Number.isFinite(count)
+    const hasServerCount = Number.isFinite(count);
+    const effectiveCount = hasServerCount
       ? count
       : (requiresClientSort ? priceGuardedPublications.length : offset + paginatedData.length);
     const effectiveHasMore = requiresClientSort
       ? offset + limit < priceGuardedPublications.length
-      : paginatedData.length === limit && offset + paginatedData.length < effectiveCount;
+      : hasServerCount
+        ? paginatedData.length === limit && offset + paginatedData.length < Number(count)
+        : paginatedData.length === limit;
 
     return {
       success: true,
