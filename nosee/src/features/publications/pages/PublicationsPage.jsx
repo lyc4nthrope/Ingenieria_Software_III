@@ -177,7 +177,34 @@ export default function PublicationsPage() {
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
 
-    const distanceChanged = newFilters.maxDistance !== filters.maxDistance;
+    const shouldUseBestMatch = String(newFilters.sortBy || '') === 'best_match';
+
+    const requestGeolocationAndApply = () => {
+      if (!navigator.geolocation) {
+        setError("Tu navegador no soporta geolocalización. No se puede aplicar el filtro de distancia.");
+        setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+        return;
+      }
+
+      setGeolocationLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          cachedLocationRef.current = { latitude: coords.latitude, longitude: coords.longitude };
+          setGeolocationLoading(false);
+          setPublicationFilters({
+            ...newFilters,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          });
+        },
+        () => {
+          setGeolocationLoading(false);
+          setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.");
+          setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+        },
+        { timeout: 10000 },
+      );
+    };
 
     if (newFilters.maxDistance) {
       if (cachedLocationRef.current) {
@@ -186,38 +213,32 @@ export default function PublicationsPage() {
           latitude: cachedLocationRef.current.latitude,
           longitude: cachedLocationRef.current.longitude,
         });
-      } else if (distanceChanged && !geolocationLoading) {
-        if (!navigator.geolocation) {
-          setError("Tu navegador no soporta geolocalización. No se puede aplicar el filtro de distancia.");
-          setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
-          return;
-        }
-        setGeolocationLoading(true);
-        navigator.geolocation.getCurrentPosition(
-          ({ coords }) => {
-            cachedLocationRef.current = { latitude: coords.latitude, longitude: coords.longitude };
-            setGeolocationLoading(false);
-            setPublicationFilters({
-              ...newFilters,
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-            });
-          },
-          () => {
-            setGeolocationLoading(false);
-            setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.");
-            setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
-          },
-          { timeout: 10000 },
-        );
+      } else if (!geolocationLoading) {
+        // Reintenta cada vez que haya filtro de distancia sin coordenadas cacheadas.
+        requestGeolocationAndApply();
       } else {
-        setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+        // Mientras se obtiene ubicación, mantener el resto de filtros.
+        setPublicationFilters({ ...newFilters });
       }
     } else if (!newFilters.maxDistance && filters.maxDistance) {
       cachedLocationRef.current = null;
       setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
     } else {
-      setPublicationFilters(newFilters);
+      if (shouldUseBestMatch) {
+        if (cachedLocationRef.current) {
+          setPublicationFilters({
+            ...newFilters,
+            latitude: cachedLocationRef.current.latitude,
+            longitude: cachedLocationRef.current.longitude,
+          });
+        } else if (!geolocationLoading) {
+          requestGeolocationAndApply();
+        } else {
+          setPublicationFilters(newFilters);
+        }
+      } else {
+        setPublicationFilters(newFilters);
+      }
     }
   };
 

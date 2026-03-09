@@ -214,6 +214,17 @@ const PublicationCard = memo(function PublicationCard({
     (pub.user_id === currentUserId || pub.user?.id === currentUserId);
 
   const pubName = pub.product?.name || th.product;
+  const brandName =
+    pub.product?.brand?.name ||
+    pub.product?.brands?.name ||
+    "Sin marca";
+  const unitValue =
+    pub.product?.base_quantity != null &&
+    (pub.product?.unit_type?.abbreviation || pub.product?.unit_type?.name)
+      ? `${pub.product.base_quantity} ${pub.product.unit_type?.abbreviation || pub.product.unit_type?.name}`
+      : pub.product?.unit_type?.abbreviation ||
+        pub.product?.unit_type?.name ||
+        "Sin unidad";
 
   const handleVote = async (action) => {
     if (isVoting) return;
@@ -272,10 +283,26 @@ const PublicationCard = memo(function PublicationCard({
       <div className="card-body">
         <p className="card-title">{pubName}</p>
         <p className="card-price">${pub.price.toLocaleString()}</p>
-        <p className="card-description">
-          {(pub.description || th.noDescription).slice(0, 80)}
-        </p>
-        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>{pub.store?.name || th.store}</span>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "6px 10px",
+            fontSize: "12px",
+            color: "var(--text-muted)",
+            marginTop: "4px",
+          }}
+        >
+          <span>
+            <strong style={{ color: "var(--text-secondary)" }}>Marca:</strong> {brandName}
+          </span>
+          <span>
+            <strong style={{ color: "var(--text-secondary)" }}>Unidad:</strong> {unitValue}
+          </span>
+        </div>
+        <span style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "6px", display: "block" }}>
+          <strong style={{ color: "var(--text-secondary)" }}>Tienda:</strong> {pub.store?.name || th.store}
+        </span>
       </div>
 
       <div className="card-divider" />

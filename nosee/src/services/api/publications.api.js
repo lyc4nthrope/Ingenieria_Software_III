@@ -789,6 +789,7 @@ export const getPublications = async (filters = {}) => {
       Number.isFinite(normalizedMaxDistance) &&
       normalizedMaxDistance > 0 &&
       hasCoordinates(latitude, longitude);
+    const shouldComputeDistanceSignals = hasCoordinates(latitude, longitude);
 
     // Pre-filtro: IDs de productos cuyo nombre O cuya marca coincide con productName
     let productIdFilter = null;
@@ -1056,7 +1057,7 @@ export const getPublications = async (filters = {}) => {
           .filter((store) => {
             if (
               storeName &&
-              !store.name?.toLowerCase().includes(storeName.toLowerCase())
+              !normalizeSearchText(store.name || "").includes(normalizeSearchText(storeName))
             ) {
               return false;
             }
@@ -1162,7 +1163,7 @@ export const getPublications = async (filters = {}) => {
           : null,
       };
 
-      if (!shouldApplyDistanceFilter || appliedDistanceKm === null) return publicationWithCoords;
+      if (!shouldComputeDistanceSignals) return publicationWithCoords;
 
       if (!hasCoordinates(storeCoordinates.latitude, storeCoordinates.longitude)) {
         return { ...publicationWithCoords, distance_km: null };
@@ -1206,13 +1207,20 @@ export const getPublications = async (filters = {}) => {
       }
       if (sortBy === SORT_OPTIONS.BEST_MATCH) {
         return cloned.sort((a, b) => {
-          const byText = Number(b.search_signals?.text_score || 0) - Number(a.search_signals?.text_score || 0);
-          if (byText !== 0) return byText;
+          // Mejor opción prioriza score compuesto: texto + precio + distancia + votos + reputación.
+          const byScore = Number(b.search_score || 0) - Number(a.search_score || 0);
+          if (byScore !== 0) return byScore;
+
+          const byValidated = Number(b.validated_count || 0) - Number(a.validated_count || 0);
+          if (byValidated !== 0) return byValidated;
+
+          const byDistance = Number(a.distance_km || 1e12) - Number(b.distance_km || 1e12);
+          if (byDistance !== 0) return byDistance;
 
           const byPrice = Number(a.price || 0) - Number(b.price || 0);
           if (byPrice !== 0) return byPrice;
 
-          return Number(b.search_score || 0) - Number(a.search_score || 0);
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
         });
       }
       return cloned;
