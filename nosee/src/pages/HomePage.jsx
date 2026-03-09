@@ -524,6 +524,7 @@ export default function HomePage() {
   const loadingRef = useRef(loading);
   const hasMoreRef = useRef(hasMore);
   const lastLoadTriggerAtRef = useRef(0);
+  const lastScrollTopRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -564,7 +565,6 @@ export default function HomePage() {
     setFilters({
       latitude: latitude || null,
       longitude: longitude || null,
-      maxDistance: latitude && longitude ? 3 : null,
       sortBy: "recent",
     });
   }, [latitude, longitude, setFilters]);
@@ -576,7 +576,7 @@ export default function HomePage() {
     if (lastLocationCoordsRef.current === coordsKey) return;
     lastLocationCoordsRef.current = coordsKey;
     if (latitude && longitude) {
-      setFilters({ latitude, longitude, maxDistance: 3, sortBy: "recent" });
+      setFilters({ latitude, longitude, sortBy: "recent" });
     }
   }, [latitude, longitude, setFilters]);
 
@@ -694,63 +694,44 @@ export default function HomePage() {
 
   const triggerLoadMoreIfNeeded = useCallback(() => {
     const now = Date.now();
-    if (now - lastLoadTriggerAtRef.current < 450) return;
+    if (now - lastLoadTriggerAtRef.current < 700) return;
     if (!hasMoreRef.current || loadingRef.current) return;
     lastLoadTriggerAtRef.current = now;
     loadMore();
   }, [loadMore]);
 
   useEffect(() => {
-    const sentinel = infiniteSentinelRef.current;
-    if (!sentinel || !hasMore) return;
-
-    const mobileMq =
-      typeof window !== "undefined" && window.matchMedia
-        ? window.matchMedia("(max-width: 768px)")
-        : null;
-    const rootMargin = mobileMq?.matches ? "120px 0px" : "300px 0px";
     const scrollRoot =
       typeof document !== "undefined"
         ? document.getElementById("main-content")
         : null;
+    if (!scrollRoot || !hasMore) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry) return;
-        if (entry.isIntersecting) {
-          triggerLoadMoreIfNeeded();
-        }
-      },
-      {
-        root: scrollRoot,
-        rootMargin,
-        threshold: 0,
-      }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, triggerLoadMoreIfNeeded]);
-
-  useEffect(() => {
-    const scrollRoot =
-      typeof document !== "undefined"
-        ? document.getElementById("main-content")
-        : null;
-    if (!scrollRoot) return;
+    let ticking = false;
 
     const onScroll = () => {
-      const distanceToBottom =
-        scrollRoot.scrollHeight - scrollRoot.scrollTop - scrollRoot.clientHeight;
-      if (distanceToBottom <= 260) {
-        triggerLoadMoreIfNeeded();
-      }
+      if (ticking) return;
+      ticking = true;
+
+      window.requestAnimationFrame(() => {
+        ticking = false;
+        const currentTop = scrollRoot.scrollTop;
+        const isScrollingDown = currentTop > lastScrollTopRef.current + 1;
+        lastScrollTopRef.current = currentTop;
+        if (!isScrollingDown) return;
+
+        const distanceToBottom =
+          scrollRoot.scrollHeight - currentTop - scrollRoot.clientHeight;
+
+        if (distanceToBottom <= 320) {
+          triggerLoadMoreIfNeeded();
+        }
+      });
     };
 
     scrollRoot.addEventListener("scroll", onScroll, { passive: true });
     return () => scrollRoot.removeEventListener("scroll", onScroll);
-  }, [triggerLoadMoreIfNeeded]);
+  }, [hasMore, triggerLoadMoreIfNeeded]);
 
   return (
     <div className="home-wrapper">

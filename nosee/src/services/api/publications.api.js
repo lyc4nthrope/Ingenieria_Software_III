@@ -1032,8 +1032,6 @@ export const getPublications = async (filters = {}) => {
       return query.range(queryRangeStart, queryRangeEnd);
     };
 
-    let appliedDistanceKm = null;
-
     let nearbyStoreIds = [];
 
     if (shouldApplyDistanceFilter) {
@@ -1083,7 +1081,6 @@ export const getPublications = async (filters = {}) => {
           .map((store) => store.id);
 
         if (nearbyStoreIds.length > 0) {
-          appliedDistanceKm = distanceLimit;
           break;
         }
       } 

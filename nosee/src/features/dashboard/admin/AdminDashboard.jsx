@@ -223,7 +223,7 @@ export default function AdminDashboard() {
     if (pubFilter !== 'unpublished') return;
     if (unpublishedLoaded || unpublishedLoading) return;
     loadUnpublishedResources();
-  }, [activeSection, pubFilter, unpublishedLoaded, unpublishedLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeSection, pubFilter, unpublishedLoaded, unpublishedLoading]);
 
   // ─── Stats reales ─────────────────────────────────────────────────────────
   // Contamos directamente en Supabase para tener números en tiempo real.
