@@ -396,6 +396,30 @@ export default function PublicationsPage() {
     return () => observer.disconnect();
   }, [hasMore, loading, loadMore]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleStoreUpdated = (event) => {
+      const updatedStore = event?.detail?.updatedStore;
+      const updatedStoreId = updatedStore?.id || event?.detail?.storeId;
+      if (!updatedStoreId) return;
+
+      setSelectedPublication((prev) => {
+        if (!prev?.store?.id || prev.store.id !== updatedStoreId) return prev;
+        return {
+          ...prev,
+          store: {
+            ...prev.store,
+            ...updatedStore,
+          },
+        };
+      });
+    };
+
+    window.addEventListener("nosee:store-updated", handleStoreUpdated);
+    return () => window.removeEventListener("nosee:store-updated", handleStoreUpdated);
+  }, []);
+
 
   // ─────────────────────────────────────────────────────────────
   // PASO 5: Render - Estructura de la página

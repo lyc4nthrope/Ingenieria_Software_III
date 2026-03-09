@@ -3,126 +3,12 @@
  * Modal de detalle de tienda: muestra ubicación en mapa y publicaciones recientes.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getStorePublications, getStoreEvidences, updateStore } from '@/services/api/stores.api';
 import { optimizeCloudinaryUrl } from '@/services/cloudinary';
-
-const LEAFLET_CSS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-const LEAFLET_JS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-const DEFAULT_ZOOM = 16;
-
-function ensureLeafletLoaded() {
-  if (window.L) return Promise.resolve(window.L);
-  if (window.__leafletLoaderPromise) return window.__leafletLoaderPromise;
-
-  window.__leafletLoaderPromise = new Promise((resolve, reject) => {
-    if (!document.querySelector(`link[data-leaflet-css="${LEAFLET_CSS_URL}"]`)) {
-      const css = document.createElement('link');
-      css.rel = 'stylesheet';
-      css.href = LEAFLET_CSS_URL;
-      css.dataset.leafletCss = LEAFLET_CSS_URL;
-      document.head.appendChild(css);
-    }
-
-    const existing = document.querySelector(`script[data-leaflet-js="${LEAFLET_JS_URL}"]`);
-    if (existing) {
-      existing.addEventListener('load', () => resolve(window.L));
-      existing.addEventListener('error', () => reject(new Error('No se pudo cargar Leaflet')));
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = LEAFLET_JS_URL;
-    script.async = true;
-    script.dataset.leafletJs = LEAFLET_JS_URL;
-    script.onload = () => resolve(window.L);
-    script.onerror = () => reject(new Error('No se pudo cargar Leaflet'));
-    document.body.appendChild(script);
-  }).catch((err) => {
-    window.__leafletLoaderPromise = null;
-    throw err;
-  });
-
-  return window.__leafletLoaderPromise;
-}
-
-function StoreMap({ latitude, longitude, storeName, td }) {
-  const containerRef = useRef(null);
-  const mapRef = useRef(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function init() {
-      try {
-        const L = await ensureLeafletLoaded();
-        if (!mounted || !containerRef.current) return;
-        if (mapRef.current) return;
-
-        // Fix default marker icons
-        delete L.Icon.Default.prototype._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-          iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-        });
-
-        const map = L.map(containerRef.current).setView([latitude, longitude], DEFAULT_ZOOM);
-        mapRef.current = map;
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-        }).addTo(map);
-
-        L.marker([latitude, longitude])
-          .addTo(map)
-          .bindPopup(storeName)
-          .openPopup();
-      } catch (err) {
-        if (mounted) setError(err.message);
-      }
-    }
-
-    init();
-
-    return () => {
-      mounted = false;
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (error) {
-    return <div style={mapStyles.error}>{td.mapLoadError}</div>;
-  }
-
-  return <div ref={containerRef} style={mapStyles.container} />;
-}
-
-const mapStyles = {
-  container: {
-    width: '100%',
-    height: '220px',
-    borderRadius: 'var(--radius-md)',
-    overflow: 'hidden',
-    border: '1px solid var(--border)',
-    zIndex: 0,
-  },
-  error: {
-    padding: '16px',
-    textAlign: 'center',
-    color: 'var(--text-muted)',
-    fontSize: '13px',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-md)',
-  },
-};
+import StoreMapPicker from '@/features/stores/components/StoreMapPicker';
 
 function PublicationMini({ pub, onNavigate }) {
   return (
@@ -197,7 +83,7 @@ const miniStyles = {
   },
 };
 
-export default function StoreDetailModal({ store, onClose }) {
+export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
   const { t } = useLanguage();
   const td = t.storesPage.storeDetail;
   const navigate = useNavigate();
@@ -219,7 +105,6 @@ export default function StoreDetailModal({ store, onClose }) {
   const [saveMessage, setSaveMessage] = useState('');
 
   const isPhysical = localStore.type === 'physical';
-  const hasLocation = isPhysical && Number.isFinite(localStore.latitude) && Number.isFinite(localStore.longitude);
 
   useEffect(() => {
     setLocalStore(store);
@@ -238,7 +123,7 @@ export default function StoreDetailModal({ store, onClose }) {
       try {
         const [pubsRes, evidRes] = await Promise.allSettled([
           getStorePublications(localStore.id, 6),
-          isPhysical ? getStoreEvidences(store.id) : Promise.resolve({ success: true, data: [] }),
+          isPhysical ? getStoreEvidences(localStore.id) : Promise.resolve({ success: true, data: [] }),
         ]);
 
         if (cancelled) return;
@@ -258,7 +143,7 @@ export default function StoreDetailModal({ store, onClose }) {
     })();
 
     return () => { cancelled = true; };
-  }, [localStore.id, isPhysical, store.id, td.noEvidences]);
+  }, [localStore.id, isPhysical, td.noEvidences]);
 
   const handleSaveStore = async () => {
     if (!isPhysical) return;
@@ -280,6 +165,14 @@ export default function StoreDetailModal({ store, onClose }) {
       return;
     }
 
+    const updatedStore = {
+      ...localStore,
+      ...result.data,
+      address: result.data.address ?? localStore.address,
+      latitude: result.data.latitude,
+      longitude: result.data.longitude,
+    };
+
     setLocalStore((prev) => ({
       ...prev,
       ...result.data,
@@ -287,6 +180,25 @@ export default function StoreDetailModal({ store, onClose }) {
       latitude: result.data.latitude,
       longitude: result.data.longitude,
     }));
+
+    if (typeof onStoreUpdated === "function") {
+      onStoreUpdated(updatedStore);
+    }
+
+    if (typeof window !== "undefined") {
+      const detail = {
+        storeId: updatedStore.id,
+        updatedStore,
+        updatedAt: Date.now(),
+      };
+      window.dispatchEvent(new CustomEvent("nosee:store-updated", { detail }));
+      try {
+        window.localStorage.setItem("NOSEE_STORE_UPDATED_AT", String(detail.updatedAt));
+      } catch {
+        // Ignorar errores de storage en modo privado/restringido.
+      }
+    }
+
     setSaveMessage('Tienda actualizada correctamente');
   };
 
@@ -335,45 +247,6 @@ export default function StoreDetailModal({ store, onClose }) {
             <span style={styles.infoLabel}>{td.address}</span>
             <span style={styles.infoValue}>
               {localStore.address || td.noAddress}
-              {isPhysical && (
-                <div style={styles.editBlock}>
-                  <label style={styles.editLabel}>Editar dirección</label>
-                  <input
-                    type="text"
-                    value={editAddress}
-                    onChange={(e) => setEditAddress(e.target.value)}
-                    style={styles.editInput}
-                    placeholder="Dirección"
-                  />
-                  <div style={styles.coordsRow}>
-                    <input
-                      type="number"
-                      step="any"
-                      value={editLatitude}
-                      onChange={(e) => setEditLatitude(e.target.value)}
-                      style={styles.editInput}
-                      placeholder="Latitud"
-                    />
-                    <input
-                      type="number"
-                      step="any"
-                      value={editLongitude}
-                      onChange={(e) => setEditLongitude(e.target.value)}
-                      style={styles.editInput}
-                      placeholder="Longitud"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSaveStore}
-                    disabled={savingStore}
-                    style={styles.saveBtn}
-                  >
-                    {savingStore ? 'Guardando...' : 'Guardar ubicación'}
-                  </button>
-                  {saveMessage ? <span style={styles.saveMsg}>{saveMessage}</span> : null}
-                </div>
-              )}
             </span>
           </div>
 
@@ -447,23 +320,43 @@ export default function StoreDetailModal({ store, onClose }) {
             </div>
           )}
 
-          {/* Mapa */}
-          <div style={styles.section}>
-            {hasLocation ? (
-              <StoreMap
-                key={`${localStore.latitude}-${localStore.longitude}-${localStore.name}`}
-                latitude={localStore.latitude}
-                longitude={localStore.longitude}
-                storeName={localStore.name}
-                td={td}
+          {/* Edición de dirección y mapa (tienda física) */}
+          {isPhysical ? (
+            <div style={styles.section}>
+              <h3 style={styles.sectionTitle}>Editar dirección</h3>
+              <StoreMapPicker
+                latitude={Number.isFinite(Number(editLatitude)) ? Number(editLatitude) : null}
+                longitude={Number.isFinite(Number(editLongitude)) ? Number(editLongitude) : null}
+                address={editAddress}
+                onLocationChange={({ latitude, longitude, address }) => {
+                  setEditLatitude(
+                    Number.isFinite(Number(latitude)) ? String(Number(latitude)) : ''
+                  );
+                  setEditLongitude(
+                    Number.isFinite(Number(longitude)) ? String(Number(longitude)) : ''
+                  );
+                  if (typeof address === 'string') setEditAddress(address);
+                }}
+                onAddressChange={(value) => setEditAddress(value)}
               />
-            ) : (
+              <button
+                type="button"
+                onClick={handleSaveStore}
+                disabled={savingStore}
+                style={styles.saveBtn}
+              >
+                {savingStore ? 'Guardando...' : 'Guardar ubicación'}
+              </button>
+              {saveMessage ? <span style={styles.saveMsg}>{saveMessage}</span> : null}
+            </div>
+          ) : (
+            <div style={styles.section}>
               <div style={styles.noLocation}>
                 <span aria-hidden="true">🌐 </span>
                 {td.noLocation}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Publicaciones destacadas */}
           <div style={styles.section}>
@@ -591,36 +484,6 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
-  },
-  editBlock: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    marginTop: '6px',
-    padding: '8px',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm, 6px)',
-    background: 'var(--bg-elevated)',
-  },
-  editLabel: {
-    fontSize: '12px',
-    fontWeight: 600,
-    color: 'var(--text-secondary)',
-  },
-  coordsRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '6px',
-  },
-  editInput: {
-    width: '100%',
-    padding: '8px 10px',
-    borderRadius: 'var(--radius-sm, 6px)',
-    border: '1px solid var(--border)',
-    background: 'var(--bg-surface)',
-    color: 'var(--text-primary)',
-    fontSize: '13px',
-    boxSizing: 'border-box',
   },
   saveBtn: {
     alignSelf: 'flex-start',

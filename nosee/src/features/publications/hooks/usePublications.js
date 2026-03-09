@@ -377,6 +377,31 @@ export const usePublications = (initialFilters = {}, options = {}) => {
     };
   }, [fetchPublications, refetchOnTabActive]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleStoreUpdated = () => {
+      if (document.visibilityState === "visible") {
+        fetchPublications(1);
+      } else {
+        deferredFetchRef.current = 1;
+      }
+    };
+
+    const handleStorage = (event) => {
+      if (event.key !== "NOSEE_STORE_UPDATED_AT") return;
+      handleStoreUpdated();
+    };
+
+    window.addEventListener("nosee:store-updated", handleStoreUpdated);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("nosee:store-updated", handleStoreUpdated);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [fetchPublications]);
+
   // ─── Funciones públicas ────────────────────────────────────────────────────
 
   /**

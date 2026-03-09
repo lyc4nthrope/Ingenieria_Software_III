@@ -564,6 +564,8 @@ function CommentsSection({ publicationId, initialComments, td }) {
 export default function PublicationDetailModal({ publication, onClose }) {
   const { t } = useLanguage();
   const td = t.publicationDetail;
+  const priceLabel = td?.price || "Precio";
+  const storeLabel = td?.storeLabel || "Tienda";
   const titleId = useId();
 
   const votes = publication?.votes || [];
@@ -612,10 +614,10 @@ export default function PublicationDetailModal({ publication, onClose }) {
           {td.unit} {publication?.product?.base_quantity || "-"} {publication?.product?.unit_type?.abbreviation || ""}
         </p>
         <p style={styles.meta}>
-          <strong>{td.price}:</strong> ${Number(publication?.price || 0).toLocaleString("es-CO")}
+          <strong>{priceLabel}:</strong> ${Number(publication?.price || 0).toLocaleString("es-CO")}
         </p>
         <p style={styles.meta}>
-          <strong>{td.storeLabel}:</strong> {publication?.store?.name || "-"}
+          <strong>{storeLabel}:</strong> {publication?.store?.name || "-"}
         </p>
         <p style={styles.meta}>
           <strong>Dirección:</strong> {publication?.store?.address || "No disponible"}

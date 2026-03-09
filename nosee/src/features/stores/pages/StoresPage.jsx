@@ -53,6 +53,14 @@ export default function StoresPage() {
     }, DEBOUNCE_MS);
   };
 
+  const handleStoreUpdated = useCallback((updatedStore) => {
+    if (!updatedStore?.id) return;
+    setStores((prev) =>
+      prev.map((store) => (store.id === updatedStore.id ? { ...store, ...updatedStore } : store))
+    );
+    setSelectedStore((prev) => (prev?.id === updatedStore.id ? { ...prev, ...updatedStore } : prev));
+  }, []);
+
   return (
     <section style={styles.page} aria-labelledby="stores-heading">
       <header style={styles.header}>
@@ -124,6 +132,7 @@ export default function StoresPage() {
         <StoreDetailModal
           store={selectedStore}
           onClose={() => setSelectedStore(null)}
+          onStoreUpdated={handleStoreUpdated}
         />
       )}
     </section>
