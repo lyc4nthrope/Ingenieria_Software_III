@@ -694,7 +694,7 @@ export default function HomePage() {
 
   const triggerLoadMoreIfNeeded = useCallback(() => {
     const now = Date.now();
-    if (now - lastLoadTriggerAtRef.current < 700) return;
+    if (now - lastLoadTriggerAtRef.current < 350) return;
     if (!hasMoreRef.current || loadingRef.current) return;
     lastLoadTriggerAtRef.current = now;
     loadMore();
@@ -732,6 +732,50 @@ export default function HomePage() {
     scrollRoot.addEventListener("scroll", onScroll, { passive: true });
     return () => scrollRoot.removeEventListener("scroll", onScroll);
   }, [hasMore, triggerLoadMoreIfNeeded]);
+
+  useEffect(() => {
+    const sentinel = infiniteSentinelRef.current;
+    const scrollRoot =
+      typeof document !== "undefined"
+        ? document.getElementById("main-content")
+        : null;
+    if (!sentinel || !scrollRoot || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          triggerLoadMoreIfNeeded();
+        }
+      },
+      {
+        root: scrollRoot,
+        rootMargin: "220px 0px",
+        threshold: 0,
+      },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, triggerLoadMoreIfNeeded]);
+
+  useEffect(() => {
+    if (!hasMore || loading) return;
+    const scrollRoot =
+      typeof document !== "undefined"
+        ? document.getElementById("main-content")
+        : null;
+    if (!scrollRoot) return;
+
+    const distanceToBottom =
+      scrollRoot.scrollHeight - scrollRoot.scrollTop - scrollRoot.clientHeight;
+
+    if (distanceToBottom <= 420) {
+      const id = window.setTimeout(() => {
+        triggerLoadMoreIfNeeded();
+      }, 90);
+      return () => window.clearTimeout(id);
+    }
+  }, [hasMore, loading, normalizedPublications.length, triggerLoadMoreIfNeeded]);
 
   return (
     <div className="home-wrapper">
