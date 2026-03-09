@@ -1,7 +1,7 @@
 /**
  * RegisterPage - Página de registro de nuevo usuario
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   useAuthStore,
@@ -13,6 +13,11 @@ import RegisterForm from "@/features/auth/components/RegisterForm";
 import { resendConfirmation } from "@/services/api/auth.api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getRolePath } from "@/utils/roleUtils";
+import {
+  trackRegisterComplete,
+  trackRegisterFailure,
+} from "@/services/analytics";
+import { recordRegisterDuration } from "@/services/metrics";
 
 // Vista de verificación de email
 function VerificationView({ email, onResend }) {
@@ -132,6 +137,9 @@ export default function RegisterPage() {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
 
+  // Timestamp de apertura del formulario (para medir tiempo de registro)
+  const formOpenedAt = useRef(Date.now());
+
   // Solo redirigir si ya terminó la inicialización y está logueado
   useEffect(() => {
     if (isInitialized && isAuthenticated) {
@@ -144,6 +152,11 @@ export default function RegisterPage() {
     clearError();
     const result = await register(email, password, metadata);
     if (result.success) {
+      // Métrica: tiempo promedio de registro (sección 3.4.1, meta: <45s)
+      const durationSeconds = (Date.now() - formOpenedAt.current) / 1000;
+      trackRegisterComplete(durationSeconds);
+      recordRegisterDuration(durationSeconds);
+
       if (result.needsVerification) {
         setRegisteredEmail(email);
         setNeedsVerification(true);
@@ -151,10 +164,12 @@ export default function RegisterPage() {
         const user = useAuthStore.getState().user;
         navigate(getRolePath(user?.role), { replace: true });
       }
+    } else {
+      trackRegisterFailure(result.error?.code ?? 'unknown');
     }
   };
 
-    const handleGoogleRegister = async () => {
+  const handleGoogleRegister = async () => {
     clearError();
     await loginWithGoogle();
   };

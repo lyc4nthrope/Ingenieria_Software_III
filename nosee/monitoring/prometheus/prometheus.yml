@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: 'nosee'
+    environment: 'development'
+
+scrape_configs:
+  # Métricas personalizadas de NØSEE
+  - job_name: 'nosee-app'
+    static_configs:
+      - targets: ['metrics-server:3001']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
