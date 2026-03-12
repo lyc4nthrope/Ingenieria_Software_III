@@ -1868,19 +1868,35 @@ export const searchProductsAndBrands = async (query, limit = 8) => {
   }
 };
 
-export const searchProducts = async (query, limit = 10) => {
+export const searchProducts = async (query, limit = 10, brandQuery = "") => {
   try {
     if (!query || query.length < 2) {
       return { success: true, data: [] };
     }
 
-    const executeSearch = () =>
-      supabase
+    let brandIds = null;
+    if (brandQuery && brandQuery.trim().length >= 1) {
+      const { data: brands } = await supabase
+        .from("brands")
+        .select("id")
+        .ilike("name", `%${brandQuery.trim()}%`)
+        .limit(50);
+      if (brands && brands.length > 0) {
+        brandIds = brands.map((b) => b.id);
+      } else {
+        return { success: true, data: [] };
+      }
+    }
+
+    const executeSearch = () => {
+      let q = supabase
         .from("products")
-        .select("id, name, category_id, base_quantity, brand:brands(name), unit:unit_types(name)")
-        .ilike("name", `%${query}%`)
-        .limit(limit);
-      
+        .select("id, name, category_id, base_quantity, brand:brands(id, name), unit:unit_types(name)")
+        .ilike("name", `%${query}%`);
+      if (brandIds) q = q.in("brand_id", brandIds);
+      return q.limit(limit);
+    };
+
     const { data, error } = await runWithSessionRetry(executeSearch, getAdaptiveRequestTimeout());
 
     if (error) {
