@@ -189,6 +189,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
 
   // ─── Product autocomplete ──────────────────────────────────────────────────
   const [productQuery, setProductQuery] = useState("");
+  const [brandQuery, setBrandQuery] = useState("");
   const [productResults, setProductResults] = useState([]);
   const [productSearching, setProductSearching] = useState(false);
   const [showProductDropdown, setShowProductDropdown] = useState(false);
@@ -216,7 +217,12 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   const storeRequestIdRef = useRef(0);
   const storeWrapperRef = useRef(null);
   const [autoStoreMessage, setAutoStoreMessage] = useState("");
+  const [autoStoreDetecting, setAutoStoreDetecting] = useState(false);
+  const [autoStoreFound, setAutoStoreFound] = useState(false);
   const autoStoreAttemptedRef = useRef(false);
+  const userEditedStoreRef = useRef(false);
+  const updateFieldRef = useRef(updateField);
+  updateFieldRef.current = updateField;
 
   // ─── Índice activo para navegación por teclado ─────────────────────────────
   const [activeProductIndex, setActiveProductIndex] = useState(-1);
@@ -257,7 +263,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     };
   }, []);
 
-  const performProductSearch = useCallback(async (rawQuery) => {
+  const performProductSearch = useCallback(async (rawQuery, rawBrandQuery = "") => {
     const query = String(rawQuery || "").trim();
 
     if (!query || query.length < 2) {
@@ -271,7 +277,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     setProductSearching(true);
 
     try {
-      const result = await publicationsApi.searchProducts(query);
+      const result = await publicationsApi.searchProducts(query, 10, rawBrandQuery);
       if (requestId !== productRequestIdRef.current) return;
       setProductResults(result.success ? result.data : []);
     } catch {
@@ -305,7 +311,12 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
         null,
       );
       if (requestId !== storeRequestIdRef.current) return;
-      setStoreResults(result.success ? result.data : []);
+      const sorted = result.success
+        ? [...result.data].sort(
+            (a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity),
+          )
+        : [];
+      setStoreResults(sorted);
     } catch {
       if (requestId !== storeRequestIdRef.current) return;
       setStoreResults([]);
@@ -319,7 +330,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   useEffect(() => {
     const handleTabActive = () => {
       if (document.visibilityState !== "visible") return;
-      if (productQuery.trim().length >= 2) performProductSearch(productQuery);
+      if (productQuery.trim().length >= 2) performProductSearch(productQuery, brandQuery);
       if (storeQuery.trim().length >= 2) performStoreSearch(storeQuery);
     };
 
@@ -335,6 +346,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   useEffect(() => {
     if (!ENABLE_AUTO_STORE || mode !== "create") return;
     if (autoStoreAttemptedRef.current) return;
+    if (userEditedStoreRef.current) return;
     if (formData.storeId || storeQuery.trim().length > 0) return;
 
     const userLat = Number(latitude);
@@ -342,97 +354,61 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     if (!Number.isFinite(userLat) || !Number.isFinite(userLon)) return;
 
     autoStoreAttemptedRef.current = true;
-    setAutoStoreMessage("Detectando tienda cercana...");
+    setAutoStoreDetecting(true);
+    setAutoStoreFound(false);
+    setAutoStoreMessage("Buscando tienda más cercana...");
     let isCancelled = false;
 
     (async () => {
-      const mapPlaceResult = await storesApi.detectMapPlaceAtLocation(userLat, userLon);
+      // Una sola consulta: todas las tiendas físicas con coordenadas
+      const result = await storesApi.getAllPhysicalStoresWithLocation();
       if (isCancelled) return;
 
-      if (mapPlaceResult.success && mapPlaceResult.data?.placeName) {
-        const mapName = mapPlaceResult.data.placeName;
-        const mapSearchResult = await storesApi.searchNearbyStores(mapName, userLat, userLon, 500);
-        if (isCancelled) return;
-
-        if (mapSearchResult.success) {
-          const mapMatch = (mapSearchResult.data || [])
-            .filter((store) => store.type === "physical")
-            .sort((a, b) => (Number(a.distanceMeters) || 1e12) - (Number(b.distanceMeters) || 1e12))[0];
-
-          if (mapMatch) {
-            updateField("storeId", mapMatch.id);
-            setStoreQuery(mapMatch.name);
-            setAutoStoreMessage(
-              `Tienda detectada por mapa: ${mapMatch.name}${mapMatch.distanceMeters != null ? ` (${formatDistance(mapMatch.distanceMeters)})` : ""}`,
-            );
-            return;
-          }
-        }
+      if (!result.success) {
+        setAutoStoreDetecting(false);
+        setAutoStoreFound(false);
+        setAutoStoreMessage("No se pudo consultar tiendas. Selecciónala manualmente.");
+        return;
       }
 
-      const storesResult = await storesApi.findNearestPhysicalStore(
-        userLat,
-        userLon,
-        { maxCandidates: AUTO_STORE_CANDIDATES_LIMIT, batchSize: 250 },
-      );
-      if (isCancelled) return;
-
-      if (!storesResult.success) {
-        const fallbackResult = await storesApi.listStores("", 300);
-        if (isCancelled) return;
-
-        if (!fallbackResult.success) {
-          setAutoStoreMessage("No se pudo detectar tienda automática. Puedes seleccionarla manualmente.");
-          return;
-        }
-
-        let fallbackNearest = null;
-        for (const store of fallbackResult.data || []) {
-          if (store.type !== "physical") continue;
-          if (!Number.isFinite(Number(store.latitude)) || !Number.isFinite(Number(store.longitude))) continue;
-
-          const distanceMeters = getDistanceMeters(
-            userLat,
-            userLon,
-            Number(store.latitude),
-            Number(store.longitude),
-          );
-
-          if (!fallbackNearest || distanceMeters < fallbackNearest.distanceMeters) {
-            fallbackNearest = { ...store, distanceMeters };
-          }
-        }
-
-        if (!fallbackNearest) {
-          setAutoStoreMessage("No encontramos tiendas físicas cercanas. Puedes escoger una manualmente.");
-          return;
-        }
-
-        updateField("storeId", fallbackNearest.id);
-        setStoreQuery(fallbackNearest.name);
-        setAutoStoreMessage(
-          `Tienda detectada automáticamente: ${fallbackNearest.name}${fallbackNearest.distanceMeters != null ? ` (${formatDistance(fallbackNearest.distanceMeters)})` : ""}`,
+      // Calcular distancia a cada tienda y tomar la más cercana
+      let nearest = null;
+      for (const store of result.data || []) {
+        const distanceMeters = getDistanceMeters(
+          userLat, userLon,
+          Number(store.latitude), Number(store.longitude),
         );
-        return;
+
+        if (!nearest || distanceMeters < nearest.distanceMeters) {
+          nearest = { ...store, distanceMeters };
+        }
       }
 
-      const nearest = storesResult.data;
+      if (isCancelled) return;
+
       if (!nearest) {
-        setAutoStoreMessage("No encontramos tiendas físicas cercanas. Puedes escoger una manualmente.");
+        setAutoStoreDetecting(false);
+        setAutoStoreFound(false);
+        setAutoStoreMessage("No encontramos tiendas físicas con ubicación registrada.");
         return;
       }
 
-      updateField("storeId", nearest.id);
+      updateFieldRef.current("storeId", nearest.id);
       setStoreQuery(nearest.name);
+      setAutoStoreDetecting(false);
+      setAutoStoreFound(true);
       setAutoStoreMessage(
-        `Tienda detectada automáticamente: ${nearest.name}${nearest.distanceMeters != null ? ` (${formatDistance(nearest.distanceMeters)})` : ""}${storesResult.meta?.scanned ? ` · revisadas ${storesResult.meta.scanned}` : ""}`,
+        `Tienda más cercana: ${nearest.name}${nearest.distanceMeters != null ? ` · ${formatDistance(nearest.distanceMeters)}` : ""}`,
       );
     })();
 
     return () => {
       isCancelled = true;
+      setAutoStoreDetecting(false);
+      autoStoreAttemptedRef.current = false; // Permite reintento si el effect se canceló (ej. StrictMode)
     };
-  }, [formData.storeId, latitude, longitude, mode, storeQuery, updateField]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.storeId, latitude, longitude, mode, storeQuery]);
 
   // ─── Producto: búsqueda debounced ─────────────────────────────────────────
   const handleProductQueryChange = (e) => {
@@ -449,13 +425,28 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
 
     setShowProductDropdown(true);
     productTimerRef.current = setTimeout(() => {
-      performProductSearch(val);
+      performProductSearch(val, brandQuery);
     }, 300);
+  };
+
+  const handleBrandQueryChange = (e) => {
+    const val = e.target.value;
+    setBrandQuery(val);
+    updateField("productId", "");
+    clearTimeout(productTimerRef.current);
+
+    if (productQuery.trim().length >= 2) {
+      setShowProductDropdown(true);
+      productTimerRef.current = setTimeout(() => {
+        performProductSearch(productQuery, val);
+      }, 300);
+    }
   };
 
   const handleProductSelect = (product) => {
     updateField("productId", String(product.id));
     setProductQuery(product.name);
+    if (product.brand?.name) setBrandQuery(product.brand.name);
     setScannedBarcode("");
     setBarcodePrefill({
       brandName: "",
@@ -477,15 +468,10 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     setShowProductModal(false);
   };
 
-  const hasExactProductMatch = productResults.some(
-    (p) => p.name.toLowerCase() === productQuery.trim().toLowerCase(),
-  );
-
-  // Si hay resultados y no hay coincidencia exacta, se añade opción crear al final
+  // Siempre se muestra opción de crear (mismo nombre puede tener diferente marca o cantidad)
   const productDropdownItems = [
     ...productResults,
-    ...(!hasExactProductMatch && !productResults.find(p => p.__isCreate) && productQuery.trim().length >= 2
-      ? [{ __isCreate: true }] : []),
+    ...(productQuery.trim().length >= 2 ? [{ __isCreate: true }] : []),
   ];
 
   const handleProductKeyDown = (e) => {
@@ -514,9 +500,11 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   // ─── Tienda: búsqueda debounced ────────────────────────────────────────────
   const handleStoreQueryChange = (e) => {
     const val = e.target.value;
+    userEditedStoreRef.current = true;
     setStoreQuery(val);
     updateField("storeId", "");
     setAutoStoreMessage("");
+    setAutoStoreFound(false);
     clearTimeout(storeTimerRef.current);
 
     if (!val.trim() || val.length < 2) {
@@ -535,12 +523,12 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     updateField("storeId", store.id);
     setStoreQuery(store.name);
     setAutoStoreMessage("");
+    setAutoStoreFound(false);
     setShowStoreDropdown(false);
   };
 
   const handleStoreCreated = (store) => {
     handleStoreSelect(store);
-    setAutoStoreMessage("");
     setShowStoreModal(false);
   };
 
@@ -690,6 +678,18 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                 ...(errors.productId ? styles.inputError : {}),
               }}
             />
+            <input
+              id="pub-brand-filter"
+              type="text"
+              placeholder={tf.brandFilterPlaceholder}
+              value={brandQuery}
+              onChange={handleBrandQueryChange}
+              style={{
+                ...styles.input,
+                marginTop: 6,
+                fontSize: "0.85em",
+              }}
+            />
 
             {showProductDropdown && (
               <div
@@ -738,10 +738,9 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                     <div style={styles.dropdownState}>{tf.noResults}</div>
                   )}
 
-                {/* Crear producto — solo si no hay coincidencia exacta */}
+                {/* Crear producto — siempre disponible (puede ser diferente marca o cantidad) */}
                 {!productSearching &&
-                  productQuery.trim().length >= 2 &&
-                  !hasExactProductMatch && (
+                  productQuery.trim().length >= 2 && (
                     <div
                       id={`pub-product-option-${productResults.length}`}
                       role="option"
@@ -789,7 +788,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
               }
               aria-invalid={!!errors.storeId}
               aria-describedby={errors.storeId ? "pub-store-error" : undefined}
-              placeholder={tf.storePlaceholder}
+              placeholder={autoStoreDetecting ? "Buscando tienda más cercana..." : tf.storePlaceholder}
               value={storeQuery}
               onChange={handleStoreQueryChange}
               onFocus={() =>
@@ -799,8 +798,12 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
               style={{
                 ...styles.input,
                 ...(errors.storeId ? styles.inputError : {}),
+                ...(autoStoreDetecting ? styles.inputDetecting : {}),
               }}
             />
+            {autoStoreDetecting && (
+              <span className="nosee-detecting-spinner" style={styles.storeDetectingSpinner} aria-hidden="true">⟳</span>
+            )}
 
             {showStoreDropdown && (
               <div
@@ -871,10 +874,21 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
             )}
           </div>
 
-          {formData.storeId && (
+          {autoStoreFound && autoStoreMessage ? (
+            <div style={styles.autoStoreFoundBanner}>
+              <span style={styles.autoStoreFoundIcon} aria-hidden="true">📍</span>
+              <span style={styles.autoStoreFoundText}>{autoStoreMessage}</span>
+              <span style={styles.autoStoreChangeHint}>· Escribe para cambiarla</span>
+            </div>
+          ) : autoStoreDetecting ? (
+            <div style={styles.autoStoreDetectingBanner} role="status" aria-live="polite">
+              {autoStoreMessage}
+            </div>
+          ) : autoStoreMessage ? (
+            <div style={styles.infoText}>{autoStoreMessage}</div>
+          ) : formData.storeId ? (
             <div style={styles.selectedBadge}>{tf.storeSelected}</div>
-          )}
-          {autoStoreMessage && <div style={styles.infoText}>{autoStoreMessage}</div>}
+          ) : null}
           {errors.storeId && (
             <div id="pub-store-error" role="alert" style={styles.errorText}>{errors.storeId}</div>
           )}
@@ -995,7 +1009,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
         <ProductQuickCreateModal
           initialName={productQuery.trim()}
           initialBarcode={scannedBarcode}
-          initialBrandName={barcodePrefill.brandName}
+          initialBrandName={barcodePrefill.brandName || brandQuery.trim()}
           initialCategoryHint={barcodePrefill.categoryHint}
           initialBaseQuantity={barcodePrefill.baseQuantity}
           initialUnitAbbreviation={barcodePrefill.unitAbbreviation}
@@ -1087,7 +1101,7 @@ const styles = {
     color: "var(--text-primary)",
   },
   inputError: {
-    borderColor: "var(--error)",
+    border: "1px solid var(--error)",
   },
   inputGroup: {
     position: "relative",
@@ -1214,6 +1228,53 @@ const styles = {
     marginTop: "4px",
     fontSize: "12px",
     color: "var(--text-secondary)",
+  },
+  inputDetecting: {
+    border: "1px solid var(--accent)",
+    padding: "10px 32px 10px 12px",
+  },
+  storeDetectingSpinner: {
+    position: "absolute",
+    right: "10px",
+    top: "50%",
+    marginTop: "-8px",
+    fontSize: "16px",
+    color: "var(--accent)",
+    pointerEvents: "none",
+    display: "inline-block",
+  },
+  autoStoreDetectingBanner: {
+    marginTop: "6px",
+    padding: "7px 10px",
+    borderRadius: "var(--radius-sm)",
+    background: "var(--accent-soft)",
+    border: "1px solid var(--accent-glow)",
+    color: "var(--accent)",
+    fontSize: "12px",
+    fontWeight: 500,
+  },
+  autoStoreFoundBanner: {
+    marginTop: "6px",
+    padding: "7px 10px",
+    borderRadius: "var(--radius-sm)",
+    background: "var(--success-soft)",
+    border: "1px solid rgba(74,222,128,0.3)",
+    fontSize: "12px",
+    display: "flex",
+    alignItems: "center",
+    gap: "5px",
+    flexWrap: "wrap",
+  },
+  autoStoreFoundIcon: {
+    flexShrink: 0,
+  },
+  autoStoreFoundText: {
+    color: "var(--success)",
+    fontWeight: 600,
+  },
+  autoStoreChangeHint: {
+    color: "var(--text-muted)",
+    fontStyle: "italic",
   },
   geoInfo: {
     background: "var(--accent-soft)",
