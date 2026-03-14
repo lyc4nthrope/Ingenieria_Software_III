@@ -221,14 +221,14 @@ const PublicationCard = memo(function PublicationCard({
   const brandName =
     pub.product?.brand?.name ||
     pub.product?.brands?.name ||
-    "Sin marca";
+    th.noBrand;
   const unitValue =
     pub.product?.base_quantity != null &&
     (pub.product?.unit_type?.abbreviation || pub.product?.unit_type?.name)
       ? `${pub.product.base_quantity} ${pub.product.unit_type?.abbreviation || pub.product.unit_type?.name}`
       : pub.product?.unit_type?.abbreviation ||
         pub.product?.unit_type?.name ||
-        "Sin unidad";
+        th.noUnit;
 
   const handleVote = async (action) => {
     if (isVoting) return;
@@ -265,7 +265,7 @@ const PublicationCard = memo(function PublicationCard({
         className="card-image-wrap"
         role="button"
         tabIndex={0}
-        aria-label={`Expandir foto de ${pubName}`}
+        aria-label={th.expandPhotoLabel(pubName)}
         onClick={() => setPhotoExpanded(true)}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -300,10 +300,10 @@ const PublicationCard = memo(function PublicationCard({
           }}
         >
           <span>
-            <strong style={{ color: "var(--text-secondary)" }}>Marca:</strong> {brandName}
+            <strong style={{ color: "var(--text-secondary)" }}>{th.brandLabel}</strong> {brandName}
           </span>
           <span>
-            <strong style={{ color: "var(--text-secondary)" }}>Unidad:</strong> {unitValue}
+            <strong style={{ color: "var(--text-secondary)" }}>{th.unitLabel}</strong> {unitValue}
           </span>
         </div>
         <span style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "6px", display: "block" }}>
@@ -337,7 +337,7 @@ const PublicationCard = memo(function PublicationCard({
             </button>
             <button
               type="button"
-              aria-label={`Votar negativamente ${pubName}`}
+              aria-label={th.downvoteLabel(pubName)}
               aria-pressed={downActive}
               aria-disabled={isVoting || !isAuthenticated}
               disabled={isVoting}
@@ -400,7 +400,7 @@ const PublicationCard = memo(function PublicationCard({
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={`Foto ampliada de ${pubName}`}
+          aria-label={th.expandedPhotoLabel(pubName)}
           onClick={() => setPhotoExpanded(false)}
           style={{
             position: "fixed",
@@ -640,12 +640,12 @@ export default function HomePage() {
     if (result.success) {
       setFeedback({
         type: 'success',
-        message: result.message || '✅ Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE.'
+        message: result.message || th.reportSuccess
       });
     } else {
       setFeedback({
         type: 'error',
-        message: result.message || result.error || '❌ Hubo un error al enviar el reporte. Intenta de nuevo.'
+        message: result.message || result.error || th.reportError
       });
     }
     
@@ -704,13 +704,13 @@ export default function HomePage() {
         const totalPages = Math.ceil(categories.length / CATS_PER_PAGE);
         const visible = categories.slice(categoryPage * CATS_PER_PAGE, (categoryPage + 1) * CATS_PER_PAGE);
         return (
-          <nav className="categories-carousel" aria-label="Filtrar por categoría">
+          <nav className="categories-carousel" aria-label={th.filterByCategoryLabel}>
             <button
               type="button"
               className="categories-arrow"
               onClick={() => setCategoryPage((p) => p - 1)}
               disabled={categoryPage === 0}
-              aria-label="Categorías anteriores"
+              aria-label={th.prevCategories}
             >
               ‹
             </button>
@@ -721,7 +721,7 @@ export default function HomePage() {
                 className={`categories-btn${selectedCategory === null ? " active" : ""}`}
                 onClick={() => handleCategorySelect(null)}
               >
-                Todas
+                {th.allCategories}
               </button>
               {visible.map((cat) => (
                 <button
@@ -740,7 +740,7 @@ export default function HomePage() {
               className="categories-arrow"
               onClick={() => setCategoryPage((p) => p + 1)}
               disabled={categoryPage >= totalPages - 1}
-              aria-label="Más categorías"
+              aria-label={th.moreCategories}
             >
               ›
             </button>
