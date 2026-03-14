@@ -13,6 +13,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import * as publicationsApi from '@/services/api/publications.api';
+import PublicationDetailModal from '@/features/publications/components/PublicationDetailModal';
 
 // ─── Radios disponibles ───────────────────────────────────────────────────────
 const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
@@ -91,6 +92,7 @@ export default function CreateOrderPage() {
   const [result, setResult] = useState(null);
   const [calculating, setCalculating] = useState(false);
   const [calcError, setCalcError] = useState(null);
+  const [selectedPublication, setSelectedPublication] = useState(null);
 
   // ── Confirmación ──────────────────────────────────────────────────────────
   const [orderId] = useState(() => `NSE-${Date.now().toString(36).toUpperCase()}`);
@@ -356,13 +358,21 @@ export default function CreateOrderPage() {
                   </div>
                   <ul style={styles.productList}>
                     {s.products.map((p, pi) => (
-                      <li key={pi} style={styles.productItem}>
+                      <li
+                        key={pi}
+                        style={{ ...styles.productItem, cursor: 'pointer' }}
+                        onClick={() => setSelectedPublication(p.publication)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedPublication(p.publication); }}
+                        title="Ver publicación"
+                      >
                         <div style={styles.productItemLeft}>
                           <span style={styles.productItemName}>
                             {p.item.productName} ×{p.item.quantity}
                           </span>
                           <span style={styles.productItemMeta}>
-                            {to.bestPrice}: ${p.price.toLocaleString('es-CO')} c/u
+                            {to.bestPrice}: ${p.price.toLocaleString('es-CO')} c/u · <span style={{ color: 'var(--accent)' }}>Ver publicación →</span>
                           </span>
                         </div>
                         <span style={styles.productItemTotal}>
@@ -384,6 +394,13 @@ export default function CreateOrderPage() {
             {to.confirmOrder}
           </button>
         </div>
+
+        {selectedPublication && (
+          <PublicationDetailModal
+            publication={selectedPublication}
+            onClose={() => setSelectedPublication(null)}
+          />
+        )}
       </div>
     );
   }
