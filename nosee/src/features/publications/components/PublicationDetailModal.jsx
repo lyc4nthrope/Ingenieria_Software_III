@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { useLanguage, translateDbValue } from "@/contexts/LanguageContext";
 import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
 import { addComment, deleteComment, getComments } from "@/services/api/publications.api";
 import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
@@ -605,7 +605,7 @@ export default function PublicationDetailModal({ publication, onClose }) {
         <h2 id={titleId} style={styles.title}>{publication?.product?.name || td.noName}</h2>
         <p style={styles.meta}>
           <strong>Marca:</strong> {publication?.product?.brand?.name || "Sin marca"} ·{" "}
-          <strong>Categoría:</strong> {publication?.product?.category?.name || "Sin categoría"}
+          <strong>Categoría:</strong> {translateDbValue(t, 'categories', publication?.product?.category?.name) || "Sin categoría"}
         </p>
         <p style={styles.meta}>
           <strong>Código de barras:</strong> {publication?.product?.barcode || "Sin código"}

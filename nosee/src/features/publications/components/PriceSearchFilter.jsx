@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage, translateDbValue } from '@/contexts/LanguageContext';
 import { listStores } from '@/services/api/stores.api';
 
 const EMPTY_FILTERS = {};
@@ -523,7 +523,7 @@ export function PriceSearchFilter({
           )}
           {localFilters.categoryId && (
             <span style={styles.tag}>
-              🏷 {categories.find((c) => c.id === localFilters.categoryId)?.name || "Categoría"}
+              🏷 {translateDbValue(t, 'categories', categories.find((c) => c.id === localFilters.categoryId)?.name) || "Categoría"}
               <button style={styles.tagClose} onClick={() => handleInputChange('categoryId', null)}>✕</button>
             </span>
           )}
@@ -582,7 +582,7 @@ export function PriceSearchFilter({
                 <option value="">Todas las categorías</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.name}
+                    {translateDbValue(t, 'categories', category.name)}
                   </option>
                 ))}
               </select>

@@ -847,6 +847,50 @@ export const TRANSLATIONS = {
       nextLlegando: "Marcar entregado ✓",
       advance: "Avanzar →",
     },
+
+    // ── Valores de BD (tablas fijas) ──────────────────────────────────────────
+    dbValues: {
+      categories: {
+        "Lácteos": "Lácteos",
+        "Carnes": "Carnes",
+        "Frutas y Verduras": "Frutas y Verduras",
+        "Panadería": "Panadería",
+        "Aseo": "Aseo",
+        "Electrónica": "Electrónica",
+        "Bebidas": "Bebidas",
+        "Snacks": "Snacks",
+        "Granos y Cereales": "Granos y Cereales",
+        "Otro": "Otro",
+        "Herramientas": "Herramientas",
+        "Comida": "Comida",
+        "Videojuegos": "Videojuegos",
+      },
+      storeTypes: {
+        "Física": "Física",
+        "Virtual": "Virtual",
+      },
+      unitTypes: {
+        "Gramo": "Gramo",
+        "Kilogramo": "Kilogramo",
+        "Libra": "Libra",
+        "Onza": "Onza",
+        "Mililitro": "Mililitro",
+        "Litro": "Litro",
+        "Onza líquida": "Onza líquida",
+        "Galón": "Galón",
+        "Unidad": "Unidad",
+        "Docena": "Docena",
+        "Paquete": "Paquete",
+        "Caja": "Caja",
+        "Sobre": "Sobre",
+        "Lata": "Lata",
+      },
+      unitCategories: {
+        "Peso": "Peso",
+        "Volumen": "Volumen",
+        "Cantidad": "Cantidad",
+      },
+    },
   },
 
   // ── INGLÉS ────────────────────────────────────────────────────────────────
@@ -1682,8 +1726,59 @@ export const TRANSLATIONS = {
       nextLlegando: "Mark delivered ✓",
       advance: "Advance →",
     },
+
+    // ── DB values (fixed lookup tables) ───────────────────────────────────────
+    dbValues: {
+      categories: {
+        "Lácteos": "Dairy",
+        "Carnes": "Meats",
+        "Frutas y Verduras": "Fruits & Vegetables",
+        "Panadería": "Bakery",
+        "Aseo": "Cleaning",
+        "Electrónica": "Electronics",
+        "Bebidas": "Beverages",
+        "Snacks": "Snacks",
+        "Granos y Cereales": "Grains & Cereals",
+        "Otro": "Other",
+        "Herramientas": "Tools",
+        "Comida": "Food",
+        "Videojuegos": "Video Games",
+      },
+      storeTypes: {
+        "Física": "Physical",
+        "Virtual": "Virtual",
+      },
+      unitTypes: {
+        "Gramo": "Gram",
+        "Kilogramo": "Kilogram",
+        "Libra": "Pound",
+        "Onza": "Ounce",
+        "Mililitro": "Milliliter",
+        "Litro": "Liter",
+        "Onza líquida": "Fluid ounce",
+        "Galón": "Gallon",
+        "Unidad": "Unit",
+        "Docena": "Dozen",
+        "Paquete": "Package",
+        "Caja": "Box",
+        "Sobre": "Sachet",
+        "Lata": "Can",
+      },
+      unitCategories: {
+        "Peso": "Weight",
+        "Volumen": "Volume",
+        "Cantidad": "Quantity",
+      },
+    },
   },
 };
+
+// ── Helper para traducir valores de BD ────────────────────────────────────────
+// Uso: translateDbValue(t, "categories", categoria.name)
+// Devuelve la traducción si existe, o el valor original como fallback.
+export function translateDbValue(t, namespace, value) {
+  return t?.dbValues?.[namespace]?.[value] ?? value;
+}
 
 // ── Contexto ──────────────────────────────────────────────────────────────────
 const LanguageContext = createContext(null);
