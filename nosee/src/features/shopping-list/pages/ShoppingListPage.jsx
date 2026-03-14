@@ -327,7 +327,7 @@ const page = {
     background: 'var(--accent)', color: '#fff', borderRadius: '999px',
     fontSize: '11px', fontWeight: 700, padding: '2px 8px', minWidth: '20px', textAlign: 'center',
   },
-  solo: { maxWidth: '480px' },
+  solo: { maxWidth: '480px', margin: '0 auto', width: '100%' },
 };
 
 const left = {
