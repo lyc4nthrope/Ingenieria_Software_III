@@ -355,6 +355,7 @@ const PublicationCard = memo(function PublicationCard({
             </button>
           </div>
 
+
           <button
             className="card-action-button"
             onClick={() => {
@@ -379,6 +380,7 @@ const PublicationCard = memo(function PublicationCard({
           >
             {th.viewMore}
           </button>
+
 
           {(isAuthor || userIsAdmin) && (
             <button
