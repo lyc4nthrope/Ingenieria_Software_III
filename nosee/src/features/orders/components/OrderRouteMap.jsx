@@ -10,7 +10,7 @@
  * Si OSRM falla, se traza una polilínea recta entre los puntos.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { ensureLeafletLoaded, addTileLayerWithFallback } from '@/shared/maps/leaflet';
 
 const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
@@ -106,6 +106,8 @@ export default function OrderRouteMap({ stores, userCoords }) {
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [routeMode, setRouteMode] = useState('osrm'); // 'osrm' | 'straight' (fallback)
   const [missingStores, setMissingStores] = useState([]);
+  const [centering, setCentering] = useState(false); // estado del botón centrar
+  const userMarkerRef = useRef(null); // referencia al pin verde para moverlo
 
   useEffect(() => {
     let mounted = true;
@@ -148,7 +150,7 @@ export default function OrderRouteMap({ stores, userCoords }) {
 
       // ── Pin del usuario ───────────────────────────────────────────────────
       if (userCoords) {
-        L.marker([userCoords.lat, userCoords.lng], { icon: makeUserIcon(L) })
+        userMarkerRef.current = L.marker([userCoords.lat, userCoords.lng], { icon: makeUserIcon(L) })
           .addTo(map)
           .bindPopup('<b>📍 Tu ubicación</b>');
       }
@@ -214,6 +216,25 @@ export default function OrderRouteMap({ stores, userCoords }) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Centrar en ubicación actual ────────────────────────────────────────────
+  const handleCenterOnMe = useCallback(() => {
+    if (!mapRef.current || !navigator.geolocation) return;
+    setCentering(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        mapRef.current.setView([lat, lng], 16, { animate: true });
+        // Mover el pin verde a la posición actual
+        if (userMarkerRef.current) {
+          userMarkerRef.current.setLatLng([lat, lng]);
+        }
+        setCentering(false);
+      },
+      () => setCentering(false),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, []);
+
   return (
     <div>
       {/* Leyenda */}
@@ -252,6 +273,20 @@ export default function OrderRouteMap({ stores, userCoords }) {
           <div style={styles.overlay}>No se pudo cargar el mapa</div>
         )}
         <div ref={containerRef} style={styles.map} />
+
+        {/* Botón centrar en mi ubicación — superpuesto sobre el mapa */}
+        {status === 'ready' && (
+          <button
+            type="button"
+            onClick={handleCenterOnMe}
+            disabled={centering}
+            title="Centrar en mi ubicación"
+            aria-label="Centrar mapa en mi ubicación actual"
+            style={styles.centerBtn}
+          >
+            {centering ? '⏳' : '📍'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -316,5 +351,23 @@ const styles = {
     fontSize: '14px',
     color: 'var(--text-muted)',
     zIndex: 10,
+  },
+  centerBtn: {
+    position: 'absolute',
+    bottom: '12px',
+    right: '12px',
+    zIndex: 1000, // sobre los tiles de Leaflet
+    width: '40px',
+    height: '40px',
+    borderRadius: '8px',
+    border: '2px solid rgba(0,0,0,0.2)',
+    background: '#fff',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+    cursor: 'pointer',
+    fontSize: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
   },
 };
