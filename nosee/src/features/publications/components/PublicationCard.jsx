@@ -91,7 +91,11 @@ export function PublicationCard({
 
   // ─── Lista de compras ───────────────────────────────────────────────────────
   const addItem = useShoppingListStore((s) => s.addItem);
-  const [addedToList, setAddedToList] = useState(false);
+  // "Agregado" es persistente: se deriva del store, no de un timer local.
+  // Se resetea automáticamente cuando el ítem se elimina de la lista (p.ej. al confirmar pedido).
+  const isInList = useShoppingListStore((s) =>
+    s.items.some((i) => i.publicationId === publication.id)
+  );
 
   const handleAddToList = () => {
     const name = publication.product?.name || tc.unknownProduct;
@@ -100,8 +104,6 @@ export function PublicationCard({
       price: publication.price || null,
       publicationId: publication.id,
     });
-    setAddedToList(true);
-    setTimeout(() => setAddedToList(false), 2000);
   };
 
   // ─── Estados ───────────────────────────────────────────────────────────────
@@ -337,14 +339,14 @@ export function PublicationCard({
             aria-label={`${t.shoppingList.addToList}: ${publication.product?.name || tc.unknownProduct}`}
             style={{
               ...styles.button,
-              background: addedToList ? 'var(--success-soft)' : 'var(--accent-soft)',
-              color: addedToList ? 'var(--success)' : 'var(--accent)',
-              border: `1px solid ${addedToList ? 'var(--success)' : 'var(--accent)'}`,
+              background: isInList ? 'var(--success-soft)' : 'var(--accent-soft)',
+              color: isInList ? 'var(--success)' : 'var(--accent)',
+              border: `1px solid ${isInList ? 'var(--success)' : 'var(--accent)'}`,
               fontWeight: 700,
             }}
             onClick={handleAddToList}
           >
-            {addedToList ? '✓ Agregado' : t.shoppingList.addToList}
+            {isInList ? '✓ Agregado' : t.shoppingList.addToList}
           </button>
 
           <button

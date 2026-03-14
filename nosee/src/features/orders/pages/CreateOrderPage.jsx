@@ -14,6 +14,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import * as publicationsApi from '@/services/api/publications.api';
 import PublicationDetailModal from '@/features/publications/components/PublicationDetailModal';
+import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 
 // ─── Radios disponibles ───────────────────────────────────────────────────────
 const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
@@ -192,6 +193,7 @@ export default function CreateOrderPage() {
 
   // ── Confirmación ──────────────────────────────────────────────────────────
   const [orderId] = useState(() => `NSE-${Date.now().toString(36).toUpperCase()}`);
+  const removeItem = useShoppingListStore((s) => s.removeItem);
 
   // ── GPS ───────────────────────────────────────────────────────────────────
   const handleGPS = () => {
@@ -252,7 +254,9 @@ export default function CreateOrderPage() {
   // ── Confirmar ─────────────────────────────────────────────────────────────
   const handleConfirm = () => {
     setPhase('confirmed');
-    // Navegar al detalle del pedido después de 1.5s
+    // Quitar del store los ítems que se confirmaron → los botones "+ Lista"
+    // vuelven a su estado normal en la sección Productos.
+    selectedItems.forEach((item) => removeItem(item.id));
     setTimeout(() => {
       navigate(`/pedido/${orderId}`, {
         state: { result, orderId, items: selectedItems },
