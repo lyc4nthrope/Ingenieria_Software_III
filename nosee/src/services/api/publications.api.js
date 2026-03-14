@@ -21,6 +21,10 @@
 
 import { supabase } from "@/services/supabase.client";
 import { uploadImageToCloudinary } from "@/services/cloudinary";
+import {
+  detectInappropriateText,
+  detectIndecentImageByModeration,
+} from "@/services/moderation";
 
 // ─── TIPOS / INTERFACES ───────────────────────────────────────────────────────
 
@@ -328,7 +332,11 @@ const enrichPublicationsWithVoteCounts = async (publications) => {
 
   const [votesResult, reportsResult, userVotesResult] = await Promise.all([
     supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds),
-    supabase.from("reports").select("publication_id, status").in("publication_id", publicationIds),
+    supabase
+      .from("reports")
+      .select("reported_id, status")
+      .eq("reported_type", "publication")
+      .in("reported_id", publicationIds.map(String)),
     currentUserId
       ? supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds).eq("user_id", currentUserId)
       : Promise.resolve({ data: [] }),
@@ -344,9 +352,10 @@ const enrichPublicationsWithVoteCounts = async (publications) => {
 
   const reportCountByPublication = {};
   (reportsResult.data || []).forEach((row) => {
-    if (!row.publication_id) return;
+    const publicationId = Number(row.reported_id);
+    if (!Number.isFinite(publicationId)) return;
     if (String(row.status || "").toLowerCase() !== "rejected") {
-      reportCountByPublication[row.publication_id] = (reportCountByPublication[row.publication_id] || 0) + 1;
+      reportCountByPublication[publicationId] = (reportCountByPublication[publicationId] || 0) + 1;
     }
   });
 
@@ -375,7 +384,11 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
 
   const [votesResult, reportsResult, evidenceResult, productStatsResult] = await Promise.all([
     supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds),
-    supabase.from("reports").select("publication_id, status, evidence_url").in("publication_id", publicationIds),
+    supabase
+      .from("reports")
+      .select("reported_id, status, evidence_url")
+      .eq("reported_type", "publication")
+      .in("reported_id", publicationIds.map(String)),
     supabase.from("store_evidences").select("store_id").in("store_id", storeIds),
     supabase.from("price_publications").select("product_id, price").in("product_id", productIds),
   ]);
@@ -390,13 +403,14 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
 
   const reportsByPublication = {};
   (reportsResult.data || []).forEach((row) => {
-    if (!row.publication_id) return;
-    const current = reportsByPublication[row.publication_id] || { active: 0, evidences: 0 };
+    const publicationId = Number(row.reported_id);
+    if (!Number.isFinite(publicationId)) return;
+    const current = reportsByPublication[publicationId] || { active: 0, evidences: 0 };
     if (String(row.status || "").toLowerCase() !== "rejected") {
       current.active += 1;
       if (row.evidence_url) current.evidences += 1;
     }
-    reportsByPublication[row.publication_id] = current;
+    reportsByPublication[publicationId] = current;
   });
 
   const evidencesByStore = {};
@@ -550,6 +564,29 @@ const runWithSessionRetry = async (operation, timeoutMs = getAdaptiveRequestTime
   );
 };
 
+const createAutoModerationReport = async ({
+  reportedType,
+  reportedId,
+  reporterUserId,
+  reportedUserId = null,
+  reason = "offensive",
+  description = null,
+}) => {
+  if (!reportedType || !reportedId || !reporterUserId) return;
+
+  await supabase.from("reports").insert({
+    reported_type: String(reportedType),
+    reported_id: String(reportedId),
+    reporter_user_id: reporterUserId,
+    reported_user_id: reportedUserId || reporterUserId,
+    reason,
+    description,
+    status: "PENDING",
+    created_at: new Date().toISOString(),
+    action_taken: "AUTO_FLAGGED_BY_MODERATION",
+  });
+};
+
 // ─── 1️⃣ CREAR PUBLICACIÓN ────────────────────────────────────────────────────
 
 /**
@@ -688,6 +725,53 @@ export const createPublication = async (data) => {
     if (error) {
       console.error("Error creando publicación:", error);
       return { success: false, error: error.message };
+    }
+
+    // Moderación automática de texto + imagen
+    const textModeration = detectInappropriateText(data.description || "");
+    const imageModeration = detectIndecentImageByModeration(data.photoModeration);
+    const shouldAutoModerate = textModeration.flagged || imageModeration.flagged;
+
+    if (shouldAutoModerate) {
+      const moderationDescriptionParts = [];
+      if (textModeration.flagged) {
+        moderationDescriptionParts.push(
+          `Texto inapropiado detectado (score ${textModeration.score}/${textModeration.threshold}): ${textModeration.matches.map((m) => m.term).join(", ")}`,
+        );
+      }
+      if (imageModeration.flagged) {
+        moderationDescriptionParts.push(
+          `${imageModeration.reason || "Imagen potencialmente indecente detectada"} (confianza: ${imageModeration.confidence ?? "n/a"})`,
+        );
+      }
+
+      await supabase
+        .from("price_publications")
+        .update({
+          is_active: false,
+          is_admin_hidden: true,
+          hidden_admin_at: new Date().toISOString(),
+          hidden_admin_by: user.id,
+          hidden_admin_reason: "Moderación automática por contenido sensible",
+        })
+        .eq("id", publication.id);
+
+      await createAutoModerationReport({
+        reportedType: "publication",
+        reportedId: publication.id,
+        reporterUserId: user.id,
+        reportedUserId: user.id,
+        reason: "offensive",
+        description: `AUTO-MODERATION: ${moderationDescriptionParts.join(" | ")}`,
+      });
+
+      return {
+        success: true,
+        data: publication,
+        autoModerated: true,
+        message:
+          "Tu publicación fue enviada automáticamente a revisión por posible contenido inapropiado.",
+      };
     }
 
     // Sumar reputación al autor por crear publicación (best-effort)
@@ -1554,7 +1638,8 @@ export const checkUserReportStatus = async (publicationId) => {
     const { data: existingReport, error } = await supabase
       .from("reports")
       .select("id, created_at, reason, description")
-      .eq("publication_id", publicationId)
+      .eq("reported_type", "publication")
+      .eq("reported_id", String(publicationId))
       .eq("reporter_user_id", user.id)
       .single();
 
@@ -1658,7 +1743,8 @@ export const reportPublication = async (
     const { data: existingReport, error: checkError } = await supabase
       .from("reports")
       .select("id, created_at")
-      .eq("publication_id", publicationId)
+      .eq("reported_type", "publication")
+      .eq("reported_id", String(publicationId))
       .eq("reporter_user_id", user.id)
       .maybeSingle();
 
@@ -1708,11 +1794,19 @@ export const reportPublication = async (
 
     // ─── CREAR REPORTE EN BD ────────────────────────────────────────────
 
+    const { data: publicationOwner } = await supabase
+      .from("price_publications")
+      .select("user_id")
+      .eq("id", publicationId)
+      .maybeSingle();
+
     console.log(`${logPrefix} Creando reporte en base de datos...`);
     const { data: report, error } = await supabase
       .from("reports")
       .insert({
-        publication_id: publicationId,
+        reported_type: "publication",
+        reported_id: String(publicationId),
+        reported_user_id: publicationOwner?.user_id || null,
         reporter_user_id: user.id,
         reason: reportData.reason,
         description: reportData.description || null,
@@ -1734,7 +1828,7 @@ export const reportPublication = async (
 
     console.log(`${logPrefix} ✅ Reporte creado exitosamente:`, {
       id: report.id,
-      publicationId: report.publication_id,
+      publicationId: report.reported_id,
       reason: report.reason,
       status: report.status,
     });
@@ -2208,7 +2302,8 @@ export const deletePublication = async (publicationId, options = {}) => {
       const { error: reportsDeleteError } = await supabase
         .from("reports")
         .delete()
-        .eq("publication_id", publicationId);
+        .eq("reported_type", "publication")
+        .eq("reported_id", String(publicationId));
 
       if (reportsDeleteError) {
         console.error("Error eliminando reportes de publicación:", reportsDeleteError);
@@ -2697,6 +2792,31 @@ export const addComment = async (publicationId, content, parentId = null) => {
       .single();
 
     if (error) return { success: false, error: error.message };
+
+    // Moderación automática de comentarios
+    const commentModeration = detectInappropriateText(trimmed);
+    if (commentModeration.flagged) {
+      await supabase
+        .from("comments")
+        .update({ is_deleted: true })
+        .eq("id", data.id);
+
+      await createAutoModerationReport({
+        reportedType: "comment",
+        reportedId: data.id,
+        reporterUserId: user.id,
+        reportedUserId: user.id,
+        reason: "offensive",
+        description: `AUTO-MODERATION: comentario bloqueado (score ${commentModeration.score}/${commentModeration.threshold}) por términos: ${commentModeration.matches.map((m) => m.term).join(", ")}`,
+      });
+
+      return {
+        success: false,
+        error:
+          "Tu comentario fue bloqueado automáticamente por posible lenguaje inapropiado y enviado a revisión.",
+        autoModerated: true,
+      };
+    }
 
     // Obtener nombre del usuario desde public.users
     const { data: userData } = await supabase

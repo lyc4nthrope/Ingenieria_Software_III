@@ -37,6 +37,13 @@ const VALIDATION = {
   ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
   ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.webp'],
 };
+const CLOUDINARY_MODERATION_PROVIDER = String(
+  import.meta.env.VITE_CLOUDINARY_MODERATION_PROVIDER || "aws_rek",
+)
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean)
+  .join("|");
 
 /**
  * Custom hook para upload de fotos a Cloudinary
@@ -144,6 +151,9 @@ export const usePhotoUpload = () => {
         formData.append('file', compressed);
         formData.append('upload_preset', uploadPreset);
         formData.append('folder', uploadFolder);
+        if (String(import.meta.env.VITE_CLOUDINARY_ENABLE_MODERATION || "true").toLowerCase() !== "false") {
+          formData.append("moderation", CLOUDINARY_MODERATION_PROVIDER || "aws_rek");
+        }
 
         setUploading(true);
 
@@ -170,7 +180,12 @@ export const usePhotoUpload = () => {
                 setProgress(100);
                 setUploading(false);
 
-                resolve({ success: true, photoUrl: url });
+                resolve({
+                  success: true,
+                  photoUrl: url,
+                  moderation: data?.moderation || null,
+                  rawCloudinary: data,
+                });
               } catch {
                 const error = 'Error procesando respuesta de Cloudinary';
                 setError(error);

@@ -1,4 +1,11 @@
 const VALID_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const CLOUDINARY_MODERATION_PROVIDER = String(
+  import.meta.env.VITE_CLOUDINARY_MODERATION_PROVIDER || "aws_rek",
+)
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean)
+  .join("|");
 
 function buildOptimizedCloudinaryUrl(cloudName, publicId, options = {}) {
   if (!cloudName || !publicId) return null;
@@ -92,6 +99,9 @@ export async function uploadImageToCloudinary(file, options = {}) {
   formData.append('file', file);
   formData.append('upload_preset', uploadPreset);
   formData.append('folder', options.folder || import.meta.env.VITE_CLOUDINARY_UPLOAD_FOLDER || 'nosee/publications');
+  if (String(import.meta.env.VITE_CLOUDINARY_ENABLE_MODERATION || "true").toLowerCase() !== "false") {
+    formData.append("moderation", CLOUDINARY_MODERATION_PROVIDER || "aws_rek");
+  }
 
   try {
     const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
@@ -112,6 +122,7 @@ export async function uploadImageToCloudinary(file, options = {}) {
       success: true,
       url: body.secure_url,
       publicId: body.public_id,
+      moderation: body.moderation || null,
       optimizedUrl: buildOptimizedCloudinaryUrl(cloudName, body.public_id, {
         width: options.width,
       }),
