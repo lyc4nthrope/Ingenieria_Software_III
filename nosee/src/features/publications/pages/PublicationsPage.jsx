@@ -446,7 +446,11 @@ export default function PublicationsPage() {
         width: "100%",
       }}
     >
-      <style>{`@media(max-width:900px){.pub-page-main{padding:16px 20px 28px!important}}`}</style>
+      <style>{`
+        @media(max-width:900px){.pub-page-main{padding:16px 20px 28px!important}}
+        @media(max-width:900px){.pub-grid{grid-template-columns:repeat(2,1fr)!important}}
+        @media(max-width:560px){.pub-grid{grid-template-columns:1fr!important}}
+      `}</style>
       {/* ─────────── SECCIÓN: Encabezado ─────────── */}
       <section
         style={{
@@ -770,9 +774,10 @@ export default function PublicationsPage() {
         ) : (
           // Estado: Con publicaciones
           <div
+            className="pub-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gridTemplateColumns: "repeat(3, 1fr)",
               gap: "20px",
             }}
           >
