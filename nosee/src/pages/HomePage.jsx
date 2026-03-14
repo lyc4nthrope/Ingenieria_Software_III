@@ -315,8 +315,44 @@ const PublicationCard = memo(function PublicationCard({
 
       <div className="card-actions-row" style={{ flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {/* Grupo de votos */}
-          <div style={homeVoteStyles.group}>
+          <button
+            className="card-action-button"
+            onClick={() => onOpenDetail(pub.id)}
+            aria-label={th.detailLabel(pubName)}
+          >
+            {th.viewMore}
+          </button>
+
+          <button
+            className="card-action-button"
+            onClick={() => {
+              if (!isAuthenticated) {
+                onRequireAuth?.();
+                return;
+              }
+              onReport(pub);
+            }}
+            aria-label={th.reportLabel(pubName)}
+            aria-disabled={!isAuthenticated}
+            title={!isAuthenticated ? th.loginToReport : th.report}
+            style={!isAuthenticated ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
+          >
+            {th.report}
+          </button>
+
+          {(isAuthor || userIsAdmin) && (
+            <button
+              className="card-action-button"
+              onClick={() => onDelete(pub.id)}
+              aria-label={th.deleteLabel(pubName)}
+              title={th.deleteBtn}
+            >
+              {th.deleteBtn}
+            </button>
+          )}
+
+          {/* Grupo de votos al final */}
+          <div style={{ ...homeVoteStyles.group, marginLeft: "auto" }}>
             <button
               type="button"
               aria-label={th.validateLabel(pubName)}
@@ -354,44 +390,6 @@ const PublicationCard = memo(function PublicationCard({
               <span style={homeVoteStyles.count}>{pub.downvoted_count || 0}</span>
             </button>
           </div>
-
-
-          <button
-            className="card-action-button"
-            onClick={() => {
-              if (!isAuthenticated) {
-                onRequireAuth?.();
-                return;
-              }
-              onReport(pub);
-            }}
-            aria-label={th.reportLabel(pubName)}
-            aria-disabled={!isAuthenticated}
-            title={!isAuthenticated ? th.loginToReport : th.report}
-            style={!isAuthenticated ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
-          >
-            {th.report}
-          </button>
-
-          <button
-            className="card-action-button"
-            onClick={() => onOpenDetail(pub.id)}
-            aria-label={th.detailLabel(pubName)}
-          >
-            {th.viewMore}
-          </button>
-
-
-          {(isAuthor || userIsAdmin) && (
-            <button
-              className="card-action-button"
-              onClick={() => onDelete(pub.id)}
-              aria-label={th.deleteLabel(pubName)}
-              title={th.deleteBtn}
-            >
-              {th.deleteBtn}
-            </button>
-          )}
         </div>
       </div>
       </article>

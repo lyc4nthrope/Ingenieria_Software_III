@@ -327,11 +327,11 @@ export function PublicationCard({
         <div style={styles.actions}>
           <button
             type="button"
-            aria-label={tc.reportLabel(publication.product?.name || tc.unknownProduct)}
+            aria-label={tc.viewMoreLabel(productDisplay)}
             style={{ ...styles.button, ...styles.buttonSecondary }}
-            onClick={() => setShowReportModal(true)}
+            onClick={() => onViewMore?.(publication.id)}
           >
-            {tc.report}
+            {tc.viewMore}
           </button>
 
           <button
@@ -351,11 +351,11 @@ export function PublicationCard({
 
           <button
             type="button"
-            aria-label={tc.viewMoreLabel(productDisplay)}
+            aria-label={tc.reportLabel(publication.product?.name || tc.unknownProduct)}
             style={{ ...styles.button, ...styles.buttonSecondary }}
-            onClick={() => onViewMore?.(publication.id)}
+            onClick={() => setShowReportModal(true)}
           >
-            {tc.viewMore}
+            {tc.report}
           </button>
 
           {(isAuthor || isAdmin) && (
