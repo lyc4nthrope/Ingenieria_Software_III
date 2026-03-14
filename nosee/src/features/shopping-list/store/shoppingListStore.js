@@ -18,8 +18,12 @@ export const useShoppingListStore = create(
       /** @type {Array<{id: number, productName: string, quantity: number, unit: string, addedAt: string}>} */
       items: [],
 
-      /** Agrega un ítem. Si ya existe el producto, suma la cantidad. */
-      addItem: (productName, quantity = 1, unit = '') => {
+      /**
+       * Agrega un ítem desde una PublicationCard.
+       * Si el producto ya existe en la lista, actualiza storeName y price
+       * con los nuevos datos (puede que haya encontrado uno más barato).
+       */
+      addItem: (productName, quantity = 1, { unit = '', storeName = '', price = null, publicationId = null } = {}) => {
         const trimmed = productName.trim();
         if (!trimmed) return;
 
@@ -32,7 +36,7 @@ export const useShoppingListStore = create(
           set({
             items: items.map((i) =>
               i.id === existing.id
-                ? { ...i, quantity: i.quantity + Number(quantity) }
+                ? { ...i, quantity: i.quantity + Number(quantity), storeName, price, publicationId }
                 : i
             ),
           });
@@ -45,6 +49,9 @@ export const useShoppingListStore = create(
                 productName: trimmed,
                 quantity: Number(quantity),
                 unit,
+                storeName,
+                price,
+                publicationId,
                 addedAt: new Date().toISOString(),
               },
             ],

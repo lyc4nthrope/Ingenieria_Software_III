@@ -95,7 +95,11 @@ export function PublicationCard({
 
   const handleAddToList = () => {
     const name = publication.product?.name || tc.unknownProduct;
-    addItem(name, 1);
+    addItem(name, 1, {
+      storeName: publication.store?.name || '',
+      price: publication.price || null,
+      publicationId: publication.id,
+    });
     setAddedToList(true);
     setTimeout(() => setAddedToList(false), 2000);
   };
