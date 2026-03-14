@@ -87,6 +87,17 @@ export const useShoppingListStore = create(
       /** Elimina un pedido del historial */
       removeOrder: (id) =>
         set({ orders: get().orders.filter((o) => o.id !== id) }),
+
+      /**
+       * Actualiza campos de entrega de un pedido (estado, ubicación repartidor, etc.)
+       * deliveryUpdate: { deliveryStatus?, driverLocation?, cancellationCharged? }
+       */
+      updateOrderDelivery: (id, deliveryUpdate) =>
+        set({
+          orders: get().orders.map((o) =>
+            o.id === id ? { ...o, ...deliveryUpdate } : o
+          ),
+        }),
     }),
     { name: 'nosee-shopping-list' }
   )

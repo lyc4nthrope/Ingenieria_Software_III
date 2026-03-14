@@ -70,6 +70,16 @@ function makeNumberedIcon(L, number, color = '#2563eb') {
   });
 }
 
+function makeDriverIcon(L) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="font-size:22px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));">🛵</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -16],
+  });
+}
+
 function makeUserIcon(L) {
   return L.divIcon({
     className: '',
@@ -100,14 +110,16 @@ async function fetchOsrmRoute(waypoints) {
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
-export default function OrderRouteMap({ stores, userCoords }) {
+export default function OrderRouteMap({ stores, userCoords, driverLocation = null }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
+  const leafletRef = useRef(null); // guardar instancia de L para efectos posteriores
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [routeMode, setRouteMode] = useState('osrm'); // 'osrm' | 'straight' (fallback)
   const [missingStores, setMissingStores] = useState([]);
   const [centering, setCentering] = useState(false); // estado del botón centrar
   const userMarkerRef = useRef(null); // referencia al pin verde para moverlo
+  const driverMarkerRef = useRef(null); // referencia al marcador 🛵
 
   useEffect(() => {
     let mounted = true;
@@ -123,6 +135,7 @@ export default function OrderRouteMap({ stores, userCoords }) {
         return;
       }
       if (!mounted || !containerRef.current) return;
+      leafletRef.current = L;
 
       // ── Calcular puntos ──────────────────────────────────────────────────
       const storeWaypoints = stores.map((s, i) => {
@@ -216,6 +229,20 @@ export default function OrderRouteMap({ stores, userCoords }) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Actualizar marcador del repartidor en tiempo real ──────────────────────
+  useEffect(() => {
+    if (!driverLocation || !mapRef.current || !leafletRef.current) return;
+    const L = leafletRef.current;
+    if (driverMarkerRef.current) {
+      driverMarkerRef.current.setLatLng([driverLocation.lat, driverLocation.lng]);
+    } else {
+      driverMarkerRef.current = L.marker(
+        [driverLocation.lat, driverLocation.lng],
+        { icon: makeDriverIcon(L) }
+      ).addTo(mapRef.current).bindPopup('<b>🛵 Repartidor</b>');
+    }
+  }, [driverLocation]);
+
   // ── Centrar en ubicación actual ────────────────────────────────────────────
   const handleCenterOnMe = useCallback(() => {
     if (!mapRef.current || !navigator.geolocation) return;
@@ -242,6 +269,9 @@ export default function OrderRouteMap({ stores, userCoords }) {
         <span style={styles.legendItem}>
           <span style={{ ...styles.dot, background: '#10b981' }} /> Tu ubicación
         </span>
+        {driverLocation && (
+          <span style={styles.legendItem}>🛵 Repartidor</span>
+        )}
         {stores.map((s, i) => (
           <span key={i} style={styles.legendItem}>
             <span style={{ ...styles.dot, background: '#2563eb' }}>{i + 1}</span>

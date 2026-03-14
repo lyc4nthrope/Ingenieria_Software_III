@@ -185,6 +185,7 @@ export default function CreateOrderPage() {
   const [radius, setRadius] = useState(5);
   const [storeType, setStoreType] = useState('all'); // 'all' | 'physical' | 'virtual'
   const [strategy, setStrategy] = useState('balanced'); // 'price' | 'fewest_stores' | 'balanced'
+  const [wantsDelivery, setWantsDelivery] = useState(false);
 
   // ── Resultado ─────────────────────────────────────────────────────────────
   const [result, setResult] = useState(null);
@@ -258,6 +259,10 @@ export default function CreateOrderPage() {
       result,
       userCoords: coords,
       createdAt: new Date().toISOString(),
+      deliveryMode: wantsDelivery,
+      deliveryStatus: wantsDelivery ? 'searching' : null,
+      driverLocation: null,
+      cancellationCharged: false,
     });
     setPhase('confirmed');
     setTimeout(() => {
@@ -412,6 +417,31 @@ export default function CreateOrderPage() {
                   <span style={styles.strategyIcon}>{icon}</span>
                   <span style={styles.strategyName}>{label}</span>
                   <span style={styles.strategyDesc}>{desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tipo de entrega */}
+          <div>
+            <label style={styles.sectionLabel}>Tipo de entrega</label>
+            <div style={styles.storeTypeRow}>
+              {[
+                { value: false, label: '🚶 Recojo yo', desc: 'Ver ruta al confirmar' },
+                { value: true,  label: '🛵 Domicilio',  desc: 'Un repartidor lo lleva' },
+              ].map(({ value, label, desc }) => (
+                <button
+                  key={String(value)}
+                  type="button"
+                  onClick={() => setWantsDelivery(value)}
+                  style={{
+                    ...styles.storeTypeBtn,
+                    ...(wantsDelivery === value ? styles.storeTypeBtnActive : {}),
+                    flexDirection: 'column', gap: '2px', padding: '10px 16px',
+                  }}
+                >
+                  <span style={{ fontWeight: 700 }}>{label}</span>
+                  <span style={{ fontSize: '11px', opacity: 0.75, fontWeight: 400 }}>{desc}</span>
                 </button>
               ))}
             </div>

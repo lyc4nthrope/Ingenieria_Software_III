@@ -6,7 +6,7 @@
  *   Derecha   — carrusel de pedidos (más grande) + mapa de ruta
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -27,8 +27,88 @@ const PlusIcon = () => (
   </svg>
 );
 
+// ─── Tarjeta de estado de domicilio ───────────────────────────────────────────
+function DeliveryCard({ order, onCancel }) {
+  const { deliveryStatus, cancellationCharged } = order;
+  if (!deliveryStatus || deliveryStatus === null) return null;
+
+  const configs = {
+    searching: {
+      icon: '🛵', bg: 'var(--warning-soft, #fef9c3)', border: 'var(--warning, #ca8a04)',
+      color: '#92400e',
+      title: 'Buscando repartidor...',
+      desc: 'Tu pedido está en cola de asignación',
+      showCancel: true, cancelFree: true,
+    },
+    found: {
+      icon: '✓', bg: 'var(--bg-elevated)', border: 'var(--accent)',
+      color: 'var(--accent)',
+      title: 'Repartidor asignado',
+      desc: 'Sigue su ubicación en tiempo real en el mapa →',
+      showCancel: true, cancelFree: false,
+    },
+    en_camino: {
+      icon: '🛵', bg: 'var(--success-soft, #dcfce7)', border: 'var(--success, #16a34a)',
+      color: 'var(--success, #16a34a)',
+      title: 'En camino a tu ubicación',
+      desc: 'Sigue su posición en tiempo real en el mapa →',
+      showCancel: false, cancelFree: false,
+    },
+    cancelled: {
+      icon: '✗', bg: 'var(--error-soft, #fee2e2)', border: 'var(--error, #dc2626)',
+      color: 'var(--error, #dc2626)',
+      title: 'Envío cancelado',
+      desc: cancellationCharged
+        ? 'Se cobrará el costo del domicilio — el pedido no fue comprado'
+        : 'Cancelado sin costo adicional',
+      showCancel: false, cancelFree: false,
+    },
+  };
+
+  const cfg = configs[deliveryStatus];
+  if (!cfg) return null;
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: '4px',
+      padding: '10px 14px',
+      background: cfg.bg, border: `1px solid ${cfg.border}`,
+      borderRadius: 'var(--radius-md)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+          <span style={{ fontSize: '16px', fontWeight: 800, color: cfg.color }}>
+            {cfg.icon}
+          </span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: cfg.color }}>
+            {cfg.title}
+          </span>
+        </div>
+        {cfg.showCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              flexShrink: 0, padding: '4px 10px',
+              borderRadius: 'var(--radius-sm)',
+              border: `1px solid ${cfg.border}`,
+              background: 'transparent', color: cfg.color,
+              fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            {cfg.cancelFree ? 'Cancelar envío' : 'Cancelar (se cobra domicilio)'}
+          </button>
+        )}
+      </div>
+      <span style={{ fontSize: '11px', color: 'var(--text-muted)', paddingLeft: '23px' }}>
+        {cfg.desc}
+      </span>
+    </div>
+  );
+}
+
 // ─── Columna izquierda ────────────────────────────────────────────────────────
-function LeftColumn({ items, removeItem, clearList, selectedOrder, onShowList }) {
+function LeftColumn({ items, removeItem, clearList, selectedOrder, onShowList, onCancelDelivery }) {
   const { t } = useLanguage();
   const ts = t.shoppingList;
   const navigate = useNavigate();
@@ -67,6 +147,11 @@ function LeftColumn({ items, removeItem, clearList, selectedOrder, onShowList })
             <span style={left.orderDate}>{date}</span>
           </div>
         </div>
+
+        {/* Tarjeta de domicilio */}
+        {selectedOrder.deliveryMode && (
+          <DeliveryCard order={selectedOrder} onCancel={onCancelDelivery} />
+        )}
 
         {/* Totales rápidos */}
         <div style={left.orderStats}>
@@ -225,7 +310,10 @@ function RightPanel({ orders, selectedIdx, onSelect, onRemove }) {
               onClick={() => onSelect(i)}
               style={{ ...right.pill, ...(active ? right.pillActive : {}) }}
             >
-              <span style={right.pillId}>#{o.id.slice(-6)}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={right.pillId}>#{o.id.slice(-6)}</span>
+                {o.deliveryMode && <span title="Domicilio">🛵</span>}
+              </span>
               <span style={{ ...right.pillDate, ...(active ? { opacity: 0.85 } : {}) }}>
                 {label}
               </span>
@@ -260,7 +348,12 @@ function RightPanel({ orders, selectedIdx, onSelect, onRemove }) {
 
       {/* Mapa */}
       <div style={right.mapWrap}>
-        <OrderRouteMap key={order.id} stores={result.stores} userCoords={userCoords} />
+        <OrderRouteMap
+          key={order.id}
+          stores={result.stores}
+          userCoords={userCoords}
+          driverLocation={order.driverLocation ?? null}
+        />
       </div>
     </div>
   );
@@ -271,12 +364,59 @@ export default function ShoppingListPage() {
   const { t } = useLanguage();
   const ts = t.shoppingList;
 
-  const { items, removeItem, clearList, orders, removeOrder } = useShoppingListStore();
+  const { items, removeItem, clearList, orders, removeOrder, updateOrderDelivery } = useShoppingListStore();
 
   // idx del pedido seleccionado en el carrusel; null = mostrar lista
   const [selectedIdx, setSelectedIdx] = useState(null);
+  const timerRef = useRef(null);
 
   const hasOrders = orders.length > 0;
+
+  // ── Simulación de estado de domicilio en tiempo real ──────────────────────
+  const selectedOrder = selectedIdx !== null ? orders[selectedIdx] ?? null : null;
+
+  useEffect(() => {
+    clearTimeout(timerRef.current);
+    clearInterval(timerRef.current);
+
+    if (!selectedOrder?.deliveryMode) return;
+    const { deliveryStatus, id, userCoords } = selectedOrder;
+    if (deliveryStatus === 'cancelled' || deliveryStatus === null) return;
+
+    if (deliveryStatus === 'searching') {
+      timerRef.current = setTimeout(() => {
+        const center = userCoords ?? { lat: 4.711, lng: -74.0721 };
+        updateOrderDelivery(id, {
+          deliveryStatus: 'found',
+          driverLocation: {
+            lat: center.lat + (Math.random() - 0.5) * 0.04,
+            lng: center.lng + (Math.random() - 0.5) * 0.04,
+          },
+        });
+      }, 5000);
+    } else if (deliveryStatus === 'found') {
+      timerRef.current = setTimeout(() => {
+        updateOrderDelivery(id, { deliveryStatus: 'en_camino' });
+      }, 3000);
+    } else if (deliveryStatus === 'en_camino') {
+      timerRef.current = setInterval(() => {
+        const current = useShoppingListStore.getState().orders.find((o) => o.id === id);
+        if (!current?.driverLocation || !current?.userCoords) return;
+        const { driverLocation: dl, userCoords: uc } = current;
+        updateOrderDelivery(id, {
+          driverLocation: {
+            lat: dl.lat + (uc.lat - dl.lat) * 0.12 + (Math.random() - 0.5) * 0.0008,
+            lng: dl.lng + (uc.lng - dl.lng) * 0.12 + (Math.random() - 0.5) * 0.0008,
+          },
+        });
+      }, 3000);
+    }
+
+    return () => {
+      clearTimeout(timerRef.current);
+      clearInterval(timerRef.current);
+    };
+  }, [selectedOrder?.id, selectedOrder?.deliveryStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelectOrder = (i) => setSelectedIdx(i);
   const handleShowList = () => setSelectedIdx(null);
@@ -284,8 +424,14 @@ export default function ShoppingListPage() {
     removeOrder(id);
     setSelectedIdx((prev) => (prev === null ? null : Math.max(0, prev - 1)));
   };
-
-  const selectedOrder = selectedIdx !== null ? orders[selectedIdx] ?? null : null;
+  const handleCancelDelivery = () => {
+    if (!selectedOrder) return;
+    const charged = selectedOrder.deliveryStatus !== 'searching';
+    updateOrderDelivery(selectedOrder.id, {
+      deliveryStatus: 'cancelled',
+      cancellationCharged: charged,
+    });
+  };
 
   return (
     <div className="home-wrapper">
@@ -325,6 +471,7 @@ export default function ShoppingListPage() {
             clearList={clearList}
             selectedOrder={selectedOrder}
             onShowList={handleShowList}
+            onCancelDelivery={handleCancelDelivery}
           />
 
           {/* Derecha */}
@@ -334,6 +481,7 @@ export default function ShoppingListPage() {
             onSelect={handleSelectOrder}
             onRemove={handleRemoveOrder}
           />
+
         </div>
       ) : (
         /* Sin pedidos: columna única centrada */
