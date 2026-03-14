@@ -132,6 +132,11 @@ export default function CreateOrderPage() {
     }, 1500);
   };
 
+  // ── Etiquetas según modo de entrega ───────────────────────────────────────
+  const configTitleLabel = wantsDelivery ? to.configTitleDelivery : to.configTitle;
+  const calcBtnLabel = wantsDelivery ? to.calculateButtonDelivery : to.calculateButton;
+  const confirmLabel = wantsDelivery ? to.confirmOrderDelivery : to.confirmOrder;
+
   // ── Si no hay ítems, volver ────────────────────────────────────────────────
   if (selectedItems.length === 0) {
     return (
@@ -151,7 +156,7 @@ export default function CreateOrderPage() {
         <div style={styles.container}>
           <Link to="/lista" style={styles.backLink}>{to.goToList}</Link>
 
-          <h1 style={styles.title}>{to.configTitle}</h1>
+          <h1 style={styles.title}>{configTitleLabel}</h1>
           <p style={styles.subtitle}>{to.configSubtitle}</p>
 
           {/* Resumen de ítems seleccionados */}
@@ -317,7 +322,7 @@ export default function CreateOrderPage() {
             disabled={calculating}
             style={styles.primaryBtn}
           >
-            {calculating ? to.calculating : to.calculateButton}
+            {calculating ? to.calculating : calcBtnLabel}
           </button>
         </div>
       </div>
@@ -441,7 +446,7 @@ export default function CreateOrderPage() {
             onClick={handleConfirm}
             style={styles.primaryBtn}
           >
-            {to.confirmOrder}
+            {confirmLabel}
           </button>
         </div>
 
