@@ -12,45 +12,11 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { ensureLeafletLoaded, addTileLayerWithFallback } from '@/shared/maps/leaflet';
+import { parseStoreCoords } from '@/features/orders/utils/parseStoreCoords';
 
 const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
 const DEFAULT_CENTER = { lat: 4.711, lng: -74.0721 }; // Bogotá
 const DEFAULT_ZOOM = 14;
-
-// ─── Parser de coordenadas de tienda (GeoJSON / WKT / WKB) ───────────────────
-function parseStoreCoords(locationValue) {
-  if (!locationValue) return null;
-
-  // GeoJSON: { type: 'Point', coordinates: [lng, lat] }
-  if (typeof locationValue === 'object' && Array.isArray(locationValue.coordinates)) {
-    const [lng, lat] = locationValue.coordinates;
-    if (isFinite(lat) && isFinite(lng)) return { lat: Number(lat), lng: Number(lng) };
-  }
-
-  if (typeof locationValue === 'string') {
-    // WKT: POINT(lng lat)
-    const wkt = locationValue.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
-    if (wkt) return { lat: Number(wkt[2]), lng: Number(wkt[1]) };
-
-    // WKB hex (PostGIS)
-    if (/^[0-9a-fA-F]+$/.test(locationValue)) {
-      try {
-        const bytes = new Uint8Array(locationValue.length / 2);
-        for (let i = 0; i < locationValue.length; i += 2)
-          bytes[i / 2] = parseInt(locationValue.substr(i, 2), 16);
-        const view = new DataView(bytes.buffer);
-        const le = bytes[0] === 1;
-        // Con SRID: offset 9; sin SRID: offset 5
-        const hasSrid = (view.getUint32(1, le) & 0x20000000) !== 0;
-        const offset = hasSrid ? 9 : 5;
-        const lng = view.getFloat64(offset, le);
-        const lat = view.getFloat64(offset + 8, le);
-        if (isFinite(lat) && isFinite(lng)) return { lat, lng };
-      } catch { /* ignorar */ }
-    }
-  }
-  return null;
-}
 
 // ─── Crear icono numerado ─────────────────────────────────────────────────────
 function makeNumberedIcon(L, number, color = '#2563eb') {
