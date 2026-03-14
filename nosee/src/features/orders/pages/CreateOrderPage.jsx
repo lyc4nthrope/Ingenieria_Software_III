@@ -30,7 +30,7 @@ function buildResult(assignments, itemResults) {
       noResultItems.push(item);
       continue;
     }
-    const chosen = assignments[item.id];
+    const chosen = assignments[String(item.id)];
     if (!chosen) {
       noResultItems.push(item);
       continue;
@@ -69,7 +69,7 @@ function optimizeByPrice(itemResults) {
   for (const { item, publications } of itemResults) {
     if (!publications?.length) continue;
     const sorted = [...publications].sort((a, b) => (a.price || 0) - (b.price || 0));
-    assignments[item.id] = sorted[0];
+    assignments[String(item.id)] = sorted[0];
   }
   return buildResult(assignments, itemResults);
 }
@@ -80,19 +80,21 @@ function optimizeByPrice(itemResults) {
 // ítems. Repite hasta cubrir todos.
 function optimizeByFewestStores(itemResults) {
   const assignments = {};
-  const pending = new Set(itemResults.map(({ item }) => item.id));
+  // Usamos String() para que el Set y Object.keys() sean del mismo tipo
+  const pending = new Set(itemResults.map(({ item }) => String(item.id)));
 
-  // Índice: storeId → { store, items con esa tienda disponible, precio mínimo por item }
+  // Índice: storeId → { store, coverage: { itemId(string) → publicación más barata } }
   const storeIndex = {};
   for (const { item, publications } of itemResults) {
     if (!publications?.length) continue;
     const sortedByPrice = [...publications].sort((a, b) => (a.price || 0) - (b.price || 0));
     for (const pub of sortedByPrice) {
-      const sid = pub.store?.id ?? 'unknown';
+      const sid = String(pub.store?.id ?? 'unknown');
       if (!storeIndex[sid]) storeIndex[sid] = { store: pub.store, coverage: {} };
-      // Registra el mejor precio de esta tienda para este ítem
-      if (!storeIndex[sid].coverage[item.id]) {
-        storeIndex[sid].coverage[item.id] = pub;
+      const key = String(item.id);
+      // Solo registra la primera aparición (la más barata, ya que está ordenado)
+      if (!storeIndex[sid].coverage[key]) {
+        storeIndex[sid].coverage[key] = pub;
       }
     }
   }
@@ -105,7 +107,7 @@ function optimizeByFewestStores(itemResults) {
       const count = Object.keys(data.coverage).filter((id) => pending.has(id)).length;
       if (count > bestCount) { bestCount = count; bestStore = sid; }
     }
-    if (!bestStore || bestCount === 0) break; // ítems restantes sin cobertura
+    if (!bestStore || bestCount === 0) break;
 
     // Asignar todos los ítems pendientes que esta tienda cubre
     for (const itemId of Object.keys(storeIndex[bestStore].coverage)) {
@@ -152,7 +154,7 @@ function optimizeBalanced(itemResults) {
     });
 
     const chosen = optionInExistingStore ?? cheapest;
-    assignments[item.id] = chosen;
+    assignments[String(item.id)] = chosen;
     selectedStoreIds.add(chosen.store?.id ?? 'unknown');
   }
 
