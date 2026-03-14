@@ -45,6 +45,16 @@ const CLOUDINARY_MODERATION_PROVIDER = String(
   .filter(Boolean)
   .join("|");
 
+const toFriendlyCloudinaryError = (rawMessage = "", status = "") => {
+  const msg = String(rawMessage || "").toLowerCase();
+  if (msg.includes("moderation parameter is not allowed when using unsigned upload")) {
+    return "No se pudo moderar automáticamente la imagen con la configuración actual. La foto no se subió. Contacta al administrador para habilitar moderación en el preset de Cloudinary.";
+  }
+  return rawMessage
+    ? `Error de Cloudinary (${status}): ${rawMessage}`
+    : `Error del servidor: ${status}`;
+};
+
 /**
  * Custom hook para upload de fotos a Cloudinary
  * 
@@ -201,9 +211,7 @@ export const usePhotoUpload = () => {
                 cloudinaryError = '';
               }
 
-              const error = cloudinaryError
-                ? `Error de Cloudinary (${xhr.status}): ${cloudinaryError}`
-                : `Error del servidor: ${xhr.status}`;
+              const error = toFriendlyCloudinaryError(cloudinaryError, xhr.status);
               setError(error);
               setUploading(false);
               resolve({ success: false, error });

@@ -7,6 +7,16 @@ const CLOUDINARY_MODERATION_PROVIDER = String(
   .filter(Boolean)
   .join("|");
 
+function toFriendlyCloudinaryError(rawMessage = '', status = '') {
+  const msg = String(rawMessage || '').toLowerCase();
+  if (msg.includes('moderation parameter is not allowed when using unsigned upload')) {
+    return 'No se pudo moderar automáticamente la imagen con la configuración actual. La imagen no se subió. Revisa el upload preset de Cloudinary.';
+  }
+  return rawMessage
+    ? `Error de Cloudinary (${status}): ${rawMessage}`
+    : `Error de Cloudinary (${status})`;
+}
+
 function buildOptimizedCloudinaryUrl(cloudName, publicId, options = {}) {
   if (!cloudName || !publicId) return null;
 
@@ -114,7 +124,7 @@ export async function uploadImageToCloudinary(file, options = {}) {
     if (!response.ok) {
       return {
         success: false,
-        error: body?.error?.message || `Error de Cloudinary (${response.status})`,
+        error: toFriendlyCloudinaryError(body?.error?.message, response.status),
       };
     }
 
