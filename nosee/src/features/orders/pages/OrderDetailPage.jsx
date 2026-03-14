@@ -6,8 +6,10 @@
  * Punto de salida hacia Proceso 4 (domicilio).
  */
 
+import { useState } from 'react';
 import { useLocation, useParams, Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
+import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 
 export default function OrderDetailPage() {
   const { t } = useLanguage();
@@ -15,7 +17,8 @@ export default function OrderDetailPage() {
   const { id } = useParams();
   const location = useLocation();
 
-  const { result, orderId } = location.state ?? {};
+  const { result, orderId, userCoords } = location.state ?? {};
+  const [showRoute, setShowRoute] = useState(false);
 
   // Si se llegó directo sin state (p.ej. link externo), mostramos solo el ID
   if (!result) {
@@ -122,9 +125,16 @@ export default function OrderDetailPage() {
         <div style={styles.actionSection}>
           <p style={styles.actionTitle}>¿Cómo vas a comprar?</p>
           <div style={styles.actionRow}>
-            <Link to="/lista" style={styles.actionBtnSecondary}>
-              🗺️ Voy yo (seguir ruta)
-            </Link>
+            <button
+              type="button"
+              style={{
+                ...styles.actionBtnSecondary,
+                ...(showRoute ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : {}),
+              }}
+              onClick={() => setShowRoute((v) => !v)}
+            >
+              🗺️ {showRoute ? 'Ocultar ruta' : 'Voy yo (ver ruta)'}
+            </button>
             <button
               type="button"
               style={styles.actionBtnPrimary}
@@ -133,6 +143,12 @@ export default function OrderDetailPage() {
               🛵 Solicitar domicilio
             </button>
           </div>
+
+          {showRoute && (
+            <div style={{ marginTop: '12px' }}>
+              <OrderRouteMap stores={result.stores} userCoords={userCoords} />
+            </div>
+          )}
         </div>
 
         <Link to="/lista" style={styles.backLink}>{to.goToList}</Link>

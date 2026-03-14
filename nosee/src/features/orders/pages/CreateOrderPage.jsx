@@ -254,7 +254,7 @@ export default function CreateOrderPage() {
     setPhase('confirmed');
     setTimeout(() => {
       navigate(`/pedido/${orderId}`, {
-        state: { result, orderId, items: selectedItems },
+        state: { result, orderId, items: selectedItems, userCoords: coords },
       });
     }, 1500);
   };
