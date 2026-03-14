@@ -38,7 +38,8 @@ const resolvePublicationPhoto = (publication) => {
   return buildCloudinaryImageUrl(candidate) || FALLBACK_IMAGE;
 };
 
-// ─── ReportModal ──────────────────────────────────────────────────────────────
+// ─── ReportModal ─────────────────────────────────────
+
 function ReportModal({ onClose, onSubmit }) {
   const { t } = useLanguage();
   const th = t.home;
@@ -188,7 +189,8 @@ const SadFaceIcon = () => (
   </svg>
 );
 
-// ─── PublicationCard ──────────────────────────────────────────────────────────
+// ─── PublicationCard ────────────────────────────────────────
+
 const PublicationCard = memo(function PublicationCard({
   pub,
   isAuthenticated,
