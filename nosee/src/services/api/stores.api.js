@@ -826,6 +826,40 @@ export async function getStoreEvidences(storeId) {
   }
 }
 
+/**
+ * Obtiene todas las tiendas físicas con coordenadas registradas.
+ * Usado para detección automática de tienda más cercana.
+ */
+export async function getAllPhysicalStoresWithLocation() {
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from("stores")
+        .select("id, name, store_type_id, address, location")
+        .eq("store_type_id", STORE_TYPE_ID.physical)
+        .not("location", "is", null),
+      REQUEST_TIMEOUT_MS,
+      "La carga de tiendas tardó demasiado",
+    );
+
+    if (error) return { success: false, error: error.message };
+
+    const mapped = (data || []).map((store) => {
+      const point = parsePointText(store.location);
+      return {
+        ...store,
+        type: "physical",
+        latitude: point?.latitude ?? null,
+        longitude: point?.longitude ?? null,
+      };
+    }).filter((s) => s.latitude !== null && s.longitude !== null);
+
+    return { success: true, data: mapped };
+  } catch (err) {
+    return { success: false, error: err.message || "Error cargando tiendas físicas" };
+  }
+}
+
 export default {
   createStore,
   createStoreSimple,
@@ -834,6 +868,7 @@ export default {
   listStores,
   detectMapPlaceAtLocation,
   findNearestPhysicalStore,
+  getAllPhysicalStoresWithLocation,
   getStore,
   updateStore,
   getStorePublications,

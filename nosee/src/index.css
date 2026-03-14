@@ -230,6 +230,11 @@ img {
   }
 }
 
+.nosee-detecting-spinner {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
 @keyframes pulse {
   0%,
   100% {

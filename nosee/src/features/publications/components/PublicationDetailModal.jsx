@@ -648,7 +648,23 @@ export default function PublicationDetailModal({ publication, onClose }) {
         </p>
 
         <div>
-          <h3 style={styles.sectionTitle}>{td.storeLocation}</h3>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <h3 style={{ ...styles.sectionTitle, margin: 0 }}>{td.storeLocation}</h3>
+            {!isVirtualStore && hasCoordinates && (
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`}
+                target="_blank"
+                rel="noreferrer"
+                style={styles.googleMapsBtn}
+                aria-label={td.openInGoogleMaps ?? "Abrir en Google Maps"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ flexShrink: 0 }}>
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                </svg>
+                {td.openInGoogleMaps ?? "Abrir en Google Maps"}
+              </a>
+            )}
+          </div>
           {isVirtualStore ? (
             publication?.store?.website_url ? (
               <a
@@ -699,4 +715,5 @@ const styles = {
   mapWrapper: { position: "relative", zIndex: 0, width: "100%", height: 260, borderRadius: "var(--radius-md)", border: "1px solid var(--border)", overflow: "hidden", isolation: "isolate" },
   map: { width: "100%", height: "100%", zIndex: 0 },
   linkButton: { display: "inline-block", marginBottom: 10, padding: "8px 10px", borderRadius: "var(--radius-md)", background: "var(--accent)", color: "var(--text-primary)", textDecoration: "none", fontSize: 14 },
+  googleMapsBtn: { display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: "var(--radius-md)", background: "var(--accent)", color: "var(--text-primary)", textDecoration: "none", fontSize: 12, fontWeight: 600, flexShrink: 0 },
 };
