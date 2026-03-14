@@ -22,7 +22,7 @@
  * - Tiempo relativo
  */
 
-import { memo, useState, useId } from 'react';
+import { memo, useState, useEffect, useId } from 'react';
 import { formatDistanceToNow } from '@/features/publications/utils/dateUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ReportPublicationModal } from '@/features/publications/components/ReportPublicationModal';
@@ -154,16 +154,26 @@ export function PublicationCard({
     }
   };
 
+  // ─── Tiempo en tiempo real ──────────────────────────────────────────────────
+
+  const pubDate = publication?.timestamp || publication?.created_at;
+
+  const [timeAgo, setTimeAgo] = useState(() =>
+    pubDate ? formatDistanceToNow(pubDate, t.timeAgo) : ''
+  );
+
+  useEffect(() => {
+    if (!pubDate) return;
+    const update = () => setTimeAgo(formatDistanceToNow(pubDate, t.timeAgo));
+    const interval = setInterval(update, 30_000);
+    return () => clearInterval(interval);
+  }, [pubDate, t.timeAgo]);
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   if (!publication) {
     return <div>{tc.notAvailable}</div>;
   }
-
-  const timeAgo = formatDistanceToNow(
-    publication.timestamp || publication.created_at,
-    t.timeAgo
-  );
   const productName = publication.product?.name || tc.unknownProduct;
   const productBrand = publication.product?.brand?.name || publication.product?.brands?.name || publication.product?.brand_name || "Sin marca";
   const unitValue =
