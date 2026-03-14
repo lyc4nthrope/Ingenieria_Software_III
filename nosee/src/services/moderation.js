@@ -16,6 +16,12 @@ const SKIN_RATIO_BLOCK_THRESHOLD = Number(
 const BLOOD_RATIO_BLOCK_THRESHOLD = Number(
   import.meta.env.VITE_IMAGE_BLOOD_RATIO_BLOCK || 0.15,
 );
+const ANIME_SKIN_RATIO_BLOCK_THRESHOLD = Number(
+  import.meta.env.VITE_IMAGE_ANIME_SKIN_RATIO_BLOCK || 0.32,
+);
+const VIVID_RATIO_BLOCK_THRESHOLD = Number(
+  import.meta.env.VITE_IMAGE_VIVID_RATIO_BLOCK || 0.38,
+);
 
 const OFFENSIVE_TERMS = [
   { term: "hijueputa", weight: 5, category: "insulto_fuerte" },
@@ -66,6 +72,11 @@ const ADULT_GORE_KEYWORDS = [
   "onlyfans",
   "escort",
   "fetish",
+  "hentai",
+  "ecchi",
+  "rule34",
+  "rule 34",
+  "anime porn",
   "gore",
   "blood",
   "sangre",
@@ -100,6 +111,28 @@ const normalizeLeetspeak = (value = "") =>
 
 const collapseRepeatedChars = (value = "") => value.replace(/(.)\1{2,}/g, "$1$1");
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const rgbToHsv = (r, g, b) => {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+
+  let h = 0;
+  if (delta !== 0) {
+    if (max === rn) h = ((gn - bn) / delta) % 6;
+    else if (max === gn) h = (bn - rn) / delta + 2;
+    else h = (rn - gn) / delta + 4;
+  }
+  h = Math.round(h * 60);
+  if (h < 0) h += 360;
+
+  const s = max === 0 ? 0 : delta / max;
+  const v = max;
+  return { h, s, v };
+};
 
 const extractNumbersDeep = (value, acc = []) => {
   if (value === null || value === undefined) return acc;
@@ -361,6 +394,8 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
 
     let skinPixels = 0;
     let bloodPixels = 0;
+    let animeSkinPixels = 0;
+    let vividPixels = 0;
     let validPixels = 0;
 
     for (let i = 0; i < image.data.length; i += 4) {
@@ -393,6 +428,21 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
         r - g > 35 &&
         r - b > 35;
       if (isBloodLike) bloodPixels += 1;
+
+      const { h, s, v } = rgbToHsv(r, g, b);
+      const isVivid = s >= 0.55 && v >= 0.38;
+      if (isVivid) vividPixels += 1;
+
+      // Cobertura extra para estilo anime/hentai (piel muy clara o rosada saturada).
+      const isAnimeSkinLike =
+        ((h >= 5 && h <= 45) || h >= 340) &&
+        s >= 0.18 &&
+        s <= 0.72 &&
+        v >= 0.55 &&
+        r >= g &&
+        r > b * 0.9 &&
+        (r - b >= 8 || r - g >= 5);
+      if (isAnimeSkinLike) animeSkinPixels += 1;
     }
 
     if (!validPixels) {
@@ -414,10 +464,18 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
 
     const skinRatio = skinPixels / validPixels;
     const bloodRatio = bloodPixels / validPixels;
+    const animeSkinRatio = animeSkinPixels / validPixels;
+    const vividRatio = vividPixels / validPixels;
 
     const adultScore = clamp(
       (skinRatio - SKIN_RATIO_BLOCK_THRESHOLD * 0.7) /
         (SKIN_RATIO_BLOCK_THRESHOLD * 0.3 || 1),
+      0,
+      1,
+    );
+    const animeAdultScore = clamp(
+      (animeSkinRatio - ANIME_SKIN_RATIO_BLOCK_THRESHOLD * 0.7) /
+        (ANIME_SKIN_RATIO_BLOCK_THRESHOLD * 0.3 || 1),
       0,
       1,
     );
@@ -429,18 +487,26 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
     );
 
     const flaggedAdult = skinRatio >= SKIN_RATIO_BLOCK_THRESHOLD;
+    const flaggedAnimeAdult =
+      animeSkinRatio >= ANIME_SKIN_RATIO_BLOCK_THRESHOLD &&
+      vividRatio >= VIVID_RATIO_BLOCK_THRESHOLD;
     const flaggedGore = bloodRatio >= BLOOD_RATIO_BLOCK_THRESHOLD;
-    const flagged = flaggedAdult || flaggedGore;
+    const flagged = flaggedAdult || flaggedAnimeAdult || flaggedGore;
 
     const labels = [];
     if (flaggedAdult) labels.push("adult");
+    if (flaggedAnimeAdult) labels.push("adult_anime");
     if (flaggedGore) labels.push("gore");
 
-    const confidence = Number(Math.max(adultScore, goreScore).toFixed(3));
+    const confidence = Number(
+      Math.max(adultScore, animeAdultScore, goreScore).toFixed(3),
+    );
     const reason = flagged
       ? flaggedAdult && flaggedGore
         ? "La imagen parece contener desnudez explícita y señales de gore."
-        : flaggedAdult
+        : flaggedAnimeAdult
+          ? "La imagen parece contener contenido sexual explícito estilo anime/hentai."
+          : flaggedAdult
           ? "La imagen parece contener desnudez o exposición corporal explícita."
           : "La imagen parece contener señales visuales de gore/sangre explícita."
       : null;
@@ -448,11 +514,15 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
     const metrics = {
       skinRatio: Number(skinRatio.toFixed(4)),
       bloodRatio: Number(bloodRatio.toFixed(4)),
+      animeSkinRatio: Number(animeSkinRatio.toFixed(4)),
+      vividRatio: Number(vividRatio.toFixed(4)),
       validPixels,
       pixelCount,
       thresholds: {
         skinRatioBlock: SKIN_RATIO_BLOCK_THRESHOLD,
         bloodRatioBlock: BLOOD_RATIO_BLOCK_THRESHOLD,
+        animeSkinRatioBlock: ANIME_SKIN_RATIO_BLOCK_THRESHOLD,
+        vividRatioBlock: VIVID_RATIO_BLOCK_THRESHOLD,
       },
     };
 
