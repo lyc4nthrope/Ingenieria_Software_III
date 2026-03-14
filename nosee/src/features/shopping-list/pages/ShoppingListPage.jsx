@@ -1,18 +1,23 @@
 /**
- * ShoppingListPage.jsx — Proceso 3, Paso 1
+ * ShoppingListPage.jsx — Proceso 3
  *
- * Muestra los ítems agregados desde PublicationCard (botón "+ Lista").
- * El usuario selecciona cuáles incluir en el pedido y presiona
- * "Crear Pedido Optimizado" para ir a /pedido/nuevo.
+ * Sección superior (solo si hay pedidos guardados):
+ *   - Carrusel horizontal de pedidos por ID
+ *   - Mapa de ruta del pedido seleccionado
+ *   - Desglose de productos del pedido seleccionado
  *
- * No tiene formulario manual — los productos solo entran desde /publicaciones.
+ * Sección inferior:
+ *   - Lista de compras actual (ítems agregados desde Productos)
+ *   - Botón "Crear Pedido Optimizado"
  */
 
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import { useLanguage } from '@/contexts/LanguageContext';
+import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 
+// ─── Iconos ───────────────────────────────────────────────────────────────────
 const CartIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -40,13 +45,130 @@ const TagIcon = () => (
   </svg>
 );
 
+// ─── Sección de pedidos ───────────────────────────────────────────────────────
+function OrdersSection({ orders, removeOrder }) {
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const order = orders[selectedIdx];
+  if (!order) return null;
+
+  const { result, userCoords, createdAt } = order;
+  const date = new Date(createdAt).toLocaleDateString('es-CO', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+
+  return (
+    <div style={styles.ordersSection}>
+      {/* Título */}
+      <h2 style={styles.sectionTitle}>🛒 Mis Pedidos</h2>
+
+      {/* Carrusel de pedidos */}
+      <div style={styles.carousel}>
+        {orders.map((o, i) => (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => setSelectedIdx(i)}
+            style={{
+              ...styles.carouselPill,
+              ...(i === selectedIdx ? styles.carouselPillActive : {}),
+            }}
+          >
+            <span style={styles.pillId}>#{o.id.slice(-6)}</span>
+            <span style={styles.pillDate}>
+              {new Date(o.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Info del pedido seleccionado */}
+      <div style={styles.orderCard}>
+        <div style={styles.orderCardHeader}>
+          <div>
+            <span style={styles.orderIdLabel}>Pedido</span>
+            <span style={styles.orderIdValue}> #{order.id}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={styles.orderDate}>{date}</span>
+            <button
+              type="button"
+              onClick={() => {
+                removeOrder(order.id);
+                setSelectedIdx((prev) => Math.max(0, prev - 1));
+              }}
+              style={styles.removeOrderBtn}
+              aria-label="Eliminar pedido"
+            >
+              <TrashIcon />
+            </button>
+          </div>
+        </div>
+
+        {/* Totales */}
+        <div style={styles.orderMeta}>
+          <span style={styles.orderMetaItem}>
+            💰 Total: <strong>${result.totalCost.toLocaleString('es-CO')} COP</strong>
+          </span>
+          {result.savings > 0 && (
+            <span style={{ ...styles.orderMetaItem, color: 'var(--success, #16a34a)' }}>
+              🏷️ Ahorro: {result.savingsPct}%
+            </span>
+          )}
+          <span style={styles.orderMetaItem}>
+            🏪 {result.stores.length} {result.stores.length === 1 ? 'tienda' : 'tiendas'}
+          </span>
+        </div>
+
+        {/* Desglose por tienda */}
+        <div style={styles.storeList}>
+          {result.stores.map((s, si) => {
+            const storeName = s.store?.name ?? 'Tienda desconocida';
+            const storeEmoji = Number(s.store?.store_type_id) === 2 ? '🌐' : '🏪';
+            return (
+              <details key={si} style={styles.storeDetail}>
+                <summary style={styles.storeSummary}>
+                  {storeEmoji} {storeName}
+                  <span style={styles.storeCount}>
+                    {s.products.length} producto{s.products.length !== 1 ? 's' : ''}
+                  </span>
+                </summary>
+                <ul style={styles.productList}>
+                  {s.products.map((p, pi) => (
+                    <li key={pi} style={styles.productItem}>
+                      <span style={styles.productName}>
+                        {p.item.productName} ×{p.item.quantity}
+                      </span>
+                      <span style={styles.productPrice}>
+                        ${(p.price * p.item.quantity).toLocaleString('es-CO')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Mapa de ruta */}
+      <div style={styles.mapContainer}>
+        <OrderRouteMap
+          key={order.id}
+          stores={result.stores}
+          userCoords={userCoords}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Página ───────────────────────────────────────────────────────────────────
 export default function ShoppingListPage() {
   const { t } = useLanguage();
   const ts = t.shoppingList;
   const navigate = useNavigate();
 
-  const { items, removeItem, clearList } = useShoppingListStore();
-
+  const { items, removeItem, clearList, orders, removeOrder } = useShoppingListStore();
   const [selected, setSelected] = useState(() => new Set());
 
   const toggleSelect = (id) => {
@@ -86,8 +208,20 @@ export default function ShoppingListPage() {
           </div>
         </div>
 
+        {/* ── Sección de pedidos (solo si hay) ─────────────────────────── */}
+        {orders.length > 0 && (
+          <OrdersSection orders={orders} removeOrder={removeOrder} />
+        )}
+
+        {/* ── Divisor ───────────────────────────────────────────────────── */}
+        {orders.length > 0 && items.length > 0 && (
+          <div style={styles.divider}>
+            <span style={styles.dividerLabel}>Lista de compras</span>
+          </div>
+        )}
+
+        {/* ── Sección de ítems ──────────────────────────────────────────── */}
         {items.length === 0 ? (
-          /* Estado vacío — guiar al usuario */
           <div style={styles.empty}>
             <div style={styles.emptyIcon}>🛒</div>
             <p style={styles.emptyTitle}>{ts.emptyTitle}</p>
@@ -185,11 +319,12 @@ export default function ShoppingListPage() {
   );
 }
 
+// ─── Estilos ──────────────────────────────────────────────────────────────────
 const styles = {
   page: {
     flex: 1,
     padding: '24px 16px',
-    maxWidth: '640px',
+    maxWidth: '680px',
     margin: '0 auto',
     width: '100%',
   },
@@ -197,6 +332,162 @@ const styles = {
   header: { display: 'flex', alignItems: 'center', gap: '14px', color: 'var(--accent)' },
   title: { fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 },
   subtitle: { fontSize: '0.875rem', color: 'var(--text-muted)', margin: 0 },
+
+  // ── Pedidos ──────────────────────────────────────────────────────────────
+  ordersSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  sectionTitle: {
+    fontSize: '1rem',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    margin: 0,
+  },
+  carousel: {
+    display: 'flex',
+    gap: '8px',
+    overflowX: 'auto',
+    paddingBottom: '4px',
+    scrollbarWidth: 'none',
+  },
+  carouselPill: {
+    flexShrink: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '2px',
+    padding: '8px 14px',
+    borderRadius: '999px',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-surface)',
+    cursor: 'pointer',
+    transition: 'border-color 0.15s, background 0.15s',
+  },
+  carouselPillActive: {
+    borderColor: 'var(--accent)',
+    background: 'var(--accent)',
+    color: '#fff',
+  },
+  pillId: {
+    fontSize: '12px',
+    fontWeight: 800,
+    fontFamily: 'monospace',
+  },
+  pillDate: {
+    fontSize: '10px',
+    opacity: 0.8,
+  },
+  orderCard: {
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
+    overflow: 'hidden',
+  },
+  orderCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px 16px',
+    background: 'var(--bg-elevated)',
+    borderBottom: '1px solid var(--border)',
+  },
+  orderIdLabel: {
+    fontSize: '12px',
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    fontWeight: 600,
+  },
+  orderIdValue: {
+    fontSize: '13px',
+    fontWeight: 800,
+    color: 'var(--accent)',
+    fontFamily: 'monospace',
+  },
+  orderDate: { fontSize: '12px', color: 'var(--text-muted)' },
+  removeOrderBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--text-muted)',
+    cursor: 'pointer',
+    padding: '4px',
+    borderRadius: 'var(--radius-sm)',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  orderMeta: {
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+    padding: '10px 16px',
+    borderBottom: '1px solid var(--border)',
+  },
+  orderMetaItem: {
+    fontSize: '13px',
+    color: 'var(--text-secondary)',
+  },
+  storeList: {
+    padding: '8px 0',
+  },
+  storeDetail: {
+    borderBottom: '1px solid var(--border)',
+  },
+  storeSummary: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px 16px',
+    fontSize: '13px',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    cursor: 'pointer',
+    listStyle: 'none',
+    userSelect: 'none',
+  },
+  storeCount: {
+    fontSize: '11px',
+    color: 'var(--text-muted)',
+    fontWeight: 400,
+  },
+  productList: {
+    listStyle: 'none',
+    margin: 0,
+    padding: '0 0 8px',
+  },
+  productItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '6px 24px',
+    fontSize: '12px',
+    color: 'var(--text-secondary)',
+    borderTop: '1px solid var(--border)',
+  },
+  productName: { color: 'var(--text-primary)' },
+  productPrice: { fontWeight: 700, color: 'var(--accent)' },
+  mapContainer: {
+    borderRadius: 'var(--radius-md)',
+    overflow: 'hidden',
+    border: '1px solid var(--border)',
+  },
+
+  // ── Divisor ───────────────────────────────────────────────────────────────
+  divider: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    color: 'var(--text-muted)',
+    fontSize: '12px',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+  },
+  dividerLabel: {
+    whiteSpace: 'nowrap',
+  },
+
+  // ── Lista de ítems ────────────────────────────────────────────────────────
   empty: {
     textAlign: 'center',
     padding: '48px 24px',

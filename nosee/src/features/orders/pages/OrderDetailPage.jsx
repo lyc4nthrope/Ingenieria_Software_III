@@ -7,18 +7,17 @@
  */
 
 import { useState } from 'react';
-import { useLocation, useParams, Link } from 'react-router-dom';
+import { useLocation, useParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
-import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 
 export default function OrderDetailPage() {
   const { t } = useLanguage();
   const to = t.orders;
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  const { result, orderId, userCoords } = location.state ?? {};
-  const [showRoute, setShowRoute] = useState(false);
+  const { result, orderId } = location.state ?? {};
 
   // Si se llegó directo sin state (p.ej. link externo), mostramos solo el ID
   if (!result) {
@@ -127,13 +126,10 @@ export default function OrderDetailPage() {
           <div style={styles.actionRow}>
             <button
               type="button"
-              style={{
-                ...styles.actionBtnSecondary,
-                ...(showRoute ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : {}),
-              }}
-              onClick={() => setShowRoute((v) => !v)}
+              style={styles.actionBtnSecondary}
+              onClick={() => navigate('/lista')}
             >
-              🗺️ {showRoute ? 'Ocultar ruta' : 'Voy yo (ver ruta)'}
+              🗺️ Ver ruta
             </button>
             <button
               type="button"
@@ -143,12 +139,6 @@ export default function OrderDetailPage() {
               🛵 Solicitar domicilio
             </button>
           </div>
-
-          {showRoute && (
-            <div style={{ marginTop: '12px' }}>
-              <OrderRouteMap stores={result.stores} userCoords={userCoords} />
-            </div>
-          )}
         </div>
 
         <Link to="/lista" style={styles.backLink}>{to.goToList}</Link>

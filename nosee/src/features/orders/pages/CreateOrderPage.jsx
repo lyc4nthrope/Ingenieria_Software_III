@@ -14,6 +14,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import * as publicationsApi from '@/services/api/publications.api';
 import PublicationDetailModal from '@/features/publications/components/PublicationDetailModal';
+import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 
 // ─── Radios disponibles ───────────────────────────────────────────────────────
 const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
@@ -167,6 +168,7 @@ export default function CreateOrderPage() {
   const to = t.orders;
   const navigate = useNavigate();
   const location = useLocation();
+  const addOrder = useShoppingListStore((s) => s.addOrder);
 
   // Ítems recibidos desde ShoppingListPage
   const selectedItems = location.state?.items ?? [];
@@ -251,11 +253,15 @@ export default function CreateOrderPage() {
 
   // ── Confirmar ─────────────────────────────────────────────────────────────
   const handleConfirm = () => {
+    addOrder({
+      id: orderId,
+      result,
+      userCoords: coords,
+      createdAt: new Date().toISOString(),
+    });
     setPhase('confirmed');
     setTimeout(() => {
-      navigate(`/pedido/${orderId}`, {
-        state: { result, orderId, items: selectedItems, userCoords: coords },
-      });
+      navigate('/lista');
     }, 1500);
   };
 

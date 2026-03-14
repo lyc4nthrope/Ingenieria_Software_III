@@ -19,6 +19,12 @@ export const useShoppingListStore = create(
       items: [],
 
       /**
+       * Pedidos confirmados. Cada pedido: { id, result, userCoords, createdAt }
+       * @type {Array<{id: string, result: object, userCoords: object|null, createdAt: string}>}
+       */
+      orders: [],
+
+      /**
        * Agrega un ítem desde una PublicationCard.
        * Si el producto ya existe en la lista, actualiza storeName y price
        * con los nuevos datos (puede que haya encontrado uno más barato).
@@ -73,6 +79,14 @@ export const useShoppingListStore = create(
 
       /** Vacía la lista completa */
       clearList: () => set({ items: [] }),
+
+      /** Guarda un pedido confirmado al inicio del historial */
+      addOrder: (order) =>
+        set({ orders: [order, ...get().orders] }),
+
+      /** Elimina un pedido del historial */
+      removeOrder: (id) =>
+        set({ orders: get().orders.filter((o) => o.id !== id) }),
     }),
     { name: 'nosee-shopping-list' }
   )
