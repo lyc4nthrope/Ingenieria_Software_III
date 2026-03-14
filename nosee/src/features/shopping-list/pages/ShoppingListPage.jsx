@@ -27,6 +27,9 @@ const PlusIcon = () => (
   </svg>
 );
 
+// Tarifa estimada de domicilio — placeholder hasta implementar Proceso 4
+const DELIVERY_FEE = 8_000; // COP
+
 // ─── Tarjeta de estado de domicilio ───────────────────────────────────────────
 function DeliveryCard({ order, onCancel }) {
   const { deliveryStatus, cancellationCharged } = order;
@@ -52,7 +55,7 @@ function DeliveryCard({ order, onCancel }) {
       color: 'var(--success, #16a34a)',
       title: 'En camino a tu ubicación',
       desc: 'Sigue su posición en tiempo real en el mapa →',
-      showCancel: false, cancelFree: false,
+      showCancel: false, cancelFree: false, showFee: true,
     },
     cancelled: {
       icon: '✗', bg: 'var(--error-soft, #fee2e2)', border: 'var(--error, #dc2626)',
@@ -103,6 +106,15 @@ function DeliveryCard({ order, onCancel }) {
       <span style={{ fontSize: '11px', color: 'var(--text-muted)', paddingLeft: '23px' }}>
         {cfg.desc}
       </span>
+      {cfg.showFee && (
+        <span style={{
+          fontSize: '11px', fontWeight: 700, paddingLeft: '23px',
+          color: 'var(--success, #16a34a)',
+        }}>
+          Costo domicilio estimado: ${DELIVERY_FEE.toLocaleString('es-CO')} COP
+          <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> · tarifa Proceso 4</span>
+        </span>
+      )}
     </div>
   );
 }
@@ -113,6 +125,8 @@ function LeftColumn({ items, removeItem, clearList, selectedOrder, onShowList, o
   const ts = t.shoppingList;
   const navigate = useNavigate();
   const [selected, setSelected] = useState(() => new Set());
+  // false = desglosado (Lista + Dom.), true = suma total
+  const [showTotalSum, setShowTotalSum] = useState(false);
 
   const toggle = (id) =>
     setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -155,10 +169,38 @@ function LeftColumn({ items, removeItem, clearList, selectedOrder, onShowList, o
 
         {/* Totales rápidos */}
         <div style={left.orderStats}>
-          <div style={left.stat}>
-            <span style={left.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
-            <span style={left.statLabel}>Total COP</span>
-          </div>
+          {/* Stat de total — toggleable cuando hay domicilio en camino */}
+          {selectedOrder.deliveryMode && selectedOrder.deliveryStatus === 'en_camino' ? (
+            <button
+              type="button"
+              onClick={() => setShowTotalSum((v) => !v)}
+              style={{ ...left.stat, cursor: 'pointer', border: '1px solid var(--accent)', position: 'relative' }}
+              title={showTotalSum ? 'Ver desglose' : 'Ver total combinado'}
+            >
+              {showTotalSum ? (
+                <>
+                  <span style={left.statVal}>${(result.totalCost + DELIVERY_FEE).toLocaleString('es-CO')}</span>
+                  <span style={left.statLabel}>Total c/ dom.</span>
+                  <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>← desglosar</span>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
+                    ${result.totalCost.toLocaleString('es-CO')}
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> + </span>
+                    ${DELIVERY_FEE.toLocaleString('es-CO')}
+                  </span>
+                  <span style={left.statLabel}>Lista + Domicilio</span>
+                  <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>→ ver total</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <div style={left.stat}>
+              <span style={left.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
+              <span style={left.statLabel}>Total COP</span>
+            </div>
+          )}
           {result.savings > 0 && (
             <div style={left.stat}>
               <span style={{ ...left.statVal, color: 'var(--success, #16a34a)' }}>
