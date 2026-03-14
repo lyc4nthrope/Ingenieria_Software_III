@@ -98,6 +98,8 @@ export const TRANSLATIONS = {
       myProfile: "Mi perfil",
       logout: "Cerrar sesión",
       ranking: "Ranking",
+      closeMenu: "Cerrar menú",
+      openMenu: "Abrir menú",
     },
 
     // ── Ranking ───────────────────────────────────────────────────────────────
@@ -311,6 +313,34 @@ export const TRANSLATIONS = {
       ],
       confirmPermanent: "Sí, eliminar todo permanentemente",
       deleting: "Eliminando...",
+      nameRequired: "El nombre no puede estar vacío",
+      reputation: "Reputación",
+      roleAdmin: "Administrador",
+      roleModerator: "Moderador",
+      roleDealer: "Repartidor",
+      roleUser: "Usuario",
+      reportReasonFake: "Precio falso o engañoso",
+      reportReasonPhoto: "Foto no coincide con la publicación",
+      reportStatusReview: "En revisión",
+      invalidPrice: "Ingresa un precio válido",
+      confirmDeleteReport: "¿Eliminar este reporte? Esta acción no se puede deshacer.",
+      resolvedLabel: "Cómo fue resuelto:",
+      rejectedLabel: "Motivo de rechazo:",
+      reportDetailPlaceholder: "Describe el problema con más detalle...",
+      passwordInvalid: "La contraseña no cumple los requisitos",
+      passwordMismatch: "Las contraseñas no coinciden",
+      newPassword: "Nueva contraseña",
+      passwordPlaceholder: "Mínimo 8 caracteres",
+      confirmPassword: "Confirmar contraseña",
+      confirmPlaceholder: "Repite tu nueva contraseña",
+      savePassword: "Guardar contraseña",
+      errorUpdate: "Error al actualizar perfil",
+      noName: "Sin nombre",
+      publications: "Publicaciones",
+      validations: "Validaciones",
+      fullNameLabel: "Nombre completo",
+      namePlaceholder: "Tu nombre",
+      avatarAlt: "Avatar actual",
       priceAlerts: {
         title: "Alertas de precios",
         description: "Te notificaremos cuando un producto baje del precio que indiques.",
@@ -425,6 +455,12 @@ export const TRANSLATIONS = {
       deleteLabel: (name) => `Eliminar publicación de ${name}`,
       viewMoreLabel: (name) => `Ver más detalles de ${name}`,
       photoExpandLabel: (expanded, name) => `${expanded ? "Contraer" : "Expandir"} foto de ${name}`,
+      noBrand: "Sin marca",
+      noUnit: "Sin unidad",
+      brandLabel: "Marca:",
+      unitLabel: "Unidad:",
+      noCategory: "Sin categoría",
+      noBarcode: "Sin código",
     },
 
     // ── Filtro de precios ─────────────────────────────────────────────────────
@@ -527,6 +563,13 @@ export const TRANSLATIONS = {
       statusCenterSelect: "Selecciona una ubicación válida para centrar el mapa.",
       statusCentered: "Mapa centrado en la ubicación seleccionada.",
       geoPrefix: "Geo:",
+      errorLeaflet: "No se pudo cargar Leaflet desde CDN.",
+      errorLeafletWindow: "Leaflet se cargó, pero no está disponible en window.L.",
+      errorResolveAddress: "No se pudo resolver la dirección para este punto.",
+      errorLocateAddress: "No se pudo ubicar la dirección escrita.",
+      errorNoResults: "No encontramos resultados para esa dirección.",
+      errorInitLeaflet: "No se pudo inicializar Leaflet.",
+      statusAutocomplete: "Ubicación autocompletada.",
     },
 
     // ── Evidencias de tienda ──────────────────────────────────────────────────
@@ -565,6 +608,12 @@ export const TRANSLATIONS = {
       mapAria: "Mapa de ubicación de tienda",
       mapError: "Error en el mapa:",
       mapErrorDetails: "Revisa la consola (F12) para más detalles",
+      noCategory: "Sin categoría",
+      noBarcode: "Sin código",
+      brandLabel: "Marca:",
+      noBrand: "Sin marca",
+      categoryLabel: "Categoría:",
+      barcodeLabel: "Código de barras:",
     },
 
     // ── Tiempo relativo ───────────────────────────────────────────────────────
@@ -608,6 +657,9 @@ export const TRANSLATIONS = {
       priceRequired: "El precio debe ser mayor a 0",
       photoRequired: "La foto es obligatoria",
       descriptionMax: "Máximo 500 caracteres",
+      findingStore: "Buscando tienda más cercana...",
+      storeQueryError: "No se pudo consultar tiendas. Selecciónala manualmente.",
+      noPhysicalStores: "No encontramos tiendas físicas con ubicación registrada.",
     },
 
     // ── Dashboard Admin ───────────────────────────────────────────────────────
@@ -861,6 +913,160 @@ export const TRANSLATIONS = {
       advance: "Avanzar →",
     },
 
+    // ── StoreDetailModal ──────────────────────────────────────────────────────
+    storeDetailModal: {
+      viewDetail: "Ver detalle →",
+      errorUpdate: "No se pudo actualizar la tienda",
+      successUpdate: "Tienda actualizada correctamente",
+      editAddress: "Editar dirección",
+      saving: "Guardando...",
+      saveLocation: "Guardar ubicación",
+    },
+
+    // ── StoreCreateModal ──────────────────────────────────────────────────────
+    storeCreateModal: {
+      title: "Nueva tienda",
+      close: "Cerrar",
+      hint: "Completa los datos básicos. Luego podrás agregar ubicación y fotos desde tu perfil.",
+      nameLabel: "Nombre *",
+      namePlaceholder: "Ej: Supermercado Central",
+      typeLabel: "Tipo *",
+      physical: "Física",
+      virtual: "Virtual",
+      addressLabel: "Dirección (opcional)",
+      addressPlaceholder: "Ej: Calle 10 # 25-30",
+      urlLabel: "URL de la tienda *",
+      cancel: "Cancelar",
+      creating: "Creando...",
+      create: "Crear tienda",
+      nameRequired: "El nombre es requerido",
+      urlRequired: "La URL es requerida para tiendas virtuales",
+      errorCreate: "No se pudo crear la tienda",
+      errorUnexpected: "Error inesperado creando tienda",
+    },
+
+    // ── Barcode ───────────────────────────────────────────────────────────────
+    barcode: {
+      noCameraPermission: "Tu navegador no permite cámara. Ingresa el código manualmente.",
+      noScanSupport: "Tu navegador no soporta escaneo automático. Ingresa el código manualmente.",
+      errorDetector: "No se pudo iniciar el detector de códigos. Usa ingreso manual.",
+      errorCamera: "No se pudo acceder a la cámara.",
+      invalidCode: "Ingresa un código válido (mínimo 4 caracteres).",
+      title: "Escanear código de barras",
+      close: "Cerrar",
+      cameraAria: "Vista de cámara para escaneo",
+      startingCamera: "Iniciando cámara...",
+      manualInput: "Ingresar código manualmente",
+      placeholder: "Ej: 7702001043509",
+      useCode: "Usar código",
+    },
+
+    // ── ProductQuickCreate ────────────────────────────────────────────────────
+    productQuickCreate: {
+      errorLoadCatalogs: "No se pudieron cargar los catálogos",
+      brandDuplicate: "Esta marca ya está registrada. Se seleccionó automáticamente.",
+      title: "Crear producto rápido",
+      loadingCatalogs: "Cargando catálogos...",
+      namePlaceholder: "Ej: Leche Entera",
+      barcodeHint: "Sugerencias cargadas desde código de barras. Puedes editarlas antes de guardar.",
+      barcodeLabel: "Código de barras (opcional)",
+      barcodePlaceholder: "Ej: 7702001043509",
+      barcodeInfo: "Si existe, ayuda a evitar duplicados y acelera próximas búsquedas.",
+      categoryLabel: "Categoría *",
+      selectPlaceholder: "Seleccionar...",
+      brandLabel: "Marca *",
+      brandPlaceholder: "Ej: Alpina",
+      noMatches: "Sin coincidencias",
+      unitLabel: "Unidad *",
+      quantityLabel: "Cantidad base *",
+      quantityPlaceholder: "Ej: 500",
+      cancel: "Cancelar",
+      creating: "Creando...",
+      create: "Crear producto",
+      errorRegisterBrand: "No se pudo registrar la marca",
+      selectBrandRequired: "Debes seleccionar una marca existente o registrar una nueva.",
+      errorCreateProduct: "No se pudo crear el producto",
+      brandsAvailableAria: "Marcas disponibles",
+      registerNewBrandAria: "Registrar nueva marca",
+    },
+
+    // ── ReportModal ───────────────────────────────────────────────────────────
+    reportModal: {
+      publication: "Publicación",
+      store: "Tienda",
+      verifying: "Verificando estatus...",
+      completeReason: "Completa la razón del reporte",
+      alreadyReported: "⚠️ Ya reportaste esta publicación",
+      reportedOn: "Reporte enviado el: ",
+      reasonLabel: "Razón del reporte *",
+      selectReason: "Selecciona una razón...",
+      descriptionLabel: "Descripción (opcional)",
+      descriptionPlaceholder: "Cuéntanos con más detalle por qué reportas esta publicación",
+      evidenceLabel: "Foto de evidencia (opcional)",
+      selectEvidence: "Seleccionar imagen de evidencia",
+      selectImage: "Seleccionar imagen",
+      removeEvidence: "Quitar evidencia",
+      cancel: "Cancelar",
+      sending: "Enviando...",
+      alreadyReportedBtn: "Ya reportado",
+      submit: "Enviar reporte",
+      evidencePreviewAlt: "Vista previa de la evidencia",
+      reasons: {
+        fake_price: "Precio falso o engañoso",
+        wrong_photo: "La foto no coincide con la publicación",
+        spam: "Spam o contenido repetitivo",
+        offensive: "Contenido ofensivo o inapropiado",
+        other: "Otro motivo",
+      },
+    },
+
+    // ── NewPasswordPage ───────────────────────────────────────────────────────
+    newPasswordPage: {
+      passwordRequired: "La contraseña es requerida",
+      passwordInvalid: "La contraseña no cumple los requisitos",
+      confirmRequired: "Confirma tu contraseña",
+      passwordMismatch: "Las contraseñas no coinciden",
+      errorUpdate: "No se pudo actualizar la contraseña. Intenta solicitar un nuevo enlace.",
+      newPasswordLabel: "Nueva contraseña",
+      newPasswordPlaceholder: "Mínimo 8 caracteres",
+      confirmLabel: "Confirmar contraseña",
+      confirmPlaceholder: "Repite tu nueva contraseña",
+      saving: "Guardando contraseña...",
+      saveBtn: "Guardar nueva contraseña",
+    },
+
+    // ── CallbackPage ──────────────────────────────────────────────────────────
+    callbackPage: {
+      loading: "Iniciando sesión...",
+      loadingAria: "Cargando",
+      identityVerified: "¡Identidad verificada!",
+      emailConfirmed: "¡Email confirmado!",
+      welcome: "¡Bienvenido!",
+      redirectingPassword: "Redirigiendo para que ingreses tu nueva contraseña...",
+    },
+
+    // ── ErrorBoundary ─────────────────────────────────────────────────────────
+    errorBoundary: {
+      message: "Ocurrió un error inesperado en la interfaz.",
+    },
+
+    // ── ProtectedRoute ────────────────────────────────────────────────────────
+    protectedRoute: {
+      verifying: "Verificando sesión...",
+    },
+
+    // ── EditStorePage ─────────────────────────────────────────────────────────
+    editStorePage: {
+      invalidId: "Error: ID de tienda no válido",
+      title: "✏️ Editar tienda",
+      subtitle: "Actualiza la información de tu tienda física o virtual.",
+    },
+
+    // ── EditPublicationPage ───────────────────────────────────────────────────
+    editPublicationPage: {
+      invalidId: "Error: ID de publicación no válido",
+    },
+
     // ── Valores de BD (tablas fijas) ──────────────────────────────────────────
     dbValues: {
       categories: {
@@ -990,6 +1196,8 @@ export const TRANSLATIONS = {
       myProfile: "My profile",
       logout: "Sign out",
       ranking: "Ranking",
+      closeMenu: "Close menu",
+      openMenu: "Open menu",
     },
 
     // ── Ranking ───────────────────────────────────────────────────────────────
@@ -1203,6 +1411,34 @@ export const TRANSLATIONS = {
       ],
       confirmPermanent: "Yes, delete everything permanently",
       deleting: "Deleting...",
+      nameRequired: "Name cannot be empty",
+      reputation: "Reputation",
+      roleAdmin: "Administrator",
+      roleModerator: "Moderator",
+      roleDealer: "Delivery",
+      roleUser: "User",
+      reportReasonFake: "False or misleading price",
+      reportReasonPhoto: "Photo does not match the publication",
+      reportStatusReview: "Under review",
+      invalidPrice: "Enter a valid price",
+      confirmDeleteReport: "Delete this report? This action cannot be undone.",
+      resolvedLabel: "How it was resolved:",
+      rejectedLabel: "Reason for rejection:",
+      reportDetailPlaceholder: "Describe the problem in more detail...",
+      passwordInvalid: "Password does not meet requirements",
+      passwordMismatch: "Passwords do not match",
+      newPassword: "New password",
+      passwordPlaceholder: "Minimum 8 characters",
+      confirmPassword: "Confirm password",
+      confirmPlaceholder: "Repeat your new password",
+      savePassword: "Save password",
+      errorUpdate: "Error updating profile",
+      noName: "No name",
+      publications: "Publications",
+      validations: "Validations",
+      fullNameLabel: "Full name",
+      namePlaceholder: "Your name",
+      avatarAlt: "Current avatar",
       priceAlerts: {
         title: "Price alerts",
         description: "We'll notify you when a product drops below the price you set.",
@@ -1317,6 +1553,12 @@ export const TRANSLATIONS = {
       deleteLabel: (name) => `Delete publication of ${name}`,
       viewMoreLabel: (name) => `View more details of ${name}`,
       photoExpandLabel: (expanded, name) => `${expanded ? "Collapse" : "Expand"} photo of ${name}`,
+      noBrand: "No brand",
+      noUnit: "No unit",
+      brandLabel: "Brand:",
+      unitLabel: "Unit:",
+      noCategory: "No category",
+      noBarcode: "No code",
     },
 
     // ── Price filter ──────────────────────────────────────────────────────────
@@ -1419,6 +1661,13 @@ export const TRANSLATIONS = {
       statusCenterSelect: "Select a valid location to center the map.",
       statusCentered: "Map centered on the selected location.",
       geoPrefix: "Geo:",
+      errorLeaflet: "Could not load Leaflet from CDN.",
+      errorLeafletWindow: "Leaflet loaded, but is not available at window.L.",
+      errorResolveAddress: "Could not resolve the address for this point.",
+      errorLocateAddress: "Could not locate the typed address.",
+      errorNoResults: "No results found for that address.",
+      errorInitLeaflet: "Could not initialize Leaflet.",
+      statusAutocomplete: "Location autocompleted.",
     },
 
     // ── Store evidence ────────────────────────────────────────────────────────
@@ -1457,6 +1706,12 @@ export const TRANSLATIONS = {
       mapAria: "Store location map",
       mapError: "Map error:",
       mapErrorDetails: "Check the console (F12) for more details",
+      noCategory: "No category",
+      noBarcode: "No code",
+      brandLabel: "Brand:",
+      noBrand: "No brand",
+      categoryLabel: "Category:",
+      barcodeLabel: "Barcode:",
     },
 
     // ── Relative time ─────────────────────────────────────────────────────────
@@ -1500,6 +1755,9 @@ export const TRANSLATIONS = {
       priceRequired: "Price must be greater than 0",
       photoRequired: "Photo is required",
       descriptionMax: "Maximum 500 characters",
+      findingStore: "Looking for nearest store...",
+      storeQueryError: "Could not query stores. Select manually.",
+      noPhysicalStores: "No physical stores with registered location found.",
     },
 
     // ── Admin Dashboard ───────────────────────────────────────────────────────
@@ -1751,6 +2009,160 @@ export const TRANSLATIONS = {
       nextEnCamino: "Arrived →",
       nextLlegando: "Mark delivered ✓",
       advance: "Advance →",
+    },
+
+    // ── StoreDetailModal ──────────────────────────────────────────────────────
+    storeDetailModal: {
+      viewDetail: "View detail →",
+      errorUpdate: "Could not update the store",
+      successUpdate: "Store updated successfully",
+      editAddress: "Edit address",
+      saving: "Saving...",
+      saveLocation: "Save location",
+    },
+
+    // ── StoreCreateModal ──────────────────────────────────────────────────────
+    storeCreateModal: {
+      title: "New store",
+      close: "Close",
+      hint: "Fill in the basic details. You can add location and photos from your profile later.",
+      nameLabel: "Name *",
+      namePlaceholder: "Ex: Central Supermarket",
+      typeLabel: "Type *",
+      physical: "Physical",
+      virtual: "Virtual",
+      addressLabel: "Address (optional)",
+      addressPlaceholder: "Ex: 10th Street #25-30",
+      urlLabel: "Store URL *",
+      cancel: "Cancel",
+      creating: "Creating...",
+      create: "Create store",
+      nameRequired: "Name is required",
+      urlRequired: "URL is required for virtual stores",
+      errorCreate: "Could not create the store",
+      errorUnexpected: "Unexpected error creating store",
+    },
+
+    // ── Barcode ───────────────────────────────────────────────────────────────
+    barcode: {
+      noCameraPermission: "Your browser does not allow camera access. Enter the code manually.",
+      noScanSupport: "Your browser does not support automatic scanning. Enter the code manually.",
+      errorDetector: "Could not start the code detector. Use manual entry.",
+      errorCamera: "Could not access the camera.",
+      invalidCode: "Enter a valid code (minimum 4 characters).",
+      title: "Scan barcode",
+      close: "Close",
+      cameraAria: "Camera view for scanning",
+      startingCamera: "Starting camera...",
+      manualInput: "Enter code manually",
+      placeholder: "Ex: 7702001043509",
+      useCode: "Use code",
+    },
+
+    // ── ProductQuickCreate ────────────────────────────────────────────────────
+    productQuickCreate: {
+      errorLoadCatalogs: "Could not load catalogs",
+      brandDuplicate: "This brand is already registered. It was automatically selected.",
+      title: "Quick create product",
+      loadingCatalogs: "Loading catalogs...",
+      namePlaceholder: "Ex: Whole Milk",
+      barcodeHint: "Suggestions loaded from barcode. You can edit them before saving.",
+      barcodeLabel: "Barcode (optional)",
+      barcodePlaceholder: "Ex: 7702001043509",
+      barcodeInfo: "If it exists, it helps avoid duplicates and speeds up future searches.",
+      categoryLabel: "Category *",
+      selectPlaceholder: "Select...",
+      brandLabel: "Brand *",
+      brandPlaceholder: "Ex: Alpina",
+      noMatches: "No matches",
+      unitLabel: "Unit *",
+      quantityLabel: "Base quantity *",
+      quantityPlaceholder: "Ex: 500",
+      cancel: "Cancel",
+      creating: "Creating...",
+      create: "Create product",
+      errorRegisterBrand: "Could not register the brand",
+      selectBrandRequired: "You must select an existing brand or register a new one.",
+      errorCreateProduct: "Could not create the product",
+      brandsAvailableAria: "Available brands",
+      registerNewBrandAria: "Register new brand",
+    },
+
+    // ── ReportModal ───────────────────────────────────────────────────────────
+    reportModal: {
+      publication: "Publication",
+      store: "Store",
+      verifying: "Verifying status...",
+      completeReason: "Complete the report reason",
+      alreadyReported: "⚠️ You already reported this publication",
+      reportedOn: "Report sent on: ",
+      reasonLabel: "Report reason *",
+      selectReason: "Select a reason...",
+      descriptionLabel: "Description (optional)",
+      descriptionPlaceholder: "Tell us in more detail why you are reporting this publication",
+      evidenceLabel: "Evidence photo (optional)",
+      selectEvidence: "Select evidence image",
+      selectImage: "Select image",
+      removeEvidence: "Remove evidence",
+      cancel: "Cancel",
+      sending: "Sending...",
+      alreadyReportedBtn: "Already reported",
+      submit: "Submit report",
+      evidencePreviewAlt: "Evidence preview",
+      reasons: {
+        fake_price: "False or misleading price",
+        wrong_photo: "Photo does not match the publication",
+        spam: "Spam or repetitive content",
+        offensive: "Offensive or inappropriate content",
+        other: "Other reason",
+      },
+    },
+
+    // ── NewPasswordPage ───────────────────────────────────────────────────────
+    newPasswordPage: {
+      passwordRequired: "Password is required",
+      passwordInvalid: "Password does not meet requirements",
+      confirmRequired: "Confirm your password",
+      passwordMismatch: "Passwords do not match",
+      errorUpdate: "Could not update password. Try requesting a new link.",
+      newPasswordLabel: "New password",
+      newPasswordPlaceholder: "Minimum 8 characters",
+      confirmLabel: "Confirm password",
+      confirmPlaceholder: "Repeat your new password",
+      saving: "Saving password...",
+      saveBtn: "Save new password",
+    },
+
+    // ── CallbackPage ──────────────────────────────────────────────────────────
+    callbackPage: {
+      loading: "Signing in...",
+      loadingAria: "Loading",
+      identityVerified: "Identity verified!",
+      emailConfirmed: "Email confirmed!",
+      welcome: "Welcome!",
+      redirectingPassword: "Redirecting to enter your new password...",
+    },
+
+    // ── ErrorBoundary ─────────────────────────────────────────────────────────
+    errorBoundary: {
+      message: "An unexpected error occurred in the interface.",
+    },
+
+    // ── ProtectedRoute ────────────────────────────────────────────────────────
+    protectedRoute: {
+      verifying: "Verifying session...",
+    },
+
+    // ── EditStorePage ─────────────────────────────────────────────────────────
+    editStorePage: {
+      invalidId: "Error: Invalid store ID",
+      title: "✏️ Edit store",
+      subtitle: "Update the information of your physical or virtual store.",
+    },
+
+    // ── EditPublicationPage ───────────────────────────────────────────────────
+    editPublicationPage: {
+      invalidId: "Error: Invalid publication ID",
     },
 
     // ── DB values (fixed lookup tables) ───────────────────────────────────────

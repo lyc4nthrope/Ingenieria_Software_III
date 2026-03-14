@@ -807,13 +807,14 @@ function PublicationMiniCard({ publication, onEdit, saving }) {
 
 // ─── Modal inline para editar publicación ─────────────────────────────────────
 function EditPublicationModal({ publication, onClose, onSave }) {
+  const { t } = useLanguage();
   const [price, setPrice] = useState(String(publication.price || ''));
   const [description, setDescription] = useState(publication.description || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const handleSave = async () => {
-    if (!price || isNaN(Number(price))) { setError('Ingresa un precio válido'); return; }
+    if (!price || isNaN(Number(price))) { setError(t.profile.invalidPrice); return; }
     setSaving(true);
     setError(null);
     const result = await updatePublication(publication.id, {
@@ -886,6 +887,7 @@ function EditPublicationModal({ publication, onClose, onSave }) {
 
 // ─── Tarjeta de reporte ───────────────────────────────────────────────────────
 function ReportCard({ report, userId, onRefresh }) {
+  const { t } = useLanguage();
   const [editing, setEditing] = useState(false);
   const [reason, setReason] = useState(report.reason || 'other');
   const [description, setDescription] = useState(report.description || '');
@@ -922,7 +924,7 @@ function ReportCard({ report, userId, onRefresh }) {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('¿Eliminar este reporte? Esta acción no se puede deshacer.')) return;
+    if (!window.confirm(t.profile.confirmDeleteReport)) return;
     setDeleting(true);
     setError(null);
     const result = await deleteOwnReport(report.id);
@@ -964,7 +966,7 @@ function ReportCard({ report, userId, onRefresh }) {
           borderRadius: 'var(--radius-sm)', padding: '10px 12px', marginBottom: '8px',
         }}>
           <p style={{ fontSize: '12px', fontWeight: 600, color: statusConf.color, margin: '0 0 4px' }}>
-            {isResolved ? 'Cómo fue resuelto:' : 'Motivo de rechazo:'}
+            {isResolved ? t.profile.resolvedLabel : t.profile.rejectedLabel}
           </p>
           {report.action_taken && (
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 2px' }}>
@@ -1007,7 +1009,7 @@ function ReportCard({ report, userId, onRefresh }) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="Describe el problema con más detalle..."
+              placeholder={t.profile.reportDetailPlaceholder}
               style={{ ...inputStyle, resize: 'vertical' }}
             />
           </div>
@@ -1216,10 +1218,10 @@ export default function ProfilePage() {
     e.preventDefault();
     const errors = {};
     if (!PASSWORD_RULES.every((r) => r.test(pwForm.newPassword))) {
-      errors.newPassword = 'La contraseña no cumple los requisitos';
+      errors.newPassword = tp.passwordInvalid;
     }
     if (pwForm.newPassword !== pwForm.confirmPassword) {
-      errors.confirmPassword = 'Las contraseñas no coinciden';
+      errors.confirmPassword = tp.passwordMismatch;
     }
     if (Object.keys(errors).length > 0) { setPwErrors(errors); return; }
 
@@ -1318,13 +1320,13 @@ export default function ProfilePage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <Input
-                  label="Nueva contraseña"
+                  label={tp.newPassword}
                   id="profile-new-password"
                   name="newPassword"
                   type={showPw ? 'text' : 'password'}
                   value={pwForm.newPassword}
                   onChange={(e) => { setPwForm((p) => ({ ...p, newPassword: e.target.value })); setPwErrors((p) => ({ ...p, newPassword: '' })); }}
-                  placeholder="Mínimo 8 caracteres"
+                  placeholder={tp.passwordPlaceholder}
                   error={pwErrors.newPassword}
                   iconRight={
                     <button type="button" onClick={() => setShowPw((v) => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }} tabIndex={-1} aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
@@ -1352,13 +1354,13 @@ export default function ProfilePage() {
               </div>
 
               <Input
-                label="Confirmar contraseña"
+                label={tp.confirmPassword}
                 id="profile-confirm-password"
                 name="confirmPassword"
                 type="password"
                 value={pwForm.confirmPassword}
                 onChange={(e) => { setPwForm((p) => ({ ...p, confirmPassword: e.target.value })); setPwErrors((p) => ({ ...p, confirmPassword: '' })); }}
-                placeholder="Repite tu nueva contraseña"
+                placeholder={tp.confirmPlaceholder}
                 error={pwErrors.confirmPassword}
                 autoComplete="new-password"
                 required
@@ -1367,7 +1369,7 @@ export default function ProfilePage() {
 
               <div style={{ display: 'flex', gap: '10px' }}>
                 <Button type="submit" size="md" loading={pwLoading} disabled={pwLoading}>
-                  Guardar contraseña
+                  {tp.savePassword}
                 </Button>
                 <Button type="button" variant="ghost" size="md" onClick={() => { setShowPasswordForm(false); setPwForm({ newPassword: '', confirmPassword: '' }); setPwErrors({}); }} disabled={pwLoading}>
                   Cancelar

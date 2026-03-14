@@ -175,14 +175,14 @@ export function PublicationCard({
     return <div>{tc.notAvailable}</div>;
   }
   const productName = publication.product?.name || tc.unknownProduct;
-  const productBrand = publication.product?.brand?.name || publication.product?.brands?.name || publication.product?.brand_name || "Sin marca";
+  const productBrand = publication.product?.brand?.name || publication.product?.brands?.name || publication.product?.brand_name || tc.noBrand;
   const unitValue =
     publication.product?.base_quantity != null &&
     (publication.product?.unit_type?.abbreviation || publication.product?.unit_type?.name)
       ? `${publication.product.base_quantity} ${publication.product.unit_type?.abbreviation || publication.product.unit_type?.name}`
       : publication.product?.unit_type?.abbreviation ||
         publication.product?.unit_type?.name ||
-        "Sin unidad";
+        tc.noUnit;
   const productDisplay = productName;
 
   return (
@@ -219,10 +219,10 @@ export function PublicationCard({
             marginTop: '4px',
           }}>
             <span>
-              <strong style={{ color: 'var(--text-secondary)' }}>Marca:</strong> {productBrand}
+              <strong style={{ color: 'var(--text-secondary)' }}>{tc.brandLabel}</strong> {productBrand}
             </span>
             <span>
-              <strong style={{ color: 'var(--text-secondary)' }}>Unidad:</strong> {unitValue}
+              <strong style={{ color: 'var(--text-secondary)' }}>{tc.unitLabel}</strong> {unitValue}
             </span>
           </div>
           <div style={{ ...styles.storeName, marginTop: '4px' }}>

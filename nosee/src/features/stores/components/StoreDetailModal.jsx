@@ -10,7 +10,7 @@ import { getStorePublications, getStoreEvidences, updateStore } from '@/services
 import { optimizeCloudinaryUrl } from '@/services/cloudinary';
 import StoreMapPicker from '@/features/stores/components/StoreMapPicker';
 
-function PublicationMini({ pub, onNavigate }) {
+function PublicationMini({ pub, onNavigate, viewDetailLabel }) {
   return (
     <button
       type="button"
@@ -32,7 +32,7 @@ function PublicationMini({ pub, onNavigate }) {
         <div style={miniStyles.price}>
           ${pub.price?.toLocaleString('es-CO')}
         </div>
-        <div style={miniStyles.link}>Ver detalle →</div>
+        <div style={miniStyles.link}>{viewDetailLabel}</div>
       </div>
     </button>
   );
@@ -86,6 +86,7 @@ const miniStyles = {
 export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
   const { t } = useLanguage();
   const td = t.storesPage.storeDetail;
+  const ts = t.storeDetailModal;
   const navigate = useNavigate();
 
   const [publications, setPublications] = useState([]);
@@ -161,7 +162,7 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
     setSavingStore(false);
 
     if (!result.success) {
-      setSaveMessage(result.error || 'No se pudo actualizar la tienda');
+      setSaveMessage(result.error || ts.errorUpdate);
       return;
     }
 
@@ -199,7 +200,7 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
       }
     }
 
-    setSaveMessage('Tienda actualizada correctamente');
+    setSaveMessage(ts.successUpdate);
   };
 
   // Cerrar con Escape
@@ -323,7 +324,7 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
           {/* Edición de dirección y mapa (tienda física) */}
           {isPhysical ? (
             <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>Editar dirección</h3>
+              <h3 style={styles.sectionTitle}>{ts.editAddress}</h3>
               <StoreMapPicker
                 latitude={Number.isFinite(Number(editLatitude)) ? Number(editLatitude) : null}
                 longitude={Number.isFinite(Number(editLongitude)) ? Number(editLongitude) : null}
@@ -345,7 +346,7 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
                 disabled={savingStore}
                 style={styles.saveBtn}
               >
-                {savingStore ? 'Guardando...' : 'Guardar ubicación'}
+                {savingStore ? ts.saving : ts.saveLocation}
               </button>
               {saveMessage ? <span style={styles.saveMsg}>{saveMessage}</span> : null}
             </div>
@@ -371,6 +372,7 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
                   <PublicationMini
                     key={pub.id}
                     pub={pub}
+                    viewDetailLabel={ts.viewDetail}
                     onNavigate={(id) => {
                       onClose();
                       navigate(`/publicaciones?pub=${id}`);

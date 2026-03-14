@@ -245,7 +245,7 @@ const Navbar = memo(function Navbar() {
             className="nav-hamburger"
             onClick={() => setMobileMenuOpen((v) => !v)}
             aria-expanded={mobileMenuOpen}
-            aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú"}
+            aria-label={mobileMenuOpen ? tn.closeMenu : tn.openMenu}
           >
             <MenuIcon open={mobileMenuOpen} />
           </button>

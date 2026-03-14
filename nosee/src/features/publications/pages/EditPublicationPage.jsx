@@ -1,7 +1,9 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { PublicationForm } from "@/features/publications/components/PublicationForm";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function EditPublicationPage() {
+  const { t } = useLanguage();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -9,7 +11,7 @@ export default function EditPublicationPage() {
     return (
       <section style={{ padding: "24px 16px" }}>
         <div style={{ color: "var(--error)", fontSize: "14px" }}>
-          Error: ID de publicación no válido
+          {t.editPublicationPage.invalidId}
         </div>
       </section>
     );

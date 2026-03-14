@@ -21,6 +21,7 @@ import { supabase } from '@/services/supabase.client';
 import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Ícono de candado ───────────────────────────────────────────────────────
 const LockIcon = () => (
@@ -92,6 +93,8 @@ function SuccessView() {
 
 // ── Página principal ──────────────────────────────────────────────────────
 export default function NewPasswordPage() {
+  const { t } = useLanguage();
+  const tnp = t.newPasswordPage;
   const navigate       = useNavigate();
   const isInitialized  = useAuthStore(selectIsInitialized);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
@@ -132,14 +135,14 @@ export default function NewPasswordPage() {
   const validate = () => {
     const errors = {};
     if (!form.password) {
-      errors.password = 'La contraseña es requerida';
+      errors.password = tnp.passwordRequired;
     } else if (!passwordRules.every((r) => r.test(form.password))) {
-      errors.password = 'La contraseña no cumple los requisitos';
+      errors.password = tnp.passwordInvalid;
     }
     if (!form.confirmPassword) {
-      errors.confirmPassword = 'Confirma tu contraseña';
+      errors.confirmPassword = tnp.confirmRequired;
     } else if (form.password !== form.confirmPassword) {
-      errors.confirmPassword = 'Las contraseñas no coinciden';
+      errors.confirmPassword = tnp.passwordMismatch;
     }
     return errors;
   };
@@ -163,7 +166,7 @@ export default function NewPasswordPage() {
 
       setSuccess(true);
     } catch (err) {
-      setServerError(err.message || 'No se pudo actualizar la contraseña. Intenta solicitar un nuevo enlace.');
+      setServerError(err.message || tnp.errorUpdate);
     } finally {
       setLoading(false);
     }
@@ -250,13 +253,13 @@ export default function NewPasswordPage() {
               {/* Campo contraseña */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <Input
-                  label="Nueva contraseña"
+                  label={tnp.newPasswordLabel}
                   id="new-password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   value={form.password}
                   onChange={handleChange}
-                  placeholder="Mínimo 8 caracteres"
+                  placeholder={tnp.newPasswordPlaceholder}
                   error={fieldErrors.password}
                   iconLeft={<LockIcon />}
                   iconRight={
@@ -314,13 +317,13 @@ export default function NewPasswordPage() {
 
               {/* Campo confirmar contraseña */}
               <Input
-                label="Confirmar contraseña"
+                label={tnp.confirmLabel}
                 id="confirm-password"
                 name="confirmPassword"
                 type="password"
                 value={form.confirmPassword}
                 onChange={handleChange}
-                placeholder="Repite tu nueva contraseña"
+                placeholder={tnp.confirmPlaceholder}
                 error={fieldErrors.confirmPassword}
                 iconLeft={<LockIcon />}
                 autoComplete="new-password"
@@ -336,7 +339,7 @@ export default function NewPasswordPage() {
                 size="lg"
                 style={{ marginTop: '4px' }}
               >
-                {loading ? 'Guardando contraseña...' : 'Guardar nueva contraseña'}
+                {loading ? tnp.saving : tnp.saveBtn}
               </Button>
             </form>
           )}

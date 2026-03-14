@@ -29,13 +29,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import { supabase } from '@/services/supabase.client';
 import { getRolePath } from '@/utils/roleUtils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Spinner inline para no depender de importaciones que podrían no estar ──
-function Spinner() {
+function Spinner({ label = "Loading" }) {
   return (
     <div
       role="status"
-      aria-label="Cargando"
+      aria-label={label}
       style={{
         width: '40px', height: '40px',
         border: '3px solid rgba(56,189,248,0.15)',
@@ -55,6 +56,8 @@ const CALLBACK_TYPE = {
 };
 
 export default function CallbackPage() {
+  const { t } = useLanguage();
+  const tcp = t.callbackPage;
   const navigate = useNavigate();
   const isInitialized = useAuthStore(selectIsInitialized);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
@@ -149,14 +152,14 @@ const isRecoveryEvent = event === 'PASSWORD_RECOVERY';
         {/* ── Estado: Cargando ── */}
         {status === 'loading' && (
           <>
-            <Spinner />
+            <Spinner label={tcp.loadingAria} />
             <div>
               <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600' }}>
                 {callbackType === CALLBACK_TYPE.RECOVERY
                   ? 'Verificando tu solicitud...'
                   : callbackType === CALLBACK_TYPE.SIGNUP
                     ? 'Confirmando tu cuenta...'
-                    : 'Iniciando sesión...'
+                    : tcp.loading
                 }
               </p>
               <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '6px' }}>
@@ -173,15 +176,15 @@ const isRecoveryEvent = event === 'PASSWORD_RECOVERY';
             <div>
               <p style={{ color: 'var(--text-primary)', fontSize: '18px', fontWeight: '700' }}>
                 {callbackType === CALLBACK_TYPE.RECOVERY
-                  ? '¡Identidad verificada!'
+                  ? tcp.identityVerified
                   : callbackType === CALLBACK_TYPE.SIGNUP
-                    ? '¡Email confirmado!'
-                    : '¡Bienvenido!'
+                    ? tcp.emailConfirmed
+                    : tcp.welcome
                 }
               </p>
               <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '8px' }}>
                 {callbackType === CALLBACK_TYPE.RECOVERY
-                  ? 'Redirigiendo para que ingreses tu nueva contraseña...'
+                  ? tcp.redirectingPassword
                   : 'Redirigiendo a tu perfil...'
                 }
               </p>

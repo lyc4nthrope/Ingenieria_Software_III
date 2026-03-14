@@ -13,15 +13,17 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import { PageLoader } from '@/components/ui/Spinner';
 import { getRolePath } from '@/utils/roleUtils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function ProtectedRoute({ children, redirectTo = '/login', allowedRoles }) {
+  const { t } = useLanguage();
   const isInitialized = useAuthStore(selectIsInitialized);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const user = useAuthStore((s) => s.user);
   const location = useLocation();
 
   if (!isInitialized) {
-    return <PageLoader message="Verificando sesión..." />;
+    return <PageLoader message={t.protectedRoute.verifying} />;
   }
 
   if (!isAuthenticated) {

@@ -69,6 +69,7 @@ export default function ProductQuickCreateModal({
   onClose,
 }) {
   const { t } = useLanguage();
+  const tq = t.productQuickCreate;
   const [name, setName] = useState(() => initialName);
   const [categoryId, setCategoryId] = useState("");
   const [unitTypeId, setUnitTypeId] = useState("");
@@ -103,7 +104,7 @@ export default function ProductQuickCreateModal({
         setError(
           categoriesResult.error ||
             unitTypesResult.error ||
-            "No se pudieron cargar los catálogos",
+            tq.errorLoadCatalogs,
         );
       } else {
         setCategories(categoriesResult.data);
@@ -181,9 +182,9 @@ export default function ProductQuickCreateModal({
       if (result.alreadyExists && result.data) {
         setBrandId(String(result.data.id));
         setBrandName(result.data.name);
-        setError("Esta marca ya está registrada. Se seleccionó automáticamente.");
+        setError(tq.brandDuplicate);
       } else {
-        setError(result.error || "No se pudo registrar la marca");
+        setError(result.error || tq.errorRegisterBrand);
       }
       return;
     }
@@ -220,7 +221,7 @@ export default function ProductQuickCreateModal({
     setError(null);
 
     if (!brandId) {
-      setError("Debes seleccionar una marca existente o registrar una nueva.");
+      setError(tq.selectBrandRequired);
       return;
     }
 
@@ -237,7 +238,7 @@ export default function ProductQuickCreateModal({
     setIsSubmitting(false);
 
     if (!result.success) {
-      setError(result.error || "No se pudo crear el producto");
+      setError(result.error || tq.errorCreateProduct);
       return;
     }
 
@@ -264,8 +265,8 @@ export default function ProductQuickCreateModal({
     <div style={s.overlay} onClick={handleOverlayClick} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }} aria-hidden="true">
       <div role="dialog" aria-modal="true" aria-labelledby="pqc-title" style={s.card} onClick={(e) => e.stopPropagation()} aria-hidden="false">
         <div style={s.header}>
-          <h3 id="pqc-title" style={s.title}>Crear producto rápido</h3>
-          <button style={s.closeBtn} onClick={onClose} type="button" aria-label="Cerrar">
+          <h3 id="pqc-title" style={s.title}>{tq.title}</h3>
+          <button style={s.closeBtn} onClick={onClose} type="button" aria-label={tq.title}>
             <span aria-hidden="true">✕</span>
           </button>
         </div>
@@ -273,7 +274,7 @@ export default function ProductQuickCreateModal({
         {error && <div style={s.errorBox}>{error}</div>}
 
         {isLoading ? (
-          <div style={s.loading}>Cargando catálogos...</div>
+          <div style={s.loading}>{tq.loadingCatalogs}</div>
         ) : (
           <form onSubmit={handleSubmit} style={s.form}>
             <label htmlFor="pqc-name" style={s.label}>Nombre *</label>
@@ -282,28 +283,28 @@ export default function ProductQuickCreateModal({
               style={s.input}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Leche Entera"
+              placeholder={tq.namePlaceholder}
               required
             />
             {(initialBrandName || initialCategoryHint || initialBaseQuantity || initialUnitAbbreviation) && (
               <div style={s.hint}>
-                Sugerencias cargadas desde código de barras. Puedes editarlas antes de guardar.
+                {tq.barcodeHint}
               </div>
             )}
 
-            <label htmlFor="pqc-barcode" style={s.label}>Código de barras (opcional)</label>
+            <label htmlFor="pqc-barcode" style={s.label}>{tq.barcodeLabel}</label>
             <input
               id="pqc-barcode"
               style={s.input}
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
-              placeholder="Ej: 7702001043509"
+              placeholder={tq.barcodePlaceholder}
               inputMode="numeric"
               autoComplete="off"
             />
-            <div style={s.hint}>Si existe, ayuda a evitar duplicados y acelera próximas búsquedas.</div>
+            <div style={s.hint}>{tq.barcodeInfo}</div>
 
-            <label htmlFor="pqc-category" style={s.label}>Categoría *</label>
+            <label htmlFor="pqc-category" style={s.label}>{tq.categoryLabel}</label>
             <select
               id="pqc-category"
               style={s.input}
@@ -311,7 +312,7 @@ export default function ProductQuickCreateModal({
               onChange={(e) => setCategoryId(e.target.value)}
               required
             >
-              <option value="">Seleccionar...</option>
+              <option value="">{tq.selectPlaceholder}</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -319,7 +320,7 @@ export default function ProductQuickCreateModal({
               ))}
             </select>
 
-            <label htmlFor="pqc-brand" style={s.label}>Marca *</label>
+            <label htmlFor="pqc-brand" style={s.label}>{tq.brandLabel}</label>
             <div ref={brandWrapperRef} style={s.brandRow}>
               <div style={s.brandAutocomplete}>
                 <input
@@ -328,11 +329,11 @@ export default function ProductQuickCreateModal({
                   value={brandName}
                   onChange={(e) => handleBrandNameChange(e.target.value)}
                   onFocus={() => brandName.trim().length >= 1 && setShowBrandDropdown(true)}
-                  placeholder="Ej: Alpina"
+                  placeholder={tq.brandPlaceholder}
                   autoComplete="off"
                 />
                 {showBrandDropdown && brandName.trim().length >= 1 && (
-                  <div style={s.brandDropdown} role="listbox" aria-label="Marcas disponibles">
+                  <div style={s.brandDropdown} role="listbox" aria-label={tq.brandsAvailableAria}>
                     {brandResults.map((brand) => (
                       <div
                         key={brand.id}
@@ -347,7 +348,7 @@ export default function ProductQuickCreateModal({
                       </div>
                     ))}
                     {brandResults.length === 0 && (
-                      <div role="option" aria-selected="false" style={s.brandDropdownEmpty}>Sin coincidencias</div>
+                      <div role="option" aria-selected="false" style={s.brandDropdownEmpty}>{tq.noMatches}</div>
                     )}
                   </div>
                 )}
@@ -361,8 +362,8 @@ export default function ProductQuickCreateModal({
                 }}
                 onClick={handleCreateBrand}
                 disabled={!brandName.trim() || isCreatingBrand}
-                aria-label="Registrar nueva marca"
-                title="Registrar nueva marca"
+                aria-label={tq.registerNewBrandAria}
+                title={tq.registerNewBrandAria}
               >
                 <span aria-hidden="true">{isCreatingBrand ? "⏳" : "＋"}</span>
               </button>
@@ -372,7 +373,7 @@ export default function ProductQuickCreateModal({
 
             <div style={s.twoCols} className="modal-two-cols">
               <div>
-                <label htmlFor="pqc-unit" style={s.label}>Unidad *</label>
+                <label htmlFor="pqc-unit" style={s.label}>{tq.unitLabel}</label>
                 <select
                   id="pqc-unit"
                   style={s.input}
@@ -380,7 +381,7 @@ export default function ProductQuickCreateModal({
                   onChange={(e) => setUnitTypeId(e.target.value)}
                   required
                 >
-                  <option value="">Seleccionar...</option>
+                  <option value="">{tq.selectPlaceholder}</option>
                   {unitTypes.map((unit) => (
                     <option key={unit.id} value={unit.id}>
                       {unit.name} ({unit.abbreviation})
@@ -389,7 +390,7 @@ export default function ProductQuickCreateModal({
                 </select>
               </div>
               <div>
-                <label htmlFor="pqc-qty" style={s.label}>Cantidad base *</label>
+                <label htmlFor="pqc-qty" style={s.label}>{tq.quantityLabel}</label>
                 <input
                   id="pqc-qty"
                   type="number"
@@ -398,7 +399,7 @@ export default function ProductQuickCreateModal({
                   style={s.input}
                   value={baseQuantity}
                   onChange={(e) => setBaseQuantity(e.target.value)}
-                  placeholder="Ej: 500"
+                  placeholder={tq.quantityPlaceholder}
                   required
                 />
                 {selectedUnitType && (
@@ -411,10 +412,10 @@ export default function ProductQuickCreateModal({
 
             <div style={s.actions}>
               <button type="button" onClick={onClose} style={s.cancelBtn}>
-                Cancelar
+                {tq.cancel}
               </button>
               <button type="submit" style={s.submitBtn} disabled={isSubmitting}>
-                {isSubmitting ? "Creando..." : "Crear producto"}
+                {isSubmitting ? tq.creating : tq.create}
               </button>
             </div>
           </form>

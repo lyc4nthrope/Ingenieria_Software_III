@@ -519,7 +519,7 @@ function CommentsSection({ publicationId, initialComments, td }) {
         </div>
       ) : (
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 10 }}>
-          {td.loginToComment ?? "Inicia sesión para comentar"}
+          {td.loginToComment}
         </p>
       )}
 
@@ -604,11 +604,11 @@ export default function PublicationDetailModal({ publication, onClose }) {
 
         <h2 id={titleId} style={styles.title}>{publication?.product?.name || td.noName}</h2>
         <p style={styles.meta}>
-          <strong>Marca:</strong> {publication?.product?.brand?.name || "Sin marca"} ·{" "}
-          <strong>Categoría:</strong> {translateDbValue(t, 'categories', publication?.product?.category?.name) || "Sin categoría"}
+          <strong>{td.brandLabel}</strong> {publication?.product?.brand?.name || td.noBrand} ·{" "}
+          <strong>{td.categoryLabel}</strong> {translateDbValue(t, 'categories', publication?.product?.category?.name) || td.noCategory}
         </p>
         <p style={styles.meta}>
-          <strong>Código de barras:</strong> {publication?.product?.barcode || "Sin código"}
+          <strong>{td.barcodeLabel}</strong> {publication?.product?.barcode || td.noBarcode}
         </p>
         <p style={styles.meta}>
           {td.unit} {publication?.product?.base_quantity || "-"} {publication?.product?.unit_type?.abbreviation || ""}

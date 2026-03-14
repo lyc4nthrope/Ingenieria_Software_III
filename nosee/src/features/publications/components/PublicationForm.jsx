@@ -356,7 +356,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     autoStoreAttemptedRef.current = true;
     setAutoStoreDetecting(true);
     setAutoStoreFound(false);
-    setAutoStoreMessage("Buscando tienda más cercana...");
+    setAutoStoreMessage(tf.findingStore);
     let isCancelled = false;
 
     (async () => {
@@ -367,7 +367,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
       if (!result.success) {
         setAutoStoreDetecting(false);
         setAutoStoreFound(false);
-        setAutoStoreMessage("No se pudo consultar tiendas. Selecciónala manualmente.");
+        setAutoStoreMessage(tf.storeQueryError);
         return;
       }
 
@@ -389,7 +389,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
       if (!nearest) {
         setAutoStoreDetecting(false);
         setAutoStoreFound(false);
-        setAutoStoreMessage("No encontramos tiendas físicas con ubicación registrada.");
+        setAutoStoreMessage(tf.noPhysicalStores);
         return;
       }
 
@@ -788,7 +788,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
               }
               aria-invalid={!!errors.storeId}
               aria-describedby={errors.storeId ? "pub-store-error" : undefined}
-              placeholder={autoStoreDetecting ? "Buscando tienda más cercana..." : tf.storePlaceholder}
+              placeholder={autoStoreDetecting ? tf.findingStore : tf.storePlaceholder}
               value={storeQuery}
               onChange={handleStoreQueryChange}
               onFocus={() =>

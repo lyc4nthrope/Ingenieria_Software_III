@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function BarcodeScannerModal({ open, onClose, onDetected }) {
+  const { t } = useLanguage();
+  const tb = t.barcode;
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const scanTimerRef = useRef(null);
@@ -40,14 +43,14 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
 
       if (!navigator?.mediaDevices?.getUserMedia) {
         setSupported(false);
-        setError("Tu navegador no permite cámara. Ingresa el código manualmente.");
+        setError(tb.noCameraPermission);
         setIsStarting(false);
         return;
       }
 
       if (typeof window?.BarcodeDetector !== "function") {
         setSupported(false);
-        setError("Tu navegador no soporta escaneo automático. Ingresa el código manualmente.");
+        setError(tb.noScanSupport);
         setIsStarting(false);
         return;
       }
@@ -58,7 +61,7 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
         });
       } catch {
         setSupported(false);
-        setError("No se pudo iniciar el detector de códigos. Usa ingreso manual.");
+        setError(tb.errorDetector);
         setIsStarting(false);
         return;
       }
@@ -98,7 +101,7 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
         }, 450);
       } catch (cameraError) {
         setSupported(false);
-        setError(cameraError?.message || "No se pudo acceder a la cámara.");
+        setError(cameraError?.message || tb.errorCamera);
       } finally {
         setIsStarting(false);
       }
@@ -116,7 +119,7 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
     event.preventDefault();
     const code = manualCode.trim();
     if (code.length < 4) {
-      setError("Ingresa un código válido (mínimo 4 caracteres).");
+      setError(tb.invalidCode);
       return;
     }
 
@@ -129,11 +132,11 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
 
   return (
     <div style={styles.overlay} onMouseDown={(event) => event.target === event.currentTarget && onClose?.()}>
-      <div style={styles.modal} role="dialog" aria-modal="true" aria-label="Escanear código de barras">
+      <div style={styles.modal} role="dialog" aria-modal="true" aria-label={tb.title}>
         <div style={styles.header}>
-          <h3 style={styles.title}>Escanear código de barras</h3>
-          <button type="button" onClick={onClose} style={styles.closeBtn} aria-label="Cerrar">
-            Cerrar
+          <h3 style={styles.title}>{tb.title}</h3>
+          <button type="button" onClick={onClose} style={styles.closeBtn} aria-label={tb.close}>
+            {tb.close}
           </button>
         </div>
 
@@ -144,16 +147,16 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
             muted
             autoPlay
             playsInline
-            aria-label="Vista de cámara para escaneo"
+            aria-label={tb.cameraAria}
           />
         )}
 
-        {isStarting && <p style={styles.helper}>Iniciando cámara...</p>}
+        {isStarting && <p style={styles.helper}>{tb.startingCamera}</p>}
         {error && <p style={styles.error}>{error}</p>}
 
         <form style={styles.manualForm} onSubmit={handleManualSubmit}>
           <label htmlFor="manual-barcode" style={styles.label}>
-            Ingresar código manualmente
+            {tb.manualInput}
           </label>
           <input
             id="manual-barcode"
@@ -161,11 +164,11 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
             value={manualCode}
             onChange={(event) => setManualCode(event.target.value)}
             style={styles.input}
-            placeholder="Ej: 7702001043509"
+            placeholder={tb.placeholder}
             autoComplete="off"
           />
           <button type="submit" style={styles.submitBtn}>
-            Usar código
+            {tb.useCode}
           </button>
         </form>
       </div>

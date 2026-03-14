@@ -5,6 +5,7 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { PhotoUploader } from "@/features/publications/components/PhotoUploader";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const UserIcon = () => (
   <svg
@@ -39,6 +40,7 @@ const EditIcon = () => (
 );
 
 const RoleBadge = ({ role }) => {
+  const { t } = useLanguage();
   // Las claves coinciden con UserRoleEnum: 'Admin', 'Moderador', 'Usuario', 'Repartidor'
   const colors = {
     Admin: {
@@ -63,10 +65,10 @@ const RoleBadge = ({ role }) => {
     },
   };
   const labels = {
-    Admin: "Administrador",
-    Moderador: "Moderador",
-    Repartidor: "Repartidor",
-    Usuario: "Usuario",
+    Admin: t.profile.roleAdmin,
+    Moderador: t.profile.roleModerator,
+    Repartidor: t.profile.roleDealer,
+    Usuario: t.profile.roleUser,
   };
   const c = colors[role] || colors.Usuario;
 
@@ -93,6 +95,8 @@ const RoleBadge = ({ role }) => {
 };
 
 export default function ProfileCard({ user, onUpdate, loading = false }) {
+  const { t } = useLanguage();
+  const tp = t.profile;
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     fullName: user?.fullName || "",
@@ -110,7 +114,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
   const handleSave = async (e) => {
     e.preventDefault();
     if (!form.fullName.trim()) {
-      setError("El nombre no puede estar vacío");
+      setError(t.profile.nameRequired);
       return;
     }
 
@@ -123,7 +127,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } else {
-      setError(result?.error || "Error al actualizar perfil");
+      setError(result?.error || tp.errorUpdate);
     }
   };
 
@@ -213,7 +217,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
                     lineHeight: 1.2,
                   }}
                 >
-                  {user?.fullName || "Sin nombre"}
+                  {user?.fullName || tp.noName}
                 </h2>
                 <p
                   style={{
@@ -270,9 +274,9 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
               }}
             >
               {[
-                { label: "Publicaciones", value: user?.publicationsCount ?? 0 },
-                { label: "Validaciones", value: user?.validationsCount ?? 0 },
-                { label: "Reputación", value: user?.reputationPoints ?? 0 },
+                { label: tp.publications, value: user?.publicationsCount ?? 0 },
+                { label: tp.validations, value: user?.validationsCount ?? 0 },
+                { label: t.profile.reputation, value: user?.reputationPoints ?? 0 },
               ].map((stat) => (
                 <div
                   key={stat.label}
@@ -335,13 +339,13 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
             )}
 
             <Input
-              label="Nombre completo"
+              label={tp.fullNameLabel}
               id="profile-fullname"
               name="fullName"
               type="text"
               value={form.fullName}
               onChange={handleChange}
-              placeholder="Tu nombre"
+              placeholder={tp.namePlaceholder}
               required
               disabled={loading}
             />
@@ -354,7 +358,7 @@ export default function ProfileCard({ user, onUpdate, loading = false }) {
                 <div style={{ marginBottom: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
                   <img
                     src={form.avatarUrl}
-                    alt="Avatar actual"
+                    alt={tp.avatarAlt}
                     style={{ width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover", border: "2px solid var(--border)" }}
                   />
                   <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Avatar actual</span>

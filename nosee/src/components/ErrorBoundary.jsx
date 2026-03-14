@@ -1,4 +1,5 @@
 import { Component } from "react";
+import { TRANSLATIONS } from "@/contexts/LanguageContext";
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -9,7 +10,7 @@ export default class ErrorBoundary extends Component {
   static getDerivedStateFromError(error) {
     return {
       hasError: true,
-      message: error?.message || "Ocurrió un error inesperado en la interfaz.",
+      message: error?.message || TRANSLATIONS["es-MX"].errorBoundary.message,
     };
   }
 

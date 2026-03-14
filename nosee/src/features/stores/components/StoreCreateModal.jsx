@@ -13,6 +13,7 @@
 
 import { useId, useState } from 'react';
 import { createStoreSimple } from '@/services/api/stores.api';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const STORE_TYPE_ID = {
   physical: 1,
@@ -20,6 +21,8 @@ const STORE_TYPE_ID = {
 };
 
 export default function StoreCreateModal({ initialName = '', onSuccess, onClose }) {
+  const { t } = useLanguage();
+  const tc = t.storeCreateModal;
   const [name, setName]           = useState(() => initialName);
   const [type, setType]           = useState('physical');
   const [address, setAddress]     = useState('');
@@ -34,9 +37,9 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) { setError('El nombre es requerido'); return; }
+    if (!name.trim()) { setError(tc.nameRequired); return; }
     if (type === 'virtual' && !websiteUrl.trim()) {
-      setError('La URL es requerida para tiendas virtuales');
+      setError(tc.urlRequired);
       return;
     }
 
@@ -52,13 +55,13 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
       );
 
     if (!result.success) {
-        setError(result.error || 'No se pudo crear la tienda');
+        setError(result.error || tc.errorCreate);
         return;
       }
 
       onSuccess(result.data);
     } catch (submitError) {
-      setError(submitError?.message || 'Error inesperado creando tienda');
+      setError(submitError?.message || tc.errorUnexpected);
     } finally {
       setIsSubmitting(false);
     }
@@ -80,14 +83,14 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
       >
         {/* Header */}
         <div style={s.header}>
-          <h3 id={titleId} style={s.title}>Nueva tienda</h3>
-          <button style={s.closeBtn} onClick={onClose} type="button" aria-label="Cerrar">
+          <h3 id={titleId} style={s.title}>{tc.title}</h3>
+          <button style={s.closeBtn} onClick={onClose} type="button" aria-label={tc.close}>
             <span aria-hidden="true">✕</span>
           </button>
         </div>
 
         <p style={s.hint}>
-          Completa los datos básicos. Luego podrás agregar ubicación y fotos desde tu perfil.
+          {tc.hint}
         </p>
 
         {error && (
@@ -97,13 +100,13 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
         <form onSubmit={handleSubmit} style={s.form}>
           {/* Nombre */}
           <div style={s.group}>
-            <label htmlFor={nameId} style={s.label}>Nombre *</label>
+            <label htmlFor={nameId} style={s.label}>{tc.nameLabel}</label>
             <input
               id={nameId}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Supermercado Central"
+              placeholder={tc.namePlaceholder}
               style={s.input}
               aria-required="true"
             />
@@ -111,7 +114,7 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
 
           {/* Tipo */}
           <div style={s.group}>
-            <span id="store-type-label" style={s.label}>Tipo *</span>
+            <span id="store-type-label" style={s.label}>{tc.typeLabel}</span>
             <div role="group" aria-labelledby="store-type-label" style={s.typeRow}>
               <button
                 type="button"
@@ -119,7 +122,7 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
                 style={{ ...s.typeBtn, ...(type === 'physical' ? s.typeBtnActive : {}) }}
                 onClick={() => setType('physical')}
               >
-                Física
+                {tc.physical}
               </button>
               <button
                 type="button"
@@ -127,7 +130,7 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
                 style={{ ...s.typeBtn, ...(type === 'virtual' ? s.typeBtnActive : {}) }}
                 onClick={() => setType('virtual')}
               >
-                Virtual
+                {tc.virtual}
               </button>
             </div>
           </div>
@@ -135,13 +138,13 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
           {/* Dirección (solo física) */}
           {type === 'physical' && (
             <div style={s.group}>
-              <label htmlFor={addressId} style={s.label}>Dirección (opcional)</label>
+              <label htmlFor={addressId} style={s.label}>{tc.addressLabel}</label>
               <input
                 id={addressId}
                 type="text"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Ej: Calle 10 # 25-30"
+                placeholder={tc.addressPlaceholder}
                 style={s.input}
               />
             </div>
@@ -150,7 +153,7 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
           {/* URL (solo virtual) */}
           {type === 'virtual' && (
             <div style={s.group}>
-              <label htmlFor={websiteUrlId} style={s.label}>URL de la tienda *</label>
+              <label htmlFor={websiteUrlId} style={s.label}>{tc.urlLabel}</label>
               <input
                 id={websiteUrlId}
                 type="url"
@@ -166,10 +169,10 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
           {/* Acciones */}
           <div style={s.actions}>
             <button type="button" onClick={onClose} style={s.cancelBtn}>
-              Cancelar
+              {tc.cancel}
             </button>
             <button type="submit" style={s.submitBtn} disabled={isSubmitting}>
-              {isSubmitting ? 'Creando...' : 'Crear tienda'}
+              {isSubmitting ? tc.creating : tc.create}
             </button>
           </div>
         </form>

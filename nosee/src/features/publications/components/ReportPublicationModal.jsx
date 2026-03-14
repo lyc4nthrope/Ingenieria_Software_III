@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState, useId } from 'react';
 import * as publicationsApi from '@/services/api/publications.api';
-
-const REPORT_REASON_OPTIONS = [
-  { value: 'fake_price', label: 'Precio falso o engañoso' },
-  { value: 'wrong_photo', label: 'La foto no coincide con la publicación' },
-  { value: 'spam', label: 'Spam o contenido repetitivo' },
-  { value: 'offensive', label: 'Contenido ofensivo o inapropiado' },
-  { value: 'other', label: 'Otro motivo' },
-];
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export function ReportPublicationModal({ publication, onClose, onSubmit }) {
+  const { t } = useLanguage();
+  const tr = t.reportModal;
+  const REPORT_REASON_OPTIONS = [
+    { value: 'fake_price', label: tr.reasons.fake_price },
+    { value: 'wrong_photo', label: tr.reasons.wrong_photo },
+    { value: 'spam', label: tr.reasons.spam },
+    { value: 'offensive', label: tr.reasons.offensive },
+    { value: 'other', label: tr.reasons.other },
+  ];
   const titleId = useId();
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
@@ -67,26 +69,26 @@ export function ReportPublicationModal({ publication, onClose, onSubmit }) {
     >
       <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} style={styles.modal}>
         <h3 id={titleId} style={styles.title}>
-          {publication?.product?.name || 'Publicación'} • {publication?.store?.name || 'Tienda'} • ${publication?.price?.toLocaleString() || '0'}
+          {publication?.product?.name || tr.publication} • {publication?.store?.name || tr.store} • ${publication?.price?.toLocaleString() || '0'}
         </h3>
         <p style={styles.subtitle}>
-          {checkingStatus ? 'Verificando estatus...' : 'Completa la razón del reporte'}
+          {checkingStatus ? tr.verifying : tr.completeReason}
         </p>
 
         {hasReported && (
           <div role="alert" style={styles.alertBox}>
             <p style={{ margin: 0, color: 'var(--warning)', fontSize: '14px', fontWeight: 600 }}>
-              ⚠️ Ya reportaste esta publicación
+              {tr.alreadyReported}
             </p>
             <p style={{ margin: '8px 0 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-              Reporte enviado el: {existingReport && new Date(existingReport.created_at).toLocaleString()}
+              {tr.reportedOn}{existingReport && new Date(existingReport.created_at).toLocaleString()}
             </p>
           </div>
         )}
 
         <div style={{ opacity: hasReported ? 0.5 : 1, pointerEvents: hasReported ? 'none' : 'auto' }}>
           <div style={styles.formGroup}>
-            <label htmlFor="report-reason" style={styles.label}>Razón del reporte *</label>
+            <label htmlFor="report-reason" style={styles.label}>{tr.reasonLabel}</label>
             <select
               id="report-reason"
               value={reason}
@@ -94,7 +96,7 @@ export function ReportPublicationModal({ publication, onClose, onSubmit }) {
               style={styles.select}
               disabled={hasReported}
             >
-              <option value="">Selecciona una razón...</option>
+              <option value="">{tr.selectReason}</option>
               {REPORT_REASON_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
@@ -102,21 +104,21 @@ export function ReportPublicationModal({ publication, onClose, onSubmit }) {
           </div>
 
           <div style={styles.formGroup}>
-            <label htmlFor="report-description" style={styles.label}>Descripción (opcional)</label>
+            <label htmlFor="report-description" style={styles.label}>{tr.descriptionLabel}</label>
             <textarea
               id="report-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
               maxLength={500}
-              placeholder="Cuéntanos con más detalle por qué reportas esta publicación"
+              placeholder={tr.descriptionPlaceholder}
               style={styles.textarea}
               disabled={hasReported}
             />
           </div>
 
           <div style={styles.formGroup}>
-            <label htmlFor="report-evidence" style={styles.label}>Foto de evidencia (opcional)</label>
+            <label htmlFor="report-evidence" style={styles.label}>{tr.evidenceLabel}</label>
             <div style={styles.fileInputWrapper}>
               <input
                 id="report-evidence"
@@ -125,7 +127,7 @@ export function ReportPublicationModal({ publication, onClose, onSubmit }) {
                 onChange={handleFileChange}
                 style={styles.fileInputHidden}
                 disabled={hasReported}
-                aria-label="Seleccionar imagen de evidencia"
+                aria-label={tr.selectEvidence}
               />
               <label
                 htmlFor="report-evidence"
@@ -139,7 +141,7 @@ export function ReportPublicationModal({ publication, onClose, onSubmit }) {
                 onMouseLeave={() => setFileInputHovered(false)}
               >
                 <span aria-hidden="true">📸 </span>
-                {evidenceFile ? evidenceFile.name : 'Seleccionar imagen'}
+                {evidenceFile ? evidenceFile.name : tr.selectImage}
               </label>
               {evidenceFile && (
                 <span style={styles.fileSize}>{(evidenceFile.size / 1024).toFixed(1)} KB</span>
@@ -147,14 +149,14 @@ export function ReportPublicationModal({ publication, onClose, onSubmit }) {
             </div>
             {evidencePreview && (
               <div style={styles.evidencePreviewWrap}>
-                <img src={evidencePreview} alt="Vista previa de la evidencia" style={styles.evidencePreview} />
+                <img src={evidencePreview} alt={tr.evidencePreviewAlt} style={styles.evidencePreview} />
                 <button
                   type="button"
                   style={styles.removeEvidenceButton}
                   onClick={() => setEvidenceFile(null)}
                   disabled={hasReported}
                 >
-                  Quitar evidencia
+                  {tr.removeEvidence}
                 </button>
               </div>
             )}
@@ -163,7 +165,7 @@ export function ReportPublicationModal({ publication, onClose, onSubmit }) {
 
         <div style={styles.actions}>
           <button type="button" style={styles.secondaryButton} onClick={handleClose}>
-            Cancelar
+            {tr.cancel}
           </button>
           <button
             type="button"
@@ -175,7 +177,7 @@ export function ReportPublicationModal({ publication, onClose, onSubmit }) {
             onClick={handleSubmit}
             disabled={!reason || submitting || hasReported}
           >
-            {submitting ? 'Enviando...' : hasReported ? 'Ya reportado' : 'Enviar reporte'}
+            {submitting ? tr.sending : hasReported ? tr.alreadyReportedBtn : tr.submit}
           </button>
         </div>
       </div>

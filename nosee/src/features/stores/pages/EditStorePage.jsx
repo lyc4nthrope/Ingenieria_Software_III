@@ -1,7 +1,10 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import StoreForm from '@/features/stores/components/StoreForm';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function EditStorePage() {
+  const { t } = useLanguage();
+  const te = t.editStorePage;
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -9,7 +12,7 @@ export default function EditStorePage() {
     return (
       <section style={styles.page}>
         <div style={{ color: 'var(--error)', fontSize: '14px' }}>
-          Error: ID de tienda no válido
+          {te.invalidId}
         </div>
       </section>
     );
@@ -18,9 +21,9 @@ export default function EditStorePage() {
   return (
     <section style={styles.page}>
       <header style={styles.header}>
-        <h1 style={styles.title}>✏️ Editar tienda</h1>
+        <h1 style={styles.title}>{te.title}</h1>
         <p style={styles.subtitle}>
-          Actualiza la información de tu tienda física o virtual.
+          {te.subtitle}
         </p>
       </header>
 
