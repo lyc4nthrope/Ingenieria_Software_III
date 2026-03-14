@@ -99,6 +99,8 @@ const BACKGROUND_REQUEST_TIMEOUT_MS = 20000;
 const EXTENDED_RETRY_TIMEOUT_MS = 30000;
 const HYDRATION_TIMEOUT_MS = 3500;
 const FOREGROUND_GRACE_PERIOD_MS = 4000;
+const REQUIRE_IMAGE_MODERATION =
+  String(import.meta.env.VITE_REQUIRE_IMAGE_MODERATION || "false").toLowerCase() === "true";
 
 const canUseBrowserApis = () => typeof window !== "undefined" && typeof document !== "undefined";
 
@@ -647,6 +649,14 @@ export const createPublication = async (data) => {
       return { success: false, error: "Usuario no autenticado" };
     }
 
+    if (REQUIRE_IMAGE_MODERATION && !data.photoModeration) {
+      return {
+        success: false,
+        error:
+          "No fue posible validar la seguridad de la imagen. Intenta con otra foto o contacta al administrador.",
+      };
+    }
+
     // Verificar estado del usuario (activo + verificado)
     const authEmailConfirmed = !!user.email_confirmed_at;
     const { data: userData, error: userError } = await supabase
@@ -706,6 +716,43 @@ export const createPublication = async (data) => {
     const reputationPoints = userProfile?.reputation_points ?? 0;
     const confidence_score = Math.min(1.0, 0.5 + reputationPoints / 1000);
 
+    const textModeration = detectInappropriateText(data.description || "");
+    const restrictedContentModeration = detectRestrictedContentText(
+      data.description || "",
+    );
+    const imageModeration = detectIndecentImageByModeration(data.photoModeration);
+    const shouldHardBlock =
+      restrictedContentModeration.flagged || imageModeration.flagged;
+
+    if (shouldHardBlock) {
+      const reasons = [];
+      if (restrictedContentModeration.flagged) {
+        reasons.push(
+          `Texto con contenido restringido: ${restrictedContentModeration.matches.join(", ")}`,
+        );
+      }
+      if (imageModeration.flagged) {
+        reasons.push(
+          `${imageModeration.reason || "Imagen con contenido adulto/gore"} (confianza: ${imageModeration.confidence ?? "n/a"})`,
+        );
+      }
+
+      await createAutoModerationReport({
+        reportedType: "user",
+        reportedId: user.id,
+        reporterUserId: user.id,
+        reportedUserId: user.id,
+        reason: "offensive",
+        description: `AUTO-MODERATION BLOCK (publication): ${reasons.join(" | ")}`,
+      });
+
+      return {
+        success: false,
+        error:
+          "No se permitió publicar porque la imagen o el texto parecen contener contenido adulto/gore.",
+      };
+    }
+
     // Crear la publicación
     const payload = {
       product_id: data.productId,
@@ -728,16 +775,8 @@ export const createPublication = async (data) => {
       return { success: false, error: error.message };
     }
 
-    // Moderación automática de texto + imagen
-    const textModeration = detectInappropriateText(data.description || "");
-    const restrictedContentModeration = detectRestrictedContentText(
-      data.description || "",
-    );
-    const imageModeration = detectIndecentImageByModeration(data.photoModeration);
-    const shouldAutoModerate =
-      textModeration.flagged ||
-      restrictedContentModeration.flagged ||
-      imageModeration.flagged;
+    // Moderación automática adicional por lenguaje inapropiado (insultos, etc.)
+    const shouldAutoModerate = textModeration.flagged;
 
     if (shouldAutoModerate) {
       const moderationDescriptionParts = [];
@@ -2810,6 +2849,25 @@ export const addComment = async (publicationId, content, parentId = null) => {
     const trimmed = String(content || "").trim();
     if (!trimmed) return { success: false, error: "El comentario no puede estar vacío" };
 
+    const commentModeration = detectInappropriateText(trimmed);
+    const restrictedCommentModeration = detectRestrictedContentText(trimmed);
+    if (commentModeration.flagged || restrictedCommentModeration.flagged) {
+      await createAutoModerationReport({
+        reportedType: "user",
+        reportedId: user.id,
+        reporterUserId: user.id,
+        reportedUserId: user.id,
+        reason: "offensive",
+        description: `AUTO-MODERATION BLOCK (comment): insultos=[${commentModeration.matches.map((m) => m.term).join(", ")}] restringido=[${restrictedCommentModeration.matches.join(", ")}]`,
+      });
+      return {
+        success: false,
+        error:
+          "Tu comentario fue bloqueado automáticamente por posible contenido ofensivo o adulto/gore.",
+        autoModerated: true,
+      };
+    }
+
     const { data, error } = await supabase
       .from("comments")
       .insert({
@@ -2822,32 +2880,6 @@ export const addComment = async (publicationId, content, parentId = null) => {
       .single();
 
     if (error) return { success: false, error: error.message };
-
-    // Moderación automática de comentarios
-    const commentModeration = detectInappropriateText(trimmed);
-    const restrictedCommentModeration = detectRestrictedContentText(trimmed);
-    if (commentModeration.flagged || restrictedCommentModeration.flagged) {
-      await supabase
-        .from("comments")
-        .update({ is_deleted: true })
-        .eq("id", data.id);
-
-      await createAutoModerationReport({
-        reportedType: "comment",
-        reportedId: data.id,
-        reporterUserId: user.id,
-        reportedUserId: user.id,
-        reason: "offensive",
-        description: `AUTO-MODERATION: comentario bloqueado por posible contenido ofensivo/restringido. insultos=[${commentModeration.matches.map((m) => m.term).join(", ")}] restringido=[${restrictedCommentModeration.matches.join(", ")}]`,
-      });
-
-      return {
-        success: false,
-        error:
-          "Tu comentario fue bloqueado automáticamente por posible lenguaje inapropiado y enviado a revisión.",
-        autoModerated: true,
-      };
-    }
 
     // Obtener nombre del usuario desde public.users
     const { data: userData } = await supabase
