@@ -23,6 +23,7 @@ import { supabase } from "@/services/supabase.client";
 import { uploadImageToCloudinary } from "@/services/cloudinary";
 import {
   detectInappropriateText,
+  detectRestrictedContentText,
   detectIndecentImageByModeration,
 } from "@/services/moderation";
 
@@ -729,14 +730,25 @@ export const createPublication = async (data) => {
 
     // Moderación automática de texto + imagen
     const textModeration = detectInappropriateText(data.description || "");
+    const restrictedContentModeration = detectRestrictedContentText(
+      data.description || "",
+    );
     const imageModeration = detectIndecentImageByModeration(data.photoModeration);
-    const shouldAutoModerate = textModeration.flagged || imageModeration.flagged;
+    const shouldAutoModerate =
+      textModeration.flagged ||
+      restrictedContentModeration.flagged ||
+      imageModeration.flagged;
 
     if (shouldAutoModerate) {
       const moderationDescriptionParts = [];
       if (textModeration.flagged) {
         moderationDescriptionParts.push(
           `Texto inapropiado detectado (score ${textModeration.score}/${textModeration.threshold}): ${textModeration.matches.map((m) => m.term).join(", ")}`,
+        );
+      }
+      if (restrictedContentModeration.flagged) {
+        moderationDescriptionParts.push(
+          `Contenido restringido (adulto/gore) detectado: ${restrictedContentModeration.matches.join(", ")}`,
         );
       }
       if (imageModeration.flagged) {
@@ -2409,6 +2421,15 @@ export async function createProduct(name) {
     };
   }
 
+  const restrictedProductName = detectRestrictedContentText(normalizedName);
+  if (restrictedProductName.flagged) {
+    return {
+      success: false,
+      error:
+        "El nombre del producto contiene términos restringidos (adulto/gore). Solo se permiten productos aptos para todo público.",
+    };
+  }
+
   // Compatibilidad legacy: cuando llega solo el nombre, intenta reutilizar un producto existente.
   if (isLegacyNameOnlyMode) {
     const { data: existingByName, error: existingByNameError } = await supabase
@@ -2621,6 +2642,15 @@ export const createBrand = async (name) => {
     };
   }
 
+  const restrictedBrandName = detectRestrictedContentText(normalizedName);
+  if (restrictedBrandName.flagged) {
+    return {
+      success: false,
+      error:
+        "El nombre de la marca contiene términos restringidos (adulto/gore).",
+    };
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from("brands")
     .select("id, name")
@@ -2795,7 +2825,8 @@ export const addComment = async (publicationId, content, parentId = null) => {
 
     // Moderación automática de comentarios
     const commentModeration = detectInappropriateText(trimmed);
-    if (commentModeration.flagged) {
+    const restrictedCommentModeration = detectRestrictedContentText(trimmed);
+    if (commentModeration.flagged || restrictedCommentModeration.flagged) {
       await supabase
         .from("comments")
         .update({ is_deleted: true })
@@ -2807,7 +2838,7 @@ export const addComment = async (publicationId, content, parentId = null) => {
         reporterUserId: user.id,
         reportedUserId: user.id,
         reason: "offensive",
-        description: `AUTO-MODERATION: comentario bloqueado (score ${commentModeration.score}/${commentModeration.threshold}) por términos: ${commentModeration.matches.map((m) => m.term).join(", ")}`,
+        description: `AUTO-MODERATION: comentario bloqueado por posible contenido ofensivo/restringido. insultos=[${commentModeration.matches.map((m) => m.term).join(", ")}] restringido=[${restrictedCommentModeration.matches.join(", ")}]`,
       });
 
       return {

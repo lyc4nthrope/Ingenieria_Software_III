@@ -8,6 +8,7 @@
  */
 
 import { supabase } from "@/services/supabase.client";
+import { detectRestrictedContentText } from "@/services/moderation";
 
 const DEFAULT_RADIUS_METERS = 150;
 const REQUEST_TIMEOUT_MS = 12000;
@@ -118,6 +119,27 @@ function resolveStoreTypeId(type) {
   };
 }
 
+function validateStoreContentPolicy({ name, address, websiteUrl }) {
+  const fields = [
+    { label: "nombre", value: name },
+    { label: "dirección", value: address },
+    { label: "sitio web", value: websiteUrl },
+  ];
+
+  for (const field of fields) {
+    if (!field.value) continue;
+    const moderation = detectRestrictedContentText(String(field.value));
+    if (moderation.flagged) {
+      return {
+        success: false,
+        error: `La ${field.label} contiene referencias restringidas (adulto/gore).`,
+      };
+    }
+  }
+
+  return { success: true };
+}
+
 function degreesToRadians(degrees) {
   return (degrees * Math.PI) / 180;
 }
@@ -185,6 +207,8 @@ export async function createStore(payload = {}) {
 
     const storeTypeResult = resolveStoreTypeId(type);
     if (!storeTypeResult.success) return storeTypeResult;
+    const policyResult = validateStoreContentPolicy({ name, address, websiteUrl });
+    if (!policyResult.success) return policyResult;
 
     const insertPayload = {
       name: name?.trim(),
@@ -429,6 +453,12 @@ export async function createStoreSimple(
 
     const storeTypeResult = resolveStoreTypeId(type);
     if (!storeTypeResult.success) return storeTypeResult;
+    const policyResult = validateStoreContentPolicy({
+      name,
+      address,
+      websiteUrl,
+    });
+    if (!policyResult.success) return policyResult;
 
     const uiType = getUiTypeByStoreTypeId(storeTypeResult.data);
     const insert = {
@@ -514,6 +544,12 @@ export async function updateStore(storeId, updates = {}) {
   if (typeof updates.name === "string") safeUpdates.name = updates.name.trim();
   if (typeof updates.address === "string") safeUpdates.address = updates.address.trim() || null;
   if (typeof updates.websiteUrl === "string") safeUpdates.website_url = updates.websiteUrl.trim() || null;
+  const policyResult = validateStoreContentPolicy({
+    name: safeUpdates.name,
+    address: safeUpdates.address,
+    websiteUrl: safeUpdates.website_url,
+  });
+  if (!policyResult.success) return policyResult;
   if (Number.isFinite(Number(updates.latitude)) && Number.isFinite(Number(updates.longitude))) {
     const lat = Number(updates.latitude);
     const lon = Number(updates.longitude);

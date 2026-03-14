@@ -27,6 +27,7 @@
 
 import { useState, useCallback } from 'react';
 import { compressImage, optimizeCloudinaryUrl } from '@/services/cloudinary';
+import { detectRestrictedContentText } from '@/services/moderation';
 
 /**
  * Validaciones para el archivo
@@ -44,6 +45,9 @@ const CLOUDINARY_MODERATION_PROVIDER = String(
   .map((item) => item.trim())
   .filter(Boolean)
   .join("|");
+const REQUIRE_IMAGE_MODERATION = String(
+  import.meta.env.VITE_REQUIRE_IMAGE_MODERATION || "false",
+).toLowerCase() === "true";
 
 const toFriendlyCloudinaryError = (rawMessage = "", status = "") => {
   const msg = String(rawMessage || "").toLowerCase();
@@ -108,6 +112,15 @@ export const usePhotoUpload = () => {
       return {
         valid: false,
         error: `Archivo muy grande (máx ${sizeMB}MB, tienes ${(file.size / 1024 / 1024).toFixed(1)}MB)`,
+      };
+    }
+
+    const filenameModeration = detectRestrictedContentText(file.name || "");
+    if (filenameModeration.flagged) {
+      return {
+        valid: false,
+        error:
+          "El nombre del archivo sugiere contenido para adultos o gore. Usa una imagen de producto válida.",
       };
     }
 
@@ -185,6 +198,31 @@ export const usePhotoUpload = () => {
               try {
                 const data = JSON.parse(xhr.responseText);
                 const url = optimizeCloudinaryUrl(data.secure_url, { width: 1200 });
+                const metadataText = [
+                  data?.original_filename,
+                  data?.public_id,
+                  ...(Array.isArray(data?.tags) ? data.tags : []),
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                const metadataModeration = detectRestrictedContentText(metadataText);
+                if (metadataModeration.flagged) {
+                  const error =
+                    "La imagen parece no corresponder a contenido de producto (adulto/gore). Selecciona otra imagen.";
+                  setError(error);
+                  setUploading(false);
+                  resolve({ success: false, error });
+                  return;
+                }
+
+                if (REQUIRE_IMAGE_MODERATION && !data?.moderation) {
+                  const error =
+                    "No fue posible validar la seguridad de la imagen. Intenta otra foto o contacta al administrador.";
+                  setError(error);
+                  setUploading(false);
+                  resolve({ success: false, error });
+                  return;
+                }
 
                 setPhotoUrl(url);
                 setProgress(100);

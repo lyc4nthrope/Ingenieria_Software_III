@@ -37,6 +37,33 @@ const HIGH_RISK_IMAGE_KEYWORDS = [
   "violence",
   "blood",
 ];
+const ADULT_GORE_KEYWORDS = [
+  "adult",
+  "adults",
+  "xxx",
+  "porn",
+  "porno",
+  "pornografia",
+  "nsfw",
+  "nude",
+  "nudity",
+  "desnudo",
+  "desnuda",
+  "sex",
+  "sexual",
+  "onlyfans",
+  "escort",
+  "fetish",
+  "gore",
+  "blood",
+  "sangre",
+  "cadaver",
+  "decapitado",
+  "violence",
+  "violento",
+  "violencia",
+  "mutilacion",
+];
 
 const normalizeText = (value = "") =>
   String(value || "")
@@ -152,6 +179,33 @@ export const detectInappropriateText = (text = "") => {
     threshold: MODERATION_SCORE_THRESHOLD,
     matches: mergedMatches,
     strategy: flagged ? "weighted-terms+context+obfuscation" : "safe",
+  };
+};
+
+export const detectRestrictedContentText = (text = "") => {
+  const normalized = collapseRepeatedChars(
+    normalizeText(normalizeLeetspeak(text)),
+  );
+  if (!normalized) {
+    return { flagged: false, score: 0, matches: [], strategy: "empty" };
+  }
+
+  const matches = ADULT_GORE_KEYWORDS.filter((term) => {
+    const pattern = new RegExp(`(^|\\s)${term}(\\s|$)`, "i");
+    return pattern.test(normalized);
+  });
+
+  const score = matches.reduce((acc, term) => {
+    // Penaliza más términos explícitos fuertes.
+    if (["porn", "porno", "xxx", "nsfw", "gore", "decapitado", "mutilacion"].includes(term)) return acc + 2;
+    return acc + 1;
+  }, 0);
+
+  return {
+    flagged: score >= 2 || matches.length >= 1,
+    score,
+    matches,
+    strategy: "adult-gore-keywords",
   };
 };
 
