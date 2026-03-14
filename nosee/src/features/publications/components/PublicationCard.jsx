@@ -27,6 +27,7 @@ import { formatDistanceToNow } from '@/features/publications/utils/dateUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ReportPublicationModal } from '@/features/publications/components/ReportPublicationModal';
 import { optimizeCloudinaryUrl } from '@/services/cloudinary';
+import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 
 const HappyFaceIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -87,6 +88,17 @@ export function PublicationCard({
   // ─── Idioma ─────────────────────────────────────────────────────────────────
   const { t } = useLanguage();
   const tc = t.publicationCard;
+
+  // ─── Lista de compras ───────────────────────────────────────────────────────
+  const addItem = useShoppingListStore((s) => s.addItem);
+  const [addedToList, setAddedToList] = useState(false);
+
+  const handleAddToList = () => {
+    const name = publication.product?.name || tc.unknownProduct;
+    addItem(name, 1);
+    setAddedToList(true);
+    setTimeout(() => setAddedToList(false), 2000);
+  };
 
   // ─── Estados ───────────────────────────────────────────────────────────────
 
@@ -314,6 +326,21 @@ export function PublicationCard({
             onClick={() => setShowReportModal(true)}
           >
             {tc.report}
+          </button>
+
+          <button
+            type="button"
+            aria-label={`${t.shoppingList.addToList}: ${publication.product?.name || tc.unknownProduct}`}
+            style={{
+              ...styles.button,
+              background: addedToList ? 'var(--success-soft)' : 'var(--accent-soft)',
+              color: addedToList ? 'var(--success)' : 'var(--accent)',
+              border: `1px solid ${addedToList ? 'var(--success)' : 'var(--accent)'}`,
+              fontWeight: 700,
+            }}
+            onClick={handleAddToList}
+          >
+            {addedToList ? '✓ Agregado' : t.shoppingList.addToList}
           </button>
 
           <button

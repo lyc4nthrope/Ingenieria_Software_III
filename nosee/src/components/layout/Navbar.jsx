@@ -14,6 +14,7 @@ import {
 } from "@/features/auth/store/authStore";
 import { UserRoleEnum } from "@/types";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useShoppingListStore } from "@/features/shopping-list/store/shoppingListStore";
 
 // Íconos SVG inline (no dependencias externas)
 const HomeIcon = () => (
@@ -107,6 +108,24 @@ const TrophyIcon = () => (
   </svg>
 );
 
+const CartIcon = () => (
+  <svg
+    aria-hidden="true"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="9" cy="21" r="1" />
+    <circle cx="20" cy="21" r="1" />
+    <path d="M1 1h4l2.68 13.39a2 2 0 001.99 1.61h9.72a2 2 0 001.98-1.69l1.38-7.3H6" />
+  </svg>
+);
+
 const MenuIcon = ({ open }) =>
   open ? (
     <svg
@@ -151,6 +170,8 @@ const Navbar = memo(function Navbar() {
   const { logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const cartCount = useShoppingListStore((s) => s.items.length);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -297,6 +318,40 @@ const Navbar = memo(function Navbar() {
             >
               <TrophyIcon />
               <span className="nav-label">{tn.ranking}</span>
+            </Link>
+
+            <Link
+              to="/lista"
+              style={{ ...navLinkStyle(isActive("/lista")), position: "relative" }}
+              aria-current={isActive("/lista") ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label={`${tn.shoppingList}${cartCount > 0 ? ` (${cartCount})` : ""}`}
+            >
+              <CartIcon />
+              <span className="nav-label">{tn.shoppingList}</span>
+              {cartCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    top: "-4px",
+                    right: "-4px",
+                    background: "var(--accent)",
+                    color: "#fff",
+                    borderRadius: "50%",
+                    width: "16px",
+                    height: "16px",
+                    fontSize: "10px",
+                    fontWeight: 800,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    lineHeight: 1,
+                  }}
+                >
+                  {cartCount > 9 ? "9+" : cartCount}
+                </span>
+              )}
             </Link>
 
             {dashboardConfig && (

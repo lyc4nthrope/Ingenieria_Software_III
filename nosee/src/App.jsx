@@ -58,6 +58,15 @@ const StoresPage = lazy(
   () => import("@/features/stores/pages/StoresPage")
 );
 const RankingPage = lazy(() => import("@/pages/RankingPage"));
+const ShoppingListPage = lazy(
+  () => import("@/features/shopping-list/pages/ShoppingListPage")
+);
+const CreateOrderPage = lazy(
+  () => import("@/features/orders/pages/CreateOrderPage")
+);
+const OrderDetailPage = lazy(
+  () => import("@/features/orders/pages/OrderDetailPage")
+);
 
 function NotFoundPage() {
   const { t } = useLanguage();
@@ -195,6 +204,31 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <StoresPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/lista"
+          element={
+            <ProtectedRoute>
+              <ShoppingListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pedido/nuevo"
+          element={
+            <ProtectedRoute>
+              <CreateOrderPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/pedido/:id"
+          element={
+            <ProtectedRoute>
+              <OrderDetailPage />
             </ProtectedRoute>
           }
         />
