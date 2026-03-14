@@ -27,7 +27,10 @@
 
 import { useState, useCallback } from 'react';
 import { compressImage, optimizeCloudinaryUrl } from '@/services/cloudinary';
-import { detectRestrictedContentText } from '@/services/moderation';
+import {
+  analyzeImageFileForRestrictedContent,
+  detectRestrictedContentText,
+} from '@/services/moderation';
 
 /**
  * Validaciones para el archivo
@@ -169,6 +172,14 @@ export const usePhotoUpload = () => {
           import.meta.env.VITE_CLOUDINARY_UPLOAD_FOLDER || 'nosee/publications';
 
         const compressed = await compressImage(file);
+        const pixelModeration = await analyzeImageFileForRestrictedContent(compressed);
+        if (pixelModeration.flagged) {
+          const error =
+            pixelModeration.reason ||
+            "La imagen fue bloqueada por posible contenido para adultos o gore.";
+          setError(error);
+          return { success: false, error };
+        }
 
         const formData = new FormData();
         formData.append('file', compressed);
@@ -215,7 +226,12 @@ export const usePhotoUpload = () => {
                   return;
                 }
 
-                if (REQUIRE_IMAGE_MODERATION && !data?.moderation) {
+                const moderationEvidence = [
+                  ...(Array.isArray(data?.moderation) ? data.moderation : []),
+                  ...(pixelModeration?.evidence ? [pixelModeration.evidence] : []),
+                ];
+
+                if (REQUIRE_IMAGE_MODERATION && moderationEvidence.length === 0) {
                   const error =
                     "No fue posible validar la seguridad de la imagen. Intenta otra foto o contacta al administrador.";
                   setError(error);
@@ -231,7 +247,7 @@ export const usePhotoUpload = () => {
                 resolve({
                   success: true,
                   photoUrl: url,
-                  moderation: data?.moderation || null,
+                  moderation: moderationEvidence,
                   rawCloudinary: data,
                 });
               } catch {

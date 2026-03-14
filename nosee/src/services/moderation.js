@@ -4,6 +4,18 @@ const MODERATION_SCORE_THRESHOLD = Number(
 const IMAGE_CONFIDENCE_THRESHOLD = Number(
   import.meta.env.VITE_IMAGE_MODERATION_CONFIDENCE_THRESHOLD || 0.75,
 );
+const IMAGE_MAX_ANALYSIS_SIDE = Number(
+  import.meta.env.VITE_IMAGE_ANALYSIS_MAX_SIDE || 480,
+);
+const IMAGE_MIN_ANALYSIS_PIXELS = Number(
+  import.meta.env.VITE_IMAGE_MIN_ANALYSIS_PIXELS || 20000,
+);
+const SKIN_RATIO_BLOCK_THRESHOLD = Number(
+  import.meta.env.VITE_IMAGE_SKIN_RATIO_BLOCK || 0.58,
+);
+const BLOOD_RATIO_BLOCK_THRESHOLD = Number(
+  import.meta.env.VITE_IMAGE_BLOOD_RATIO_BLOCK || 0.15,
+);
 
 const OFFENSIVE_TERMS = [
   { term: "hijueputa", weight: 5, category: "insulto_fuerte" },
@@ -87,6 +99,7 @@ const normalizeLeetspeak = (value = "") =>
     .replace(/[^a-z0-9\s]/g, " ");
 
 const collapseRepeatedChars = (value = "") => value.replace(/(.)\1{2,}/g, "$1$1");
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const extractNumbersDeep = (value, acc = []) => {
   if (value === null || value === undefined) return acc;
@@ -269,4 +282,209 @@ export const detectIndecentImageByModeration = (moderation) => {
     threshold: IMAGE_CONFIDENCE_THRESHOLD,
     strategy: "safe",
   };
+};
+
+const loadImageDataFromFile = (file, maxSide = IMAGE_MAX_ANALYSIS_SIDE) =>
+  new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      try {
+        const width = image.naturalWidth || image.width;
+        const height = image.naturalHeight || image.height;
+        if (!width || !height) throw new Error("No fue posible leer la imagen");
+
+        const scale = Math.min(1, maxSide / Math.max(width, height));
+        const targetWidth = Math.max(1, Math.round(width * scale));
+        const targetHeight = Math.max(1, Math.round(height * scale));
+
+        const canvas = document.createElement("canvas");
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+
+        if (!context) throw new Error("No se pudo analizar la imagen");
+        context.drawImage(image, 0, 0, targetWidth, targetHeight);
+        const imageData = context.getImageData(0, 0, targetWidth, targetHeight);
+        resolve({
+          width: targetWidth,
+          height: targetHeight,
+          data: imageData.data,
+        });
+      } catch (error) {
+        reject(error);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("No se pudo decodificar la imagen"));
+    };
+
+    image.src = objectUrl;
+  });
+
+export const analyzeImageFileForRestrictedContent = async (file) => {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return {
+      flagged: false,
+      reason: null,
+      confidence: 0,
+      strategy: "image-analysis-not-available",
+      metrics: null,
+      evidence: null,
+    };
+  }
+
+  try {
+    const image = await loadImageDataFromFile(file);
+    const pixelCount = image.width * image.height;
+    if (pixelCount < IMAGE_MIN_ANALYSIS_PIXELS) {
+      return {
+        flagged: false,
+        reason: null,
+        confidence: 0,
+        strategy: "pixel-analysis-skipped-small-image",
+        metrics: { pixelCount },
+        evidence: {
+          provider: "local_pixel_guard",
+          status: "approved",
+          confidence: 0,
+          metrics: { pixelCount },
+          strategy: "pixel-analysis-skipped-small-image",
+        },
+      };
+    }
+
+    let skinPixels = 0;
+    let bloodPixels = 0;
+    let validPixels = 0;
+
+    for (let i = 0; i < image.data.length; i += 4) {
+      const r = image.data[i];
+      const g = image.data[i + 1];
+      const b = image.data[i + 2];
+      const a = image.data[i + 3];
+      if (a < 20) continue;
+
+      validPixels += 1;
+
+      // Detección aproximada de tono piel (RGB rule-based).
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const isSkinTone =
+        r > 95 &&
+        g > 40 &&
+        b > 20 &&
+        max - min > 15 &&
+        Math.abs(r - g) > 15 &&
+        r > g &&
+        r > b;
+      if (isSkinTone) skinPixels += 1;
+
+      // Detección aproximada de rojo intenso / sangre.
+      const redDominance = r / (r + g + b + 1);
+      const isBloodLike =
+        ((r > 120 && g < 110 && b < 110) || (r > 75 && g < 75 && b < 75)) &&
+        redDominance > 0.52 &&
+        r - g > 35 &&
+        r - b > 35;
+      if (isBloodLike) bloodPixels += 1;
+    }
+
+    if (!validPixels) {
+      return {
+        flagged: false,
+        reason: null,
+        confidence: 0,
+        strategy: "pixel-analysis-empty",
+        metrics: { validPixels: 0, pixelCount },
+        evidence: {
+          provider: "local_pixel_guard",
+          status: "approved",
+          confidence: 0,
+          metrics: { validPixels: 0, pixelCount },
+          strategy: "pixel-analysis-empty",
+        },
+      };
+    }
+
+    const skinRatio = skinPixels / validPixels;
+    const bloodRatio = bloodPixels / validPixels;
+
+    const adultScore = clamp(
+      (skinRatio - SKIN_RATIO_BLOCK_THRESHOLD * 0.7) /
+        (SKIN_RATIO_BLOCK_THRESHOLD * 0.3 || 1),
+      0,
+      1,
+    );
+    const goreScore = clamp(
+      (bloodRatio - BLOOD_RATIO_BLOCK_THRESHOLD * 0.65) /
+        (BLOOD_RATIO_BLOCK_THRESHOLD * 0.35 || 1),
+      0,
+      1,
+    );
+
+    const flaggedAdult = skinRatio >= SKIN_RATIO_BLOCK_THRESHOLD;
+    const flaggedGore = bloodRatio >= BLOOD_RATIO_BLOCK_THRESHOLD;
+    const flagged = flaggedAdult || flaggedGore;
+
+    const labels = [];
+    if (flaggedAdult) labels.push("adult");
+    if (flaggedGore) labels.push("gore");
+
+    const confidence = Number(Math.max(adultScore, goreScore).toFixed(3));
+    const reason = flagged
+      ? flaggedAdult && flaggedGore
+        ? "La imagen parece contener desnudez explícita y señales de gore."
+        : flaggedAdult
+          ? "La imagen parece contener desnudez o exposición corporal explícita."
+          : "La imagen parece contener señales visuales de gore/sangre explícita."
+      : null;
+
+    const metrics = {
+      skinRatio: Number(skinRatio.toFixed(4)),
+      bloodRatio: Number(bloodRatio.toFixed(4)),
+      validPixels,
+      pixelCount,
+      thresholds: {
+        skinRatioBlock: SKIN_RATIO_BLOCK_THRESHOLD,
+        bloodRatioBlock: BLOOD_RATIO_BLOCK_THRESHOLD,
+      },
+    };
+
+    return {
+      flagged,
+      reason,
+      confidence,
+      strategy: "local-pixel-safety-guard",
+      labels,
+      metrics,
+      evidence: {
+        provider: "local_pixel_guard",
+        status: flagged ? "rejected" : "approved",
+        confidence,
+        labels,
+        metrics,
+        strategy: "local-pixel-safety-guard",
+      },
+    };
+  } catch {
+    return {
+      flagged: false,
+      reason: null,
+      confidence: 0,
+      strategy: "pixel-analysis-error-safe-fallback",
+      metrics: null,
+      evidence: {
+        provider: "local_pixel_guard",
+        status: "unknown",
+        confidence: 0,
+        strategy: "pixel-analysis-error-safe-fallback",
+      },
+    };
+  }
 };
