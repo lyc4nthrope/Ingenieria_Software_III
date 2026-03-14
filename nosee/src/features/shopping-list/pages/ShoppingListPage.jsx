@@ -292,20 +292,28 @@ export default function ShoppingListPage() {
       <style>{`
         .lista-grid {
           display: grid;
-          grid-template-columns: minmax(260px, 420px) 1fr;
+          grid-template-columns: 1fr 1fr;
           gap: 20px;
           align-items: start;
         }
         @media (max-width: 700px) {
           .lista-grid { grid-template-columns: 1fr; }
         }
-        .lista-carousel::-webkit-scrollbar { display: none; }
       `}</style>
 
-      {/* Cabecera */}
+      {/* Cabecera centrada */}
       <div style={page.header}>
-        <h1 style={page.title}>🛒 {ts.title}</h1>
-        {items.length > 0 && <span style={page.badge}>{items.length}</span>}
+        <h1 style={page.title}>
+          {hasOrders ? '🛒 Lista & Pedidos' : '🛒 Mi Lista de Compras'}
+        </h1>
+        <p style={page.subtitle}>
+          {hasOrders
+            ? 'Gestiona tus productos pendientes y revisa el historial de tus pedidos'
+            : ts.subtitle}
+        </p>
+        {items.length > 0 && (
+          <span style={page.badge}>{items.length} {items.length === 1 ? 'producto' : 'productos'} en lista</span>
+        )}
       </div>
 
       {hasOrders ? (
@@ -345,12 +353,18 @@ export default function ShoppingListPage() {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const page = {
-  root: { flex: 1, padding: '20px', maxWidth: '1160px', margin: '0 auto', width: '100%' },
-  header: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' },
-  title: { fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 },
+  root: { flex: 1, padding: '24px 20px', width: '100%' },
+  header: {
+    textAlign: 'center', marginBottom: '24px',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+  },
+  title: { fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 },
+  subtitle: { fontSize: '13px', color: 'var(--text-muted)', margin: 0 },
   badge: {
-    background: 'var(--accent)', color: '#fff', borderRadius: '999px',
-    fontSize: '11px', fontWeight: 700, padding: '2px 8px', textAlign: 'center',
+    background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
+    border: '1px solid var(--border)',
+    borderRadius: '999px', fontSize: '12px', fontWeight: 600,
+    padding: '3px 12px', textAlign: 'center',
   },
   solo: { maxWidth: '480px', margin: '0 auto', width: '100%' },
 };
