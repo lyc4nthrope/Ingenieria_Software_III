@@ -9,7 +9,6 @@
  */
 import { useState, useEffect } from 'react';
 import { changeUserRole, getAdminReports, getAllUsers, updateReportReview, updateUserStatus } from '@/services/api/users.api';
-import { deletePublication } from '@/services/api/publications.api';
 import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
@@ -96,6 +95,36 @@ const REPORT_REASON_LABELS = {
   spam: 'Spam',
   offensive: 'Ofensivo',
   other: 'Otro',
+};
+
+const REPORT_TARGET_LABELS = {
+  publication: 'Publicación',
+  user: 'Usuario',
+  store: 'Tienda',
+  product: 'Producto',
+  brand: 'Marca',
+  comment: 'Comentario',
+};
+
+const getReportTargetTypeLabel = (type) => REPORT_TARGET_LABELS[String(type || '').toLowerCase()] || 'Otro';
+
+const getReportTargetDisplay = (report) => {
+  const type = String(report?.reported_type || '').toLowerCase();
+  const target = report?.target;
+  if (!target) return `ID: ${report?.reported_id || 'N/A'}`;
+
+  if (type === 'publication') {
+    const product = target?.product?.name || 'Publicación';
+    const store = target?.store?.name ? ` • ${target.store.name}` : '';
+    return `${product}${store}`;
+  }
+  if (type === 'user') return target?.full_name || report?.reported?.full_name || `Usuario ${report?.reported_id || ''}`;
+  if (type === 'store') return target?.name || `Tienda ${report?.reported_id || ''}`;
+  if (type === 'product') return target?.name || `Producto ${report?.reported_id || ''}`;
+  if (type === 'brand') return target?.name || `Marca ${report?.reported_id || ''}`;
+  if (type === 'comment') return target?.content ? `“${target.content}”` : `Comentario ${report?.reported_id || ''}`;
+
+  return `ID: ${report?.reported_id || 'N/A'}`;
 };
 
 const formatPublicationSummary = (publication) => {
@@ -361,6 +390,7 @@ export default function AdminDashboard() {
           product:products (id, name, barcode, base_quantity, brand:brands(id, name), unit_type:unit_types (id, name, abbreviation)),
           store:stores!price_publications_store_id_fkey (id, name, address)
         `)
+        .eq('is_admin_hidden', false)
         .order('created_at', { ascending: false })
         .limit(300);
       if (!error) setPublications((data || []).map(normalizePublicationForAdmin));
@@ -383,21 +413,21 @@ export default function AdminDashboard() {
 
     if (!pubId) return;
 
-    let action = 'delete';
+    let action = 'hide_full';
 
     if (isActive) {
       const decision = window.prompt(
-        'La publicación está activa. Escribe "ocultar" para ocultarla o "eliminar" para borrarla permanentemente.',
+        'La publicación está activa. Escribe "ocultar" para ocultarla del público o "ocultar completo" para ocultarla también del panel de administrador.',
       );
       if (decision === null) return;
       const normalizedDecision = String(decision).trim().toLowerCase();
       if (normalizedDecision === 'ocultar') action = 'hide';
-      else if (normalizedDecision === 'eliminar') action = 'delete';
+      else if (normalizedDecision === 'ocultar completo' || normalizedDecision === 'ocultar_completo' || normalizedDecision === 'eliminar') action = 'hide_full';
       else {
-        alert('Opción inválida. Debes escribir "ocultar" o "eliminar".');
+        alert('Opción inválida. Debes escribir "ocultar" o "ocultar completo".');
         return;
       }
-    } else if (!window.confirm('Esta publicación ya está oculta y se eliminará permanentemente. ¿Deseas continuar?')) {
+    } else if (!window.confirm('Esta publicación ya está oculta. Si continúas, se ocultará completamente y dejará de verse también en el panel de administrador. ¿Deseas continuar?')) {
       return;
     }
 
@@ -423,15 +453,28 @@ export default function AdminDashboard() {
         return;
       }
 
-      const result = await deletePublication(pubId, { permanent: true });
-      if (result.success) {
-        setPublications(prev => prev.filter(p => p.id !== pubId));
-        setReports(prev => prev.filter(r => r.publicationId !== pubId));
-        setSelectedPub((prev) => (prev?.id === pubId ? null : prev));
-        setStats(prev => ({ ...prev, pubs: Math.max(0, (prev.pubs || 1) - 1) }));
-      } else {
-        alert(td.errorDeletePub(result.error || td.errorDeletePubGeneric));
+      const { data: authData } = await supabase.auth.getUser();
+      const actorId = authData?.user?.id || null;
+
+      const { error } = await supabase
+        .from('price_publications')
+        .update({
+          is_active: false,
+          is_admin_hidden: true,
+          hidden_admin_at: new Date().toISOString(),
+          hidden_admin_by: actorId,
+          hidden_admin_reason: 'Ocultada completamente desde panel admin',
+        })
+        .eq('id', pubId);
+
+      if (error) {
+        alert(td.errorDeletePub(error.message || td.errorDeletePubGeneric));
+        return;
       }
+
+      // Ocultación completa: sacar de la vista actual del admin
+      setPublications((prev) => prev.filter((p) => p.id !== pubId));
+      setSelectedPub((prev) => (prev?.id === pubId ? null : prev));
     } catch {
       alert(td.errorDeletePubGeneric);
     } finally {
@@ -469,11 +512,13 @@ export default function AdminDashboard() {
         supabase
           .from('stores')
           .select('id, name, address, website_url, store_type_id, created_by, created_at')
+          .eq('is_admin_hidden', false)
           .order('name', { ascending: true })
           .limit(10000),
         supabase
           .from('products')
           .select('id, name, barcode, base_quantity, created_at, brand:brands(id, name), unit:unit_types(id, name, abbreviation)')
+          .eq('is_admin_hidden', false)
           .order('name', { ascending: true })
           .limit(10000),
       ]);
@@ -529,27 +574,33 @@ export default function AdminDashboard() {
     const storeId = publication?.storeId || publication?.store?.id || publication?.store_id || publication?.id;
     const storeName = publication?.storeName || publication?.store?.name || publication?.name || 'esta tienda';
     if (!storeId) return;
-    if (!window.confirm(`¿Seguro que deseas eliminar "${storeName}"?`)) return;
+    if (!window.confirm(`¿Seguro que deseas ocultar "${storeName}"?`)) return;
 
     setDeletingStoreId(storeId);
     try {
+      const { data: authData } = await supabase.auth.getUser();
+      const actorId = authData?.user?.id || null;
       const { error } = await supabase
         .from('stores')
-        .delete()
+        .update({
+          is_admin_hidden: true,
+          hidden_admin_at: new Date().toISOString(),
+          hidden_admin_by: actorId,
+          hidden_admin_reason: 'Ocultado desde panel admin',
+          is_active: false,
+        })
         .eq('id', storeId);
 
       if (error) {
-        alert(`No se pudo eliminar la tienda: ${error.message}`);
+        alert(`No se pudo ocultar la tienda: ${error.message}`);
         return;
       }
 
-      setPublications((prev) => prev.filter((p) => (p.storeId || p.store?.id || p.store_id) !== storeId));
       setUnpublishedResources((prev) => ({
         ...prev,
         stores: prev.stores.filter((s) => s.id !== storeId),
       }));
       setSelectedStore((prev) => (prev?.id === storeId ? null : prev));
-      setSelectedPub((prev) => ((prev?.storeId || prev?.store?.id || prev?.store_id) === storeId ? null : prev));
     } finally {
       setDeletingStoreId(null);
     }
@@ -593,17 +644,25 @@ export default function AdminDashboard() {
       alert('Este producto no tiene marca asociada');
       return;
     }
-    if (!window.confirm(`¿Seguro que deseas eliminar la marca "${brandName}"?`)) return;
+    if (!window.confirm(`¿Seguro que deseas ocultar la marca "${brandName}"?`)) return;
 
     setDeletingBrandId(brandId);
     try {
+      const { data: authData } = await supabase.auth.getUser();
+      const actorId = authData?.user?.id || null;
       const { error } = await supabase
         .from('brands')
-        .delete()
+        .update({
+          is_admin_hidden: true,
+          hidden_admin_at: new Date().toISOString(),
+          hidden_admin_by: actorId,
+          hidden_admin_reason: 'Ocultado desde panel admin',
+          is_active: false,
+        })
         .eq('id', brandId);
 
       if (error) {
-        alert(`No se pudo eliminar la marca: ${error.message}`);
+        alert(`No se pudo ocultar la marca: ${error.message}`);
         return;
       }
 
@@ -626,17 +685,25 @@ export default function AdminDashboard() {
     const productId = product?.productId || product?.id;
     const productName = product?.productName || product?.name || 'este producto';
     if (!productId) return;
-    if (!window.confirm(`¿Seguro que deseas eliminar "${productName}"?`)) return;
+    if (!window.confirm(`¿Seguro que deseas ocultar "${productName}"?`)) return;
 
     setDeletingProductId(productId);
     try {
+      const { data: authData } = await supabase.auth.getUser();
+      const actorId = authData?.user?.id || null;
       const { error } = await supabase
         .from('products')
-        .delete()
+        .update({
+          is_admin_hidden: true,
+          hidden_admin_at: new Date().toISOString(),
+          hidden_admin_by: actorId,
+          hidden_admin_reason: 'Ocultado desde panel admin',
+          is_active: false,
+        })
         .eq('id', productId);
 
       if (error) {
-        alert(`No se pudo eliminar el producto: ${error.message}`);
+        alert(`No se pudo ocultar el producto: ${error.message}`);
         return;
       }
 
@@ -661,7 +728,11 @@ export default function AdminDashboard() {
       }
 
       setReports((result.data || []).map((report) => {
-        const publicationSummary = formatPublicationSummary(report.publication);
+        const publicationSummary = String(report.reported_type || '').toLowerCase() === 'publication'
+          ? formatPublicationSummary(report.target)
+          : null;
+        const reportedType = String(report.reported_type || '').toLowerCase();
+        const parsedPublicationId = reportedType === 'publication' ? Number(report.reported_id) : null;
         return {
           id: report.id,
           status: normalizeReportStatus(report.status),
@@ -675,11 +746,15 @@ export default function AdminDashboard() {
           modNotes: report.mod_notes,
           actionTaken: report.action_taken,
           reviewer: report.reviewer?.full_name || null,
-          post: report.publication?.product?.name || null,
+          post: getReportTargetDisplay(report),
           reporter: report.reporter?.full_name || null,
           reported: report.reported?.full_name || null,
-          publicationId: report.publication_id,
+          publicationId: Number.isFinite(parsedPublicationId) ? parsedPublicationId : null,
           reportedUserId: report.reported_user_id,
+          reportedType,
+          reportedId: report.reported_id,
+          targetLabel: getReportTargetTypeLabel(report.reported_type),
+          target: report.target || null,
           publicationSummary,
         };
       }));
@@ -725,16 +800,45 @@ export default function AdminDashboard() {
   };
 
   const handleQuickAction = async (report, action) => {
-    if (action === 'delete' && report.publicationId) {
-      const result = await deletePublication(report.publicationId, { permanent: true });
-      if (!result.success) {
-        alert(td.errorDeletePub(result.error || td.errorDeletePubGeneric));
+    if (action === 'hide') {
+      const type = String(report.reportedType || '').toLowerCase();
+      const entityIdRaw = report.reportedId;
+      const { data: authData } = await supabase.auth.getUser();
+      const actorId = authData?.user?.id || null;
+
+      const hidePayload = {
+        is_active: false,
+        is_admin_hidden: true,
+        hidden_admin_at: new Date().toISOString(),
+        hidden_admin_by: actorId,
+        hidden_admin_reason: `Ocultado desde Reportes (reporte ${report.id})`,
+      };
+
+      let hideError = null;
+      if (type === 'publication' && Number.isFinite(Number(entityIdRaw))) {
+        const { error } = await supabase.from('price_publications').update(hidePayload).eq('id', Number(entityIdRaw));
+        hideError = error;
+      } else if (type === 'store') {
+        const { error } = await supabase.from('stores').update(hidePayload).eq('id', entityIdRaw);
+        hideError = error;
+      } else if (type === 'product' && Number.isFinite(Number(entityIdRaw))) {
+        const { error } = await supabase.from('products').update(hidePayload).eq('id', Number(entityIdRaw));
+        hideError = error;
+      } else if (type === 'brand' && Number.isFinite(Number(entityIdRaw))) {
+        const { error } = await supabase.from('brands').update(hidePayload).eq('id', Number(entityIdRaw));
+        hideError = error;
+      } else if (type === 'comment') {
+        const { error } = await supabase.from('comments').update({ is_deleted: true }).eq('id', entityIdRaw);
+        hideError = error;
+      } else {
+        alert(`No hay acción de ocultado para el tipo "${type || 'desconocido'}".`);
         return;
       }
 
-      setPublications(prev => prev.filter((p) => p.id !== report.publicationId));
-      setReports(prev => prev.filter((item) => item.publicationId !== report.publicationId));
-      return;
+      if (hideError) {
+        alert(`No se pudo ocultar el contenido reportado: ${hideError.message}`);
+        return;
+      }
     }
     if (action === 'ban' && report.reportedUserId) {
       await supabase.from('users').update({ is_active: false }).eq('id', report.reportedUserId);
@@ -1367,7 +1471,7 @@ function PublicationsTable({
                   onClick={() => onDeleteBrand(p)}
                   disabled={deletingBrandId === (p.brandId || p.product?.brand?.id)}
                 >
-                  {deletingBrandId === (p.brandId || p.product?.brand?.id) ? '...' : 'Eliminar'}
+                  {deletingBrandId === (p.brandId || p.product?.brand?.id) ? '...' : 'Ocultar'}
                 </button>
               </div>
             </div>
@@ -1387,7 +1491,7 @@ function PublicationsTable({
                   onClick={() => onDeleteStore(p)}
                   disabled={deletingStoreId === (p.storeId || p.store?.id || p.store_id)}
                 >
-                  {deletingStoreId === (p.storeId || p.store?.id || p.store_id) ? '...' : 'Eliminar'}
+                  {deletingStoreId === (p.storeId || p.store?.id || p.store_id) ? '...' : 'Ocultar'}
                 </button>
               </div>
             </div>
@@ -1582,7 +1686,8 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
   const sev = SEVERITY_COLORS[report.severity] || SEVERITY_COLORS.baja;
   const typeLabel = td.reportTypes?.[report.rawType] || report.rawType;
   const severityLabel = td.severityLabels?.[report.severity] || report.severity?.toUpperCase();
-   const statusLabel = td.statusLabels?.[normalizeReportStatus(report.status)] || report.status;
+  const statusLabel = td.statusLabels?.[normalizeReportStatus(report.status)] || report.status;
+  const canHideTarget = ['publication', 'store', 'product', 'brand', 'comment'].includes(String(report.reportedType || '').toLowerCase());
   return (
     <article style={s.reportCard}>
       <div style={s.reportTop} className="admin-report-top">
@@ -1595,9 +1700,11 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
       </div>
       <div className="admin-report-info-rows" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {[
-          [td.labelPublication,   `"${report.post ?? td.deletedPub}"`],
+          ['Tipo reportado', report.targetLabel || getReportTargetTypeLabel(report.reportedType)],
+          ['Elemento reportado', `"${report.post ?? td.deletedPub}"`],
           [td.labelReportedBy,    report.reporter ?? td.anonymous],
           [td.labelReportedUser,  report.reported ?? td.unknown],
+          ['ID elemento', report.reportedId || '—'],
         ].map(([label, value]) => (
           <div key={label} style={{ display: 'flex', gap: 12, fontSize: 14 }}>
             <span style={{ color: MUTED, width: 150, flexShrink: 0 }}>{label}</span>
@@ -1630,12 +1737,16 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
         <button style={s.filterBtn} onClick={onOpenDetails} title={td.viewReportDetailBtn}>{td.viewReportDetailBtn}</button>
         {showActions && (
           <>
-            <button style={s.btnDelete} onClick={() => onResolve(report, 'delete')} title={td.deletePublicationBtn}>
-              {td.deletePublicationBtn}
-            </button>
-            <button style={s.btnBan} onClick={() => onResolve(report, 'ban')} title={td.banUserBtn}>
-              {td.banUserBtn}
-            </button>
+            {canHideTarget && (
+              <button style={s.btnDelete} onClick={() => onResolve(report, 'hide')} title="Ocultar contenido reportado">
+                Ocultar contenido
+              </button>
+            )}
+            {report.reportedUserId && (
+              <button style={s.btnBan} onClick={() => onResolve(report, 'ban')} title={td.banUserBtn}>
+                {td.banUserBtn}
+              </button>
+            )}
             <button style={s.btnDismiss} onClick={() => onResolve(report, 'reject')} title={td.dismissBtn}>
               {td.dismissBtn}
             </button>
@@ -1657,7 +1768,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
   const [pub, setPub] = useState(report.publicationSummary || null);
   const [pubDeleted, setPubDeleted] = useState(false);
 
-  // Si no hay publicationSummary (publicación eliminada o inactiva), intentar fetch directo
+  // Si no hay publicationSummary (publicación oculta/inactiva), intentar fetch directo
   useEffect(() => {
     if (pub || !report.publicationId) return;
     supabase
@@ -1765,7 +1876,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
               </div>
             ) : (
               <p style={{ margin: 0, fontSize: 13, color: MUTED }}>
-                La publicación fue eliminada permanentemente. ID: {report.publicationId}
+                La publicación fue ocultada completamente. ID: {report.publicationId}
               </p>
             )}
           </div>
@@ -1806,7 +1917,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
           <textarea
             value={actionTaken}
             onChange={(e) => setActionTaken(e.target.value)}
-            placeholder="Ej: Publicación eliminada, usuario advertido..."
+            placeholder="Ej: Contenido ocultado, usuario advertido..."
             style={s.modalTextarea}
             rows={3}
           />
@@ -1861,7 +1972,7 @@ function StoreDetailModal({ store, onClose, onDelete, isDeleting }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
-            {isDeleting ? 'Eliminando...' : 'Eliminar tienda'}
+            {isDeleting ? 'Ocultando...' : 'Ocultar tienda'}
           </button>
           <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
         </div>
@@ -1890,7 +2001,7 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
-            {isDeleting ? 'Eliminando...' : 'Eliminar marca'}
+            {isDeleting ? 'Ocultando...' : 'Ocultar marca'}
           </button>
           <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
         </div>
@@ -1925,7 +2036,7 @@ function ProductDetailModal({ product, onClose, onDelete, isDeleting }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
-            {isDeleting ? 'Eliminando...' : 'Eliminar producto'}
+            {isDeleting ? 'Ocultando...' : 'Ocultar producto'}
           </button>
           <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
         </div>
@@ -1977,7 +2088,7 @@ function UnpublishedResourcesTable({
                   onClick={() => onDeleteStore(store)}
                   disabled={deletingStoreId === store.id}
                 >
-                  {deletingStoreId === store.id ? '...' : 'Eliminar'}
+                  {deletingStoreId === store.id ? '...' : 'Ocultar'}
                 </button>
               </div>
             </div>
@@ -2012,7 +2123,7 @@ function UnpublishedResourcesTable({
                   onClick={() => onDeleteProduct(product)}
                   disabled={deletingProductId === product.id}
                 >
-                  {deletingProductId === product.id ? '...' : 'Eliminar'}
+                  {deletingProductId === product.id ? '...' : 'Ocultar'}
                 </button>
               </div>
             </div>
