@@ -469,11 +469,13 @@ export default function AdminDashboard() {
         supabase
           .from('stores')
           .select('id, name, address, website_url, store_type_id, created_by, created_at')
+          .eq('is_admin_hidden', false)
           .order('name', { ascending: true })
           .limit(10000),
         supabase
           .from('products')
           .select('id, name, barcode, base_quantity, created_at, brand:brands(id, name), unit:unit_types(id, name, abbreviation)')
+          .eq('is_admin_hidden', false)
           .order('name', { ascending: true })
           .limit(10000),
       ]);
@@ -529,27 +531,33 @@ export default function AdminDashboard() {
     const storeId = publication?.storeId || publication?.store?.id || publication?.store_id || publication?.id;
     const storeName = publication?.storeName || publication?.store?.name || publication?.name || 'esta tienda';
     if (!storeId) return;
-    if (!window.confirm(`¿Seguro que deseas eliminar "${storeName}"?`)) return;
+    if (!window.confirm(`¿Seguro que deseas ocultar "${storeName}"?`)) return;
 
     setDeletingStoreId(storeId);
     try {
+      const { data: authData } = await supabase.auth.getUser();
+      const actorId = authData?.user?.id || null;
       const { error } = await supabase
         .from('stores')
-        .delete()
+        .update({
+          is_admin_hidden: true,
+          hidden_admin_at: new Date().toISOString(),
+          hidden_admin_by: actorId,
+          hidden_admin_reason: 'Ocultado desde panel admin',
+          is_active: false,
+        })
         .eq('id', storeId);
 
       if (error) {
-        alert(`No se pudo eliminar la tienda: ${error.message}`);
+        alert(`No se pudo ocultar la tienda: ${error.message}`);
         return;
       }
 
-      setPublications((prev) => prev.filter((p) => (p.storeId || p.store?.id || p.store_id) !== storeId));
       setUnpublishedResources((prev) => ({
         ...prev,
         stores: prev.stores.filter((s) => s.id !== storeId),
       }));
       setSelectedStore((prev) => (prev?.id === storeId ? null : prev));
-      setSelectedPub((prev) => ((prev?.storeId || prev?.store?.id || prev?.store_id) === storeId ? null : prev));
     } finally {
       setDeletingStoreId(null);
     }
@@ -593,17 +601,25 @@ export default function AdminDashboard() {
       alert('Este producto no tiene marca asociada');
       return;
     }
-    if (!window.confirm(`¿Seguro que deseas eliminar la marca "${brandName}"?`)) return;
+    if (!window.confirm(`¿Seguro que deseas ocultar la marca "${brandName}"?`)) return;
 
     setDeletingBrandId(brandId);
     try {
+      const { data: authData } = await supabase.auth.getUser();
+      const actorId = authData?.user?.id || null;
       const { error } = await supabase
         .from('brands')
-        .delete()
+        .update({
+          is_admin_hidden: true,
+          hidden_admin_at: new Date().toISOString(),
+          hidden_admin_by: actorId,
+          hidden_admin_reason: 'Ocultado desde panel admin',
+          is_active: false,
+        })
         .eq('id', brandId);
 
       if (error) {
-        alert(`No se pudo eliminar la marca: ${error.message}`);
+        alert(`No se pudo ocultar la marca: ${error.message}`);
         return;
       }
 
@@ -626,17 +642,25 @@ export default function AdminDashboard() {
     const productId = product?.productId || product?.id;
     const productName = product?.productName || product?.name || 'este producto';
     if (!productId) return;
-    if (!window.confirm(`¿Seguro que deseas eliminar "${productName}"?`)) return;
+    if (!window.confirm(`¿Seguro que deseas ocultar "${productName}"?`)) return;
 
     setDeletingProductId(productId);
     try {
+      const { data: authData } = await supabase.auth.getUser();
+      const actorId = authData?.user?.id || null;
       const { error } = await supabase
         .from('products')
-        .delete()
+        .update({
+          is_admin_hidden: true,
+          hidden_admin_at: new Date().toISOString(),
+          hidden_admin_by: actorId,
+          hidden_admin_reason: 'Ocultado desde panel admin',
+          is_active: false,
+        })
         .eq('id', productId);
 
       if (error) {
-        alert(`No se pudo eliminar el producto: ${error.message}`);
+        alert(`No se pudo ocultar el producto: ${error.message}`);
         return;
       }
 
@@ -1367,7 +1391,7 @@ function PublicationsTable({
                   onClick={() => onDeleteBrand(p)}
                   disabled={deletingBrandId === (p.brandId || p.product?.brand?.id)}
                 >
-                  {deletingBrandId === (p.brandId || p.product?.brand?.id) ? '...' : 'Eliminar'}
+                  {deletingBrandId === (p.brandId || p.product?.brand?.id) ? '...' : 'Ocultar'}
                 </button>
               </div>
             </div>
@@ -1387,7 +1411,7 @@ function PublicationsTable({
                   onClick={() => onDeleteStore(p)}
                   disabled={deletingStoreId === (p.storeId || p.store?.id || p.store_id)}
                 >
-                  {deletingStoreId === (p.storeId || p.store?.id || p.store_id) ? '...' : 'Eliminar'}
+                  {deletingStoreId === (p.storeId || p.store?.id || p.store_id) ? '...' : 'Ocultar'}
                 </button>
               </div>
             </div>
@@ -1861,7 +1885,7 @@ function StoreDetailModal({ store, onClose, onDelete, isDeleting }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
-            {isDeleting ? 'Eliminando...' : 'Eliminar tienda'}
+            {isDeleting ? 'Ocultando...' : 'Ocultar tienda'}
           </button>
           <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
         </div>
@@ -1890,7 +1914,7 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
-            {isDeleting ? 'Eliminando...' : 'Eliminar marca'}
+            {isDeleting ? 'Ocultando...' : 'Ocultar marca'}
           </button>
           <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
         </div>
@@ -1925,7 +1949,7 @@ function ProductDetailModal({ product, onClose, onDelete, isDeleting }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
-            {isDeleting ? 'Eliminando...' : 'Eliminar producto'}
+            {isDeleting ? 'Ocultando...' : 'Ocultar producto'}
           </button>
           <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
         </div>
@@ -1977,7 +2001,7 @@ function UnpublishedResourcesTable({
                   onClick={() => onDeleteStore(store)}
                   disabled={deletingStoreId === store.id}
                 >
-                  {deletingStoreId === store.id ? '...' : 'Eliminar'}
+                  {deletingStoreId === store.id ? '...' : 'Ocultar'}
                 </button>
               </div>
             </div>
@@ -2012,7 +2036,7 @@ function UnpublishedResourcesTable({
                   onClick={() => onDeleteProduct(product)}
                   disabled={deletingProductId === product.id}
                 >
-                  {deletingProductId === product.id ? '...' : 'Eliminar'}
+                  {deletingProductId === product.id ? '...' : 'Ocultar'}
                 </button>
               </div>
             </div>
