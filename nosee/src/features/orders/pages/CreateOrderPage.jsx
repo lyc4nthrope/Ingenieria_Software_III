@@ -18,12 +18,11 @@ import PublicationDetailModal from '@/features/publications/components/Publicati
 // ─── Radios disponibles ───────────────────────────────────────────────────────
 const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
 
-// ─── Algoritmo greedy ─────────────────────────────────────────────────────────
-// Para cada ítem de la lista, toma la publicación más barata disponible.
-// Agrupa el resultado por tienda para mostrar el desglose.
-function runGreedyOptimization(itemResults) {
-  // itemResults: Array<{ item, publications: Array }>
-  const storeMap = {}; // storeId → { store, products: [] }
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Construye storeMap y calcula métricas comunes a todas las estrategias */
+function buildResult(assignments, itemResults) {
+  const storeMap = {};
   const noResultItems = [];
 
   for (const { item, publications } of itemResults) {
@@ -31,19 +30,19 @@ function runGreedyOptimization(itemResults) {
       noResultItems.push(item);
       continue;
     }
-    // Ordenar por precio ascendente y tomar la primera
-    const sorted = [...publications].sort((a, b) => (a.price || 0) - (b.price || 0));
-    const best = sorted[0];
-    const storeId = best.store?.id ?? 'unknown';
-
-    if (!storeMap[storeId]) {
-      storeMap[storeId] = { store: best.store, products: [] };
+    const chosen = assignments[item.id];
+    if (!chosen) {
+      noResultItems.push(item);
+      continue;
     }
+    const storeId = chosen.store?.id ?? 'unknown';
+    if (!storeMap[storeId]) storeMap[storeId] = { store: chosen.store, products: [] };
+    const sorted = [...publications].sort((a, b) => (a.price || 0) - (b.price || 0));
     storeMap[storeId].products.push({
       item,
-      publication: best,
-      price: best.price,
-      allOptions: sorted.slice(0, 3), // top 3 alternativas
+      publication: chosen,
+      price: chosen.price,
+      allOptions: sorted.slice(0, 3),
     });
   }
 
@@ -52,18 +51,112 @@ function runGreedyOptimization(itemResults) {
     (sum, s) => sum + s.products.reduce((ps, p) => ps + (p.price || 0) * p.item.quantity, 0),
     0
   );
-
-  // Costo si compraras todo en la tienda más cara (referencia para calcular ahorro)
   const worstCost = itemResults.reduce((sum, { publications }) => {
     if (!publications || publications.length === 0) return sum;
     const sorted = [...publications].sort((a, b) => (b.price || 0) - (a.price || 0));
     return sum + (sorted[0]?.price || 0);
   }, 0);
-
   const savings = Math.max(0, worstCost - totalCost);
   const savingsPct = worstCost > 0 ? Math.round((savings / worstCost) * 100) : 0;
 
   return { stores, totalCost, savings, savingsPct, noResultItems };
+}
+
+// ─── Estrategia 1: Precio más bajo ────────────────────────────────────────────
+// Para cada ítem elige la publicación más barata sin importar tienda.
+function optimizeByPrice(itemResults) {
+  const assignments = {};
+  for (const { item, publications } of itemResults) {
+    if (!publications?.length) continue;
+    const sorted = [...publications].sort((a, b) => (a.price || 0) - (b.price || 0));
+    assignments[item.id] = sorted[0];
+  }
+  return buildResult(assignments, itemResults);
+}
+
+// ─── Estrategia 2: Menos tiendas ──────────────────────────────────────────────
+// Concentra las compras en el mínimo de tiendas posible.
+// Algoritmo: elige la tienda que cubre más ítems pendientes → asigna todos sus
+// ítems. Repite hasta cubrir todos.
+function optimizeByFewestStores(itemResults) {
+  const assignments = {};
+  const pending = new Set(itemResults.map(({ item }) => item.id));
+
+  // Índice: storeId → { store, items con esa tienda disponible, precio mínimo por item }
+  const storeIndex = {};
+  for (const { item, publications } of itemResults) {
+    if (!publications?.length) continue;
+    const sortedByPrice = [...publications].sort((a, b) => (a.price || 0) - (b.price || 0));
+    for (const pub of sortedByPrice) {
+      const sid = pub.store?.id ?? 'unknown';
+      if (!storeIndex[sid]) storeIndex[sid] = { store: pub.store, coverage: {} };
+      // Registra el mejor precio de esta tienda para este ítem
+      if (!storeIndex[sid].coverage[item.id]) {
+        storeIndex[sid].coverage[item.id] = pub;
+      }
+    }
+  }
+
+  while (pending.size > 0) {
+    // Tienda con mayor cobertura de ítems pendientes
+    let bestStore = null;
+    let bestCount = 0;
+    for (const [sid, data] of Object.entries(storeIndex)) {
+      const count = Object.keys(data.coverage).filter((id) => pending.has(id)).length;
+      if (count > bestCount) { bestCount = count; bestStore = sid; }
+    }
+    if (!bestStore || bestCount === 0) break; // ítems restantes sin cobertura
+
+    // Asignar todos los ítems pendientes que esta tienda cubre
+    for (const itemId of Object.keys(storeIndex[bestStore].coverage)) {
+      if (pending.has(itemId)) {
+        assignments[itemId] = storeIndex[bestStore].coverage[itemId];
+        pending.delete(itemId);
+      }
+    }
+  }
+
+  return buildResult(assignments, itemResults);
+}
+
+// ─── Estrategia 3: Equilibrado ────────────────────────────────────────────────
+// Empieza igual que "precio más bajo", pero si hay una tienda ya seleccionada
+// que ofrece el ítem a no más del 15% más caro, prefiere esa tienda para
+// evitar un viaje extra.
+const CLUSTER_THRESHOLD = 0.15; // 15% de tolerancia de precio por no añadir tienda
+
+function optimizeBalanced(itemResults) {
+  const assignments = {};
+  const selectedStoreIds = new Set();
+
+  // Primero ordenamos por cantidad de opciones de menor a mayor, para que los
+  // ítems con pocas opciones "anclen" la tienda más importante primero.
+  const sorted = [...itemResults].sort(
+    (a, b) => (a.publications?.length || 0) - (b.publications?.length || 0)
+  );
+
+  for (const { item, publications } of sorted) {
+    if (!publications?.length) continue;
+    const byPrice = [...publications].sort((a, b) => (a.price || 0) - (b.price || 0));
+    const cheapest = byPrice[0];
+    const cheapestPrice = cheapest.price || 0;
+
+    // ¿Hay alguna tienda ya seleccionada que tenga este ítem a precio aceptable?
+    const optionInExistingStore = byPrice.find((pub) => {
+      const sid = pub.store?.id ?? 'unknown';
+      if (!selectedStoreIds.has(sid)) return false;
+      const pricePenalty = cheapestPrice > 0
+        ? (pub.price - cheapestPrice) / cheapestPrice
+        : 0;
+      return pricePenalty <= CLUSTER_THRESHOLD;
+    });
+
+    const chosen = optionInExistingStore ?? cheapest;
+    assignments[item.id] = chosen;
+    selectedStoreIds.add(chosen.store?.id ?? 'unknown');
+  }
+
+  return buildResult(assignments, itemResults);
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -87,6 +180,7 @@ export default function CreateOrderPage() {
   const [manualAddress, setManualAddress] = useState('');
   const [radius, setRadius] = useState(5);
   const [storeType, setStoreType] = useState('all'); // 'all' | 'physical' | 'virtual'
+  const [strategy, setStrategy] = useState('balanced'); // 'price' | 'fewest_stores' | 'balanced'
 
   // ── Resultado ─────────────────────────────────────────────────────────────
   const [result, setResult] = useState(null);
@@ -139,7 +233,11 @@ export default function CreateOrderPage() {
       });
 
       const itemResults = await Promise.all(queryPromises);
-      const optimized = runGreedyOptimization(itemResults);
+      const optimizeFn =
+        strategy === 'price' ? optimizeByPrice :
+        strategy === 'fewest_stores' ? optimizeByFewestStores :
+        optimizeBalanced;
+      const optimized = optimizeFn(itemResults);
       setResult(optimized);
       setPhase('result');
     } catch (err) {
@@ -147,7 +245,7 @@ export default function CreateOrderPage() {
     } finally {
       setCalculating(false);
     }
-  }, [selectedItems, coords, radius, storeType]);
+  }, [selectedItems, coords, radius, storeType, strategy]);
 
   // ── Confirmar ─────────────────────────────────────────────────────────────
   const handleConfirm = () => {
@@ -271,6 +369,47 @@ export default function CreateOrderPage() {
             </div>
           </div>
 
+          {/* Estrategia de optimización */}
+          <div style={styles.section}>
+            <label style={styles.sectionLabel}>{to.strategyLabel}</label>
+            <div style={styles.strategyGrid}>
+              {[
+                {
+                  value: 'price',
+                  icon: '💰',
+                  label: to.strategyPrice,
+                  desc: to.strategyPriceDesc,
+                },
+                {
+                  value: 'fewest_stores',
+                  icon: '📍',
+                  label: to.strategyFewest,
+                  desc: to.strategyFewestDesc,
+                },
+                {
+                  value: 'balanced',
+                  icon: '⚖️',
+                  label: to.strategyBalanced,
+                  desc: to.strategyBalancedDesc,
+                },
+              ].map(({ value, icon, label, desc }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setStrategy(value)}
+                  style={{
+                    ...styles.strategyCard,
+                    ...(strategy === value ? styles.strategyCardActive : {}),
+                  }}
+                >
+                  <span style={styles.strategyIcon}>{icon}</span>
+                  <span style={styles.strategyName}>{label}</span>
+                  <span style={styles.strategyDesc}>{desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {calcError && <p style={styles.errorMsg}>{calcError}</p>}
 
           <button
@@ -335,6 +474,18 @@ export default function CreateOrderPage() {
           )}
 
           {/* Desglose por tienda */}
+          {/* Estrategia usada */}
+          <div style={styles.strategyUsedBadge}>
+            <span>
+              {strategy === 'price' ? '💰' : strategy === 'fewest_stores' ? '📍' : '⚖️'}
+            </span>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {strategy === 'price' ? to.strategyPrice :
+               strategy === 'fewest_stores' ? to.strategyFewest :
+               to.strategyBalanced}
+            </span>
+          </div>
+
           <h2 style={styles.sectionTitle}>{to.byStore}</h2>
           {stores.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
@@ -599,6 +750,40 @@ const styles = {
     fontWeight: 700,
     color: 'var(--text-primary)',
     margin: 0,
+  },
+  strategyGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '8px',
+  },
+  strategyCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '12px 8px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-surface)',
+    cursor: 'pointer',
+    textAlign: 'center',
+  },
+  strategyCardActive: {
+    background: 'var(--accent-soft)',
+    borderColor: 'var(--accent)',
+  },
+  strategyIcon: { fontSize: '22px' },
+  strategyName: { fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' },
+  strategyDesc: { fontSize: '10px', color: 'var(--text-muted)', lineHeight: 1.3 },
+  strategyUsedBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 10px',
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    borderRadius: '999px',
+    alignSelf: 'flex-start',
   },
   storeCard: {
     background: 'var(--bg-surface)',

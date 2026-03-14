@@ -154,6 +154,13 @@ export const TRANSLATIONS = {
       bestPrice: "Mejor precio",
       storeCount: (n) => `${n} tienda${n !== 1 ? 's' : ''}`,
       itemCount: (n) => `${n} producto${n !== 1 ? 's' : ''}`,
+      strategyLabel: "Estrategia de optimización",
+      strategyPrice: "Precio más bajo",
+      strategyPriceDesc: "La opción más barata por producto, sin importar en cuántas tiendas estén",
+      strategyFewest: "Menos tiendas",
+      strategyFewestDesc: "Agrupa todas tus compras en el menor número de tiendas posible",
+      strategyBalanced: "Equilibrado",
+      strategyBalancedDesc: "Prefiere tiendas donde ya vas, salvo que haya un ahorro mayor al 15%",
     },
 
     // ── Ranking ───────────────────────────────────────────────────────────────
@@ -1386,6 +1393,13 @@ export const TRANSLATIONS = {
       bestPrice: "Best price",
       storeCount: (n) => `${n} store${n !== 1 ? 's' : ''}`,
       itemCount: (n) => `${n} product${n !== 1 ? 's' : ''}`,
+      strategyLabel: "Optimization strategy",
+      strategyPrice: "Lowest price",
+      strategyPriceDesc: "Cheapest option per product, regardless of how many stores",
+      strategyFewest: "Fewest stores",
+      strategyFewestDesc: "Concentrates all purchases in as few stores as possible",
+      strategyBalanced: "Balanced",
+      strategyBalancedDesc: "Prefers stores you're already visiting, unless savings exceed 15%",
     },
 
     // ── Ranking ───────────────────────────────────────────────────────────────
