@@ -2,103 +2,133 @@
  * shoppingListStore.js
  *
  * Store Zustand para la lista de compras del Proceso 3.
- * Persiste en localStorage bajo la clave 'nosee-shopping-list'.
+ * Los datos se persisten en localStorage con clave por usuario:
+ *   nosee-shopping-{userId}
  *
- * La lista es agnóstica de tienda y precio — solo almacena
- * nombre de producto y cantidad. El precio se consulta en
- * tiempo de creación del pedido (Proceso 2 → publicaciones).
+ * Llamar a loadForUser(userId) al iniciar sesión y
+ * loadForUser(null) al cerrar sesión para resetear.
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+
+const STORAGE_PREFIX = 'nosee-shopping-';
+
+function storageKey(userId) {
+  return `${STORAGE_PREFIX}${userId ?? 'guest'}`;
+}
+
+function loadFromStorage(userId) {
+  try {
+    const raw = localStorage.getItem(storageKey(userId));
+    if (!raw) return { items: [], orders: [] };
+    const parsed = JSON.parse(raw);
+    return {
+      items:  Array.isArray(parsed.items)  ? parsed.items  : [],
+      orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+    };
+  } catch {
+    return { items: [], orders: [] };
+  }
+}
+
+function saveToStorage(userId, items, orders) {
+  if (!userId) return; // no guardar datos de invitado
+  try {
+    localStorage.setItem(storageKey(userId), JSON.stringify({ items, orders }));
+  } catch { /* quota exceeded, ignorar */ }
+}
+
+// ── Middleware de auto-guardado ───────────────────────────────────────────────
+// Envuelve cada set() y persiste el estado actual del usuario activo.
+function withAutosave(storeCreator) {
+  return (set, get, api) => {
+    const wrappedSet = (partial, replace) => {
+      set(partial, replace);
+      const { _userId, items, orders } = get();
+      saveToStorage(_userId, items, orders);
+    };
+    return storeCreator(wrappedSet, get, api);
+  };
+}
 
 export const useShoppingListStore = create(
-  persist(
-    (set, get) => ({
-      /** @type {Array<{id: number, productName: string, quantity: number, unit: string, addedAt: string}>} */
-      items: [],
+  withAutosave((set, get) => ({
+    /** ID del usuario activo — null = sin sesión */
+    _userId: null,
 
-      /**
-       * Pedidos confirmados. Cada pedido: { id, result, userCoords, createdAt }
-       * @type {Array<{id: string, result: object, userCoords: object|null, createdAt: string}>}
-       */
-      orders: [],
+    /** @type {Array<{id: number, productName: string, quantity: number, ...}>} */
+    items: [],
 
-      /**
-       * Agrega un ítem desde una PublicationCard.
-       * Si el producto ya existe en la lista, actualiza storeName y price
-       * con los nuevos datos (puede que haya encontrado uno más barato).
-       */
-      addItem: (productName, quantity = 1, { unit = '', storeName = '', price = null, publicationId = null } = {}) => {
-        const trimmed = productName.trim();
-        if (!trimmed) return;
+    /** @type {Array<{id: string, result: object, userCoords: object|null, createdAt: string, deliveryMode: boolean, ...}>} */
+    orders: [],
 
-        const items = get().items;
-        const existing = items.find(
-          (i) => i.productName.toLowerCase() === trimmed.toLowerCase()
-        );
+    // ── Gestión de sesión ───────────────────────────────────────────────────
+    /**
+     * Carga los datos del usuario dado desde localStorage.
+     * Llamar al iniciar sesión (userId = string) o al cerrar sesión (userId = null).
+     */
+    loadForUser: (userId) => {
+      const { items, orders } = loadFromStorage(userId);
+      set({ _userId: userId, items, orders });
+    },
 
-        if (existing) {
-          set({
-            items: items.map((i) =>
-              i.id === existing.id
-                ? { ...i, quantity: i.quantity + Number(quantity), storeName, price, publicationId }
-                : i
-            ),
-          });
-        } else {
-          set({
-            items: [
-              ...items,
-              {
-                id: Date.now(),
-                productName: trimmed,
-                quantity: Number(quantity),
-                unit,
-                storeName,
-                price,
-                publicationId,
-                addedAt: new Date().toISOString(),
-              },
-            ],
-          });
-        }
-      },
+    // ── Ítems ───────────────────────────────────────────────────────────────
+    addItem: (productName, quantity = 1, { unit = '', storeName = '', price = null, publicationId = null } = {}) => {
+      const trimmed = productName.trim();
+      if (!trimmed) return;
 
-      /** Elimina un ítem por id */
-      removeItem: (id) =>
-        set({ items: get().items.filter((i) => i.id !== id) }),
+      const items = get().items;
+      const existing = items.find(
+        (i) => i.productName.toLowerCase() === trimmed.toLowerCase()
+      );
 
-      /** Actualiza campos de un ítem */
-      updateItem: (id, changes) =>
+      if (existing) {
         set({
-          items: get().items.map((i) =>
-            i.id === id ? { ...i, ...changes } : i
+          items: items.map((i) =>
+            i.id === existing.id
+              ? { ...i, quantity: i.quantity + Number(quantity), storeName, price, publicationId }
+              : i
           ),
-        }),
-
-      /** Vacía la lista completa */
-      clearList: () => set({ items: [] }),
-
-      /** Guarda un pedido confirmado al inicio del historial */
-      addOrder: (order) =>
-        set({ orders: [order, ...get().orders] }),
-
-      /** Elimina un pedido del historial */
-      removeOrder: (id) =>
-        set({ orders: get().orders.filter((o) => o.id !== id) }),
-
-      /**
-       * Actualiza campos de entrega de un pedido (estado, ubicación repartidor, etc.)
-       * deliveryUpdate: { deliveryStatus?, driverLocation?, cancellationCharged? }
-       */
-      updateOrderDelivery: (id, deliveryUpdate) =>
+        });
+      } else {
         set({
-          orders: get().orders.map((o) =>
-            o.id === id ? { ...o, ...deliveryUpdate } : o
-          ),
-        }),
-    }),
-    { name: 'nosee-shopping-list' }
-  )
+          items: [
+            ...items,
+            {
+              id: Date.now(),
+              productName: trimmed,
+              quantity: Number(quantity),
+              unit,
+              storeName,
+              price,
+              publicationId,
+              addedAt: new Date().toISOString(),
+            },
+          ],
+        });
+      }
+    },
+
+    removeItem: (id) =>
+      set({ items: get().items.filter((i) => i.id !== id) }),
+
+    updateItem: (id, changes) =>
+      set({ items: get().items.map((i) => (i.id === id ? { ...i, ...changes } : i)) }),
+
+    clearList: () => set({ items: [] }),
+
+    // ── Pedidos ─────────────────────────────────────────────────────────────
+    addOrder: (order) =>
+      set({ orders: [order, ...get().orders] }),
+
+    removeOrder: (id) =>
+      set({ orders: get().orders.filter((o) => o.id !== id) }),
+
+    updateOrderDelivery: (id, deliveryUpdate) =>
+      set({
+        orders: get().orders.map((o) =>
+          o.id === id ? { ...o, ...deliveryUpdate } : o
+        ),
+      }),
+  }))
 );

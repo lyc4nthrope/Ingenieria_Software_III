@@ -7,7 +7,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import {
   useAuthStore,
   selectIsInitialized,
+  selectAuthUser,
 } from "@/features/auth/store/authStore";
+import { useShoppingListStore } from "@/features/shopping-list/store/shoppingListStore";
 import Navbar from "@/components/layout/Navbar";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { PageLoader } from "@/components/ui/Spinner";
@@ -367,6 +369,18 @@ function RoleChangeToast() {
   );
 }
 
+/** Sincroniza el store de lista/pedidos con el usuario autenticado */
+function ShoppingListSync() {
+  const user = useAuthStore(selectAuthUser);
+  const loadForUser = useShoppingListStore((s) => s.loadForUser);
+
+  useEffect(() => {
+    loadForUser(user?.id ?? null);
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return null;
+}
+
 function AppShell() {
   const { t } = useLanguage();
   // Rastrear page views en cada cambio de ruta (GA4)
@@ -400,6 +414,7 @@ function AppShell() {
         {t.app.skipToContent}
       </a>
 
+      <ShoppingListSync />
       <Navbar />
 
       <main
