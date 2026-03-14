@@ -361,6 +361,7 @@ export default function AdminDashboard() {
           product:products (id, name, barcode, base_quantity, brand:brands(id, name), unit_type:unit_types (id, name, abbreviation)),
           store:stores!price_publications_store_id_fkey (id, name, address)
         `)
+        .eq('is_admin_hidden', false)
         .order('created_at', { ascending: false })
         .limit(300);
       if (!error) setPublications((data || []).map(normalizePublicationForAdmin));
@@ -383,21 +384,21 @@ export default function AdminDashboard() {
 
     if (!pubId) return;
 
-    let action = 'delete';
+    let action = 'hide_full';
 
     if (isActive) {
       const decision = window.prompt(
-        'La publicación está activa. Escribe "ocultar" para ocultarla o "eliminar" para borrarla permanentemente.',
+        'La publicación está activa. Escribe "ocultar" para ocultarla del público o "ocultar completo" para ocultarla también del panel de administrador.',
       );
       if (decision === null) return;
       const normalizedDecision = String(decision).trim().toLowerCase();
       if (normalizedDecision === 'ocultar') action = 'hide';
-      else if (normalizedDecision === 'eliminar') action = 'delete';
+      else if (normalizedDecision === 'ocultar completo' || normalizedDecision === 'ocultar_completo' || normalizedDecision === 'eliminar') action = 'hide_full';
       else {
-        alert('Opción inválida. Debes escribir "ocultar" o "eliminar".');
+        alert('Opción inválida. Debes escribir "ocultar" o "ocultar completo".');
         return;
       }
-    } else if (!window.confirm('Esta publicación ya está oculta y se eliminará permanentemente. ¿Deseas continuar?')) {
+    } else if (!window.confirm('Esta publicación ya está oculta. Si continúas, se ocultará completamente y dejará de verse también en el panel de administrador. ¿Deseas continuar?')) {
       return;
     }
 
@@ -423,15 +424,28 @@ export default function AdminDashboard() {
         return;
       }
 
-      const result = await deletePublication(pubId, { permanent: true });
-      if (result.success) {
-        setPublications(prev => prev.filter(p => p.id !== pubId));
-        setReports(prev => prev.filter(r => r.publicationId !== pubId));
-        setSelectedPub((prev) => (prev?.id === pubId ? null : prev));
-        setStats(prev => ({ ...prev, pubs: Math.max(0, (prev.pubs || 1) - 1) }));
-      } else {
-        alert(td.errorDeletePub(result.error || td.errorDeletePubGeneric));
+      const { data: authData } = await supabase.auth.getUser();
+      const actorId = authData?.user?.id || null;
+
+      const { error } = await supabase
+        .from('price_publications')
+        .update({
+          is_active: false,
+          is_admin_hidden: true,
+          hidden_admin_at: new Date().toISOString(),
+          hidden_admin_by: actorId,
+          hidden_admin_reason: 'Ocultada completamente desde panel admin',
+        })
+        .eq('id', pubId);
+
+      if (error) {
+        alert(td.errorDeletePub(error.message || td.errorDeletePubGeneric));
+        return;
       }
+
+      // Ocultación completa: sacar de la vista actual del admin
+      setPublications((prev) => prev.filter((p) => p.id !== pubId));
+      setSelectedPub((prev) => (prev?.id === pubId ? null : prev));
     } catch {
       alert(td.errorDeletePubGeneric);
     } finally {
