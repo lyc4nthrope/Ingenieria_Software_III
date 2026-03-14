@@ -22,6 +22,18 @@ const ANIME_SKIN_RATIO_BLOCK_THRESHOLD = Number(
 const VIVID_RATIO_BLOCK_THRESHOLD = Number(
   import.meta.env.VITE_IMAGE_VIVID_RATIO_BLOCK || 0.38,
 );
+const IMAGE_HOTSPOT_GRID_SIZE = Number(
+  import.meta.env.VITE_IMAGE_HOTSPOT_GRID_SIZE || 12,
+);
+const SKIN_HOTSPOT_RATIO_BLOCK_THRESHOLD = Number(
+  import.meta.env.VITE_IMAGE_SKIN_HOTSPOT_RATIO_BLOCK || 0.52,
+);
+const BLOOD_HOTSPOT_RATIO_BLOCK_THRESHOLD = Number(
+  import.meta.env.VITE_IMAGE_BLOOD_HOTSPOT_RATIO_BLOCK || 0.24,
+);
+const CENTER_REGION_RATIO = Number(
+  import.meta.env.VITE_IMAGE_CENTER_REGION_RATIO || 0.36,
+);
 
 const OFFENSIVE_TERMS = [
   { term: "hijueputa", weight: 5, category: "insulto_fuerte" },
@@ -133,6 +145,21 @@ const rgbToHsv = (r, g, b) => {
   const v = max;
   return { h, s, v };
 };
+
+const rgbToYCbCr = (r, g, b) => {
+  const y = 0.299 * r + 0.587 * g + 0.114 * b;
+  const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+  const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+  return { y, cb, cr };
+};
+
+const createGridBuckets = (size) =>
+  Array.from({ length: size * size }, () => ({
+    total: 0,
+    skin: 0,
+    blood: 0,
+    animeSkin: 0,
+  }));
 
 const extractNumbersDeep = (value, acc = []) => {
   if (value === null || value === undefined) return acc;
@@ -397,6 +424,18 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
     let animeSkinPixels = 0;
     let vividPixels = 0;
     let validPixels = 0;
+    let centerPixels = 0;
+    let centerSkinPixels = 0;
+    let centerBloodPixels = 0;
+
+    const gridSize = Math.max(4, IMAGE_HOTSPOT_GRID_SIZE);
+    const gridBuckets = createGridBuckets(gridSize);
+    const centerMarginX = image.width * (1 - CENTER_REGION_RATIO) * 0.5;
+    const centerMarginY = image.height * (1 - CENTER_REGION_RATIO) * 0.5;
+    const centerMinX = centerMarginX;
+    const centerMaxX = image.width - centerMarginX;
+    const centerMinY = centerMarginY;
+    const centerMaxY = image.height - centerMarginY;
 
     for (let i = 0; i < image.data.length; i += 4) {
       const r = image.data[i];
@@ -406,11 +445,23 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
       if (a < 20) continue;
 
       validPixels += 1;
+      const pixelIndex = i / 4;
+      const x = pixelIndex % image.width;
+      const y = Math.floor(pixelIndex / image.width);
+      const col = Math.min(gridSize - 1, Math.floor((x / image.width) * gridSize));
+      const row = Math.min(gridSize - 1, Math.floor((y / image.height) * gridSize));
+      const bucket = gridBuckets[row * gridSize + col];
+      bucket.total += 1;
 
-      // Detección aproximada de tono piel (RGB rule-based).
+      const inCenterRegion =
+        x >= centerMinX && x <= centerMaxX && y >= centerMinY && y <= centerMaxY;
+      if (inCenterRegion) centerPixels += 1;
+
+      // Detección de piel combinando RGB + YCbCr (más robusta).
       const max = Math.max(r, g, b);
       const min = Math.min(r, g, b);
-      const isSkinTone =
+      const { cb, cr } = rgbToYCbCr(r, g, b);
+      const isRgbSkinTone =
         r > 95 &&
         g > 40 &&
         b > 20 &&
@@ -418,18 +469,32 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
         Math.abs(r - g) > 15 &&
         r > g &&
         r > b;
-      if (isSkinTone) skinPixels += 1;
+      const isYCbCrSkinTone = cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173;
+      const isSkinTone = isRgbSkinTone || isYCbCrSkinTone;
+      if (isSkinTone) {
+        skinPixels += 1;
+        bucket.skin += 1;
+        if (inCenterRegion) centerSkinPixels += 1;
+      }
 
-      // Detección aproximada de rojo intenso / sangre.
+      // Detección de rojo intenso / sangre con HSV + dominancia.
+      const { h, s, v } = rgbToHsv(r, g, b);
       const redDominance = r / (r + g + b + 1);
+      const isRedHue = h <= 18 || h >= 345;
       const isBloodLike =
-        ((r > 120 && g < 110 && b < 110) || (r > 75 && g < 75 && b < 75)) &&
+        ((r > 110 && g < 115 && b < 115) || (r > 75 && g < 75 && b < 75)) &&
         redDominance > 0.52 &&
         r - g > 35 &&
-        r - b > 35;
-      if (isBloodLike) bloodPixels += 1;
+        r - b > 35 &&
+        isRedHue &&
+        s >= 0.35 &&
+        v >= 0.18;
+      if (isBloodLike) {
+        bloodPixels += 1;
+        bucket.blood += 1;
+        if (inCenterRegion) centerBloodPixels += 1;
+      }
 
-      const { h, s, v } = rgbToHsv(r, g, b);
       const isVivid = s >= 0.55 && v >= 0.38;
       if (isVivid) vividPixels += 1;
 
@@ -442,7 +507,10 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
         r >= g &&
         r > b * 0.9 &&
         (r - b >= 8 || r - g >= 5);
-      if (isAnimeSkinLike) animeSkinPixels += 1;
+      if (isAnimeSkinLike) {
+        animeSkinPixels += 1;
+        bucket.animeSkin += 1;
+      }
     }
 
     if (!validPixels) {
@@ -466,6 +534,18 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
     const bloodRatio = bloodPixels / validPixels;
     const animeSkinRatio = animeSkinPixels / validPixels;
     const vividRatio = vividPixels / validPixels;
+    const centerSkinRatio = centerPixels ? centerSkinPixels / centerPixels : 0;
+    const centerBloodRatio = centerPixels ? centerBloodPixels / centerPixels : 0;
+
+    let maxSkinHotspotRatio = 0;
+    let maxBloodHotspotRatio = 0;
+    let maxAnimeHotspotRatio = 0;
+    for (const bucket of gridBuckets) {
+      if (!bucket.total) continue;
+      maxSkinHotspotRatio = Math.max(maxSkinHotspotRatio, bucket.skin / bucket.total);
+      maxBloodHotspotRatio = Math.max(maxBloodHotspotRatio, bucket.blood / bucket.total);
+      maxAnimeHotspotRatio = Math.max(maxAnimeHotspotRatio, bucket.animeSkin / bucket.total);
+    }
 
     const adultScore = clamp(
       (skinRatio - SKIN_RATIO_BLOCK_THRESHOLD * 0.7) /
@@ -479,18 +559,38 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
       0,
       1,
     );
+    const hotspotAdultScore = clamp(
+      (maxSkinHotspotRatio - SKIN_HOTSPOT_RATIO_BLOCK_THRESHOLD * 0.7) /
+        (SKIN_HOTSPOT_RATIO_BLOCK_THRESHOLD * 0.3 || 1),
+      0,
+      1,
+    );
     const goreScore = clamp(
       (bloodRatio - BLOOD_RATIO_BLOCK_THRESHOLD * 0.65) /
         (BLOOD_RATIO_BLOCK_THRESHOLD * 0.35 || 1),
       0,
       1,
     );
+    const hotspotGoreScore = clamp(
+      (maxBloodHotspotRatio - BLOOD_HOTSPOT_RATIO_BLOCK_THRESHOLD * 0.65) /
+        (BLOOD_HOTSPOT_RATIO_BLOCK_THRESHOLD * 0.35 || 1),
+      0,
+      1,
+    );
 
-    const flaggedAdult = skinRatio >= SKIN_RATIO_BLOCK_THRESHOLD;
+    const flaggedAdult =
+      (skinRatio >= SKIN_RATIO_BLOCK_THRESHOLD &&
+        centerSkinRatio >= SKIN_RATIO_BLOCK_THRESHOLD * 0.72) ||
+      (skinRatio >= SKIN_RATIO_BLOCK_THRESHOLD * 0.65 &&
+        maxSkinHotspotRatio >= SKIN_HOTSPOT_RATIO_BLOCK_THRESHOLD);
     const flaggedAnimeAdult =
       animeSkinRatio >= ANIME_SKIN_RATIO_BLOCK_THRESHOLD &&
-      vividRatio >= VIVID_RATIO_BLOCK_THRESHOLD;
-    const flaggedGore = bloodRatio >= BLOOD_RATIO_BLOCK_THRESHOLD;
+      vividRatio >= VIVID_RATIO_BLOCK_THRESHOLD &&
+      maxAnimeHotspotRatio >= 0.24;
+    const flaggedGore =
+      (bloodRatio >= BLOOD_RATIO_BLOCK_THRESHOLD &&
+        maxBloodHotspotRatio >= BLOOD_HOTSPOT_RATIO_BLOCK_THRESHOLD) ||
+      maxBloodHotspotRatio >= BLOOD_HOTSPOT_RATIO_BLOCK_THRESHOLD * 1.35;
     const flagged = flaggedAdult || flaggedAnimeAdult || flaggedGore;
 
     const labels = [];
@@ -499,7 +599,13 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
     if (flaggedGore) labels.push("gore");
 
     const confidence = Number(
-      Math.max(adultScore, animeAdultScore, goreScore).toFixed(3),
+      Math.max(
+        adultScore,
+        animeAdultScore,
+        goreScore,
+        hotspotAdultScore,
+        hotspotGoreScore,
+      ).toFixed(3),
     );
     const reason = flagged
       ? flaggedAdult && flaggedGore
@@ -516,13 +622,21 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
       bloodRatio: Number(bloodRatio.toFixed(4)),
       animeSkinRatio: Number(animeSkinRatio.toFixed(4)),
       vividRatio: Number(vividRatio.toFixed(4)),
+      centerSkinRatio: Number(centerSkinRatio.toFixed(4)),
+      centerBloodRatio: Number(centerBloodRatio.toFixed(4)),
+      maxSkinHotspotRatio: Number(maxSkinHotspotRatio.toFixed(4)),
+      maxBloodHotspotRatio: Number(maxBloodHotspotRatio.toFixed(4)),
+      maxAnimeHotspotRatio: Number(maxAnimeHotspotRatio.toFixed(4)),
       validPixels,
       pixelCount,
+      gridSize,
       thresholds: {
         skinRatioBlock: SKIN_RATIO_BLOCK_THRESHOLD,
         bloodRatioBlock: BLOOD_RATIO_BLOCK_THRESHOLD,
         animeSkinRatioBlock: ANIME_SKIN_RATIO_BLOCK_THRESHOLD,
         vividRatioBlock: VIVID_RATIO_BLOCK_THRESHOLD,
+        skinHotspotRatioBlock: SKIN_HOTSPOT_RATIO_BLOCK_THRESHOLD,
+        bloodHotspotRatioBlock: BLOOD_HOTSPOT_RATIO_BLOCK_THRESHOLD,
       },
     };
 
