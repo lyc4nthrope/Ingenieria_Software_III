@@ -14,7 +14,7 @@ const SKIN_RATIO_BLOCK_THRESHOLD = Number(
   import.meta.env.VITE_IMAGE_SKIN_RATIO_BLOCK || 0.58,
 );
 const BLOOD_RATIO_BLOCK_THRESHOLD = Number(
-  import.meta.env.VITE_IMAGE_BLOOD_RATIO_BLOCK || 0.15,
+  import.meta.env.VITE_IMAGE_BLOOD_RATIO_BLOCK || 0.20,
 );
 const ANIME_SKIN_RATIO_BLOCK_THRESHOLD = Number(
   import.meta.env.VITE_IMAGE_ANIME_SKIN_RATIO_BLOCK || 0.32,
@@ -29,7 +29,7 @@ const SKIN_HOTSPOT_RATIO_BLOCK_THRESHOLD = Number(
   import.meta.env.VITE_IMAGE_SKIN_HOTSPOT_RATIO_BLOCK || 0.52,
 );
 const BLOOD_HOTSPOT_RATIO_BLOCK_THRESHOLD = Number(
-  import.meta.env.VITE_IMAGE_BLOOD_HOTSPOT_RATIO_BLOCK || 0.24,
+  import.meta.env.VITE_IMAGE_BLOOD_HOTSPOT_RATIO_BLOCK || 0.30,
 );
 const CENTER_REGION_RATIO = Number(
   import.meta.env.VITE_IMAGE_CENTER_REGION_RATIO || 0.36,
@@ -480,7 +480,7 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
       // Detección de rojo intenso / sangre con HSV + dominancia.
       const { h, s, v } = rgbToHsv(r, g, b);
       const redDominance = r / (r + g + b + 1);
-      const isRedHue = h <= 18 || h >= 345;
+      const isRedHue = h <= 13 || h >= 348;
       const isBloodLike =
         ((r > 110 && g < 115 && b < 115) || (r > 75 && g < 75 && b < 75)) &&
         redDominance > 0.52 &&
@@ -488,7 +488,8 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
         r - b > 35 &&
         isRedHue &&
         s >= 0.35 &&
-        v >= 0.18;
+        v >= 0.18 &&
+        v < 0.80;
       if (isBloodLike) {
         bloodPixels += 1;
         bucket.blood += 1;
@@ -581,7 +582,7 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
     const flaggedAdult =
       (skinRatio >= SKIN_RATIO_BLOCK_THRESHOLD &&
         centerSkinRatio >= SKIN_RATIO_BLOCK_THRESHOLD * 0.72) ||
-      (skinRatio >= SKIN_RATIO_BLOCK_THRESHOLD * 0.65 &&
+      (skinRatio >= SKIN_RATIO_BLOCK_THRESHOLD * 0.75 &&
         maxSkinHotspotRatio >= SKIN_HOTSPOT_RATIO_BLOCK_THRESHOLD);
     const flaggedAnimeAdult =
       animeSkinRatio >= ANIME_SKIN_RATIO_BLOCK_THRESHOLD &&
