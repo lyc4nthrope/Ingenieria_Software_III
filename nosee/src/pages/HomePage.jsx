@@ -8,7 +8,7 @@ import {
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
 import PublicationDetailModal from "@/features/publications/components/PublicationDetailModal";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { useLanguage, translateDbValue } from "@/contexts/LanguageContext";
 import { isAdmin } from "@/types";
 import { ReportPublicationModal } from "@/features/publications/components/ReportPublicationModal";
 import { optimizeCloudinaryUrl } from "@/services/cloudinary";
@@ -730,7 +730,7 @@ export default function HomePage() {
                   className={`categories-btn${selectedCategory === cat.id ? " active" : ""}`}
                   onClick={() => handleCategorySelect(cat.id)}
                 >
-                  {cat.name}
+                  {translateDbValue(t, 'categories', cat.name)}
                 </button>
               ))}
             </div>
