@@ -288,7 +288,7 @@ export default function ShoppingListPage() {
   const selectedOrder = selectedIdx !== null ? orders[selectedIdx] ?? null : null;
 
   return (
-    <div style={page.root}>
+    <div className="home-wrapper">
       <style>{`
         .lista-grid {
           display: grid;
@@ -353,7 +353,7 @@ export default function ShoppingListPage() {
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const page = {
-  root: { flex: 1, padding: '24px 20px', width: '100%' },
+  root: {},
   header: {
     textAlign: 'center', marginBottom: '24px',
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
