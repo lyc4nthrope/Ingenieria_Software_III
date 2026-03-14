@@ -161,7 +161,7 @@ export const usePhotoUpload = () => {
         formData.append('file', compressed);
         formData.append('upload_preset', uploadPreset);
         formData.append('folder', uploadFolder);
-        if (String(import.meta.env.VITE_CLOUDINARY_ENABLE_MODERATION || "true").toLowerCase() !== "false") {
+        if (String(import.meta.env.VITE_CLOUDINARY_ENABLE_MODERATION || "false").toLowerCase() === "true") {
           formData.append("moderation", CLOUDINARY_MODERATION_PROVIDER || "aws_rek");
         }
 
