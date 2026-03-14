@@ -97,16 +97,10 @@ const REPORT_REASON_LABELS = {
   other: 'Otro',
 };
 
-const REPORT_TARGET_LABELS = {
-  publication: 'Publicación',
-  user: 'Usuario',
-  store: 'Tienda',
-  product: 'Producto',
-  brand: 'Marca',
-  comment: 'Comentario',
+const getReportTargetTypeLabel = (type, td) => {
+  const map = td?.reportTargetTypes || {};
+  return map[String(type || '').toLowerCase()] || td?.reportTargetTypes?.other || 'Other';
 };
-
-const getReportTargetTypeLabel = (type) => REPORT_TARGET_LABELS[String(type || '').toLowerCase()] || 'Otro';
 
 const getReportTargetDisplay = (report) => {
   const type = String(report?.reported_type || '').toLowerCase();
@@ -416,18 +410,16 @@ export default function AdminDashboard() {
     let action = 'hide_full';
 
     if (isActive) {
-      const decision = window.prompt(
-        'La publicación está activa. Escribe "ocultar" para ocultarla del público o "ocultar completo" para ocultarla también del panel de administrador.',
-      );
+      const decision = window.prompt(td.promptHidePub);
       if (decision === null) return;
       const normalizedDecision = String(decision).trim().toLowerCase();
       if (normalizedDecision === 'ocultar') action = 'hide';
       else if (normalizedDecision === 'ocultar completo' || normalizedDecision === 'ocultar_completo' || normalizedDecision === 'eliminar') action = 'hide_full';
       else {
-        alert('Opción inválida. Debes escribir "ocultar" o "ocultar completo".');
+        alert(td.alertInvalidOption);
         return;
       }
-    } else if (!window.confirm('Esta publicación ya está oculta. Si continúas, se ocultará completamente y dejará de verse también en el panel de administrador. ¿Deseas continuar?')) {
+    } else if (!window.confirm(td.confirmHideFull)) {
       return;
     }
 
@@ -449,7 +441,7 @@ export default function AdminDashboard() {
           prev.map((p) => (p.id === pubId ? { ...p, is_active: false, status: 'hidden' } : p)),
         );
         setSelectedPub((prev) => (prev?.id === pubId ? { ...prev, is_active: false, status: 'hidden' } : prev));
-        alert('Publicación ocultada correctamente.');
+        alert(td.pubHiddenOk);
         return;
       }
 
@@ -524,7 +516,7 @@ export default function AdminDashboard() {
       ]);
 
       if (refsError || storesError || productsError) {
-        alert(refsError?.message || storesError?.message || productsError?.message || 'No se pudieron cargar recursos no publicados');
+        alert(refsError?.message || storesError?.message || productsError?.message || td.errorLoadUnpublished);
         return;
       }
 
@@ -535,7 +527,7 @@ export default function AdminDashboard() {
         .filter((store) => !usedStoreIds.has(store.id))
         .map((store) => ({
           ...store,
-          typeLabel: Number(store.store_type_id) === 1 ? 'Física' : Number(store.store_type_id) === 2 ? 'Virtual' : 'N/A',
+          typeLabel: Number(store.store_type_id) === 1 ? td.storeTypePhysical : Number(store.store_type_id) === 2 ? td.storeTypeVirtual : 'N/A',
         }));
       const orphanProducts = (productsData || [])
         .filter((product) => !usedProductIds.has(product.id));
@@ -558,14 +550,14 @@ export default function AdminDashboard() {
       .maybeSingle();
 
     if (error || !data) {
-      alert(error?.message || 'No se pudo cargar el detalle de la tienda');
+      alert(error?.message || td.errorLoadStore);
       return;
     }
 
     const relatedCount = publications.filter((p) => (p.storeId || p.store?.id || p.store_id) === storeId).length;
     setSelectedStore({
       ...data,
-      typeLabel: Number(data.store_type_id) === 1 ? 'Física' : Number(data.store_type_id) === 2 ? 'Virtual' : 'N/A',
+      typeLabel: Number(data.store_type_id) === 1 ? td.storeTypePhysical : Number(data.store_type_id) === 2 ? td.storeTypeVirtual : 'N/A',
       relatedCount,
     });
   };
@@ -574,7 +566,7 @@ export default function AdminDashboard() {
     const storeId = publication?.storeId || publication?.store?.id || publication?.store_id || publication?.id;
     const storeName = publication?.storeName || publication?.store?.name || publication?.name || 'esta tienda';
     if (!storeId) return;
-    if (!window.confirm(`¿Seguro que deseas ocultar "${storeName}"?`)) return;
+    if (!window.confirm(td.confirmHide(storeName))) return;
 
     setDeletingStoreId(storeId);
     try {
@@ -592,7 +584,7 @@ export default function AdminDashboard() {
         .eq('id', storeId);
 
       if (error) {
-        alert(`No se pudo ocultar la tienda: ${error.message}`);
+        alert(td.errorHideStore(error.message));
         return;
       }
 
@@ -609,7 +601,7 @@ export default function AdminDashboard() {
   const handleViewBrand = async (publication) => {
     const brandId = publication?.brandId || publication?.product?.brand?.id;
     if (!brandId) {
-      alert('Este producto no tiene marca asociada');
+      alert(td.errorNoBrand);
       return;
     }
 
@@ -620,7 +612,7 @@ export default function AdminDashboard() {
       .maybeSingle();
 
     if (error || !data) {
-      alert(error?.message || 'No se pudo cargar el detalle de la marca');
+      alert(error?.message || td.errorLoadBrand);
       return;
     }
 
@@ -641,10 +633,10 @@ export default function AdminDashboard() {
     const brandId = publication?.brandId || publication?.product?.brand?.id || publication?.id;
     const brandName = publication?.brandName || publication?.product?.brand?.name || publication?.name || 'esta marca';
     if (!brandId) {
-      alert('Este producto no tiene marca asociada');
+      alert(td.errorNoBrand);
       return;
     }
-    if (!window.confirm(`¿Seguro que deseas ocultar la marca "${brandName}"?`)) return;
+    if (!window.confirm(td.confirmHideBrand(brandName))) return;
 
     setDeletingBrandId(brandId);
     try {
@@ -662,7 +654,7 @@ export default function AdminDashboard() {
         .eq('id', brandId);
 
       if (error) {
-        alert(`No se pudo ocultar la marca: ${error.message}`);
+        alert(td.errorHideBrand(error.message));
         return;
       }
 
@@ -685,7 +677,7 @@ export default function AdminDashboard() {
     const productId = product?.productId || product?.id;
     const productName = product?.productName || product?.name || 'este producto';
     if (!productId) return;
-    if (!window.confirm(`¿Seguro que deseas ocultar "${productName}"?`)) return;
+    if (!window.confirm(td.confirmHide(productName))) return;
 
     setDeletingProductId(productId);
     try {
@@ -703,7 +695,7 @@ export default function AdminDashboard() {
         .eq('id', productId);
 
       if (error) {
-        alert(`No se pudo ocultar el producto: ${error.message}`);
+        alert(td.errorHideProduct(error.message));
         return;
       }
 
@@ -753,7 +745,7 @@ export default function AdminDashboard() {
           reportedUserId: report.reported_user_id,
           reportedType,
           reportedId: report.reported_id,
-          targetLabel: getReportTargetTypeLabel(report.reported_type),
+          targetLabel: getReportTargetTypeLabel(report.reported_type, td),
           target: report.target || null,
           publicationSummary,
         };
@@ -1058,7 +1050,7 @@ export default function AdminDashboard() {
                 { key: 'all',     label: td.filterAll },
                 { key: 'visible', label: td.filterVisible },
                 { key: 'hidden',  label: td.filterHidden },
-                { key: 'unpublished', label: 'No publicadas' },
+                { key: 'unpublished', label: td.filterUnpublished },
               ].map(f => (
                 <button
                   key={f.key}
@@ -1072,7 +1064,7 @@ export default function AdminDashboard() {
 
             {pubFilter === 'unpublished' ? (
               unpublishedLoading ? (
-                <LoadingState label="Cargando recursos no publicados..." />
+                <LoadingState label={td.loadingUnpublished} />
               ) : (
                 <UnpublishedResourcesTable
                   stores={unpublishedResources.stores}
@@ -1453,10 +1445,10 @@ function PublicationsTable({
             <div>
               <div style={s.rowName}>{p.productName || p.product?.name || '—'}</div>
               <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
-                Marca: {p.brandName || p.product?.brand?.name || 'Sin marca'}
+                {td.colBrand}: {p.brandName || p.product?.brand?.name || td.noBrand}
               </div>
               <div style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>
-                Código: {p.productBarcode || p.product?.barcode || 'Sin código'}
+                {td.colBarcode}: {p.productBarcode || p.product?.barcode || td.noCode}
               </div>
               <StatusBadge status={p.is_active ? 'active' : 'hidden'} />
               <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
@@ -1464,14 +1456,14 @@ function PublicationsTable({
                   style={{ ...s.filterBtn, padding: '4px 8px', fontSize: 11 }}
                   onClick={() => onViewBrand(p)}
                 >
-                  Ver detalle
+                  {td.viewDetailBtn}
                 </button>
                 <button
                   style={{ ...s.btnDelete, padding: '4px 8px', fontSize: 11 }}
                   onClick={() => onDeleteBrand(p)}
                   disabled={deletingBrandId === (p.brandId || p.product?.brand?.id)}
                 >
-                  {deletingBrandId === (p.brandId || p.product?.brand?.id) ? '...' : 'Ocultar'}
+                  {deletingBrandId === (p.brandId || p.product?.brand?.id) ? '...' : td.hideBtn}
                 </button>
               </div>
             </div>
@@ -1484,14 +1476,14 @@ function PublicationsTable({
                   style={{ ...s.filterBtn, padding: '4px 8px', fontSize: 11 }}
                   onClick={() => onViewStore(p)}
                 >
-                  Ver detalle
+                  {td.viewDetailBtn}
                 </button>
                 <button
                   style={{ ...s.btnDelete, padding: '4px 8px', fontSize: 11 }}
                   onClick={() => onDeleteStore(p)}
                   disabled={deletingStoreId === (p.storeId || p.store?.id || p.store_id)}
                 >
-                  {deletingStoreId === (p.storeId || p.store?.id || p.store_id) ? '...' : 'Ocultar'}
+                  {deletingStoreId === (p.storeId || p.store?.id || p.store_id) ? '...' : td.hideBtn}
                 </button>
               </div>
             </div>
@@ -1537,8 +1529,8 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
   const [saved, setSaved]   = useState(false);
 
   const productName = pub.productName || pub.product?.name || '—';
-  const productBarcode = pub.productBarcode || pub.product?.barcode || 'Sin código';
-  const brandName   = pub.brandName   || pub.product?.brand?.name || 'Sin marca';
+  const productBarcode = pub.productBarcode || pub.product?.barcode || td.noCode;
+  const brandName   = pub.brandName   || pub.product?.brand?.name || td.noBrand;
   const storeName   = pub.storeName   || pub.store?.name   || '—';
   const authorName  = pub.authorName  || pub.userName || pub.user?.full_name || '—';
   const createdAt   = pub.createdAt   ? new Date(pub.createdAt).toLocaleString('es-CO') : '—';
@@ -1576,8 +1568,8 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
           </div>
           <div style={s.detailGrid}>
             <DetailRow label={td.pubProductLabel} value={productName} />
-            <DetailRow label="Código de barras" value={productBarcode} />
-            <DetailRow label="Marca" value={brandName} />
+            <DetailRow label={td.pubBarcodeLabel} value={productBarcode} />
+            <DetailRow label={td.pubBrandLabel} value={brandName} />
             <DetailRow label={td.pubStoreLabel}   value={storeName} />
             <DetailRow label={td.pubPriceLabel}   value={`$${typeof pub.price === 'number' ? pub.price.toLocaleString('es-CO') : pub.price || '—'}`} />
             <DetailRow label={td.pubAuthorLabel}  value={authorName} />
@@ -1592,7 +1584,7 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
           <div style={{ marginBottom: 16 }}>
             <img
               src={pub.photoUrl}
-              alt="Foto de publicación"
+              alt={td.pubPhotoAlt}
               style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 8, border: `1px solid ${BORDER}` }}
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
@@ -1623,7 +1615,7 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
               onChange={(e) => setPrice(e.target.value)}
               style={{ ...s.filterSelect, fontFamily: 'inherit' }}
               min={0}
-              placeholder="Precio en COP"
+              placeholder={td.pricePlaceholder}
             />
           </label>
 
@@ -1634,7 +1626,7 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
               style={{ ...s.filterSelect, fontFamily: 'inherit', resize: 'vertical' }}
-              placeholder="Descripción de la publicación"
+              placeholder={td.descriptionPlaceholder}
             />
           </label>
         </div>
@@ -1700,11 +1692,11 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
       </div>
       <div className="admin-report-info-rows" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {[
-          ['Tipo reportado', report.targetLabel || getReportTargetTypeLabel(report.reportedType)],
-          ['Elemento reportado', `"${report.post ?? td.deletedPub}"`],
+          [td.labelReportedType, report.targetLabel || getReportTargetTypeLabel(report.reportedType, td)],
+          [td.labelReportedItem, `"${report.post ?? td.deletedPub}"`],
           [td.labelReportedBy,    report.reporter ?? td.anonymous],
           [td.labelReportedUser,  report.reported ?? td.unknown],
-          ['ID elemento', report.reportedId || '—'],
+          [td.labelElementId, report.reportedId || '—'],
         ].map(([label, value]) => (
           <div key={label} style={{ display: 'flex', gap: 12, fontSize: 14 }}>
             <span style={{ color: MUTED, width: 150, flexShrink: 0 }}>{label}</span>
@@ -1715,14 +1707,14 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
         {report.publicationSummary && (
           <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-surface)', border: `1px solid ${BORDER}` }}>
             <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Publicación reportada
+              {td.labelReportedPub}
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
               {[
-                ['Marca',    report.publicationSummary.brand],
-                ['Tienda',   report.publicationSummary.store],
-                ['Cantidad', report.publicationSummary.unit],
-                ['Precio',   report.publicationSummary.price],
+                [td.colBrand,  report.publicationSummary.brand],
+                [td.colStore,  report.publicationSummary.store],
+                [td.colUnit,   report.publicationSummary.unit],
+                [td.colPrice,  report.publicationSummary.price],
               ].map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', gap: 6, fontSize: 13 }}>
                   <span style={{ color: MUTED, flexShrink: 0 }}>{label}:</span>
@@ -1738,8 +1730,8 @@ function ReportCard({ report, showActions, onResolve, onOpenDetails }) {
         {showActions && (
           <>
             {canHideTarget && (
-              <button style={s.btnDelete} onClick={() => onResolve(report, 'hide')} title="Ocultar contenido reportado">
-                Ocultar contenido
+              <button style={s.btnDelete} onClick={() => onResolve(report, 'hide')} title={td.hideContentTitle}>
+                {td.hideContentBtn}
               </button>
             )}
             {report.reportedUserId && (
@@ -1831,15 +1823,15 @@ function ReportDetailsModal({ report, onClose, onSave }) {
         {/* Info del reporte */}
         <div style={{ ...s.section, marginBottom: 16 }}>
           <div style={{ ...s.sectionHead, marginBottom: 10 }}>
-            <span style={s.sectionTitle}>Información del reporte</span>
+            <span style={s.sectionTitle}>{td.reportInfoTitle}</span>
           </div>
           <div style={s.detailGrid}>
-            <DetailRow label="Razón" value={typeLabel} />
+            <DetailRow label={td.labelReason} value={typeLabel} />
             <DetailRow label={td.labelReportedBy} value={report.reporter || td.anonymous} />
             <DetailRow label={td.labelReportedUser} value={report.reported || td.unknown} />
-            <DetailRow label="Fecha del reporte" value={report.createdAt ? new Date(report.createdAt).toLocaleString('es-CO') : '—'} />
-            {report.resolvedAt && <DetailRow label="Fecha de resolución" value={new Date(report.resolvedAt).toLocaleString('es-CO')} />}
-            {report.reviewer && <DetailRow label="Revisado por" value={report.reviewer} />}
+            <DetailRow label={td.labelReportDate} value={report.createdAt ? new Date(report.createdAt).toLocaleString('es-CO') : '—'} />
+            {report.resolvedAt && <DetailRow label={td.labelResolvedDate} value={new Date(report.resolvedAt).toLocaleString('es-CO')} />}
+            {report.reviewer && <DetailRow label={td.labelReviewedBy} value={report.reviewer} />}
           </div>
         </div>
 
@@ -1859,24 +1851,24 @@ function ReportDetailsModal({ report, onClose, onSave }) {
         {(pub || (report.publicationId && pubDeleted)) && (
           <div style={{ ...s.section, marginBottom: 16 }}>
             <div style={{ ...s.sectionHead, marginBottom: 10 }}>
-              <span style={s.sectionTitle}>Publicación reportada</span>
+              <span style={s.sectionTitle}>{td.labelReportedPub}</span>
               {pubDeleted && (
                 <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--error-soft)', color: 'var(--error)', borderRadius: 4, padding: '2px 8px' }}>
-                  {pub ? 'Desactivada' : 'Eliminada'}
+                  {pub ? td.pubDeactivated : td.pubDeletedLabel}
                 </span>
               )}
             </div>
             {pub ? (
               <div style={s.detailGrid}>
-                <DetailRow label="Producto" value={pub.productName} />
-                <DetailRow label="Marca" value={pub.brand} />
-                <DetailRow label="Cantidad" value={pub.unit} />
-                <DetailRow label="Tienda" value={pub.store} />
-                <DetailRow label="Precio" value={pub.price} />
+                <DetailRow label={td.colProduct} value={pub.productName} />
+                <DetailRow label={td.colBrand} value={pub.brand} />
+                <DetailRow label={td.colUnit} value={pub.unit} />
+                <DetailRow label={td.colStore} value={pub.store} />
+                <DetailRow label={td.colPrice} value={pub.price} />
               </div>
             ) : (
               <p style={{ margin: 0, fontSize: 13, color: MUTED }}>
-                La publicación fue ocultada completamente. ID: {report.publicationId}
+                {td.pubHiddenCompletely(report.publicationId)}
               </p>
             )}
           </div>
@@ -1886,16 +1878,16 @@ function ReportDetailsModal({ report, onClose, onSave }) {
         {report.evidenceUrl && (
           <div style={{ ...s.section, marginBottom: 16 }}>
             <div style={{ ...s.sectionHead, marginBottom: 10 }}>
-              <span style={s.sectionTitle}>Evidencia</span>
+              <span style={s.sectionTitle}>{td.labelEvidence}</span>
             </div>
             <img
               src={report.evidenceUrl}
-              alt="Evidencia del reporte"
+              alt={td.evidenceAlt}
               style={{ width: '100%', maxHeight: 260, objectFit: 'cover', borderRadius: 8, border: `1px solid ${BORDER}` }}
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
             <a href={report.evidenceUrl} target="_blank" rel="noreferrer" style={{ ...s.linkBtn, display: 'block', marginTop: 6, fontSize: 12 }}>
-              Ver imagen original ↗
+              {td.viewOriginalImage}
             </a>
           </div>
         )}
@@ -1917,7 +1909,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
           <textarea
             value={actionTaken}
             onChange={(e) => setActionTaken(e.target.value)}
-            placeholder="Ej: Contenido ocultado, usuario advertido..."
+            placeholder={td.actionTakenPlaceholder}
             style={s.modalTextarea}
             rows={3}
           />
@@ -1928,7 +1920,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
           <textarea
             value={modNotes}
             onChange={(e) => setModNotes(e.target.value)}
-            placeholder="Notas internas del moderador (no visibles al usuario)..."
+            placeholder={td.modNotesPlaceholder}
             style={s.modalTextarea}
             rows={3}
           />
@@ -1952,29 +1944,31 @@ function ReportDetailsModal({ report, onClose, onSave }) {
 }
 
 function StoreDetailModal({ store, onClose, onDelete, isDeleting }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
   return (
     <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
       <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>Detalle de tienda</h2>
+            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.storeDetailTitle}</h2>
             <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {store.id}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
         </div>
         <div style={s.detailGrid}>
-          <DetailRow label="Nombre" value={store.name || '—'} />
-          <DetailRow label="Tipo" value={store.typeLabel || '—'} />
-          <DetailRow label="Dirección" value={store.address || '—'} />
-          <DetailRow label="Web" value={store.website_url || '—'} />
-          <DetailRow label="Creada el" value={store.created_at ? new Date(store.created_at).toLocaleString('es-CO') : '—'} />
-          <DetailRow label="Publicaciones (vista actual)" value={store.relatedCount ?? 0} />
+          <DetailRow label={td.labelName} value={store.name || '—'} />
+          <DetailRow label={td.labelType} value={store.typeLabel || '—'} />
+          <DetailRow label={td.labelAddress} value={store.address || '—'} />
+          <DetailRow label={td.labelWeb} value={store.website_url || '—'} />
+          <DetailRow label={td.labelCreatedAt} value={store.created_at ? new Date(store.created_at).toLocaleString('es-CO') : '—'} />
+          <DetailRow label={td.labelRelatedPubs} value={store.relatedCount ?? 0} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
-            {isDeleting ? 'Ocultando...' : 'Ocultar tienda'}
+            {isDeleting ? td.hidingBtn : td.hideStoreBtn}
           </button>
-          <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
+          <button onClick={onClose} style={s.btnDismiss}>{td.closeBtn}</button>
         </div>
       </div>
     </div>
@@ -1982,28 +1976,30 @@ function StoreDetailModal({ store, onClose, onDelete, isDeleting }) {
 }
 
 function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
   return (
     <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
       <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>Detalle de marca</h2>
+            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.brandDetailTitle}</h2>
             <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {brand.id}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
         </div>
         <div style={s.detailGrid}>
-          <DetailRow label="Producto" value={brand.productName || '—'} />
-          <DetailRow label="Código de barras" value={brand.productBarcode || 'Sin código'} />
-          <DetailRow label="Marca" value={brand.name || '—'} />
-          <DetailRow label="Productos asociados" value={brand.productsCount ?? 0} />
-          <DetailRow label="Creada el" value={brand.created_at ? new Date(brand.created_at).toLocaleString('es-CO') : '—'} />
+          <DetailRow label={td.colProduct} value={brand.productName || '—'} />
+          <DetailRow label={td.colBarcode} value={brand.productBarcode || td.noCode} />
+          <DetailRow label={td.colBrand} value={brand.name || '—'} />
+          <DetailRow label={td.labelAssociatedProducts} value={brand.productsCount ?? 0} />
+          <DetailRow label={td.labelCreatedAt} value={brand.created_at ? new Date(brand.created_at).toLocaleString('es-CO') : '—'} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
-            {isDeleting ? 'Ocultando...' : 'Ocultar marca'}
+            {isDeleting ? td.hidingBtn : td.hideBrandBtn}
           </button>
-          <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
+          <button onClick={onClose} style={s.btnDismiss}>{td.closeBtn}</button>
         </div>
       </div>
     </div>
@@ -2011,6 +2007,8 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
 }
 
 function ProductDetailModal({ product, onClose, onDelete, isDeleting }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
   const quantity = product?.base_quantity != null && product?.unit?.abbreviation
     ? `${product.base_quantity} ${product.unit.abbreviation}`
     : product?.base_quantity != null && product?.unit?.name
@@ -2022,23 +2020,23 @@ function ProductDetailModal({ product, onClose, onDelete, isDeleting }) {
       <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>Detalle de producto</h2>
+            <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.productDetailTitle}</h2>
             <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {product.id}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
         </div>
         <div style={s.detailGrid}>
-          <DetailRow label="Producto" value={product?.name || '—'} />
-          <DetailRow label="Marca" value={product?.brand?.name || 'Sin marca'} />
-          <DetailRow label="Código de barras" value={product?.barcode || 'Sin código'} />
-          <DetailRow label="Cantidad base" value={quantity} />
-          <DetailRow label="Creado el" value={product?.created_at ? new Date(product.created_at).toLocaleString('es-CO') : '—'} />
+          <DetailRow label={td.colProduct} value={product?.name || '—'} />
+          <DetailRow label={td.colBrand} value={product?.brand?.name || td.noBrand} />
+          <DetailRow label={td.colBarcode} value={product?.barcode || td.noCode} />
+          <DetailRow label={td.labelBaseQuantity} value={quantity} />
+          <DetailRow label={td.labelCreatedAtProduct} value={product?.created_at ? new Date(product.created_at).toLocaleString('es-CO') : '—'} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
-            {isDeleting ? 'Ocultando...' : 'Ocultar producto'}
+            {isDeleting ? td.hidingBtn : td.hideProductBtn}
           </button>
-          <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
+          <button onClick={onClose} style={s.btnDismiss}>{td.closeBtn}</button>
         </div>
       </div>
     </div>
@@ -2055,40 +2053,43 @@ function UnpublishedResourcesTable({
   deletingStoreId,
   deletingProductId,
 }) {
+  const { t } = useLanguage();
+  const td = t.adminDashboard;
+
   if ((!stores || stores.length === 0) && (!products || products.length === 0)) {
-    return <EmptyMsg text="No hay tiendas ni productos sin publicaciones." />;
+    return <EmptyMsg text={td.noUnpublishedResources} />;
   }
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <div style={s.table}>
         <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr' }}>
-          {['Tiendas no publicadas', 'Tipo', 'Acciones'].map((h) => (
+          {[td.colUnpublishedStores, td.labelType, td.colActions].map((h) => (
             <div key={h} style={s.th}>{h}</div>
           ))}
         </div>
         {(stores || []).length === 0 ? (
-          <div style={{ padding: '14px 20px', color: MUTED, fontSize: 13 }}>No hay tiendas no publicadas.</div>
+          <div style={{ padding: '14px 20px', color: MUTED, fontSize: 13 }}>{td.noUnpublishedStores}</div>
         ) : (
           (stores || []).map((store) => (
             <div key={store.id} style={{ ...s.tableRow, gridTemplateColumns: '2fr 1fr 1fr' }}>
               <div style={s.td}>
                 <div>
                   <div style={s.rowName}>{store.name || '—'}</div>
-                  <div style={{ fontSize: 12, color: MUTED }}>{store.address || 'Sin dirección'}</div>
+                  <div style={{ fontSize: 12, color: MUTED }}>{store.address || td.noAddress}</div>
                 </div>
               </div>
               <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{store.typeLabel || '—'}</div>
               <div style={{ ...s.td, gap: 6 }}>
                 <button style={{ ...s.filterBtn, padding: '5px 10px', fontSize: 12 }} onClick={() => onViewStore(store)}>
-                  Ver detalle
+                  {td.viewDetailBtn}
                 </button>
                 <button
                   style={s.btnDelete}
                   onClick={() => onDeleteStore(store)}
                   disabled={deletingStoreId === store.id}
                 >
-                  {deletingStoreId === store.id ? '...' : 'Ocultar'}
+                  {deletingStoreId === store.id ? '...' : td.hideBtn}
                 </button>
               </div>
             </div>
@@ -2098,32 +2099,32 @@ function UnpublishedResourcesTable({
 
       <div style={s.table}>
         <div style={{ ...s.tableHead, gridTemplateColumns: '2fr 1fr 1fr' }}>
-          {['Productos no publicados', 'Marca', 'Acciones'].map((h) => (
+          {[td.colUnpublishedProducts, td.colBrand, td.colActions].map((h) => (
             <div key={h} style={s.th}>{h}</div>
           ))}
         </div>
         {(products || []).length === 0 ? (
-          <div style={{ padding: '14px 20px', color: MUTED, fontSize: 13 }}>No hay productos no publicados.</div>
+          <div style={{ padding: '14px 20px', color: MUTED, fontSize: 13 }}>{td.noUnpublishedProducts}</div>
         ) : (
           (products || []).map((product) => (
             <div key={product.id} style={{ ...s.tableRow, gridTemplateColumns: '2fr 1fr 1fr' }}>
               <div style={s.td}>
                 <div>
                   <div style={s.rowName}>{product.name || '—'}</div>
-                  <div style={{ fontSize: 12, color: MUTED }}>Código: {product.barcode || 'Sin código'}</div>
+                  <div style={{ fontSize: 12, color: MUTED }}>{td.colBarcode}: {product.barcode || td.noCode}</div>
                 </div>
               </div>
-              <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{product.brand?.name || 'Sin marca'}</div>
+              <div style={{ ...s.td, fontSize: 13, color: MUTED }}>{product.brand?.name || td.noBrand}</div>
               <div style={{ ...s.td, gap: 6 }}>
                 <button style={{ ...s.filterBtn, padding: '5px 10px', fontSize: 12 }} onClick={() => onViewProduct(product)}>
-                  Ver detalle
+                  {td.viewDetailBtn}
                 </button>
                 <button
                   style={s.btnDelete}
                   onClick={() => onDeleteProduct(product)}
                   disabled={deletingProductId === product.id}
                 >
-                  {deletingProductId === product.id ? '...' : 'Ocultar'}
+                  {deletingProductId === product.id ? '...' : td.hideBtn}
                 </button>
               </div>
             </div>

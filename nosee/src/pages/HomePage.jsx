@@ -307,7 +307,7 @@ const PublicationCard = memo(function PublicationCard({
           </span>
         </div>
         <span style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "6px", display: "block" }}>
-          <strong style={{ color: "var(--text-secondary)" }}>Tienda:</strong> {pub.store?.name || th.store}
+          <strong style={{ color: "var(--text-secondary)" }}>{th.storeLabel}</strong> {pub.store?.name || th.store}
         </span>
       </div>
 

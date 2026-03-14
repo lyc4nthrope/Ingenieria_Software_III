@@ -226,7 +226,7 @@ export function PublicationCard({
             </span>
           </div>
           <div style={{ ...styles.storeName, marginTop: '4px' }}>
-            <strong style={{ color: 'var(--text-secondary)' }}>Tienda:</strong>{' '}
+            <strong style={{ color: 'var(--text-secondary)' }}>{tc.storeLabel}</strong>{' '}
             <span aria-hidden="true">{Number(publication.store?.store_type_id) === 2 ? '🌐' : '🏪'} </span>{publication.store?.name || tc.noStore}
           </div>
         </div>
