@@ -14,6 +14,7 @@ import { PageLoader } from "@/components/ui/Spinner";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import AccessibilityMenu from "@/components/layout/AccessibilityMenu";
 import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
+import { usePageView } from "@/hooks/usePageView";
 
 const HomePage = lazy(() => import("@/pages/HomePage"));
 const LoginPage = lazy(() => import("@/features/auth/pages/LoginPage"));
@@ -334,6 +335,8 @@ function RoleChangeToast() {
 
 function AppShell() {
   const { t } = useLanguage();
+  // Rastrear page views en cada cambio de ruta (GA4)
+  usePageView();
   const [isOffline, setIsOffline] = useState(
     typeof navigator !== "undefined" ? !navigator.onLine : false
   );

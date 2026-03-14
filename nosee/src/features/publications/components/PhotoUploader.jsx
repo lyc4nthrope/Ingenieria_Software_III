@@ -60,7 +60,7 @@ export function PhotoUploader({ onUpload, disabled = false, extraActions = null 
     const result = await upload(file);
 
     if (result.success && onUpload) {
-      onUpload(result.photoUrl);
+      onUpload(result.photoUrl, result);
     }
   };
 

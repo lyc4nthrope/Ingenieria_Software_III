@@ -7,8 +7,11 @@
  * Ejecutar: npm test -- publications.test.js
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createRequire } from "node:module";
+import { render, screen, act } from "@testing-library/react";
+import React from "react";
+import { formatDistanceToNow } from "../../src/features/publications/utils/dateUtils.js";
 
 const require = createRequire(import.meta.url);
 
@@ -504,6 +507,166 @@ describe("Publications Feature - Integration Check", () => {
     } catch {
       expect(true).toBe(true);
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// TESTS: formatDistanceToNow (función base del tiempo real)
+// ─────────────────────────────────────────────────────────────
+
+const tTimeAgo = {
+  justNow: "hace unos segundos",
+  minutes: (n) => `hace ${n} minuto${n !== 1 ? "s" : ""}`,
+  hours: (n) => `hace ${n} hora${n !== 1 ? "s" : ""}`,
+  days: (n) => `hace ${n} día${n !== 1 ? "s" : ""}`,
+  weeks: (n) => `hace ${n} semana${n !== 1 ? "s" : ""}`,
+  months: (n) => `hace ${n} mes${n !== 1 ? "es" : ""}`,
+  years: (n) => `hace ${n} año${n !== 1 ? "s" : ""}`,
+};
+
+describe("formatDistanceToNow", () => {
+  it('retorna justNow si pasaron menos de 60 segundos', () => {
+    const date = new Date(Date.now() - 30_000);
+    expect(formatDistanceToNow(date, tTimeAgo)).toBe("hace unos segundos");
+  });
+
+  it('retorna minutos correctamente (plural)', () => {
+    const date = new Date(Date.now() - 5 * 60_000);
+    expect(formatDistanceToNow(date, tTimeAgo)).toBe("hace 5 minutos");
+  });
+
+  it('retorna minutos correctamente (singular)', () => {
+    const date = new Date(Date.now() - 1 * 60_000);
+    expect(formatDistanceToNow(date, tTimeAgo)).toBe("hace 1 minuto");
+  });
+
+  it('retorna horas correctamente (plural)', () => {
+    const date = new Date(Date.now() - 3 * 3_600_000);
+    expect(formatDistanceToNow(date, tTimeAgo)).toBe("hace 3 horas");
+  });
+
+  it('retorna horas correctamente (singular)', () => {
+    const date = new Date(Date.now() - 1 * 3_600_000);
+    expect(formatDistanceToNow(date, tTimeAgo)).toBe("hace 1 hora");
+  });
+
+  it('retorna días correctamente', () => {
+    const date = new Date(Date.now() - 5 * 86_400_000);
+    expect(formatDistanceToNow(date, tTimeAgo)).toBe("hace 5 días");
+  });
+
+  it('retorna semanas correctamente', () => {
+    const date = new Date(Date.now() - 2 * 7 * 86_400_000);
+    expect(formatDistanceToNow(date, tTimeAgo)).toBe("hace 2 semanas");
+  });
+
+  it('retorna meses correctamente', () => {
+    const date = new Date(Date.now() - 3 * 30 * 86_400_000);
+    expect(formatDistanceToNow(date, tTimeAgo)).toBe("hace 3 meses");
+  });
+
+  it('retorna años correctamente', () => {
+    const date = new Date(Date.now() - 2 * 365 * 86_400_000);
+    expect(formatDistanceToNow(date, tTimeAgo)).toBe("hace 2 años");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// TESTS: PublicationCard — tiempo en tiempo real
+// ─────────────────────────────────────────────────────────────
+
+// Mock de los módulos que necesita PublicationCard
+vi.mock("@/contexts/LanguageContext", () => ({
+  useLanguage: () => ({
+    t: {
+      timeAgo: tTimeAgo,
+      publicationCard: {
+        validate: "Validar",
+        invalidate: "Invalidar",
+        report: "Reportar",
+        delete: "Eliminar",
+        deleting: "Eliminando...",
+        viewMore: "Ver más",
+        notAvailable: "No disponible",
+        unknownProduct: "Producto desconocido",
+        noStore: "Sin tienda",
+        user: "Usuario",
+        confirmDelete: "¿Eliminar?",
+        currency: "COP",
+        photoExpand: "Ver foto",
+        closePhotoLabel: "Cerrar foto",
+        validateLabel: (name) => `Validar ${name}`,
+        downvoteLabel: (name) => `Votar negativamente ${name}`,
+        reportLabel: (name) => `Reportar ${name}`,
+        viewMoreLabel: (name) => `Ver más de ${name}`,
+        deleteLabel: (name) => `Eliminar ${name}`,
+        photoExpandLabel: (expanded, name) => expanded ? `Colapsar foto de ${name}` : `Expandir foto de ${name}`,
+      },
+    },
+  }),
+}));
+
+vi.mock("@/features/publications/components/ReportPublicationModal", () => ({
+  ReportPublicationModal: () => null,
+}));
+
+vi.mock("@/services/cloudinary", () => ({
+  optimizeCloudinaryUrl: (url) => url,
+}));
+
+const makePub = (msSinceCreated) => ({
+  id: "pub-test-1",
+  price: 5000,
+  currency: "COP",
+  photo_url: null,
+  description: "Test",
+  validated_count: 0,
+  reported_count: 0,
+  created_at: new Date(Date.now() - msSinceCreated).toISOString(),
+  user: { username: "tester", avatar_url: null },
+  product: { name: "Arroz", brand: { name: "Roa" }, base_quantity: 500, unit_type: { abbreviation: "g" } },
+  store: { name: "Éxito" },
+});
+
+describe("PublicationCard — tiempo en tiempo real", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("muestra timeAgo correcto al renderizar inicialmente", async () => {
+    const { PublicationCard } = await import(
+      "../../src/features/publications/components/PublicationCard.jsx"
+    );
+
+    render(React.createElement(PublicationCard, { publication: makePub(5 * 60_000) }));
+    expect(screen.getByText("hace 5 minutos")).toBeInTheDocument();
+  });
+
+  it("actualiza timeAgo automáticamente al avanzar 30 segundos", async () => {
+    const { PublicationCard } = await import(
+      "../../src/features/publications/components/PublicationCard.jsx"
+    );
+
+    // Publicación de hace 59 segundos → "hace unos segundos"
+    render(React.createElement(PublicationCard, { publication: makePub(59_000) }));
+    expect(screen.getByText("hace unos segundos")).toBeInTheDocument();
+
+    // Avanzar 30 s → ahora lleva 89 s → "hace 1 minuto"
+    act(() => vi.advanceTimersByTime(30_000));
+    expect(screen.getByText("hace 1 minuto")).toBeInTheDocument();
+  });
+
+  it("limpia el intervalo al desmontar el componente (sin memory leaks)", async () => {
+    const { PublicationCard } = await import(
+      "../../src/features/publications/components/PublicationCard.jsx"
+    );
+    const clearIntervalSpy = vi.spyOn(global, "clearInterval");
+
+    const { unmount } = render(
+      React.createElement(PublicationCard, { publication: makePub(10_000) })
+    );
+    unmount();
+
+    expect(clearIntervalSpy).toHaveBeenCalled();
   });
 });
 

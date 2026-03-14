@@ -27,6 +27,10 @@
 
 import { useState, useCallback } from 'react';
 import { compressImage, optimizeCloudinaryUrl } from '@/services/cloudinary';
+import {
+  analyzeImageFileForRestrictedContent,
+  detectRestrictedContentText,
+} from '@/services/moderation';
 
 /**
  * Validaciones para el archivo
@@ -36,6 +40,26 @@ const VALIDATION = {
   MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
   ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
   ALLOWED_EXTENSIONS: ['.jpg', '.jpeg', '.png', '.webp'],
+};
+const CLOUDINARY_MODERATION_PROVIDER = String(
+  import.meta.env.VITE_CLOUDINARY_MODERATION_PROVIDER || "aws_rek",
+)
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean)
+  .join("|");
+const REQUIRE_IMAGE_MODERATION = String(
+  import.meta.env.VITE_REQUIRE_IMAGE_MODERATION || "false",
+).toLowerCase() === "true";
+
+const toFriendlyCloudinaryError = (rawMessage = "", status = "") => {
+  const msg = String(rawMessage || "").toLowerCase();
+  if (msg.includes("moderation parameter is not allowed when using unsigned upload")) {
+    return "No se pudo moderar automáticamente la imagen con la configuración actual. La foto no se subió. Contacta al administrador para habilitar moderación en el preset de Cloudinary.";
+  }
+  return rawMessage
+    ? `Error de Cloudinary (${status}): ${rawMessage}`
+    : `Error del servidor: ${status}`;
 };
 
 /**
@@ -94,6 +118,15 @@ export const usePhotoUpload = () => {
       };
     }
 
+    const filenameModeration = detectRestrictedContentText(file.name || "");
+    if (filenameModeration.flagged) {
+      return {
+        valid: false,
+        error:
+          "El nombre del archivo sugiere contenido para adultos o gore. Usa una imagen de producto válida.",
+      };
+    }
+
     return { valid: true };
   }, []);
 
@@ -139,11 +172,22 @@ export const usePhotoUpload = () => {
           import.meta.env.VITE_CLOUDINARY_UPLOAD_FOLDER || 'nosee/publications';
 
         const compressed = await compressImage(file);
+        const pixelModeration = await analyzeImageFileForRestrictedContent(compressed);
+        if (pixelModeration.flagged) {
+          const error =
+            pixelModeration.reason ||
+            "La imagen fue bloqueada por posible contenido para adultos o gore.";
+          setError(error);
+          return { success: false, error };
+        }
 
         const formData = new FormData();
         formData.append('file', compressed);
         formData.append('upload_preset', uploadPreset);
         formData.append('folder', uploadFolder);
+        if (String(import.meta.env.VITE_CLOUDINARY_ENABLE_MODERATION || "false").toLowerCase() === "true") {
+          formData.append("moderation", CLOUDINARY_MODERATION_PROVIDER || "aws_rek");
+        }
 
         setUploading(true);
 
@@ -165,12 +209,47 @@ export const usePhotoUpload = () => {
               try {
                 const data = JSON.parse(xhr.responseText);
                 const url = optimizeCloudinaryUrl(data.secure_url, { width: 1200 });
+                const metadataText = [
+                  data?.original_filename,
+                  data?.public_id,
+                  ...(Array.isArray(data?.tags) ? data.tags : []),
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                const metadataModeration = detectRestrictedContentText(metadataText);
+                if (metadataModeration.flagged) {
+                  const error =
+                    "La imagen parece no corresponder a contenido de producto (adulto/gore). Selecciona otra imagen.";
+                  setError(error);
+                  setUploading(false);
+                  resolve({ success: false, error });
+                  return;
+                }
+
+                const moderationEvidence = [
+                  ...(Array.isArray(data?.moderation) ? data.moderation : []),
+                  ...(pixelModeration?.evidence ? [pixelModeration.evidence] : []),
+                ];
+
+                if (REQUIRE_IMAGE_MODERATION && moderationEvidence.length === 0) {
+                  const error =
+                    "No fue posible validar la seguridad de la imagen. Intenta otra foto o contacta al administrador.";
+                  setError(error);
+                  setUploading(false);
+                  resolve({ success: false, error });
+                  return;
+                }
 
                 setPhotoUrl(url);
                 setProgress(100);
                 setUploading(false);
 
-                resolve({ success: true, photoUrl: url });
+                resolve({
+                  success: true,
+                  photoUrl: url,
+                  moderation: moderationEvidence,
+                  rawCloudinary: data,
+                });
               } catch {
                 const error = 'Error procesando respuesta de Cloudinary';
                 setError(error);
@@ -186,9 +265,7 @@ export const usePhotoUpload = () => {
                 cloudinaryError = '';
               }
 
-              const error = cloudinaryError
-                ? `Error de Cloudinary (${xhr.status}): ${cloudinaryError}`
-                : `Error del servidor: ${xhr.status}`;
+              const error = toFriendlyCloudinaryError(cloudinaryError, xhr.status);
               setError(error);
               setUploading(false);
               resolve({ success: false, error });

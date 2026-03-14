@@ -10,6 +10,7 @@ const initialFormData = {
   currency: 'COP',
   description: '',
   photoUrl: '',
+  photoModeration: null,
 };
 
 export function usePublicationCreation({ publicationId = null, mode = 'create' } = {}) {
@@ -36,6 +37,7 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
             currency: result.data.currency || 'COP',
             description: result.data.description || '',
             photoUrl: result.data.photoUrl || '',
+            photoModeration: null,
           });
         } else {
           setSubmitError(result.error || 'No se pudo cargar la publicación');
@@ -99,6 +101,7 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
         price: Number(formData.price),
         photoUrl: formData.photoUrl,
         description: formData.description,
+        photoModeration: formData.photoModeration || null,
       };
 
       const result = mode === 'create'

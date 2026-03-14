@@ -21,6 +21,11 @@
 
 import { supabase } from "@/services/supabase.client";
 import { uploadImageToCloudinary } from "@/services/cloudinary";
+import {
+  detectInappropriateText,
+  detectRestrictedContentText,
+  detectIndecentImageByModeration,
+} from "@/services/moderation";
 
 // ─── TIPOS / INTERFACES ───────────────────────────────────────────────────────
 
@@ -94,6 +99,8 @@ const BACKGROUND_REQUEST_TIMEOUT_MS = 20000;
 const EXTENDED_RETRY_TIMEOUT_MS = 30000;
 const HYDRATION_TIMEOUT_MS = 3500;
 const FOREGROUND_GRACE_PERIOD_MS = 4000;
+const REQUIRE_IMAGE_MODERATION =
+  String(import.meta.env.VITE_REQUIRE_IMAGE_MODERATION || "false").toLowerCase() === "true";
 
 const canUseBrowserApis = () => typeof window !== "undefined" && typeof document !== "undefined";
 
@@ -328,7 +335,11 @@ const enrichPublicationsWithVoteCounts = async (publications) => {
 
   const [votesResult, reportsResult, userVotesResult] = await Promise.all([
     supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds),
-    supabase.from("reports").select("publication_id, status").in("publication_id", publicationIds),
+    supabase
+      .from("reports")
+      .select("reported_id, status")
+      .eq("reported_type", "publication")
+      .in("reported_id", publicationIds.map(String)),
     currentUserId
       ? supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds).eq("user_id", currentUserId)
       : Promise.resolve({ data: [] }),
@@ -344,9 +355,10 @@ const enrichPublicationsWithVoteCounts = async (publications) => {
 
   const reportCountByPublication = {};
   (reportsResult.data || []).forEach((row) => {
-    if (!row.publication_id) return;
+    const publicationId = Number(row.reported_id);
+    if (!Number.isFinite(publicationId)) return;
     if (String(row.status || "").toLowerCase() !== "rejected") {
-      reportCountByPublication[row.publication_id] = (reportCountByPublication[row.publication_id] || 0) + 1;
+      reportCountByPublication[publicationId] = (reportCountByPublication[publicationId] || 0) + 1;
     }
   });
 
@@ -375,7 +387,11 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
 
   const [votesResult, reportsResult, evidenceResult, productStatsResult] = await Promise.all([
     supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds),
-    supabase.from("reports").select("publication_id, status, evidence_url").in("publication_id", publicationIds),
+    supabase
+      .from("reports")
+      .select("reported_id, status, evidence_url")
+      .eq("reported_type", "publication")
+      .in("reported_id", publicationIds.map(String)),
     supabase.from("store_evidences").select("store_id").in("store_id", storeIds),
     supabase.from("price_publications").select("product_id, price").in("product_id", productIds),
   ]);
@@ -390,13 +406,14 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
 
   const reportsByPublication = {};
   (reportsResult.data || []).forEach((row) => {
-    if (!row.publication_id) return;
-    const current = reportsByPublication[row.publication_id] || { active: 0, evidences: 0 };
+    const publicationId = Number(row.reported_id);
+    if (!Number.isFinite(publicationId)) return;
+    const current = reportsByPublication[publicationId] || { active: 0, evidences: 0 };
     if (String(row.status || "").toLowerCase() !== "rejected") {
       current.active += 1;
       if (row.evidence_url) current.evidences += 1;
     }
-    reportsByPublication[row.publication_id] = current;
+    reportsByPublication[publicationId] = current;
   });
 
   const evidencesByStore = {};
@@ -550,6 +567,29 @@ const runWithSessionRetry = async (operation, timeoutMs = getAdaptiveRequestTime
   );
 };
 
+const createAutoModerationReport = async ({
+  reportedType,
+  reportedId,
+  reporterUserId,
+  reportedUserId = null,
+  reason = "offensive",
+  description = null,
+}) => {
+  if (!reportedType || !reportedId || !reporterUserId) return;
+
+  await supabase.from("reports").insert({
+    reported_type: String(reportedType),
+    reported_id: String(reportedId),
+    reporter_user_id: reporterUserId,
+    reported_user_id: reportedUserId || reporterUserId,
+    reason,
+    description,
+    status: "PENDING",
+    created_at: new Date().toISOString(),
+    action_taken: "AUTO_FLAGGED_BY_MODERATION",
+  });
+};
+
 // ─── 1️⃣ CREAR PUBLICACIÓN ────────────────────────────────────────────────────
 
 /**
@@ -607,6 +647,14 @@ export const createPublication = async (data) => {
     } = await supabase.auth.getUser();
     if (!user) {
       return { success: false, error: "Usuario no autenticado" };
+    }
+
+    if (REQUIRE_IMAGE_MODERATION && !data.photoModeration) {
+      return {
+        success: false,
+        error:
+          "No fue posible validar la seguridad de la imagen. Intenta con otra foto o contacta al administrador.",
+      };
     }
 
     // Verificar estado del usuario (activo + verificado)
@@ -668,6 +716,43 @@ export const createPublication = async (data) => {
     const reputationPoints = userProfile?.reputation_points ?? 0;
     const confidence_score = Math.min(1.0, 0.5 + reputationPoints / 1000);
 
+    const textModeration = detectInappropriateText(data.description || "");
+    const restrictedContentModeration = detectRestrictedContentText(
+      data.description || "",
+    );
+    const imageModeration = detectIndecentImageByModeration(data.photoModeration);
+    const shouldHardBlock =
+      restrictedContentModeration.flagged || imageModeration.flagged;
+
+    if (shouldHardBlock) {
+      const reasons = [];
+      if (restrictedContentModeration.flagged) {
+        reasons.push(
+          `Texto con contenido restringido: ${restrictedContentModeration.matches.join(", ")}`,
+        );
+      }
+      if (imageModeration.flagged) {
+        reasons.push(
+          `${imageModeration.reason || "Imagen con contenido adulto/gore"} (confianza: ${imageModeration.confidence ?? "n/a"})`,
+        );
+      }
+
+      await createAutoModerationReport({
+        reportedType: "user",
+        reportedId: user.id,
+        reporterUserId: user.id,
+        reportedUserId: user.id,
+        reason: "offensive",
+        description: `AUTO-MODERATION BLOCK (publication): ${reasons.join(" | ")}`,
+      });
+
+      return {
+        success: false,
+        error:
+          "No se permitió publicar porque la imagen o el texto parecen contener contenido adulto/gore.",
+      };
+    }
+
     // Crear la publicación
     const payload = {
       product_id: data.productId,
@@ -688,6 +773,56 @@ export const createPublication = async (data) => {
     if (error) {
       console.error("Error creando publicación:", error);
       return { success: false, error: error.message };
+    }
+
+    // Moderación automática adicional por lenguaje inapropiado (insultos, etc.)
+    const shouldAutoModerate = textModeration.flagged;
+
+    if (shouldAutoModerate) {
+      const moderationDescriptionParts = [];
+      if (textModeration.flagged) {
+        moderationDescriptionParts.push(
+          `Texto inapropiado detectado (score ${textModeration.score}/${textModeration.threshold}): ${textModeration.matches.map((m) => m.term).join(", ")}`,
+        );
+      }
+      if (restrictedContentModeration.flagged) {
+        moderationDescriptionParts.push(
+          `Contenido restringido (adulto/gore) detectado: ${restrictedContentModeration.matches.join(", ")}`,
+        );
+      }
+      if (imageModeration.flagged) {
+        moderationDescriptionParts.push(
+          `${imageModeration.reason || "Imagen potencialmente indecente detectada"} (confianza: ${imageModeration.confidence ?? "n/a"})`,
+        );
+      }
+
+      await supabase
+        .from("price_publications")
+        .update({
+          is_active: false,
+          is_admin_hidden: true,
+          hidden_admin_at: new Date().toISOString(),
+          hidden_admin_by: user.id,
+          hidden_admin_reason: "Moderación automática por contenido sensible",
+        })
+        .eq("id", publication.id);
+
+      await createAutoModerationReport({
+        reportedType: "publication",
+        reportedId: publication.id,
+        reporterUserId: user.id,
+        reportedUserId: user.id,
+        reason: "offensive",
+        description: `AUTO-MODERATION: ${moderationDescriptionParts.join(" | ")}`,
+      });
+
+      return {
+        success: true,
+        data: publication,
+        autoModerated: true,
+        message:
+          "Tu publicación fue enviada automáticamente a revisión por posible contenido inapropiado.",
+      };
     }
 
     // Sumar reputación al autor por crear publicación (best-effort)
@@ -1554,7 +1689,8 @@ export const checkUserReportStatus = async (publicationId) => {
     const { data: existingReport, error } = await supabase
       .from("reports")
       .select("id, created_at, reason, description")
-      .eq("publication_id", publicationId)
+      .eq("reported_type", "publication")
+      .eq("reported_id", String(publicationId))
       .eq("reporter_user_id", user.id)
       .single();
 
@@ -1658,7 +1794,8 @@ export const reportPublication = async (
     const { data: existingReport, error: checkError } = await supabase
       .from("reports")
       .select("id, created_at")
-      .eq("publication_id", publicationId)
+      .eq("reported_type", "publication")
+      .eq("reported_id", String(publicationId))
       .eq("reporter_user_id", user.id)
       .maybeSingle();
 
@@ -1708,11 +1845,19 @@ export const reportPublication = async (
 
     // ─── CREAR REPORTE EN BD ────────────────────────────────────────────
 
+    const { data: publicationOwner } = await supabase
+      .from("price_publications")
+      .select("user_id")
+      .eq("id", publicationId)
+      .maybeSingle();
+
     console.log(`${logPrefix} Creando reporte en base de datos...`);
     const { data: report, error } = await supabase
       .from("reports")
       .insert({
-        publication_id: publicationId,
+        reported_type: "publication",
+        reported_id: String(publicationId),
+        reported_user_id: publicationOwner?.user_id || null,
         reporter_user_id: user.id,
         reason: reportData.reason,
         description: reportData.description || null,
@@ -1734,7 +1879,7 @@ export const reportPublication = async (
 
     console.log(`${logPrefix} ✅ Reporte creado exitosamente:`, {
       id: report.id,
-      publicationId: report.publication_id,
+      publicationId: report.reported_id,
       reason: report.reason,
       status: report.status,
     });
@@ -2208,7 +2353,8 @@ export const deletePublication = async (publicationId, options = {}) => {
       const { error: reportsDeleteError } = await supabase
         .from("reports")
         .delete()
-        .eq("publication_id", publicationId);
+        .eq("reported_type", "publication")
+        .eq("reported_id", String(publicationId));
 
       if (reportsDeleteError) {
         console.error("Error eliminando reportes de publicación:", reportsDeleteError);
@@ -2311,6 +2457,15 @@ export async function createProduct(name) {
     return {
       success: false,
       error: "El nombre del producto debe tener al menos 2 caracteres",
+    };
+  }
+
+  const restrictedProductName = detectRestrictedContentText(normalizedName);
+  if (restrictedProductName.flagged) {
+    return {
+      success: false,
+      error:
+        "El nombre del producto contiene términos restringidos (adulto/gore). Solo se permiten productos aptos para todo público.",
     };
   }
 
@@ -2526,6 +2681,15 @@ export const createBrand = async (name) => {
     };
   }
 
+  const restrictedBrandName = detectRestrictedContentText(normalizedName);
+  if (restrictedBrandName.flagged) {
+    return {
+      success: false,
+      error:
+        "El nombre de la marca contiene términos restringidos (adulto/gore).",
+    };
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from("brands")
     .select("id, name")
@@ -2684,6 +2848,25 @@ export const addComment = async (publicationId, content, parentId = null) => {
 
     const trimmed = String(content || "").trim();
     if (!trimmed) return { success: false, error: "El comentario no puede estar vacío" };
+
+    const commentModeration = detectInappropriateText(trimmed);
+    const restrictedCommentModeration = detectRestrictedContentText(trimmed);
+    if (commentModeration.flagged || restrictedCommentModeration.flagged) {
+      await createAutoModerationReport({
+        reportedType: "user",
+        reportedId: user.id,
+        reporterUserId: user.id,
+        reportedUserId: user.id,
+        reason: "offensive",
+        description: `AUTO-MODERATION BLOCK (comment): insultos=[${commentModeration.matches.map((m) => m.term).join(", ")}] restringido=[${restrictedCommentModeration.matches.join(", ")}]`,
+      });
+      return {
+        success: false,
+        error:
+          "Tu comentario fue bloqueado automáticamente por posible contenido ofensivo o adulto/gore.",
+        autoModerated: true,
+      };
+    }
 
     const { data, error } = await supabase
       .from("comments")

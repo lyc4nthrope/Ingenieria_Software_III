@@ -960,7 +960,10 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
             {tf.photoLabel} <span style={styles.required}>*</span>
           </label>
           <PhotoUploader
-            onUpload={(url) => handleInputChange("photoUrl", url)}
+            onUpload={(url, uploadMeta) => {
+              handleInputChange("photoUrl", url);
+              handleInputChange("photoModeration", uploadMeta?.moderation || null);
+            }}
             disabled={isSubmitting}
             extraActions={
               ENABLE_BARCODE_SCAN ? (

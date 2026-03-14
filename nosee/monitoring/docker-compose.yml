@@ -1,0 +1,90 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NØSEE — Stack de Monitoreo (Prometheus + Grafana)
+#
+# Métricas del Plan de Gestión de Calidad ISO/IEC 25010
+#
+# Uso:
+#   cd monitoring && docker compose up -d
+#
+# Acceso:
+#   Grafana     → http://localhost:3000  (admin / nosee2026)
+#   Prometheus  → http://localhost:9090
+#   Métricas    → http://localhost:3001/metrics
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Colector de métricas (recibe eventos del frontend React) ──────────────
+  metrics-server:
+    build: ./metrics-server
+    container_name: nosee-metrics-server
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>r.ok?process.exit(0):process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: nosee-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - monitoring
+    depends_on:
+      - metrics-server
+
+  # ── Grafana ───────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.1.5
+    container_name: nosee-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=nosee2026
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/nosee_metrics.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    restart: unless-stopped
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+    name: nosee_prometheus_data
+  grafana_data:
+    name: nosee_grafana_data
+
+networks:
+  monitoring:
+    name: nosee_monitoring
+    driver: bridge

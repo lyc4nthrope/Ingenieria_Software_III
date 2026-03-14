@@ -4,7 +4,7 @@
  * Conecta LoginForm con authStore.login().
  * Redirige a la homepage pública "/" después del login exitoso.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   useAuthStore,
@@ -17,6 +17,17 @@ import LoginForm from "@/features/auth/components/LoginForm";
 import { resendConfirmation } from "@/services/api/auth.api";
 import { getRolePath } from "@/utils/roleUtils";
 import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  trackLoginAttempt,
+  trackLoginSuccess,
+  trackLoginFailure,
+  trackLoginAbandon,
+} from "@/services/analytics";
+import {
+  recordLoginAttempt,
+  recordLoginPageView,
+  recordLoginAbandon,
+} from "@/services/metrics";
 
 export default function LoginPage() {
   const { t } = useLanguage();
@@ -30,6 +41,20 @@ export default function LoginPage() {
   const isInitialized = useAuthStore(selectIsInitialized);
   const [lastEmailAttempt, setLastEmailAttempt] = useState("");
 
+  // Ref para saber si el login se completó (evitar falsos abandonos)
+  const loginCompleted = useRef(false);
+
+  // Métrica: vista de pantalla + detección de abandono (RNF 4.3.5, meta: <5%)
+  useEffect(() => {
+    recordLoginPageView();
+    return () => {
+      if (!loginCompleted.current) {
+        trackLoginAbandon();
+        recordLoginAbandon();
+      }
+    };
+  }, []);
+
   // Solo redirigir si ya terminó la inicialización y está logueado
   useEffect(() => {
     if (isInitialized && isAuthenticated) {
@@ -41,19 +66,39 @@ export default function LoginPage() {
   const handleLogin = async (email, password) => {
     clearError();
     setLastEmailAttempt(email);
+    // Métrica: intento de login (GA4)
+    trackLoginAttempt('email');
+    const loginStart = Date.now();
     const result = await login(email, password);
+    const durationMs = Date.now() - loginStart;
     if (result.success) {
+      loginCompleted.current = true;
+      // Métrica: latencia JWT + tasa de éxito (sección 3.4.1, meta: <800ms)
+      trackLoginSuccess('email', durationMs);
+      recordLoginAttempt('success', durationMs);
       const user = useAuthStore.getState().user;
       navigate(getRolePath(user?.role), { replace: true });
+    } else {
+      trackLoginFailure('email', result.error?.code ?? 'unknown');
+      recordLoginAttempt('failure', durationMs);
     }
   };
+
   const handleResendConfirmation = async (email) => {
     await resendConfirmation(email);
   };
 
-    const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async () => {
     clearError();
-    await loginWithGoogle();
+    trackLoginAttempt('google');
+    const loginStart = Date.now();
+    const result = await loginWithGoogle();
+    const durationMs = Date.now() - loginStart;
+    if (result?.success) {
+      loginCompleted.current = true;
+      trackLoginSuccess('google', durationMs);
+      recordLoginAttempt('success', durationMs);
+    }
   };
   return (
     <main

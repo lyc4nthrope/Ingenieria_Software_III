@@ -2,6 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { initAnalytics } from './services/analytics.js'
+
+// Inicializar Google Analytics 4 al arrancar la app
+initAnalytics()
 
 window.addEventListener('vite:preloadError', () => {
   window.location.reload()
