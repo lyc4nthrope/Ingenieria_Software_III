@@ -436,7 +436,17 @@ export default function PublicationsPage() {
   // ─────────────────────────────────────────────────────────────
 
   return (
-    <main className="home-wrapper">
+    <main
+      className="pub-page-main"
+      style={{
+        flex: 1,
+        padding: "28px 42px 40px",
+        maxWidth: "1600px",
+        margin: "0 auto",
+        width: "100%",
+      }}
+    >
+      <style>{`@media(max-width:900px){.pub-page-main{padding:16px 20px 28px!important}}`}</style>
       {/* ─────────── SECCIÓN: Encabezado ─────────── */}
       <section
         style={{
