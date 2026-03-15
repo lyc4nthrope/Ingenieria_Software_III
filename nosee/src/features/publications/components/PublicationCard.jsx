@@ -399,10 +399,10 @@ export function PublicationCard({
             onClick={() => setPhotoExpanded(false)}
             style={{
               position: 'absolute', top: '16px', right: '16px',
-              background: 'var(--overlay)', border: '1px solid rgba(255,255,255,0.3)',
-              color: 'var(--text-primary)', borderRadius: '50%', width: '36px', height: '36px',
+              background: 'rgba(0,0,0,0.75)', border: '2px solid rgba(255,255,255,0.7)',
+              color: '#fff', fontWeight: 800, borderRadius: '50%', width: '36px', height: '36px',
               fontSize: '18px', cursor: 'pointer', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
+              alignItems: 'center', justifyContent: 'center', lineHeight: 1,
             }}
           >
             ✕

@@ -700,7 +700,7 @@ export default function PublicationDetailModal({ publication, onClose }) {
 const styles = {
   overlay: { position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1300, display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" },
   modal: { background: "var(--bg-surface)", color: "var(--text-primary)", width: "min(900px, 100%)", maxHeight: "92vh", overflowY: "auto", borderRadius: "var(--radius-lg)", padding: "16px", position: "relative", border: "1px solid var(--border)" },
-  closeButton: { position: "absolute", right: 16, top: 12, border: "none", background: "transparent", color: "var(--text-muted)", fontSize: 22, cursor: "pointer" },
+  closeButton: { position: "absolute", right: 12, top: 12, border: "2px solid var(--border)", background: "var(--bg-elevated)", color: "var(--text-primary)", fontSize: 18, fontWeight: 800, cursor: "pointer", borderRadius: "50%", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 },
   image: { width: "100%", maxHeight: 420, objectFit: "cover", borderRadius: "var(--radius-md)", marginBottom: 10 },
   title: { margin: "4px 0", color: "var(--text-primary)" },
   meta: { margin: "4px 0", color: "var(--text-secondary)" },

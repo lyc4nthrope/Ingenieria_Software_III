@@ -422,11 +422,16 @@ const PublicationCard = memo(function PublicationCard({
               width: "38px",
               height: "38px",
               borderRadius: "50%",
-              border: "1px solid rgba(255,255,255,0.35)",
-              background: "rgba(0,0,0,0.45)",
+              border: "2px solid rgba(255,255,255,0.7)",
+              background: "rgba(0,0,0,0.75)",
               color: "#fff",
+              fontWeight: 800,
               fontSize: "20px",
               cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              lineHeight: 1,
             }}
           >
             ✕
