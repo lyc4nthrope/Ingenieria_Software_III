@@ -1557,7 +1557,7 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
             <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.pubDetailTitle}</h2>
             <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {pub.id}</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
+          <button onClick={onClose} style={CLOSE_BTN_STYLE}>✕</button>
         </div>
 
         {/* Detalle */}
@@ -1810,7 +1810,7 @@ function ReportDetailsModal({ report, onClose, onSave }) {
             <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.reportDetailTitle}</h2>
             <p style={{ ...s.headerSub, margin: '4px 0 0' }}>{typeof td.reportDetailSubtitle === 'function' ? td.reportDetailSubtitle(report.id) : `ID: ${report.id}`}</p>
           </div>
-          <button onClick={onClose} title={td.cancel} aria-label={td.cancel} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>✕</button>
+          <button onClick={onClose} title={td.cancel} aria-label={td.cancel} style={CLOSE_BTN_STYLE}>✕</button>
         </div>
 
         {/* Badges de tipo, severidad y estado */}
@@ -1954,7 +1954,7 @@ function StoreDetailModal({ store, onClose, onDelete, isDeleting }) {
             <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.storeDetailTitle}</h2>
             <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {store.id}</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
+          <button onClick={onClose} style={CLOSE_BTN_STYLE}>✕</button>
         </div>
         <div style={s.detailGrid}>
           <DetailRow label={td.labelName} value={store.name || '—'} />
@@ -1986,7 +1986,7 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
             <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.brandDetailTitle}</h2>
             <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {brand.id}</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
+          <button onClick={onClose} style={CLOSE_BTN_STYLE}>✕</button>
         </div>
         <div style={s.detailGrid}>
           <DetailRow label={td.colProduct} value={brand.productName || '—'} />
@@ -2023,7 +2023,7 @@ function ProductDetailModal({ product, onClose, onDelete, isDeleting }) {
             <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.productDetailTitle}</h2>
             <p style={{ ...s.headerSub, margin: '4px 0 0' }}>ID: {product.id}</p>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: MUTED, cursor: 'pointer', fontSize: 20 }}>✕</button>
+          <button onClick={onClose} style={CLOSE_BTN_STYLE}>✕</button>
         </div>
         <div style={s.detailGrid}>
           <DetailRow label={td.colProduct} value={product?.name || '—'} />
@@ -2212,6 +2212,7 @@ function ErrorBar({ msg, onRetry }) {
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
+const CLOSE_BTN_STYLE = { flexShrink: 0, background: 'var(--bg-elevated)', border: '2px solid var(--border)', borderRadius: '50%', width: 34, height: 34, fontSize: 18, fontWeight: 800, cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 };
 const ACCENT  = 'var(--accent)';
 const BG      = 'var(--bg-base)';
 const SURFACE = 'var(--bg-surface)';

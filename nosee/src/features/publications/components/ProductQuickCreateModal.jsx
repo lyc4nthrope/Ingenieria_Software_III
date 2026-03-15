@@ -457,7 +457,7 @@ const s = {
     marginBottom: "12px",
   },
   title: { margin: 0, fontSize: "18px", fontWeight: 700, color: "var(--text-primary)" },
-  closeBtn: { border: "none", background: "transparent", cursor: "pointer", color: "var(--text-muted)", fontSize: "16px" },
+  closeBtn: { flexShrink: 0, background: 'var(--bg-elevated)', border: '2px solid var(--border)', borderRadius: '50%', width: 34, height: 34, fontSize: 18, fontWeight: 800, cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 },
   loading: { padding: "12px", fontSize: "14px", color: "var(--text-muted)" },
   errorBox: {
     background: "var(--error-soft)",
