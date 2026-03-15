@@ -75,12 +75,6 @@ export async function signIn(email, password) {
  * Nota: Supabase gestiona el alta automática del usuario en el primer login.
  */
 export async function signInWithGoogle() {
-  // Limpiar sesión local previa para evitar que _recoverAndRefresh() en la
-  // página de callback encuentre una sesión expirada/inválida y llame a
-  // _removeSession() — lo que borraría el PKCE verifier antes de que
-  // exchangeCodeForSession() pueda leerlo (AuthPKCECodeVerifierMissingError).
-  await supabase.auth.signOut({ scope: 'local' });
-
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
