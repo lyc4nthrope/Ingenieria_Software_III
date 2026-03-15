@@ -25,6 +25,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     flowType: "pkce",
+    // Desactivado para que el cliente NO intercambie el code automáticamente al detectar
+    // ?code= en la URL. CallbackPage.jsx llama a exchangeCodeForSession() de forma
+    // explícita y controlada. Si detectSessionInUrl quedara en true (default), el cliente
+    // consumiría el verifier antes de que llegue la llamada explícita → AuthPKCECodeVerifierMissingError.
+    detectSessionInUrl: false,
     // En navegador dejamos el lock por defecto (Navigator LockManager).
     // processLock está pensado para entornos no-browser y puede bloquear sesiones al cambiar de pestaña.
     ...(typeof window === "undefined" ? { lock: processLock } : {}),
