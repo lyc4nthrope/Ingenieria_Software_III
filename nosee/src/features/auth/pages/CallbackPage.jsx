@@ -26,10 +26,8 @@
  */
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
-import { supabase } from '@/services/supabase.client';
-import { getRolePath } from '@/utils/roleUtils';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuthStore, selectIsInitialized } from '@/features/auth/store/authStore';
+//import { supabase } from '@/services/supabase.client';
 
 // ── Spinner inline para no depender de importaciones que podrían no estar ──
 function Spinner({ label = "Loading" }) {
@@ -65,24 +63,32 @@ export default function CallbackPage() {
   // Detectar errores en query params O en hash
   const searchParams = new URLSearchParams(window.location.search);
   const hash = window.location.hash;
-  const hashParams = new URLSearchParams(hash.substring(1));
+  const params = new URLSearchParams(hash.substring(1)); // quitar el '#'
+  const urlType = params.get('type');
+  const urlError = params.get('error_description');
+  const accessToken = params.get('access_token');
 
-  const urlError = searchParams.get('error_description') || hashParams.get('error_description');
-  const urlType = searchParams.get('type') || hashParams.get('type');
-  const flow = searchParams.get('flow');
-  const code = searchParams.get('code'); // PKCE flow
+  // Verificar si hay tipo almacenado en localStorage (para cuando Supabase limpia el hash)
+  const storedCallbackType = localStorage.getItem('auth_callback_type');
 
-  // Derivar el tipo de callback
-  const callbackType = (urlType === CALLBACK_TYPE.RECOVERY || flow === CALLBACK_TYPE.RECOVERY)
-    ? CALLBACK_TYPE.RECOVERY
-    : urlType === CALLBACK_TYPE.SIGNUP
-      ? CALLBACK_TYPE.SIGNUP
-      : CALLBACK_TYPE.UNKNOWN;
+  // DEBUG: Log para verificar qué llega en el hash
+  console.log('🔍 CallbackPage Debug:', { hash, urlType, urlError, accessToken, storedCallbackType, allParams: Object.fromEntries(params) });
 
-  // Derivar el estado y mensaje de error
-  const status = urlError ? 'error' : 'loading';
-  const errorMessage = urlError || null;
+  // Derive state from URL parameters
+  // Prioridad: urlType (del hash) > storedCallbackType (localStorage) > UNKNOWN
+  const callbackType = urlError ? CALLBACK_TYPE.UNKNOWN : (
+    urlType === CALLBACK_TYPE.RECOVERY || storedCallbackType === CALLBACK_TYPE.RECOVERY ? CALLBACK_TYPE.RECOVERY :
+    urlType === CALLBACK_TYPE.SIGNUP ? CALLBACK_TYPE.SIGNUP :
+    CALLBACK_TYPE.UNKNOWN
+  );
+  const errorMessage = urlError ? decodeURIComponent(urlError.replace(/\+/g, ' ')) : '';
+  
+  // Derive status from URL state (no useState needed)
+  const status = urlError ? 'error' : 'loading'; // 'loading' | 'error' (success set in second effect)
+  
+  console.log('📍 callbackType:', callbackType);
 
+  // ── Paso 1b: Efecto para manejar redirecciones iniciales ──
   useEffect(() => {
     // Si hay un code en query params → intercambiar por sesión (PKCE)
   if (code) {
@@ -99,36 +105,39 @@ export default function CallbackPage() {
   }
 }, [code, hash, urlError, navigate]);
 
+  // ── Paso 2: Redirigir INMEDIATAMENTE basándose SOLO en el hash ──
+  // NO verificamos isAuthenticated para evitar competencia por NavigatorLock
+  // El hash es la verdad, Supabase procesará el token en background
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!hash) return; // Paso 1b ya maneja esto
 
-    if (isAuthenticated) {
-      const isRecovery = callbackType === CALLBACK_TYPE.RECOVERY;
-      setTimeout(() => {
-        if (isRecovery) {
-          navigate('/nueva-contrasena', { replace: true });
-        } else {
-          const user = useAuthStore.getState().user;
-          navigate(getRolePath(user?.role), { replace: true });
-        }
-      }, 1200);
+    console.log('🎯 Detectado tipo:', callbackType);
+
+    // Para RECOVERY: navegar SIN verificar autenticación
+    // Guardar en localStorage que es un flujo de recovery
+    if (callbackType === CALLBACK_TYPE.RECOVERY) {
+      console.log('✅ Guardando tipo recovery en localStorage y navegando');
+      localStorage.setItem('auth_callback_type', 'recovery');
+      navigate('/nueva-contrasena', { replace: true });
+      return;
     }
-  }, [isInitialized, isAuthenticated, callbackType, navigate]);
 
-  // ── También escuchar cambios directamente de Supabase ──
-  // Por si el store tarda en reflejar el evento
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-const isRecoveryEvent = event === 'PASSWORD_RECOVERY';
-      const isRecoverySignIn = event === 'SIGNED_IN' && callbackType === CALLBACK_TYPE.RECOVERY;
-
-      if (isRecoveryEvent || isRecoverySignIn) {
-        navigate('/nueva-contrasena', { replace: true });
+    // Para SIGNUP: esperar autenticación (es más seguro)
+    if (callbackType === CALLBACK_TYPE.SIGNUP) {
+      if (isInitialized && isAuthenticated) {
+        console.log('✅ Email confirmado. Redirigiendo a /perfil');
+        navigate('/perfil', { replace: true });
       }
-    });
+      return;
+    }
 
-    return () => subscription.unsubscribe();
-  }, [callbackType, navigate]);
+    // Para estados desconocidos: solo redirigir si autenticado
+    if (callbackType === CALLBACK_TYPE.UNKNOWN) {
+      if (isInitialized && isAuthenticated) {
+        navigate('/perfil', { replace: true });
+      }
+    }
+  }, [hash, callbackType, isInitialized, isAuthenticated, navigate]);
 
   // ───────────────────────────────────────────────────────
   // UI
