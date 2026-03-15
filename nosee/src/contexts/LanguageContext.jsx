@@ -983,7 +983,7 @@ export const TRANSLATIONS = {
     moderatorDashboard: {
       navReports: "Reportes",
       navFeed: "Feed",
-      navHistory: "Historial",
+      navHistory: "Logs",
       reportsTitle: "Reportes pendientes",
       reportsSub: (n) => `${n} reportes esperan revisión`,
       reportsAllDone: "Todo al día ✓",
@@ -2244,7 +2244,7 @@ export const TRANSLATIONS = {
     moderatorDashboard: {
       navReports: "Reports",
       navFeed: "Feed",
-      navHistory: "History",
+      navHistory: "Logs",
       reportsTitle: "Pending reports",
       reportsSub: (n) => `${n} reports awaiting review`,
       reportsAllDone: "All up to date ✓",
