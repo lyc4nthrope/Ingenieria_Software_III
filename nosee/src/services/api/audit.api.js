@@ -34,12 +34,11 @@ export async function getActionLogs({ actorId = null, limit = 100, offset = 0 } 
   let query = supabase
     .from('admin_content_audit_log')
     .select('id, resource_type, resource_id, action_type, reason, metadata, actor_user_id, created_at')
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order('created_at', { ascending: false });
 
   if (actorId) query = query.eq('actor_user_id', actorId);
 
-  const { data, error } = await query;
+  const { data, error } = await query.range(offset, offset + limit - 1);
   return { data: data || [], error };
 }
 
