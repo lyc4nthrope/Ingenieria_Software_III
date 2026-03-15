@@ -10,10 +10,25 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { updateReportReview } from "@/services/api/users.api";
 
 const REPORT_SEVERITY = {
-  offensive: "alta",
-  spam: "media",
-  fake_price: "media",
-  wrong_photo: "baja",
+  offensive:          "alta",
+  fake_account:       "alta",
+  spam:               "media",
+  fake_price:         "media",
+  fake_store:         "media",
+  wrong_photo:        "baja",
+  wrong_location:     "baja",
+  permanently_closed: "baja",
+  wrong_info:         "baja",
+  duplicate:          "baja",
+  other:              "baja",
+};
+
+const REPORTED_TYPE_LABELS = {
+  publication: "Publicación",
+  store:       "Tienda",
+  product:     "Producto",
+  brand:       "Marca",
+  user:        "Usuario",
 };
 
 const SEVERITY_COLORS = {
@@ -51,7 +66,7 @@ export default function ModeratorDashboard() {
       const { data: rawReports, error } = await supabase
         .from("reports")
         .select(
-          "id, reason, description, created_at, publication_id, reporter_user_id, status"
+          "id, reported_type, reported_id, reported_user_id, reporter_user_id, reason, description, created_at, status"
         )
         .in("status", ["pending", "PENDING", "in_review", "IN_REVIEW"])
         .order("created_at", { ascending: false });
@@ -68,51 +83,88 @@ export default function ModeratorDashboard() {
         return;
       }
 
-      const pubIds = [
-        ...new Set(rawReports.map((r) => r.publication_id).filter(Boolean)),
-      ];
-      const { data: publications } = await supabase
-        .from("price_publications")
-        .select(
-          "id, user_id, products(name), author:users!price_publications_user_id_fkey(full_name)"
-        )
-        .in("id", pubIds);
+      // ── Agrupar IDs por tipo para fetch en paralelo ────────────────────────
+      const byType = {};
+      for (const r of rawReports) {
+        const t = r.reported_type || "publication";
+        if (!byType[t]) byType[t] = [];
+        byType[t].push(r.reported_id);
+      }
 
-      const reporterIds = [
-        ...new Set(rawReports.map((r) => r.reporter_user_id).filter(Boolean)),
-      ];
-      const { data: reporters } = await supabase
-        .from("users")
-        .select("id, full_name")
-        .in("id", reporterIds);
+      const userIds = [...new Set([
+        ...rawReports.map((r) => r.reporter_user_id),
+        ...rawReports.map((r) => r.reported_user_id),
+      ].filter(Boolean))];
 
-      const pubMap = Object.fromEntries(
-        (publications || []).map((p) => [p.id, p])
-      );
-      const reporterMap = Object.fromEntries(
-        (reporters || []).map((u) => [u.id, u])
-      );
+      const [pubsRes, storesRes, productsRes, brandsRes, usersRes] = await Promise.all([
+        byType.publication?.length
+          // publication_id es bigint en DB, convertir strings de vuelta a números
+          ? supabase.from("price_publications").select("id, user_id, products(name), author:users!price_publications_user_id_fkey(full_name)").in("id", byType.publication.map(Number))
+          : { data: [] },
+        byType.store?.length
+          ? supabase.from("stores").select("id, name, created_by").in("id", byType.store)
+          : { data: [] },
+        byType.product?.length
+          ? supabase.from("products").select("id, name").in("id", byType.product)
+          : { data: [] },
+        byType.brand?.length
+          ? supabase.from("brands").select("id, name").in("id", byType.brand)
+          : { data: [] },
+        userIds.length
+          ? supabase.from("users").select("id, full_name").in("id", userIds)
+          : { data: [] },
+      ]);
+
+      // Keyed por String(id) para que coincida con reported_id (TEXT en DB)
+      const pubMap     = Object.fromEntries((pubsRes.data     || []).map((x) => [String(x.id), x]));
+      const storeMap   = Object.fromEntries((storesRes.data   || []).map((x) => [String(x.id), x]));
+      const productMap = Object.fromEntries((productsRes.data || []).map((x) => [String(x.id), x]));
+      const brandMap   = Object.fromEntries((brandsRes.data   || []).map((x) => [String(x.id), x]));
+      const userMap    = Object.fromEntries((usersRes.data    || []).map((x) => [x.id, x]));
 
       const mapped = rawReports.map((r) => {
-        const pub = pubMap[r.publication_id];
-        const reporter = reporterMap[r.reporter_user_id];
+        const reportedType = r.reported_type || "publication";
+        const reporter     = userMap[r.reporter_user_id];
+
+        let targetName     = null;
+        let reportedOwner  = null;
+        let reportedUserId = r.reported_user_id;
+
+        if (reportedType === "publication") {
+          const pub      = pubMap[r.reported_id];
+          targetName     = pub?.products?.name || null;
+          reportedOwner  = pub?.author?.full_name || null;
+          reportedUserId = pub?.user_id || r.reported_user_id;
+        } else if (reportedType === "store") {
+          const store    = storeMap[r.reported_id];
+          targetName     = store?.name || null;
+          reportedOwner  = userMap[store?.created_by]?.full_name || null;
+        } else if (reportedType === "product") {
+          targetName     = productMap[r.reported_id]?.name || null;
+        } else if (reportedType === "brand") {
+          targetName     = brandMap[r.reported_id]?.name || null;
+        } else if (reportedType === "user") {
+          reportedOwner  = userMap[r.reported_id]?.full_name || null;
+          targetName     = reportedOwner;
+        }
+
         return {
           id: r.id,
+          reportedType,
+          reportedId: r.reported_id,
           rawType: r.reason,
           severity: REPORT_SEVERITY[r.reason] || "baja",
           time: new Date(r.created_at).toLocaleDateString("es-CO"),
           createdAt: r.created_at,
           status: normalizeReportStatus(r.status),
           description: r.description || null,
-          // evidenceUrl, actionTaken, modNotes se cargan al abrir el modal
           evidenceUrl: null,
           actionTaken: null,
           modNotes: null,
-          post: pub?.products?.name || null,
+          targetName,
           reporter: reporter?.full_name || null,
-          reported: pub?.author?.full_name || null,
-          publicationId: r.publication_id,
-          reportedUserId: pub?.user_id,
+          reported: reportedOwner,
+          reportedUserId,
         };
       });
 
@@ -130,39 +182,80 @@ export default function ModeratorDashboard() {
 
   const openDetail = async (report) => {
     setSelectedReport(report);
-    // Carga lazy: campos del reporte + detalles de la publicación
+    // Carga lazy: campos extra del reporte + detalles de la entidad reportada
     try {
-      const [{ data: reportData }, { data: pubData }] = await Promise.all([
-        supabase
-          .from("reports")
-          .select("evidence_url, mod_notes, action_taken")
-          .eq("id", report.id)
-          .single(),
-        report.publicationId
-          ? supabase
-              .from("price_publications")
-              .select(
-                "id, price, products(name, base_quantity, brand:brands(name), unit_type:unit_types(name, abbreviation)), store:stores(name)"
-              )
-              .eq("id", report.publicationId)
-              .single()
-          : Promise.resolve({ data: null }),
-      ]);
+      const { data: reportData } = await supabase
+        .from("reports")
+        .select("evidence_url, mod_notes, action_taken")
+        .eq("id", report.id)
+        .single();
 
-      let publicationSummary = null;
-      if (pubData) {
-        const quantity = pubData.products?.base_quantity;
-        const unitAbbr = pubData.products?.unit_type?.abbreviation || pubData.products?.unit_type?.name;
-        publicationSummary = {
-          productName: pubData.products?.name || "—",
-          brand: pubData.products?.brand?.name || "—",
-          unit: quantity && unitAbbr ? `${quantity} ${unitAbbr}` : "—",
-          store: pubData.store?.name || "—",
-          price:
-            typeof pubData.price === "number"
-              ? pubData.price.toLocaleString("es-CO", { style: "currency", currency: "COP" })
-              : "—",
-        };
+      let entitySummary = null;
+      const { reportedType, reportedId } = report;
+
+      if (reportedType === "publication" && reportedId) {
+        const { data: pub } = await supabase
+          .from("price_publications")
+          .select("price, products(name, base_quantity, brand:brands(name), unit_type:unit_types(name, abbreviation)), store:stores(name)")
+          .eq("id", Number(reportedId)) // publication_id es bigint
+          .single();
+        if (pub) {
+          const qty    = pub.products?.base_quantity;
+          const abbr   = pub.products?.unit_type?.abbreviation || pub.products?.unit_type?.name;
+          entitySummary = {
+            type: "publication",
+            rows: [
+              ["Producto", pub.products?.name || "—"],
+              ["Marca",    pub.products?.brand?.name || "—"],
+              ["Cantidad", qty && abbr ? `${qty} ${abbr}` : "—"],
+              ["Tienda",   pub.store?.name || "—"],
+              ["Precio",   typeof pub.price === "number" ? pub.price.toLocaleString("es-CO", { style: "currency", currency: "COP" }) : "—"],
+            ],
+          };
+        }
+      } else if (reportedType === "store" && reportedId) {
+        const { data: store } = await supabase
+          .from("stores")
+          .select("name, address, website_url")
+          .eq("id", reportedId)
+          .single();
+        if (store) {
+          entitySummary = {
+            type: "store",
+            rows: [
+              ["Nombre",    store.name || "—"],
+              ["Dirección", store.address || "—"],
+              ["Sitio web", store.website_url || "—"],
+            ],
+          };
+        }
+      } else if (reportedType === "product" && reportedId) {
+        const { data: product } = await supabase
+          .from("products")
+          .select("name, base_quantity, brand:brands(name), unit_type:unit_types(name, abbreviation)")
+          .eq("id", reportedId)
+          .single();
+        if (product) {
+          const qty  = product.base_quantity;
+          const abbr = product.unit_type?.abbreviation || product.unit_type?.name;
+          entitySummary = {
+            type: "product",
+            rows: [
+              ["Nombre",   product.name || "—"],
+              ["Marca",    product.brand?.name || "—"],
+              ["Cantidad", qty && abbr ? `${qty} ${abbr}` : "—"],
+            ],
+          };
+        }
+      } else if (reportedType === "brand" && reportedId) {
+        const { data: brand } = await supabase
+          .from("brands")
+          .select("name")
+          .eq("id", reportedId)
+          .single();
+        if (brand) {
+          entitySummary = { type: "brand", rows: [["Nombre", brand.name || "—"]] };
+        }
       }
 
       setSelectedReport((prev) =>
@@ -171,8 +264,8 @@ export default function ModeratorDashboard() {
               ...prev,
               evidenceUrl: reportData?.evidence_url || null,
               actionTaken: reportData?.action_taken || null,
-              modNotes: reportData?.mod_notes || null,
-              publicationSummary,
+              modNotes:    reportData?.mod_notes    || null,
+              entitySummary,
             }
           : prev
       );
@@ -246,15 +339,15 @@ export default function ModeratorDashboard() {
           showToast("Usuario baneado, pero falló ocultar sus publicaciones.", "error");
         }
       }
-      if (action === "eliminar_publicacion" && report.publicationId) {
+      if (action === "eliminar_publicacion" && report.reportedId) {
         const { error } = await supabase.rpc("deactivate_publication", {
-          pub_id: report.publicationId,
+          pub_id: report.reportedId,
         });
         if (error) {
           const { error: fallbackError } = await supabase
             .from("price_publications")
             .update({ is_active: false })
-            .eq("id", report.publicationId)
+            .eq("id", report.reportedId)
             .eq("is_active", true);
           if (fallbackError) {
             showToast("Error al desactivar la publicación", "error");
@@ -457,14 +550,17 @@ export default function ModeratorDashboard() {
 function ReportCard({ report, onAction, onOpenDetails, td }) {
   const sev = SEVERITY_COLORS[report.severity] || SEVERITY_COLORS.baja;
   const typeLabel = td.reportTypes?.[report.rawType] || report.rawType;
-  const severityLabel =
-    td.severityLabels?.[report.severity] || report.severity?.toUpperCase();
+  const severityLabel = td.severityLabels?.[report.severity] || report.severity?.toUpperCase();
+  const entityTypeLabel = REPORTED_TYPE_LABELS[report.reportedType] || report.reportedType;
 
   return (
     <article style={st.reportCard}>
       <div style={st.reportTop}>
         <span style={{ ...st.severityBadge, background: sev.bg, color: sev.text }}>
           {severityLabel}
+        </span>
+        <span style={{ ...st.severityBadge, background: "var(--bg-surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+          {entityTypeLabel}
         </span>
         <span style={st.reportType}>{typeLabel}</span>
         <span style={st.reportTime}>{report.time}</span>
@@ -473,10 +569,12 @@ function ReportCard({ report, onAction, onOpenDetails, td }) {
       <div style={st.reportBody}>
         <div style={st.reportRow} className="mod-report-row">
           <span style={st.reportLabel} className="mod-report-label">
-            {td.labelPublication || "Publicación"}
+            {entityTypeLabel}
           </span>
           <span style={st.reportValue}>
-            "{report.post ?? (td.deletedPub || "Publicación eliminada")}"
+            {report.targetName
+              ? `"${report.targetName}"`
+              : (td.deletedPub || "—")}
           </span>
         </div>
         <div style={st.reportRow} className="mod-report-row">
@@ -487,14 +585,14 @@ function ReportCard({ report, onAction, onOpenDetails, td }) {
             {report.reporter ?? (td.anonymous || "Anónimo")}
           </span>
         </div>
-        <div style={st.reportRow} className="mod-report-row">
-          <span style={st.reportLabel} className="mod-report-label">
-            {td.labelReportedUser || "Usuario reportado"}
-          </span>
-          <span style={st.reportValue}>
-            {report.reported ?? (td.unknown || "Desconocido")}
-          </span>
-        </div>
+        {report.reported && (
+          <div style={st.reportRow} className="mod-report-row">
+            <span style={st.reportLabel} className="mod-report-label">
+              {td.labelReportedUser || "Usuario reportado"}
+            </span>
+            <span style={st.reportValue}>{report.reported}</span>
+          </div>
+        )}
       </div>
 
       <div style={st.reportActions} className="mod-report-actions">
@@ -505,8 +603,7 @@ function ReportCard({ report, onAction, onOpenDetails, td }) {
         >
           {td.viewReportDetailBtn || "Ver detalle"}
         </button>
-        {/* Solo visible para el admin — oculto para el moderador */}
-        {report.publicationId && (
+        {report.reportedType === "publication" && report.reportedId && (
           <button
             style={st.btnDelete}
             onClick={() => onAction(report, "eliminar_publicacion")}
@@ -515,13 +612,15 @@ function ReportCard({ report, onAction, onOpenDetails, td }) {
             {td.deletePublicationBtn || "Eliminar publicación"}
           </button>
         )}
-        <button
-          style={st.btnBan}
-          onClick={() => onAction(report, "baneado")}
-          title={td.banUserBtn || "Banear usuario"}
-        >
-          {td.banUserBtn || "Banear usuario"}
-        </button>
+        {report.reportedUserId && (
+          <button
+            style={st.btnBan}
+            onClick={() => onAction(report, "baneado")}
+            title={td.banUserBtn || "Banear usuario"}
+          >
+            {td.banUserBtn || "Banear usuario"}
+          </button>
+        )}
         <button
           style={st.btnDismiss}
           onClick={() => onAction(report, "descartado")}
@@ -675,17 +774,13 @@ function ReportDetailsModal({ report, td, onClose, onSave }) {
           </div>
         )}
 
-        {/* Publicación reportada */}
-        {report.publicationSummary && (
+        {/* Entidad reportada */}
+        {report.entitySummary && (
           <div style={{ ...st.modalSection, marginBottom: 16 }}>
-            <p style={st.modalSectionTitle}>Publicación reportada</p>
-            {[
-              ["Producto", report.publicationSummary.productName],
-              ["Marca",    report.publicationSummary.brand],
-              ["Cantidad", report.publicationSummary.unit],
-              ["Tienda",   report.publicationSummary.store],
-              ["Precio",   report.publicationSummary.price],
-            ].map(([label, value]) => (
+            <p style={st.modalSectionTitle}>
+              {REPORTED_TYPE_LABELS[report.entitySummary.type] || "Elemento"} reportado
+            </p>
+            {report.entitySummary.rows.map(([label, value]) => (
               <div key={label} style={{ ...st.reportRow, marginBottom: 4 }}>
                 <span style={{ ...st.reportLabel, width: 80 }}>{label}</span>
                 <span style={{ ...st.reportValue, fontSize: 14 }}>{value}</span>
@@ -815,9 +910,9 @@ function ActionConfirmModal({ report, action, td, onClose, onConfirm }) {
   } else if (isDeletePub) {
     desc = td.actionConfirmDeletePub
       ? (typeof td.actionConfirmDeletePub === "function"
-          ? td.actionConfirmDeletePub(report.post || report.publicationId || "?")
+          ? td.actionConfirmDeletePub(report.targetName || report.reportedId || "?")
           : td.actionConfirmDeletePub)
-      : `Vas a desactivar la publicación "${report.post || "?"}" relacionada a este reporte. El reporte quedará como resuelto.`;
+      : `Vas a desactivar la publicación "${report.targetName || "?"}" relacionada a este reporte. El reporte quedará como resuelto.`;
   } else {
     desc = td.actionConfirmDismiss || "Vas a descartar este reporte.";
   }

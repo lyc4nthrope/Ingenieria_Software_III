@@ -259,29 +259,43 @@ const PublicationCard = memo(function PublicationCard({
   return (
     <>
       <article className="card">
-      <div
-        className="card-image-wrap"
-        role="button"
-        tabIndex={0}
-        aria-label={`Expandir foto de ${pubName}`}
-        onClick={() => setPhotoExpanded(true)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            setPhotoExpanded(true);
-          }
-        }}
-        style={{ cursor: "zoom-in" }}
-      >
-        <img
-          src={publicationImage}
-          alt={pubName}
-          className="card-image"
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
-          onError={handleImageError}
-        />
+      <div className="card-image-wrap" style={{ position: 'relative' }}>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={`Expandir foto de ${pubName}`}
+          onClick={() => setPhotoExpanded(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setPhotoExpanded(true);
+            }
+          }}
+          style={{ cursor: "zoom-in", width: '100%', height: '100%' }}
+        >
+          <img
+            src={publicationImage}
+            alt={pubName}
+            className="card-image"
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+            onError={handleImageError}
+          />
+        </div>
+        <button
+          className="card-report-button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isAuthenticated) { onRequireAuth?.(); return; }
+            onReport(pub);
+          }}
+          aria-label={th.reportLabel(pubName)}
+          title={!isAuthenticated ? th.loginToReport : th.report}
+          disabled={false}
+        >
+          !
+        </button>
       </div>
 
       <div className="card-body">
@@ -353,22 +367,6 @@ const PublicationCard = memo(function PublicationCard({
             </button>
           </div>
 
-          <button
-            className="card-action-button"
-            onClick={() => {
-              if (!isAuthenticated) {
-                onRequireAuth?.();
-                return;
-              }
-              onReport(pub);
-            }}
-            aria-label={th.reportLabel(pubName)}
-            aria-disabled={!isAuthenticated}
-            title={!isAuthenticated ? th.loginToReport : th.report}
-            style={!isAuthenticated ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
-          >
-            {th.report}
-          </button>
 
           <button
             className="card-action-button"

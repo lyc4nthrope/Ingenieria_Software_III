@@ -4,6 +4,7 @@ import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
 import { addComment, deleteComment, getComments } from "@/services/api/publications.api";
 import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
 import { playSuccessSound } from "@/utils/celebrationSound";
+import ReportModal from "@/components/ReportModal";
 
 const DEFAULT_VIRTUAL_IMAGE = "https://via.placeholder.com/1200x800?text=Tienda+virtual";
 const DEFAULT_CENTER = { latitude: 4.711, longitude: -74.0721 };
@@ -313,7 +314,7 @@ function PublicationLocationMap({ latitude, longitude, storeName, td }) {
 
 // ─── CommentsSection ──────────────────────────────────────────────────────────
 
-function CommentItem({ comment, currentUser, onReply, onDelete, td, depth }) {
+function CommentItem({ comment, currentUser, onReply, onDelete, onReport, td, depth }) {
   const isOwn = currentUser && comment.user_id === currentUser.id;
   const userName = comment.user?.full_name || td.unknownUser;
   const time = comment.created_at
@@ -338,6 +339,16 @@ function CommentItem({ comment, currentUser, onReply, onDelete, td, depth }) {
               {td.replyBtn ?? "Responder"}
             </button>
           )}
+          {currentUser && !isOwn && (
+            <button
+              type="button"
+              style={{ ...styles.commentActionBtn, color: "var(--text-muted)" }}
+              title={td.reportUser ?? "Reportar usuario"}
+              onClick={() => onReport(comment.user_id, userName)}
+            >
+              {td.reportUser ?? "Reportar"}
+            </button>
+          )}
           {isOwn && (
             <button
               type="button"
@@ -353,7 +364,7 @@ function CommentItem({ comment, currentUser, onReply, onDelete, td, depth }) {
   );
 }
 
-function CommentThread({ comment, byParent, currentUser, onReply, onDelete, td, depth = 0, replyTo, replyText, onReplyTextChange, onSubmitReply, onCancelReply, submitting, replyInputRef }) {
+function CommentThread({ comment, byParent, currentUser, onReply, onDelete, onReport, td, depth = 0, replyTo, replyText, onReplyTextChange, onSubmitReply, onCancelReply, submitting, replyInputRef }) {
   const replies = byParent[comment.id] || [];
   const isReplyTarget = replyTo?.id === comment.id;
   return (
@@ -363,6 +374,7 @@ function CommentThread({ comment, byParent, currentUser, onReply, onDelete, td, 
         currentUser={currentUser}
         onReply={onReply}
         onDelete={onDelete}
+        onReport={onReport}
         td={td}
         depth={depth}
       />
@@ -404,6 +416,7 @@ function CommentThread({ comment, byParent, currentUser, onReply, onDelete, td, 
           currentUser={currentUser}
           onReply={onReply}
           onDelete={onDelete}
+          onReport={onReport}
           td={td}
           depth={depth + 1}
           replyTo={replyTo}
@@ -429,6 +442,7 @@ function CommentsSection({ publicationId, initialComments, td }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null); // { userId, userName }
   const replyInputRef = useRef(null);
 
   // Refresh comments from API on mount
@@ -490,6 +504,10 @@ function CommentsSection({ publicationId, initialComments, td }) {
     setReplyText("");
   };
 
+  const handleReport = (userId, userName) => {
+    setReportTarget({ userId, userName });
+  };
+
   return (
     <div style={styles.commentsBox}>
       <h3 style={styles.sectionTitle}>{td.comments}</h3>
@@ -538,6 +556,7 @@ function CommentsSection({ publicationId, initialComments, td }) {
               currentUser={currentUser}
               onReply={handleReply}
               onDelete={handleDelete}
+              onReport={handleReport}
               td={td}
               replyTo={replyTo}
               replyText={replyText}
@@ -555,6 +574,14 @@ function CommentsSection({ publicationId, initialComments, td }) {
         message={t.celebration?.comment || "¡Comentario agregado! +1 punto de reputación"}
         onDone={() => setShowCelebration(false)}
       />
+      {reportTarget && (
+        <ReportModal
+          targetType="user"
+          targetId={reportTarget.userId}
+          targetName={reportTarget.userName}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
     </div>
   );
 }

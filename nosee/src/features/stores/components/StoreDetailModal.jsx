@@ -9,6 +9,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getStorePublications, getStoreEvidences, updateStore } from '@/services/api/stores.api';
 import { optimizeCloudinaryUrl } from '@/services/cloudinary';
 import StoreMapPicker from '@/features/stores/components/StoreMapPicker';
+import { useAuthStore, selectAuthUser } from '@/features/auth/store/authStore';
+import { ReportModal } from '@/components/ReportModal';
 
 function PublicationMini({ pub, onNavigate }) {
   return (
@@ -87,6 +89,15 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
   const { t } = useLanguage();
   const td = t.storesPage.storeDetail;
   const navigate = useNavigate();
+  const currentUser = useAuthStore(selectAuthUser);
+
+  const canEdit =
+    currentUser &&
+    (
+      currentUser.role === 'Admin' ||
+      currentUser.role === 'Moderador' ||
+      (store.created_by && currentUser.id === store.created_by)
+    );
 
   const [publications, setPublications] = useState([]);
   const [loadingPubs, setLoadingPubs] = useState(true);
@@ -103,6 +114,7 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
   );
   const [savingStore, setSavingStore] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [reportOpen, setReportOpen] = useState(false);
 
   const isPhysical = localStore.type === 'physical';
 
@@ -230,15 +242,45 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
               </span>
             </div>
           </div>
-          <button
-            type="button"
-            aria-label={td.close}
-            onClick={onClose}
-            style={styles.closeBtn}
-          >
-            ✕
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            <button
+              type="button"
+              aria-label="Reportar tienda"
+              title="Reportar tienda"
+              onClick={() => setReportOpen(true)}
+              style={styles.reportBtn}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
+                e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
+                e.currentTarget.style.color = 'var(--bg-surface, #fff)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'none';
+                e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
+                e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
+              }}
+            >
+              !
+            </button>
+            <button
+              type="button"
+              aria-label={td.close}
+              onClick={onClose}
+              style={styles.closeBtn}
+            >
+              ✕
+            </button>
+          </div>
         </div>
+
+        {reportOpen && (
+          <ReportModal
+            targetType="store"
+            targetId={localStore.id}
+            targetName={localStore.name}
+            onClose={() => setReportOpen(false)}
+          />
+        )}
 
         {/* Body */}
         <div style={styles.body}>
@@ -320,14 +362,17 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
             </div>
           )}
 
-          {/* Edición de dirección y mapa (tienda física) */}
+          {/* Mapa y dirección (tienda física) */}
           {isPhysical ? (
             <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>Editar dirección</h3>
+              <h3 style={styles.sectionTitle}>
+                {canEdit ? 'Editar dirección' : 'Ubicación'}
+              </h3>
               <StoreMapPicker
                 latitude={Number.isFinite(Number(editLatitude)) ? Number(editLatitude) : null}
                 longitude={Number.isFinite(Number(editLongitude)) ? Number(editLongitude) : null}
                 address={editAddress}
+                readOnly={!canEdit}
                 onLocationChange={({ latitude, longitude, address }) => {
                   setEditLatitude(
                     Number.isFinite(Number(latitude)) ? String(Number(latitude)) : ''
@@ -339,15 +384,19 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
                 }}
                 onAddressChange={(value) => setEditAddress(value)}
               />
-              <button
-                type="button"
-                onClick={handleSaveStore}
-                disabled={savingStore}
-                style={styles.saveBtn}
-              >
-                {savingStore ? 'Guardando...' : 'Guardar ubicación'}
-              </button>
-              {saveMessage ? <span style={styles.saveMsg}>{saveMessage}</span> : null}
+              {canEdit && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleSaveStore}
+                    disabled={savingStore}
+                    style={styles.saveBtn}
+                  >
+                    {savingStore ? 'Guardando...' : 'Guardar ubicación'}
+                  </button>
+                  {saveMessage ? <span style={styles.saveMsg}>{saveMessage}</span> : null}
+                </>
+              )}
             </div>
           ) : (
             <div style={styles.section}>
@@ -448,8 +497,22 @@ const styles = {
     background: 'var(--info-soft)',
     color: 'var(--info)',
   },
-  closeBtn: {
+  reportBtn: {
+    background: 'none',
+    border: '1.5px solid rgba(180, 40, 40, 0.25)',
+    borderRadius: '50%',
+    width: '28px',
+    height: '28px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 700,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'rgba(180, 40, 40, 0.55)',
     flexShrink: 0,
+  },
+  closeBtn: {
     background: 'var(--bg-muted, rgba(0,0,0,0.06))',
     border: 'none',
     borderRadius: '50%',

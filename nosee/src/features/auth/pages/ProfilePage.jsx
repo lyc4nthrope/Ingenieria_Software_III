@@ -893,6 +893,14 @@ function ReportCard({ report, userId, onRefresh }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
 
+  const REPORTED_TYPE_LABELS = {
+    publication: { label: 'Publicación', icon: '🏷️' },
+    store:       { label: 'Tienda',       icon: '🏪' },
+    product:     { label: 'Producto',     icon: '📦' },
+    brand:       { label: 'Marca',        icon: '🔖' },
+    user:        { label: 'Usuario',      icon: '👤' },
+  };
+
   const statusKey = report.status?.toUpperCase() || 'PENDING';
   const statusConf = STATUS_CONFIG[statusKey] || STATUS_CONFIG.PENDING;
   const isPending = statusKey === 'PENDING';
@@ -947,6 +955,16 @@ function ReportCard({ report, userId, onRefresh }) {
         }}>
           {statusConf.label}
         </span>
+        {report.reported_type && REPORTED_TYPE_LABELS[report.reported_type] && (
+          <span style={{
+            fontSize: '11px', padding: '2px 9px', borderRadius: '999px', fontWeight: 500,
+            background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
+            border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', gap: '4px',
+          }}>
+            {REPORTED_TYPE_LABELS[report.reported_type].icon}
+            {REPORTED_TYPE_LABELS[report.reported_type].label}
+          </span>
+        )}
         <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: 'auto' }}>{date}</span>
       </div>
 
@@ -1058,12 +1076,16 @@ function ReportCard({ report, userId, onRefresh }) {
 }
 
 // ─── Sección de actividad del perfil ─────────────────────────────────────────
+const PAGE_SIZE = 5;
+
 function ProfileActivitySection({ user }) {
   const [activity, setActivity] = useState({ publications: [], products: [], stores: [], reports: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('publications');
   const [editingPub, setEditingPub] = useState(null);
+  const [pubVisible, setPubVisible] = useState(PAGE_SIZE);
+  const [reportVisible, setReportVisible] = useState(PAGE_SIZE);
 
   const loadActivity = useCallback(async () => {
     if (!user?.id) return;
@@ -1074,6 +1096,8 @@ function ProfileActivitySection({ user }) {
       setError(result.error || 'No se pudo cargar tu actividad');
     } else {
       setActivity(result.data);
+      setPubVisible(PAGE_SIZE);
+      setReportVisible(PAGE_SIZE);
     }
     setLoading(false);
   }, [user?.id]);
@@ -1139,14 +1163,36 @@ function ProfileActivitySection({ user }) {
                   </p>
                 </div>
               ) : (
-                publications.map((pub) => (
-                  <PublicationMiniCard
-                    key={pub.id}
-                    publication={pub}
-                    onEdit={(p) => setEditingPub(p)}
-                    saving={false}
-                  />
-                ))
+                <>
+                  {publications.slice(0, pubVisible).map((pub) => (
+                    <PublicationMiniCard
+                      key={pub.id}
+                      publication={pub}
+                      onEdit={(p) => setEditingPub(p)}
+                      saving={false}
+                    />
+                  ))}
+                  {pubVisible < publications.length && (
+                    <button
+                      onClick={() => setPubVisible((v) => v + PAGE_SIZE)}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        marginTop: '10px',
+                        padding: '8px 0',
+                        background: 'transparent',
+                        border: '1px dashed var(--border)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--accent)',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Ver más ({publications.length - pubVisible} restantes)
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -1166,7 +1212,7 @@ function ProfileActivitySection({ user }) {
                   <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
                     Los reportes pendientes pueden modificarse antes de ser revisados.
                   </p>
-                  {reports.map((report) => (
+                  {reports.slice(0, reportVisible).map((report) => (
                     <ReportCard
                       key={report.id}
                       report={report}
@@ -1174,6 +1220,26 @@ function ProfileActivitySection({ user }) {
                       onRefresh={loadActivity}
                     />
                   ))}
+                  {reportVisible < reports.length && (
+                    <button
+                      onClick={() => setReportVisible((v) => v + PAGE_SIZE)}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        marginTop: '10px',
+                        padding: '8px 0',
+                        background: 'transparent',
+                        border: '1px dashed var(--border)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--accent)',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Ver más ({reports.length - reportVisible} restantes)
+                    </button>
+                  )}
                 </>
               )}
             </div>

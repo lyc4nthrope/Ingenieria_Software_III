@@ -262,14 +262,15 @@ export async function getAdminOverviewStats() {
 
 /**
  * Obtiene todos los reportes para moderación/admin.
- * Incluye detalles completos de la publicación reportada (producto, marca, tienda, precio, unidad).
+ * Incluye detalles de la entidad reportada (publicación, tienda, producto, marca o usuario).
  */
 export async function getAdminReports() {
   const { data, error } = await supabase
     .from("reports")
     .select(`
       id,
-      publication_id,
+      reported_type,
+      reported_id,
       reported_user_id,
       reporter_user_id,
       reason,
@@ -283,19 +284,7 @@ export async function getAdminReports() {
       action_taken,
       reporter:reporter_user_id(full_name),
       reported:reported_user_id(full_name),
-      reviewer:reviewed_by(full_name),
-      publication:publication_id(
-        id,
-        price,
-        product:products(
-          id,
-          name,
-          base_quantity,
-          brand:brands(id, name),
-          unit_type:unit_types(id, name, abbreviation)
-        ),
-        store:stores(id, name)
-      )
+      reviewer:reviewed_by(full_name)
     `)
     .order("created_at", { ascending: false });
 
@@ -338,7 +327,7 @@ export async function getUserProfileActivity(userId) {
         .limit(100),
       supabase
         .from("reports")
-        .select("id, publication_id, reason, description, status, created_at, resolved_at, mod_notes, action_taken")
+        .select("id, reported_type, reported_id, reason, description, status, created_at, resolved_at, mod_notes, action_taken")
         .eq("reporter_user_id", userId)
         .order("created_at", { ascending: false })
         .limit(100),

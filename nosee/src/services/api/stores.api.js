@@ -563,7 +563,7 @@ export async function listStores(name = "", optionsOrLimit = 20) {
 
     let query = supabase
       .from("stores")
-      .select("id, name, store_type_id, address, website_url, location")
+      .select("id, name, store_type_id, address, website_url, location, created_by")
       .order("name", { ascending: true })
       .range(offset, offset + safeLimit - 1);
 
