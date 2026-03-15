@@ -117,6 +117,7 @@ export default function StoreMapPicker({
   onLocationChange,
   onAddressChange,
   error,
+  readOnly = false,
 }) {
   const { t } = useLanguage();
   // Store translations in a ref so stable useCallback([]) closures can access current values
@@ -142,6 +143,7 @@ export default function StoreMapPicker({
   // inicialización del mapa use deps=[] y no destruya/recree el mapa en cada render.
   const onLocationChangeRef = useRef(onLocationChange);
   const onAddressChangeRef = useRef(onAddressChange);
+  const readOnlyRef = useRef(readOnly);
 
   useEffect(() => {
     onLocationChangeRef.current = onLocationChange;
@@ -150,6 +152,10 @@ export default function StoreMapPicker({
   useEffect(() => {
     onAddressChangeRef.current = onAddressChange;
   }, [onAddressChange]);
+
+  useEffect(() => {
+    readOnlyRef.current = readOnly;
+  }, [readOnly]);
 
   const {
     latitude: geoLatitude,
@@ -235,36 +241,42 @@ export default function StoreMapPicker({
           attribution: "&copy; OpenStreetMap contributors",
         }).addTo(map);
 
-        const marker = L.marker([initLat, initLon], { draggable: true }).addTo(
+        const marker = L.marker([initLat, initLon], { draggable: !readOnlyRef.current }).addTo(
           map,
         );
 
         // Evita el mapa en blanco cuando el contenedor cambia de layout al montar.
         setTimeout(() => map.invalidateSize(), 0);
 
-        map.on("click", async (event) => {
-          const nextLat = Number(event.latlng.lat.toFixed(6));
-          const nextLon = Number(event.latlng.lng.toFixed(6));
-          marker.setLatLng([nextLat, nextLon]);
-          onLocationChangeRef.current({
-            latitude: nextLat,
-            longitude: nextLon,
-            address: "",
+        if (!readOnlyRef.current) {
+          map.on("click", async (event) => {
+            const nextLat = Number(event.latlng.lat.toFixed(6));
+            const nextLon = Number(event.latlng.lng.toFixed(6));
+            marker.setLatLng([nextLat, nextLon]);
+            if (typeof onLocationChangeRef.current === 'function') {
+              onLocationChangeRef.current({
+                latitude: nextLat,
+                longitude: nextLon,
+                address: "",
+              });
+            }
+            await resolveAddressForCurrentPoint(nextLat, nextLon);
           });
-          await resolveAddressForCurrentPoint(nextLat, nextLon);
-        });
 
-        marker.on("dragend", async () => {
-          const nextPosition = marker.getLatLng();
-          const nextLat = Number(nextPosition.lat.toFixed(6));
-          const nextLon = Number(nextPosition.lng.toFixed(6));
-          onLocationChangeRef.current({
-            latitude: nextLat,
-            longitude: nextLon,
-            address: "",
+          marker.on("dragend", async () => {
+            const nextPosition = marker.getLatLng();
+            const nextLat = Number(nextPosition.lat.toFixed(6));
+            const nextLon = Number(nextPosition.lng.toFixed(6));
+            if (typeof onLocationChangeRef.current === 'function') {
+              onLocationChangeRef.current({
+                latitude: nextLat,
+                longitude: nextLon,
+                address: "",
+              });
+            }
+            await resolveAddressForCurrentPoint(nextLat, nextLon);
           });
-          await resolveAddressForCurrentPoint(nextLat, nextLon);
-        });
+        }
 
         mapInstanceRef.current = map;
         markerRef.current = marker;
@@ -295,11 +307,13 @@ export default function StoreMapPicker({
     const nextLat = Number(Number(geoLatitude).toFixed(6));
     const nextLon = Number(Number(geoLongitude).toFixed(6));
     if (!Number.isFinite(nextLat) || !Number.isFinite(nextLon)) return;
-    onLocationChangeRef.current({
-      latitude: nextLat,
-      longitude: nextLon,
-      address: "",
-    });
+    if (!readOnlyRef.current && typeof onLocationChangeRef.current === 'function') {
+      onLocationChangeRef.current({
+        latitude: nextLat,
+        longitude: nextLon,
+        address: "",
+      });
+    }
     setMarkerPosition(nextLat, nextLon);
   }, [hasLocation, hasCoords, geoLatitude, geoLongitude, setMarkerPosition]);
 
@@ -412,88 +426,102 @@ export default function StoreMapPicker({
     <div style={styles.container}>
       <div style={styles.title}>{tm.title}</div>
 
-      <div style={styles.row}>
-        <input
-          type="text"
-          aria-label={tm.addressPlaceholder}
-          value={addressInput}
-          placeholder={tm.addressPlaceholder}
-          onChange={(event) => {
-            onAddressChangeRef.current(event.target.value);
-          }}
-          style={styles.input}
-        />
-        <button
-          type="button"
-          aria-label={tm.searchBtn}
-          onClick={applyAddressSearch}
-          style={styles.button}
-          disabled={loadingAddress}
-        >
-          {tm.searchBtn}
-        </button>
-      </div>
+      {!readOnly && (
+        <div style={styles.row}>
+          <input
+            type="text"
+            aria-label={tm.addressPlaceholder}
+            value={addressInput}
+            placeholder={tm.addressPlaceholder}
+            onChange={(event) => {
+              onAddressChangeRef.current(event.target.value);
+            }}
+            style={styles.input}
+          />
+          <button
+            type="button"
+            aria-label={tm.searchBtn}
+            onClick={applyAddressSearch}
+            style={styles.button}
+            disabled={loadingAddress}
+          >
+            {tm.searchBtn}
+          </button>
+        </div>
+      )}
 
       <div style={styles.map} className="store-map-container" role="region" aria-label={tm.title}>
         <div ref={mapContainerRef} style={styles.mapCanvas} />
       </div>
 
-      <div style={styles.row}>
-        <input
-          type="number"
-          step="any"
-          aria-label={tm.latPlaceholder}
-          value={latInput}
-          placeholder={tm.latPlaceholder}
-          onChange={() => {}}
-          style={styles.input}
-        />
-        <input
-          type="number"
-          step="any"
-          aria-label={tm.lonPlaceholder}
-          value={lonInput}
-          placeholder={tm.lonPlaceholder}
-          onChange={() => {}}
-          style={styles.input}
-        />
-        <button
-          type="button"
-          aria-label={tm.applyBtn}
-          onClick={applyManualCoordinates}
-          style={styles.button}
-          disabled={loadingAddress}
-        >
-          {tm.applyBtn}
-        </button>
-      </div>
+      {!readOnly && (
+        <>
+          <div style={styles.row}>
+            <input
+              type="number"
+              step="any"
+              aria-label={tm.latPlaceholder}
+              value={latInput}
+              placeholder={tm.latPlaceholder}
+              onChange={() => {}}
+              style={styles.input}
+            />
+            <input
+              type="number"
+              step="any"
+              aria-label={tm.lonPlaceholder}
+              value={lonInput}
+              placeholder={tm.lonPlaceholder}
+              onChange={() => {}}
+              style={styles.input}
+            />
+            <button
+              type="button"
+              aria-label={tm.applyBtn}
+              onClick={applyManualCoordinates}
+              style={styles.button}
+              disabled={loadingAddress}
+            >
+              {tm.applyBtn}
+            </button>
+          </div>
 
-      <div style={styles.row}>
-        <button
-          type="button"
-          onClick={useCurrentLocation}
-          style={styles.secondaryButton}
-          disabled={geoLoading || loadingAddress}
-        >
-          {geoLoading ? tm.gettingLocation : tm.useLocationBtn}
-        </button>
-        <button
-          type="button"
-          onClick={centerMap}
-          style={styles.secondaryButton}
-          disabled={loadingAddress}
-        >
-          {tm.centerMap}
-        </button>
-        <a href={osmUrl} target="_blank" rel="noreferrer" style={styles.link}>
-          {tm.viewOSM}
-        </a>
-      </div>
+          <div style={styles.row}>
+            <button
+              type="button"
+              onClick={useCurrentLocation}
+              style={styles.secondaryButton}
+              disabled={geoLoading || loadingAddress}
+            >
+              {geoLoading ? tm.gettingLocation : tm.useLocationBtn}
+            </button>
+            <button
+              type="button"
+              onClick={centerMap}
+              style={styles.secondaryButton}
+              disabled={loadingAddress}
+            >
+              {tm.centerMap}
+            </button>
+            <a href={osmUrl} target="_blank" rel="noreferrer" style={styles.link}>
+              {tm.viewOSM}
+            </a>
+          </div>
+        </>
+      )}
 
-      {status ? <div style={styles.helper}>{status}</div> : null}
-      {geoError ? <div style={styles.helper}>{tm.geoPrefix} {geoError}</div> : null}
+      {readOnly && hasCoords && (
+        <div style={styles.row}>
+          <a href={osmUrl} target="_blank" rel="noreferrer" style={styles.link}>
+            {tm.viewOSM}
+          </a>
+        </div>
+      )}
+
+      {!readOnly && status ? <div style={styles.helper}>{status}</div> : null}
+      {!readOnly && geoError ? <div style={styles.helper}>{tm.geoPrefix} {geoError}</div> : null}
       {leafletError ? <div style={styles.error}>{leafletError}</div> : null}
-      <div style={styles.helper}>{tm.footer}</div>
+      {!readOnly && <div style={styles.helper}>{tm.footer}</div>}
       {error ? <div style={styles.error}>{error}</div> : null}
     </div>
   );

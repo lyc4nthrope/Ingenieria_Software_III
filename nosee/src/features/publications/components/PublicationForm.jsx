@@ -25,6 +25,7 @@ import * as publicationsApi from "@/services/api/publications.api";
 import * as storesApi from "@/services/api/stores.api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
+import { ReportModal } from "@/components/ReportModal";
 
 const ENABLE_AUTO_STORE = String(import.meta.env.VITE_ENABLE_AUTO_STORE ?? "true").toLowerCase() !== "false";
 const ENABLE_BARCODE_SCAN = String(import.meta.env.VITE_ENABLE_BARCODE_SCAN ?? "true").toLowerCase() !== "false";
@@ -207,6 +208,13 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   const productWrapperRef = useRef(null);
   const [barcodeStatus, setBarcodeStatus] = useState("");
 
+  // ─── Brand autocomplete ────────────────────────────────────────────────────
+  const [brandResults, setBrandResults] = useState([]);
+  const [brandSearching, setBrandSearching] = useState(false);
+  const [showBrandDropdown, setShowBrandDropdown] = useState(false);
+  const brandTimerRef = useRef(null);
+  const brandRequestIdRef = useRef(0);
+
   // ─── Store autocomplete ────────────────────────────────────────────────────
   const [storeQuery, setStoreQuery] = useState("");
   const [storeResults, setStoreResults] = useState([]);
@@ -218,6 +226,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   const storeWrapperRef = useRef(null);
   const [autoStoreMessage, setAutoStoreMessage] = useState("");
   const [autoStoreDetecting, setAutoStoreDetecting] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
   const [autoStoreFound, setAutoStoreFound] = useState(false);
   const autoStoreAttemptedRef = useRef(false);
   const userEditedStoreRef = useRef(false);
@@ -287,6 +296,28 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
       if (requestId === productRequestIdRef.current) {
         setProductSearching(false);
       }
+    }
+  }, []);
+
+  const performBrandSearch = useCallback(async (rawQuery) => {
+    const query = String(rawQuery || "").trim();
+    if (!query || query.length < 2) {
+      setBrandResults([]);
+      setBrandSearching(false);
+      return;
+    }
+    const requestId = brandRequestIdRef.current + 1;
+    brandRequestIdRef.current = requestId;
+    setBrandSearching(true);
+    try {
+      const result = await publicationsApi.searchBrands(query, 8);
+      if (requestId !== brandRequestIdRef.current) return;
+      setBrandResults(result.success ? result.data : []);
+    } catch {
+      if (requestId !== brandRequestIdRef.current) return;
+      setBrandResults([]);
+    } finally {
+      if (requestId === brandRequestIdRef.current) setBrandSearching(false);
     }
   }, []);
 
@@ -434,12 +465,23 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     setBrandQuery(val);
     updateField("productId", "");
     clearTimeout(productTimerRef.current);
+    clearTimeout(brandTimerRef.current);
 
     if (productQuery.trim().length >= 2) {
       setShowProductDropdown(true);
       productTimerRef.current = setTimeout(() => {
         performProductSearch(productQuery, val);
       }, 300);
+    }
+
+    if (val.trim().length >= 2) {
+      setShowBrandDropdown(true);
+      brandTimerRef.current = setTimeout(() => {
+        performBrandSearch(val);
+      }, 300);
+    } else {
+      setShowBrandDropdown(false);
+      setBrandResults([]);
     }
   };
 
@@ -470,8 +512,8 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
 
   // Siempre se muestra opción de crear (mismo nombre puede tener diferente marca o cantidad)
   const productDropdownItems = [
-    ...productResults,
     ...(productQuery.trim().length >= 2 ? [{ __isCreate: true }] : []),
+    ...productResults,
   ];
 
   const handleProductKeyDown = (e) => {
@@ -684,12 +726,78 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
               placeholder={tf.brandFilterPlaceholder}
               value={brandQuery}
               onChange={handleBrandQueryChange}
+              onFocus={() => brandQuery.trim().length >= 2 && setShowBrandDropdown(true)}
+              onBlur={() => setTimeout(() => setShowBrandDropdown(false), 200)}
               style={{
                 ...styles.input,
                 marginTop: 6,
                 fontSize: "0.85em",
               }}
             />
+
+            {showBrandDropdown && (
+              <div
+                id="pub-brand-listbox"
+                role="listbox"
+                aria-label="Marcas"
+                style={{ ...styles.dropdown, marginTop: 2 }}
+              >
+                {brandSearching && (
+                  <div style={styles.dropdownState}>{tf.searching}</div>
+                )}
+                {!brandSearching && brandResults.length === 0 && brandQuery.trim().length >= 2 && (
+                  <div style={styles.dropdownState}>{tf.noResults}</div>
+                )}
+                {!brandSearching && brandResults.map((brand) => (
+                  <div
+                    key={brand.id}
+                    role="option"
+                    aria-selected={false}
+                    style={{
+                      ...styles.dropdownItem,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                    onMouseDown={() => {
+                      setBrandQuery(brand.name);
+                      setShowBrandDropdown(false);
+                      if (productQuery.trim().length >= 2) {
+                        performProductSearch(productQuery, brand.name);
+                        setShowProductDropdown(true);
+                      }
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span>{brand.name}</span>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Reportar ${brand.name}`}
+                      title="Reportar marca"
+                      style={styles.dropdownReportBtn}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        setReportTarget({ type: 'brand', id: brand.id, name: brand.name });
+                        setShowBrandDropdown(false);
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
+                        e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
+                        e.currentTarget.style.color = 'var(--bg-elevated, #fff)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'none';
+                        e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
+                        e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
+                      }}
+                    >
+                      !
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {showProductDropdown && (
               <div
@@ -701,6 +809,24 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                 {productSearching && (
                   <div style={styles.dropdownState}>{tf.searching}</div>
                 )}
+
+                {/* Crear producto — siempre disponible (puede ser diferente marca o cantidad) */}
+                {!productSearching &&
+                  productQuery.trim().length >= 2 && (
+                    <div
+                      id="pub-product-option-0"
+                      role="option"
+                      aria-selected={0 === activeProductIndex}
+                      style={{
+                        ...styles.dropdownItem,
+                        ...styles.dropdownCreate,
+                        ...(0 === activeProductIndex ? styles.dropdownItemActive : {}),
+                      }}
+                      onMouseDown={handleCreateProduct}
+                    >
+                     {tf.createProduct(productQuery.trim())}
+                    </div>
+                  )}
 
                 {!productSearching &&
                   productResults.map((p, i) => {
@@ -714,20 +840,48 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                     ]
                       .filter(Boolean)
                       .join(" · ");
+                    const idx = i + 1;
                     return (
                       <div
                         key={p.id}
-                        id={`pub-product-option-${i}`}
+                        id={`pub-product-option-${idx}`}
                         role="option"
-                        aria-selected={i === activeProductIndex}
+                        aria-selected={idx === activeProductIndex}
                         style={{
                           ...styles.dropdownItem,
-                          ...(i === activeProductIndex ? styles.dropdownItemActive : {}),
+                          ...(idx === activeProductIndex ? styles.dropdownItemActive : {}),
+                          flexDirection: 'row',
+                          alignItems: 'center',
                         }}
                         onMouseDown={() => handleProductSelect(p)}
                       >
-                        <span>{p.name}</span>
-                        {meta && <span style={styles.dropdownSub}>{meta}</span>}
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span>{p.name}</span>
+                          {meta && <span style={styles.dropdownSub}>{meta}</span>}
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={`Reportar ${p.name}`}
+                          title="Reportar producto"
+                          style={styles.dropdownReportBtn}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setReportTarget({ type: 'product', id: p.id, name: p.name });
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
+                            e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
+                            e.currentTarget.style.color = 'var(--bg-elevated, #fff)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'none';
+                            e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
+                            e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
+                          }}
+                        >
+                          !
+                        </button>
                       </div>
                     );
                   })}
@@ -736,24 +890,6 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                   productResults.length === 0 &&
                   productQuery.trim().length >= 2 && (
                     <div style={styles.dropdownState}>{tf.noResults}</div>
-                  )}
-
-                {/* Crear producto — siempre disponible (puede ser diferente marca o cantidad) */}
-                {!productSearching &&
-                  productQuery.trim().length >= 2 && (
-                    <div
-                      id={`pub-product-option-${productResults.length}`}
-                      role="option"
-                      aria-selected={productResults.length === activeProductIndex}
-                      style={{
-                        ...styles.dropdownItem,
-                        ...styles.dropdownCreate,
-                        ...(productResults.length === activeProductIndex ? styles.dropdownItemActive : {}),
-                      }}
-                      onMouseDown={handleCreateProduct}
-                    >
-                     {tf.createProduct(productQuery.trim())}
-                    </div>
                   )}
               </div>
             )}
@@ -826,20 +962,47 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                       style={{
                         ...styles.dropdownItem,
                         ...(i === activeStoreIndex ? styles.dropdownItemActive : {}),
+                        flexDirection: 'row',
+                        alignItems: 'center',
                       }}
                       onMouseDown={() => handleStoreSelect(s)}
                     >
-                      <span>{s.name}</span>
-                      {s.address && (
-                        <span style={styles.dropdownSub}>{s.address}</span>
-                      )}
-                      {s.distanceMeters != null && (
-                        <span style={styles.dropdownDistance}>
-                          {s.distanceMeters < 1000
-                            ? `${Math.round(s.distanceMeters)} m`
-                            : `${(s.distanceMeters / 1000).toFixed(1)} km`}
-                        </span>
-                      )}
+                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span>{s.name}</span>
+                        {s.address && (
+                          <span style={styles.dropdownSub}>{s.address}</span>
+                        )}
+                        {s.distanceMeters != null && (
+                          <span style={styles.dropdownDistance}>
+                            {s.distanceMeters < 1000
+                              ? `${Math.round(s.distanceMeters)} m`
+                              : `${(s.distanceMeters / 1000).toFixed(1)} km`}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={`Reportar ${s.name}`}
+                        title="Reportar tienda"
+                        style={styles.dropdownReportBtn}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setReportTarget({ type: 'store', id: s.id, name: s.name });
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
+                          e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
+                          e.currentTarget.style.color = 'var(--bg-elevated, #fff)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'none';
+                          e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
+                          e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
+                        }}
+                      >
+                        !
+                      </button>
                     </div>
                   ))}
 
@@ -1032,6 +1195,14 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
         message={t.celebration?.publication}
         onDone={() => setShowCelebration(false)}
       />
+      {reportTarget && (
+        <ReportModal
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          targetName={reportTarget.name}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1200,6 +1371,23 @@ const styles = {
     color: "var(--accent)",
     fontWeight: 600,
     borderTop: "1px solid var(--border-soft)",
+  },
+  dropdownReportBtn: {
+    flexShrink: 0,
+    background: "none",
+    border: "1.5px solid rgba(180, 40, 40, 0.25)",
+    borderRadius: "50%",
+    width: "20px",
+    height: "20px",
+    cursor: "pointer",
+    fontSize: "11px",
+    fontWeight: 700,
+    color: "rgba(180, 40, 40, 0.55)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    margin: "0 8px",
   },
   dropdownItemActive: {
     background: "#fff0eb",

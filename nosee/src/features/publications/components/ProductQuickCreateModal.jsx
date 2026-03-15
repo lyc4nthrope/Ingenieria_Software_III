@@ -9,6 +9,7 @@ import {
 import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
 import { playSuccessSound } from "@/utils/celebrationSound";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ReportModal } from "@/components/ReportModal";
 
 const normalizeText = (value = "") =>
   String(value || "")
@@ -91,6 +92,7 @@ export default function ProductQuickCreateModal({
   const [isCreatingBrand, setIsCreatingBrand] = useState(false);
   const [error, setError] = useState(null);
   const [brandMessage, setBrandMessage] = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
 
   useEffect(() => {
     const loadCatalogs = async () => {
@@ -340,11 +342,35 @@ export default function ProductQuickCreateModal({
                         role="option"
                         aria-selected={brandId === String(brand.id)}
                         tabIndex={0}
-                        style={s.brandDropdownItem}
+                        style={{ ...s.brandDropdownItem, display: 'flex', alignItems: 'center' }}
                         onMouseDown={() => handleBrandSelect(brand)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleBrandSelect(brand); }}
                       >
-                        {brand.name}
+                        <span style={{ flex: 1 }}>{brand.name}</span>
+                        <button
+                          type="button"
+                          aria-label={`Reportar ${brand.name}`}
+                          title="Reportar marca"
+                          style={s.brandReportBtn}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setReportTarget({ id: brand.id, name: brand.name });
+                            setShowBrandDropdown(false);
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
+                            e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
+                            e.currentTarget.style.color = 'var(--bg-elevated, #fff)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'none';
+                            e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
+                            e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
+                          }}
+                        >
+                          !
+                        </button>
                       </div>
                     ))}
                     {brandResults.length === 0 && (
@@ -426,6 +452,14 @@ export default function ProductQuickCreateModal({
         message={celebrationMsg}
         onDone={handleCelebrationDone}
       />
+      {reportTarget && (
+        <ReportModal
+          targetType="brand"
+          targetId={reportTarget.id}
+          targetName={reportTarget.name}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -532,6 +566,22 @@ const s = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+  },
+  brandReportBtn: {
+    flexShrink: 0,
+    background: "none",
+    border: "1.5px solid rgba(180, 40, 40, 0.25)",
+    borderRadius: "50%",
+    width: "20px",
+    height: "20px",
+    cursor: "pointer",
+    fontSize: "11px",
+    fontWeight: 700,
+    color: "rgba(180, 40, 40, 0.55)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: "6px",
   },
   brandOk: { color: "var(--success)", fontSize: "12px", fontWeight: 600, marginTop: "2px" },
   brandMessage: { color: "var(--success)", fontSize: "12px", marginTop: "4px" },

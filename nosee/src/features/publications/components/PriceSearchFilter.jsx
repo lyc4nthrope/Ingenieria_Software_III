@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLanguage, translateDbValue } from '@/contexts/LanguageContext';
 import { listStores } from '@/services/api/stores.api';
+import { ReportModal } from '@/components/ReportModal';
 
 const EMPTY_FILTERS = {};
 const LEAFLET_CSS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
@@ -208,6 +209,7 @@ function StoreCombobox({ value, onStoreChange, placeholder, inputStyle }) {
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [selectedStore, setSelectedStore] = useState(null);
   const [mapOpen, setMapOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
   const debounceRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -325,27 +327,60 @@ function StoreCombobox({ value, onStoreChange, placeholder, inputStyle }) {
       {isOpen && options.length > 0 && (
         <div id="store-search-listbox" style={comboStyles.dropdown} role="listbox">
           {options.map((store) => (
-            <button
-              key={store.id}
-              type="button"
-              role="option"
-              style={comboStyles.option}
-              onClick={() => handleSelect(store)}
-            >
-              <span aria-hidden="true">
-                {store.type === 'physical' ? '🏬' : '🌐'}
-              </span>
-              <span style={comboStyles.optionName}>{store.name}</span>
-              {store.type === 'physical' && Number.isFinite(store.latitude) && (
-                <span style={comboStyles.optionBadge}>📍 Con mapa</span>
-              )}
-            </button>
+            <div key={store.id} style={comboStyles.optionRow}>
+              <button
+                type="button"
+                role="option"
+                style={comboStyles.option}
+                onClick={() => handleSelect(store)}
+              >
+                <span aria-hidden="true">
+                  {store.type === 'physical' ? '🏬' : '🌐'}
+                </span>
+                <span style={comboStyles.optionName}>{store.name}</span>
+                {store.type === 'physical' && Number.isFinite(store.latitude) && (
+                  <span style={comboStyles.optionBadge}>📍 Con mapa</span>
+                )}
+              </button>
+              <button
+                type="button"
+                aria-label={`Reportar ${store.name}`}
+                title="Reportar tienda"
+                style={comboStyles.reportBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setReportTarget(store);
+                  setIsOpen(false);
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
+                  e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
+                  e.currentTarget.style.color = 'var(--bg-surface, #fff)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'none';
+                  e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
+                  e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
+                }}
+              >
+                !
+              </button>
+            </div>
           ))}
         </div>
       )}
 
       {mapOpen && hasLocation && (
         <StoreMapModal store={selectedStore} onClose={() => setMapOpen(false)} />
+      )}
+
+      {reportTarget && (
+        <ReportModal
+          targetType="store"
+          targetId={reportTarget.id}
+          targetName={reportTarget.name}
+          onClose={() => setReportTarget(null)}
+        />
       )}
     </div>
   );
@@ -377,19 +412,41 @@ const comboStyles = {
     overflowY: 'auto',
     boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
   },
+  optionRow: {
+    display: 'flex',
+    alignItems: 'center',
+    borderBottom: '1px solid var(--border)',
+  },
   option: {
-    width: '100%',
+    flex: 1,
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
     padding: '9px 12px',
     background: 'transparent',
     border: 'none',
-    borderBottom: '1px solid var(--border)',
     cursor: 'pointer',
     textAlign: 'left',
     fontSize: '13px',
     color: 'var(--text-primary)',
+    minWidth: 0,
+  },
+  reportBtn: {
+    flexShrink: 0,
+    background: 'none',
+    border: '1.5px solid rgba(180, 40, 40, 0.25)',
+    borderRadius: '50%',
+    width: '22px',
+    height: '22px',
+    cursor: 'pointer',
+    fontSize: '11px',
+    fontWeight: 700,
+    color: 'rgba(180, 40, 40, 0.55)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    margin: '0 8px',
   },
   optionName: {
     flex: 1,

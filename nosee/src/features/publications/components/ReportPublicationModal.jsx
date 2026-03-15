@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useMemo, useState, useId } from 'react';
 import * as publicationsApi from '@/services/api/publications.api';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -182,150 +183,37 @@ export function ReportPublicationModal({ publication, onClose, onSubmit }) {
         </div>
       </div>
     </div>
+=======
+/**
+ * ReportPublicationModal.jsx
+ *
+ * Wrapper de compatibilidad sobre el ReportModal genérico.
+ * Mantiene la misma API de props que antes para no romper PublicationCard.
+ *
+ * Props:
+ *   publication - objeto con { id, product, store, price }
+ *   onClose     - callback al cerrar
+ *   onSubmit    - (legacy, ya no se usa; el modal llama al API directamente)
+ */
+
+import { ReportModal } from '@/components/ReportModal';
+
+export function ReportPublicationModal({ publication, onClose }) {
+  const targetName = [
+    publication?.product?.name,
+    publication?.store?.name,
+    publication?.price != null ? `$${publication.price.toLocaleString()}` : null,
+  ].filter(Boolean).join(' • ');
+
+  return (
+    <ReportModal
+      targetType="publication"
+      targetId={publication?.id}
+      targetName={targetName}
+      onClose={onClose}
+    />
+>>>>>>> prueba
   );
 }
-
-const styles = {
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'var(--overlay)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-    padding: '16px',
-  },
-  modal: {
-    background: 'var(--bg-elevated)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-md)',
-    padding: '24px',
-    width: 'min(520px, 100%)',
-    color: 'var(--text-primary)',
-  },
-  title: {
-    margin: 0,
-    fontSize: '18px',
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-  },
-  subtitle: {
-    marginTop: '8px',
-    marginBottom: '18px',
-    fontSize: '13px',
-    color: 'var(--text-secondary)',
-  },
-  formGroup: {
-    marginBottom: '14px',
-  },
-  label: {
-    display: 'block',
-    fontSize: '13px',
-    color: 'var(--text-primary)',
-    marginBottom: '6px',
-    fontWeight: 600,
-  },
-  alertBox: {
-    padding: '12px 14px',
-    borderRadius: 'var(--radius-sm)',
-    marginBottom: '16px',
-    background: 'var(--warning-soft)',
-    border: '1px solid var(--warning)',
-  },
-  select: {
-    width: '100%',
-    padding: '8px 12px',
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm)',
-    color: 'var(--text-primary)',
-    fontSize: '14px',
-  },
-  textarea: {
-    width: '100%',
-    padding: '10px 12px',
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm)',
-    color: 'var(--text-primary)',
-    fontSize: '14px',
-    resize: 'vertical',
-  },
-  fileInputWrapper: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  fileInputHidden: {
-    display: 'none',
-  },
-  fileInputButton: {
-    display: 'inline-block',
-    padding: '8px 14px',
-    background: 'var(--bg-surface)',
-    border: '2px dashed var(--border-soft)',
-    borderRadius: 'var(--radius-sm)',
-    color: 'var(--text-primary)',
-    fontSize: '14px',
-    fontWeight: 600,
-    transition: 'all 0.2s ease',
-    userSelect: 'none',
-  },
-  fileInputButtonHover: {
-    borderColor: 'var(--text-muted)',
-    background: 'var(--bg-elevated)',
-    color: 'var(--text-primary)',
-  },
-  fileSize: {
-    fontSize: '12px',
-    color: 'var(--text-muted)',
-  },
-  evidencePreviewWrap: {
-    marginTop: '8px',
-    display: 'grid',
-    gap: '8px',
-  },
-  evidencePreview: {
-    width: '100%',
-    maxHeight: '180px',
-    objectFit: 'cover',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)',
-  },
-  removeEvidenceButton: {
-    border: '1px solid var(--error)',
-    background: 'var(--error-soft)',
-    color: 'var(--error)',
-    borderRadius: 'var(--radius-sm)',
-    padding: '8px 10px',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
-  actions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '8px',
-    marginTop: '8px',
-  },
-  secondaryButton: {
-    border: '1px solid var(--border-soft)',
-    background: 'var(--bg-surface)',
-    color: 'var(--text-primary)',
-    borderRadius: 'var(--radius-sm)',
-    padding: '10px 14px',
-    cursor: 'pointer',
-    fontWeight: 600,
-  },
-  primaryButton: {
-    border: '1px solid var(--accent)',
-    background: 'var(--accent)',
-    color: 'var(--bg-base)',
-    borderRadius: 'var(--radius-sm)',
-    padding: '10px 14px',
-    cursor: 'pointer',
-    fontWeight: 700,
-  },
-};
 
 export default ReportPublicationModal;

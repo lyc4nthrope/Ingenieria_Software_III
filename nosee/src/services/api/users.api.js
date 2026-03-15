@@ -262,7 +262,7 @@ export async function getAdminOverviewStats() {
 
 /**
  * Obtiene todos los reportes para moderación/admin.
- * Incluye detalles completos de la publicación reportada (producto, marca, tienda, precio, unidad).
+ * Incluye detalles de la entidad reportada (publicación, tienda, producto, marca o usuario).
  */
 export async function getAdminReports() {
   const { data, error } = await supabase
@@ -451,7 +451,7 @@ export async function getUserProfileActivity(userId) {
         .limit(100),
       supabase
         .from("reports")
-        .select("id, publication_id, reason, description, status, created_at, resolved_at, mod_notes, action_taken")
+        .select("id, reported_type, reported_id, reason, description, status, created_at, resolved_at, mod_notes, action_taken")
         .eq("reporter_user_id", userId)
         .order("created_at", { ascending: false })
         .limit(100),

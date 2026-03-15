@@ -284,8 +284,8 @@ export default function AdminDashboard() {
     ] = await Promise.all([
       supabase.from('users').select('*', { count: 'exact', head: true }),
       supabase.from('price_publications').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
-      supabase.from('publication_votes').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
-      supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('publication_votes').select('*', { count: 'exact', head: true }).eq('vote_type', 1).gte('created_at', todayISO),
+      supabase.from('reports').select('*', { count: 'exact', head: true }).in('status', ['PENDING', 'pending']),
     ]);
 
     setStats({
@@ -503,18 +503,18 @@ export default function AdminDashboard() {
     }
   };
 
-  // updates puede contener: { is_active, price, description }
-  const handleEditPublication = async (pubId, updates) => {
+  // dbUpdates: campos a persistir en supabase. uiUpdates: campos extra para estado local (ej. nombres desnormalizados).
+  const handleEditPublication = async (pubId, dbUpdates, uiUpdates = {}) => {
     try {
       const { error } = await supabase
         .from('price_publications')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', pubId);
       if (error) {
         alert(td.errorEditPub(error.message));
         return false;
       }
-      setPublications(prev => prev.map(p => p.id === pubId ? { ...p, ...updates } : p));
+      setPublications(prev => prev.map(p => p.id === pubId ? { ...p, ...dbUpdates, ...uiUpdates } : p));
       return true;
     } catch {
       alert(td.errorEditPubGeneric);
@@ -628,6 +628,29 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleEditStore = async (storeId, updates) => {
+    try {
+      const { error } = await supabase.from('stores').update(updates).eq('id', storeId);
+      if (error) { alert(`No se pudo actualizar la tienda: ${error.message}`); return false; }
+      const typeLabel = Number(updates.store_type_id) === 1 ? 'Física' : Number(updates.store_type_id) === 2 ? 'Virtual' : undefined;
+      const merged = typeLabel ? { ...updates, typeLabel } : { ...updates };
+      setPublications(prev => prev.map(p => {
+        const pStoreId = p.storeId || p.store?.id || p.store_id;
+        if (pStoreId !== storeId) return p;
+        return { ...p, storeName: updates.name || p.storeName, store: { ...(p.store || {}), ...updates } };
+      }));
+      setUnpublishedResources(prev => ({
+        ...prev,
+        stores: prev.stores.map(s => s.id === storeId ? { ...s, ...merged } : s),
+      }));
+      setSelectedStore(prev => prev?.id === storeId ? { ...prev, ...merged } : prev);
+      return true;
+    } catch {
+      alert('Error al actualizar la tienda');
+      return false;
+    }
+  };
+
   const handleViewBrand = async (publication) => {
     const brandId = publication?.brandId || publication?.product?.brand?.id;
     if (!brandId) {
@@ -700,6 +723,23 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleEditBrand = async (brandId, updates) => {
+    try {
+      const { error } = await supabase.from('brands').update(updates).eq('id', brandId);
+      if (error) { alert(`No se pudo actualizar la marca: ${error.message}`); return false; }
+      setPublications(prev => prev.map(p => {
+        const pBrandId = p.brandId || p.product?.brand?.id;
+        if (pBrandId !== brandId) return p;
+        return { ...p, brandName: updates.name || p.brandName, product: { ...(p.product || {}), brand: { ...(p.product?.brand || {}), ...updates } } };
+      }));
+      setSelectedBrand(prev => prev?.id === brandId ? { ...prev, ...updates } : prev);
+      return true;
+    } catch {
+      alert('Error al actualizar la marca');
+      return false;
+    }
+  };
+
   const handleViewProduct = (product) => {
     setSelectedProduct(product || null);
   };
@@ -738,6 +778,22 @@ export default function AdminDashboard() {
       insertActionLog(actorId, 'product', productId, 'hide', null, { productName });
     } finally {
       setDeletingProductId(null);
+    }
+  };
+
+  const handleEditProduct = async (productId, updates) => {
+    try {
+      const { error } = await supabase.from('products').update(updates).eq('id', productId);
+      if (error) { alert(`No se pudo actualizar el producto: ${error.message}`); return false; }
+      setUnpublishedResources(prev => ({
+        ...prev,
+        products: prev.products.map(p => p.id === productId ? { ...p, ...updates } : p),
+      }));
+      setSelectedProduct(prev => prev?.id === productId ? { ...prev, ...updates } : prev);
+      return true;
+    } catch {
+      alert('Error al actualizar el producto');
+      return false;
     }
   };
 
@@ -1139,8 +1195,8 @@ export default function AdminDashboard() {
                 pub={selectedPub}
                 onClose={() => setSelectedPub(null)}
                 onSave={async (updates) => {
-                  const ok = await handleEditPublication(selectedPub.id, updates);
-                  if (ok) setSelectedPub(prev => prev ? { ...prev, ...updates } : null);
+                  const ok = await handleEditPublication(selectedPub.id, updates.db, updates.ui);
+                  if (ok) setSelectedPub(prev => prev ? { ...prev, ...updates.db, ...(updates.ui || {}) } : null);
                 }}
                 onDelete={() => {
                   handleDeletePublication(selectedPub);
@@ -1153,6 +1209,7 @@ export default function AdminDashboard() {
               <StoreDetailModal
                 store={selectedStore}
                 onClose={() => setSelectedStore(null)}
+                onSave={handleEditStore}
                 onDelete={() => {
                   handleDeleteStore(selectedStore);
                 }}
@@ -1164,6 +1221,7 @@ export default function AdminDashboard() {
               <BrandDetailModal
                 brand={selectedBrand}
                 onClose={() => setSelectedBrand(null)}
+                onSave={handleEditBrand}
                 onDelete={() => {
                   handleDeleteBrand(selectedBrand);
                 }}
@@ -1175,6 +1233,7 @@ export default function AdminDashboard() {
               <ProductDetailModal
                 product={selectedProduct}
                 onClose={() => setSelectedProduct(null)}
+                onSave={handleEditProduct}
                 onDelete={() => handleDeleteProduct(selectedProduct)}
                 isDeleting={deletingProductId === selectedProduct.id}
               />
@@ -1626,28 +1685,79 @@ function PublicationsTable({
 function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
-  const [isActive, setIsActive] = useState(pub.is_active !== false);
-  const [price, setPrice]       = useState(pub.price ?? '');
+  const [isActive, setIsActive]       = useState(pub.is_active !== false);
+  const [price, setPrice]             = useState(pub.price ?? '');
   const [description, setDescription] = useState(pub.description || '');
+  const [photoUrl, setPhotoUrl]       = useState(pub.photoUrl || pub.photo_url || '');
+
+  // Búsqueda de producto
+  const [productQuery, setProductQuery]     = useState(pub.productName || pub.product?.name || '');
+  const [productId, setProductId]           = useState(pub.productId || pub.product_id || null);
+  const [productResults, setProductResults] = useState([]);
+  const [searchingProduct, setSearchingProduct] = useState(false);
+
+  // Búsqueda de tienda
+  const [storeQuery, setStoreQuery]         = useState(pub.storeName || pub.store?.name || '');
+  const [storeId, setStoreId]               = useState(pub.storeId || pub.store_id || null);
+  const [storeResults, setStoreResults]     = useState([]);
+  const [searchingStore, setSearchingStore] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
 
+<<<<<<< HEAD
   const productName = pub.productName || pub.product?.name || '—';
   const productBarcode = pub.productBarcode || pub.product?.barcode || td.noCode;
   const brandName   = pub.brandName   || pub.product?.brand?.name || td.noBrand;
   const storeName   = pub.storeName   || pub.store?.name   || '—';
   const authorName  = pub.authorName  || pub.userName || pub.user?.full_name || '—';
   const createdAt   = pub.createdAt   ? new Date(pub.createdAt).toLocaleString('es-CO') : '—';
+=======
+  const authorName = pub.authorName || pub.userName || pub.user?.full_name || '—';
+  const createdAt  = pub.createdAt  ? new Date(pub.createdAt).toLocaleString('es-CO') : '—';
+>>>>>>> prueba
   const confidence = typeof pub.confidenceScore === 'number' ? pub.confidenceScore.toFixed(2) : '—';
+  const productBarcode = pub.productBarcode || pub.product?.barcode || 'Sin código';
+  const brandName      = pub.brandName || pub.product?.brand?.name || 'Sin marca';
 
+  // Buscar productos al escribir
+  useEffect(() => {
+    if (productQuery.length < 2) { setProductResults([]); return; }
+    const timer = setTimeout(async () => {
+      setSearchingProduct(true);
+      const { data } = await supabase.from('products').select('id, name, barcode, brand:brands(name)').ilike('name', `%${productQuery}%`).limit(8);
+      setProductResults(data || []);
+      setSearchingProduct(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [productQuery]);
+
+  // Buscar tiendas al escribir
+  useEffect(() => {
+    if (storeQuery.length < 2) { setStoreResults([]); return; }
+    const timer = setTimeout(async () => {
+      setSearchingStore(true);
+      const { data } = await supabase.from('stores').select('id, name, address, store_type_id').ilike('name', `%${storeQuery}%`).limit(8);
+      setStoreResults(data || []);
+      setSearchingStore(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [storeQuery]);
 
   const save = async () => {
     setSaving(true);
     setSaved(false);
-    const updates = { is_active: isActive, description: description?.trim() || null };
+    const db = { is_active: isActive, description: description?.trim() || null };
     const parsedPrice = Number(price);
-    if (!isNaN(parsedPrice) && parsedPrice > 0) updates.price = parsedPrice;
-    const ok = await onSave(updates);
+    if (!isNaN(parsedPrice) && parsedPrice > 0) db.price = parsedPrice;
+    if (productId && productId !== (pub.productId || pub.product_id)) db.product_id = productId;
+    if (storeId && storeId !== (pub.storeId || pub.store_id)) db.store_id = storeId;
+    if (photoUrl.trim() !== (pub.photoUrl || pub.photo_url || '')) db.photo_url = photoUrl.trim() || null;
+    const ui = {};
+    if (db.product_id) { ui.productId = productId; ui.productName = productQuery; }
+    if (db.store_id)   { ui.storeId = storeId; ui.storeName = storeQuery; }
+    if (db.photo_url !== undefined) ui.photoUrl = db.photo_url;
+    const ok = await onSave({ db, ui });
     setSaving(false);
     if (ok !== false) setSaved(true);
   };
@@ -1671,10 +1781,17 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
             <StatusBadge status={pub.is_active ? 'active' : 'hidden'} />
           </div>
           <div style={s.detailGrid}>
+<<<<<<< HEAD
             <DetailRow label={td.pubProductLabel} value={productName} />
             <DetailRow label={td.pubBarcodeLabel} value={productBarcode} />
             <DetailRow label={td.pubBrandLabel} value={brandName} />
             <DetailRow label={td.pubStoreLabel}   value={storeName} />
+=======
+            <DetailRow label={td.pubProductLabel} value={productQuery || '—'} />
+            <DetailRow label="Código de barras" value={productBarcode} />
+            <DetailRow label="Marca" value={brandName} />
+            <DetailRow label={td.pubStoreLabel}   value={storeQuery || '—'} />
+>>>>>>> prueba
             <DetailRow label={td.pubPriceLabel}   value={`$${typeof pub.price === 'number' ? pub.price.toLocaleString('es-CO') : pub.price || '—'}`} />
             <DetailRow label={td.pubAuthorLabel}  value={authorName} />
             <DetailRow label={td.pubDateLabel}    value={createdAt} />
@@ -1720,6 +1837,69 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
               style={{ ...s.filterSelect, fontFamily: 'inherit' }}
               min={0}
               placeholder={td.pricePlaceholder}
+            />
+          </label>
+
+          {/* Producto */}
+          <div style={s.filterLabelWrap}>
+            <span style={s.filterLabel}>Producto</span>
+            <div style={{ position: 'relative' }}>
+              <input
+                value={productQuery}
+                onChange={(e) => { setProductQuery(e.target.value); setProductId(null); }}
+                style={{ ...s.filterSelect, fontFamily: 'inherit' }}
+                placeholder="Buscar producto..."
+              />
+              {searchingProduct && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: MUTED }}>...</span>}
+              {productResults.length > 0 && (
+                <div style={{ position: 'absolute', zIndex: 10, top: '100%', left: 0, right: 0, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                  {productResults.map(pr => (
+                    <button key={pr.id} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', color: TEXT, cursor: 'pointer', fontSize: 13, borderBottom: `1px solid ${BORDER}` }}
+                      onClick={() => { setProductId(pr.id); setProductQuery(pr.name); setProductResults([]); }}>
+                      <strong>{pr.name}</strong>
+                      {pr.brand?.name && <span style={{ color: MUTED, marginLeft: 6 }}>— {pr.brand.name}</span>}
+                      {pr.barcode && <span style={{ color: MUTED, marginLeft: 6, fontSize: 11 }}>{pr.barcode}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {productId && <span style={{ fontSize: 11, color: 'var(--success)', marginTop: 4 }}>✓ ID: {productId}</span>}
+          </div>
+
+          {/* Tienda */}
+          <div style={s.filterLabelWrap}>
+            <span style={s.filterLabel}>Tienda</span>
+            <div style={{ position: 'relative' }}>
+              <input
+                value={storeQuery}
+                onChange={(e) => { setStoreQuery(e.target.value); setStoreId(null); }}
+                style={{ ...s.filterSelect, fontFamily: 'inherit' }}
+                placeholder="Buscar tienda..."
+              />
+              {searchingStore && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: MUTED }}>...</span>}
+              {storeResults.length > 0 && (
+                <div style={{ position: 'absolute', zIndex: 10, top: '100%', left: 0, right: 0, background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                  {storeResults.map(sr => (
+                    <button key={sr.id} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', color: TEXT, cursor: 'pointer', fontSize: 13, borderBottom: `1px solid ${BORDER}` }}
+                      onClick={() => { setStoreId(sr.id); setStoreQuery(sr.name); setStoreResults([]); }}>
+                      <strong>{sr.name}</strong>
+                      {sr.address && <span style={{ color: MUTED, marginLeft: 6, fontSize: 11 }}>{sr.address}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {storeId && <span style={{ fontSize: 11, color: 'var(--success)', marginTop: 4 }}>✓ ID: {storeId}</span>}
+          </div>
+
+          <label style={s.filterLabelWrap}>
+            <span style={s.filterLabel}>URL de foto</span>
+            <input
+              value={photoUrl}
+              onChange={(e) => setPhotoUrl(e.target.value)}
+              style={{ ...s.filterSelect, fontFamily: 'inherit' }}
+              placeholder="https://..."
             />
           </label>
 
@@ -2047,9 +2227,34 @@ function ReportDetailsModal({ report, onClose, onSave }) {
   );
 }
 
+<<<<<<< HEAD
 function StoreDetailModal({ store, onClose, onDelete, isDeleting }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
+=======
+function StoreDetailModal({ store, onClose, onDelete, isDeleting, onSave }) {
+  const [name, setName]           = useState(store.name || '');
+  const [storeTypeId, setStoreTypeId] = useState(String(store.store_type_id || '1'));
+  const [address, setAddress]     = useState(store.address || '');
+  const [websiteUrl, setWebsiteUrl] = useState(store.website_url || '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+
+  const isPhysical = storeTypeId === '1';
+
+  const save = async () => {
+    if (!name.trim()) { alert('El nombre es obligatorio.'); return; }
+    setSaving(true);
+    setSaved(false);
+    const updates = { name: name.trim(), store_type_id: Number(storeTypeId) };
+    if (isPhysical) updates.address = address.trim() || null;
+    else updates.website_url = websiteUrl.trim() || null;
+    const ok = await onSave(store.id, updates);
+    setSaving(false);
+    if (ok !== false) setSaved(true);
+  };
+
+>>>>>>> prueba
   return (
     <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
       <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
@@ -2060,28 +2265,92 @@ function StoreDetailModal({ store, onClose, onDelete, isDeleting }) {
           </div>
           <button onClick={onClose} style={CLOSE_BTN_STYLE}>✕</button>
         </div>
+
         <div style={s.detailGrid}>
+<<<<<<< HEAD
           <DetailRow label={td.labelName} value={store.name || '—'} />
           <DetailRow label={td.labelType} value={store.typeLabel || '—'} />
           <DetailRow label={td.labelAddress} value={store.address || '—'} />
           <DetailRow label={td.labelWeb} value={store.website_url || '—'} />
           <DetailRow label={td.labelCreatedAt} value={store.created_at ? new Date(store.created_at).toLocaleString('es-CO') : '—'} />
           <DetailRow label={td.labelRelatedPubs} value={store.relatedCount ?? 0} />
+=======
+          <DetailRow label="Creada el" value={store.created_at ? new Date(store.created_at).toLocaleString('es-CO') : '—'} />
+          <DetailRow label="Publicaciones (vista actual)" value={store.relatedCount ?? 0} />
+>>>>>>> prueba
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+
+        <hr style={{ border: 'none', borderTop: `1px solid ${BORDER}`, margin: '12px 0' }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <label style={s.filterLabelWrap}>
+            <span style={s.filterLabel}>Nombre</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...s.filterSelect, fontFamily: 'inherit' }} placeholder="Nombre de la tienda" />
+          </label>
+
+          <label style={s.filterLabelWrap}>
+            <span style={s.filterLabel}>Tipo</span>
+            <select value={storeTypeId} onChange={(e) => setStoreTypeId(e.target.value)} style={s.filterSelect}>
+              <option value="1">Física</option>
+              <option value="2">Virtual</option>
+            </select>
+          </label>
+
+          {isPhysical ? (
+            <label style={s.filterLabelWrap}>
+              <span style={s.filterLabel}>Dirección</span>
+              <input value={address} onChange={(e) => setAddress(e.target.value)} style={{ ...s.filterSelect, fontFamily: 'inherit' }} placeholder="Dirección física" />
+            </label>
+          ) : (
+            <label style={s.filterLabelWrap}>
+              <span style={s.filterLabel}>Sitio web</span>
+              <input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} style={{ ...s.filterSelect, fontFamily: 'inherit' }} placeholder="https://..." />
+            </label>
+          )}
+        </div>
+
+        {saved && <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--success)', textAlign: 'right' }}>✓ Guardado correctamente</p>}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, gap: 10 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
             {isDeleting ? td.hidingBtn : td.hideStoreBtn}
           </button>
+<<<<<<< HEAD
           <button onClick={onClose} style={s.btnDismiss}>{td.closeBtn}</button>
+=======
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
+            <button onClick={save} style={{ ...s.filterBtn, ...s.filterBtnActive }} disabled={saving}>
+              {saving ? '...' : 'Guardar cambios'}
+            </button>
+          </div>
+>>>>>>> prueba
         </div>
       </div>
     </div>
   );
 }
 
+<<<<<<< HEAD
 function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
+=======
+function BrandDetailModal({ brand, onClose, onDelete, isDeleting, onSave }) {
+  const [name, setName] = useState(brand.name || '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+
+  const save = async () => {
+    if (!name.trim()) { alert('El nombre es obligatorio.'); return; }
+    setSaving(true);
+    setSaved(false);
+    const ok = await onSave(brand.id, { name: name.trim() });
+    setSaving(false);
+    if (ok !== false) setSaved(true);
+  };
+
+>>>>>>> prueba
   return (
     <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
       <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
@@ -2093,26 +2362,98 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
           <button onClick={onClose} style={CLOSE_BTN_STYLE}>✕</button>
         </div>
         <div style={s.detailGrid}>
+<<<<<<< HEAD
           <DetailRow label={td.colProduct} value={brand.productName || '—'} />
           <DetailRow label={td.colBarcode} value={brand.productBarcode || td.noCode} />
           <DetailRow label={td.colBrand} value={brand.name || '—'} />
           <DetailRow label={td.labelAssociatedProducts} value={brand.productsCount ?? 0} />
           <DetailRow label={td.labelCreatedAt} value={brand.created_at ? new Date(brand.created_at).toLocaleString('es-CO') : '—'} />
+=======
+          <DetailRow label="Producto relacionado" value={brand.productName || '—'} />
+          <DetailRow label="Código de barras" value={brand.productBarcode || 'Sin código'} />
+          <DetailRow label="Productos asociados" value={brand.productsCount ?? 0} />
+          <DetailRow label="Creada el" value={brand.created_at ? new Date(brand.created_at).toLocaleString('es-CO') : '—'} />
+>>>>>>> prueba
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+
+        <hr style={{ border: 'none', borderTop: `1px solid ${BORDER}`, margin: '12px 0' }} />
+
+        <label style={s.filterLabelWrap}>
+          <span style={s.filterLabel}>Nombre de la marca</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...s.filterSelect, fontFamily: 'inherit' }} placeholder="Nombre de la marca" />
+        </label>
+
+        {saved && <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--success)', textAlign: 'right' }}>✓ Guardado correctamente</p>}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, gap: 10 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
             {isDeleting ? td.hidingBtn : td.hideBrandBtn}
           </button>
+<<<<<<< HEAD
           <button onClick={onClose} style={s.btnDismiss}>{td.closeBtn}</button>
+=======
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
+            <button onClick={save} style={{ ...s.filterBtn, ...s.filterBtnActive }} disabled={saving}>
+              {saving ? '...' : 'Guardar cambios'}
+            </button>
+          </div>
+>>>>>>> prueba
         </div>
       </div>
     </div>
   );
 }
 
+<<<<<<< HEAD
 function ProductDetailModal({ product, onClose, onDelete, isDeleting }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
+=======
+function ProductDetailModal({ product, onClose, onDelete, isDeleting, onSave }) {
+  const [name, setName]             = useState(product?.name || '');
+  const [barcode, setBarcode]       = useState(product?.barcode || '');
+  const [baseQuantity, setBaseQuantity] = useState(product?.base_quantity ?? '');
+  const [brandId, setBrandId]       = useState(product?.brand?.id ?? '');
+  const [unitTypeId, setUnitTypeId] = useState(product?.unit?.id ?? '');
+  const [categoryId, setCategoryId] = useState(product?.category_id ?? '');
+
+  const [categories, setCategories] = useState([]);
+  const [unitTypes, setUnitTypes]   = useState([]);
+  const [brands, setBrands]         = useState([]);
+  const [loadingMeta, setLoadingMeta] = useState(true);
+
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('product_categories').select('id, name').order('name'),
+      supabase.from('unit_types').select('id, name, abbreviation').order('name'),
+      supabase.from('brands').select('id, name').order('name').limit(300),
+    ]).then(([cats, units, brnds]) => {
+      setCategories(cats.data || []);
+      setUnitTypes(units.data || []);
+      setBrands(brnds.data || []);
+      setLoadingMeta(false);
+    });
+  }, []);
+
+  const save = async () => {
+    if (!name.trim()) { alert('El nombre es obligatorio.'); return; }
+    setSaving(true);
+    setSaved(false);
+    const updates = { name: name.trim(), barcode: barcode.trim() || null };
+    if (baseQuantity !== '') updates.base_quantity = Number(baseQuantity);
+    if (brandId !== '') updates.brand_id = Number(brandId);
+    if (unitTypeId !== '') updates.unit_type_id = Number(unitTypeId);
+    if (categoryId !== '') updates.category_id = Number(categoryId);
+    const ok = await onSave(product.id, updates);
+    setSaving(false);
+    if (ok !== false) setSaved(true);
+  };
+
+>>>>>>> prueba
   const quantity = product?.base_quantity != null && product?.unit?.abbreviation
     ? `${product.base_quantity} ${product.unit.abbreviation}`
     : product?.base_quantity != null && product?.unit?.name
@@ -2121,7 +2462,7 @@ function ProductDetailModal({ product, onClose, onDelete, isDeleting }) {
 
   return (
     <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
-      <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 18, color: TEXT }}>{td.productDetailTitle}</h2>
@@ -2129,18 +2470,84 @@ function ProductDetailModal({ product, onClose, onDelete, isDeleting }) {
           </div>
           <button onClick={onClose} style={CLOSE_BTN_STYLE}>✕</button>
         </div>
+
         <div style={s.detailGrid}>
+<<<<<<< HEAD
           <DetailRow label={td.colProduct} value={product?.name || '—'} />
           <DetailRow label={td.colBrand} value={product?.brand?.name || td.noBrand} />
           <DetailRow label={td.colBarcode} value={product?.barcode || td.noCode} />
           <DetailRow label={td.labelBaseQuantity} value={quantity} />
           <DetailRow label={td.labelCreatedAtProduct} value={product?.created_at ? new Date(product.created_at).toLocaleString('es-CO') : '—'} />
+=======
+          <DetailRow label="Cantidad base (original)" value={quantity} />
+          <DetailRow label="Creado el" value={product?.created_at ? new Date(product.created_at).toLocaleString('es-CO') : '—'} />
+>>>>>>> prueba
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+
+        <hr style={{ border: 'none', borderTop: `1px solid ${BORDER}`, margin: '12px 0' }} />
+
+        {loadingMeta ? (
+          <div style={{ textAlign: 'center', padding: '20px 0', color: MUTED, fontSize: 13 }}>Cargando opciones...</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <label style={s.filterLabelWrap}>
+              <span style={s.filterLabel}>Nombre del producto</span>
+              <input value={name} onChange={(e) => setName(e.target.value)} style={{ ...s.filterSelect, fontFamily: 'inherit' }} placeholder="Nombre del producto" />
+            </label>
+
+            <label style={s.filterLabelWrap}>
+              <span style={s.filterLabel}>Código de barras</span>
+              <input value={barcode} onChange={(e) => setBarcode(e.target.value)} style={{ ...s.filterSelect, fontFamily: 'inherit' }} placeholder="Código de barras (opcional)" />
+            </label>
+
+            <label style={s.filterLabelWrap}>
+              <span style={s.filterLabel}>Marca</span>
+              <select value={brandId} onChange={(e) => setBrandId(e.target.value)} style={s.filterSelect}>
+                <option value="">Sin marca</option>
+                {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </label>
+
+            <label style={s.filterLabelWrap}>
+              <span style={s.filterLabel}>Categoría</span>
+              <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} style={s.filterSelect}>
+                <option value="">Sin categoría</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <label style={{ ...s.filterLabelWrap, flex: 1 }}>
+                <span style={s.filterLabel}>Cantidad base</span>
+                <input type="number" value={baseQuantity} onChange={(e) => setBaseQuantity(e.target.value)} style={{ ...s.filterSelect, fontFamily: 'inherit' }} min={0} placeholder="Ej: 500" />
+              </label>
+              <label style={{ ...s.filterLabelWrap, flex: 1 }}>
+                <span style={s.filterLabel}>Unidad</span>
+                <select value={unitTypeId} onChange={(e) => setUnitTypeId(e.target.value)} style={s.filterSelect}>
+                  <option value="">Sin unidad</option>
+                  {unitTypes.map(u => <option key={u.id} value={u.id}>{u.name} ({u.abbreviation})</option>)}
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {saved && <p style={{ margin: '10px 0 0', fontSize: 13, color: 'var(--success)', textAlign: 'right' }}>✓ Guardado correctamente</p>}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, gap: 10 }}>
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
             {isDeleting ? td.hidingBtn : td.hideProductBtn}
           </button>
+<<<<<<< HEAD
           <button onClick={onClose} style={s.btnDismiss}>{td.closeBtn}</button>
+=======
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
+            <button onClick={save} style={{ ...s.filterBtn, ...s.filterBtnActive }} disabled={saving || loadingMeta}>
+              {saving ? '...' : 'Guardar cambios'}
+            </button>
+          </div>
+>>>>>>> prueba
         </div>
       </div>
     </div>

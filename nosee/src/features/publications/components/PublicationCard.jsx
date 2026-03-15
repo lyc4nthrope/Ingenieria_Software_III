@@ -205,6 +205,27 @@ export function PublicationCard({
 
   return (
     <div style={styles.card}>
+      {/* Botón reportar: esquina superior derecha */}
+      <button
+        type="button"
+        aria-label={tc.reportLabel(publication.product?.name || tc.unknownProduct)}
+        title={tc.report}
+        style={styles.reportBtn}
+        onClick={() => setShowReportModal(true)}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(180, 40, 40, 0.8)';
+          e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.8)';
+          e.currentTarget.style.color = '#fff';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.85)';
+          e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.35)';
+          e.currentTarget.style.color = 'rgba(180, 40, 40, 0.65)';
+        }}
+      >
+        !
+      </button>
+
       {/* Header: Usuario */}
       <div style={styles.header}>
         <div style={styles.userInfo}>
@@ -373,7 +394,7 @@ export function PublicationCard({
         </div>
       </div>
 
-      {/* Modal: Reportar */}
+      {/* Modal: Reportar publicación */}
       {showReportModal && (
         <ReportPublicationModal
           publication={publication}
@@ -431,6 +452,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
+    position: 'relative',
   },
 
   header: {
@@ -634,6 +656,27 @@ const styles = {
     background: 'var(--accent-soft)',
     color: 'var(--text-primary)',
     border: '1px solid var(--border)',
+  },
+
+  reportBtn: {
+    position: 'absolute',
+    top: '10px',
+    right: '10px',
+    zIndex: 1,
+    background: 'rgba(255,255,255,0.85)',
+    border: '1.5px solid rgba(180, 40, 40, 0.35)',
+    borderRadius: '50%',
+    width: '28px',
+    height: '28px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 800,
+    color: 'rgba(180, 40, 40, 0.65)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backdropFilter: 'blur(4px)',
+    transition: 'background 0.15s, border-color 0.15s, color 0.15s',
   },
 
   buttonDanger: {

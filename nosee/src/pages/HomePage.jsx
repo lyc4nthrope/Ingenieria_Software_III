@@ -261,6 +261,7 @@ const PublicationCard = memo(function PublicationCard({
   return (
     <>
       <article className="card">
+<<<<<<< HEAD
       <div
         className="card-image-wrap"
         role="button"
@@ -284,6 +285,45 @@ const PublicationCard = memo(function PublicationCard({
           fetchPriority="low"
           onError={handleImageError}
         />
+=======
+      <div className="card-image-wrap" style={{ position: 'relative' }}>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={`Expandir foto de ${pubName}`}
+          onClick={() => setPhotoExpanded(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setPhotoExpanded(true);
+            }
+          }}
+          style={{ cursor: "zoom-in", width: '100%', height: '100%' }}
+        >
+          <img
+            src={publicationImage}
+            alt={pubName}
+            className="card-image"
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+            onError={handleImageError}
+          />
+        </div>
+        <button
+          className="card-report-button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!isAuthenticated) { onRequireAuth?.(); return; }
+            onReport(pub);
+          }}
+          aria-label={th.reportLabel(pubName)}
+          title={!isAuthenticated ? th.loginToReport : th.report}
+          disabled={false}
+        >
+          !
+        </button>
+>>>>>>> prueba
       </div>
 
       <div className="card-body">
@@ -390,6 +430,29 @@ const PublicationCard = memo(function PublicationCard({
               <span style={homeVoteStyles.count}>{pub.downvoted_count || 0}</span>
             </button>
           </div>
+<<<<<<< HEAD
+=======
+
+
+          <button
+            className="card-action-button"
+            onClick={() => onOpenDetail(pub.id)}
+            aria-label={th.detailLabel(pubName)}
+          >
+            {th.viewMore}
+          </button>
+
+          {(isAuthor || userIsAdmin) && (
+            <button
+              className="card-action-button"
+              onClick={() => onDelete(pub.id)}
+              aria-label={th.deleteLabel(pubName)}
+              title={th.deleteBtn}
+            >
+              {th.deleteBtn}
+            </button>
+          )}
+>>>>>>> prueba
         </div>
       </div>
       </article>
