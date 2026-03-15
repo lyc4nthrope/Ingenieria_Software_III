@@ -95,9 +95,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     // Si esto estuviera en true (default), el cliente consumiría el verifier
     // antes del llamado explícito → segundo error de verifier missing.
     detectSessionInUrl: false,
-    // En navegador dejamos el lock por defecto (Navigator LockManager).
-    // processLock está pensado para entornos no-browser.
-    ...(typeof window === "undefined" ? { lock: processLock } : {}),
+    // Usar processLock (mutex en memoria) en lugar del Navigator LockManager.
+    // navigator.locks coordina entre pestañas del mismo origen: si una pestaña
+    // retiene el lock (ej. flujo OAuth en progreso) y la página de callback
+    // carga en la misma/otra pestaña, las operaciones de auth del callback
+    // esperan 10 s y luego lanzan "LockManager timed out".
+    // processLock serializa solo dentro del mismo proceso/pestaña, lo cual
+    // es suficiente para una SPA donde cada pestaña maneja su propio estado.
+    lock: processLock,
   },
 });
 
