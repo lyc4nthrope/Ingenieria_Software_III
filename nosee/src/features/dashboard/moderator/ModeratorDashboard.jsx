@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/services/supabase.client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { updateReportReview } from "@/services/api/users.api";
+import { insertActionLog, getActionLogs } from "@/services/api/audit.api";
 
 const REPORT_SEVERITY = {
   offensive: "alta",
@@ -38,6 +39,11 @@ export default function ModeratorDashboard() {
   const [selectedReport, setSelectedReport] = useState(null);
   const [actionModal, setActionModal] = useState(null); // { report, action }
   const [toast, setToast] = useState(null); // { message, type }
+
+  const [historialLogs, setHistorialLogs] = useState([]);
+  const [historialLoading, setHistorialLoading] = useState(false);
+  const [historialLoaded, setHistorialLoaded] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -126,7 +132,24 @@ export default function ModeratorDashboard() {
 
   useEffect(() => {
     fetchReports();
+    supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data?.user?.id || null);
+    });
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "historial" && !historialLoaded && currentUserId) {
+      loadHistorial();
+    }
+  }, [activeTab, historialLoaded, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadHistorial = async () => {
+    setHistorialLoading(true);
+    const { data } = await getActionLogs({ actorId: currentUserId, limit: 100 });
+    setHistorialLogs(data || []);
+    setHistorialLoading(false);
+    setHistorialLoaded(true);
+  };
 
   const openDetail = async (report) => {
     setSelectedReport(report);
@@ -269,6 +292,12 @@ export default function ModeratorDashboard() {
         actionTaken: action === "eliminar_publicacion" ? "Publicación desactivada por moderador" : report.actionTaken,
       });
       if (ok) {
+        const { data: authData } = await supabase.auth.getUser();
+        const actorId = authData?.user?.id || null;
+        const resourceType = action === "baneado" ? "user" : action === "eliminar_publicacion" ? "publication" : "report";
+        const resourceId = action === "baneado" ? report.reportedUserId : action === "eliminar_publicacion" ? report.publicationId : report.id;
+        insertActionLog(actorId, resourceType, resourceId, action, notes || null, { reportId: report.id });
+        setHistorialLoaded(false); // Fuerza recarga del historial en la próxima visita
         const messages = {
           baneado: "Usuario baneado y reporte resuelto.",
           eliminar_publicacion: "Publicación desactivada y reporte resuelto.",
@@ -412,15 +441,40 @@ export default function ModeratorDashboard() {
         )}
 
         {activeTab === "historial" && (
-          <div style={st.placeholder}>
-            <span style={st.placeholderIcon}>◎</span>
-            <h2 style={st.placeholderTitle}>
-              {td.historyTitle || "Historial"}
-            </h2>
-            <p style={st.placeholderSub}>
-              {td.historySub || "Historial de acciones de moderación"}
-            </p>
-            <div style={st.tag}>{td.comingSoon || "Próximamente"}</div>
+          <div>
+            <div style={{ marginBottom: 24 }}>
+              <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800, color: TEXT }}>
+                {td.historyTitle || "Historial de acciones"}
+              </h1>
+              <p style={{ margin: 0, fontSize: 14, color: MUTED }}>
+                {td.historySub || "Registro de todas las moderaciones realizadas por este moderador"}
+              </p>
+            </div>
+
+            {historialLoading ? (
+              <p style={{ color: MUTED, fontSize: 14 }}>{td.historyLoading || "Cargando historial..."}</p>
+            ) : historialLogs.length === 0 ? (
+              <div style={{ ...st.emptyState }}>
+                <span style={{ fontSize: 32 }}>◎</span>
+                <p style={{ color: MUTED, marginTop: 8 }}>{td.historyEmpty || "Aún no hay acciones registradas"}</p>
+              </div>
+            ) : (
+              <div style={{ background: 'var(--bg-surface)', border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr 1fr', background: 'var(--bg-elevated)', padding: '10px 16px', gap: 8 }}>
+                  {[td.historyColDate || 'Fecha', td.historyColAction || 'Acción', td.historyColResource || 'Recurso', td.historyColReason || 'Motivo'].map(h => (
+                    <div key={h} style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</div>
+                  ))}
+                </div>
+                {historialLogs.map((log, i) => (
+                  <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr 1fr', padding: '10px 16px', gap: 8, borderTop: i === 0 ? 'none' : `1px solid ${BORDER}`, fontSize: 13 }}>
+                    <div style={{ color: MUTED }}>{new Date(log.created_at).toLocaleString('es-CO')}</div>
+                    <div style={{ fontWeight: 600, color: ACCENT }}>{log.action_type}</div>
+                    <div style={{ color: TEXT }}>{log.resource_type}{log.resource_id ? ` #${log.resource_id}` : ''}</div>
+                    <div style={{ color: MUTED }}>{log.reason || '—'}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>

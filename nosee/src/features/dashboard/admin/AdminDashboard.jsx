@@ -9,6 +9,7 @@
  */
 import { useState, useEffect } from 'react';
 import { changeUserRole, getAdminReports, getAllUsers, updateReportReview, updateUserStatus } from '@/services/api/users.api';
+import { insertActionLog, getActionLogs, getLoginLogs } from '@/services/api/audit.api';
 import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
@@ -209,6 +210,12 @@ export default function AdminDashboard() {
   const [catsLoading, setCatsLoading]         = useState(false);
   const [catsLoaded, setCatsLoaded]           = useState(false);
 
+  // Logs de auditoría
+  const [actionLogs, setActionLogs]           = useState([]);
+  const [loginLogs, setLoginLogs]             = useState([]);
+  const [logsLoading, setLogsLoading]         = useState(false);
+  const [logsLoaded, setLogsLoaded]           = useState(false);
+
   // Configuración editable de reputación
   const [repParams, setRepParams] = useState(() => {
     try {
@@ -239,6 +246,7 @@ export default function AdminDashboard() {
     if (activeSection === 'content'  && pubFilter === 'unpublished' && !unpublishedLoaded) loadUnpublishedResources();
     if (activeSection === 'reports'  && !reportsLoaded)  loadReports();
     if (activeSection === 'config'   && !catsLoaded)     loadCategories();
+    if (activeSection === 'logs'     && !logsLoaded)     loadLogs();
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -247,6 +255,19 @@ export default function AdminDashboard() {
     if (unpublishedLoaded || unpublishedLoading) return;
     loadUnpublishedResources();
   }, [activeSection, pubFilter, unpublishedLoaded, unpublishedLoading]);
+
+  // ─── Logs de auditoría ────────────────────────────────────────────────────
+  const loadLogs = async () => {
+    setLogsLoading(true);
+    const [{ data: aLogs }, { data: lLogs }] = await Promise.all([
+      getActionLogs({ limit: 100 }),
+      getLoginLogs({ limit: 100 }),
+    ]);
+    setActionLogs(aLogs || []);
+    setLoginLogs(lLogs || []);
+    setLogsLoading(false);
+    setLogsLoaded(true);
+  };
 
   // ─── Stats reales ─────────────────────────────────────────────────────────
   // Contamos directamente en Supabase para tener números en tiempo real.
@@ -310,6 +331,9 @@ export default function AdminDashboard() {
       const result = await changeUserRole(userId, roleMap[newRole]);
       if (result.success) {
         setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+        const { data: authData } = await supabase.auth.getUser();
+        const prevRole = users.find(u => u.id === userId)?.role || null;
+        insertActionLog(authData?.user?.id, 'user', userId, 'change_role', null, { newRole, prevRole });
       } else {
         alert(td.errorChangeRole(result.error || td.errorChangeRoleGeneric));
       }
@@ -364,6 +388,8 @@ export default function AdminDashboard() {
       setUsers(prev =>
         prev.map(u => u.id === target.id ? { ...u, status: isBanning ? 'baneado' : 'activo' } : u)
       );
+      const { data: authData } = await supabase.auth.getUser();
+      insertActionLog(authData?.user?.id, 'user', target.id, isBanning ? 'ban_user' : 'unban_user', null, { userName: target.name });
     } catch {
       alert(td.errorStatus);
     }
@@ -441,6 +467,8 @@ export default function AdminDashboard() {
           prev.map((p) => (p.id === pubId ? { ...p, is_active: false, status: 'hidden' } : p)),
         );
         setSelectedPub((prev) => (prev?.id === pubId ? { ...prev, is_active: false, status: 'hidden' } : prev));
+        const { data: hideAuthData } = await supabase.auth.getUser();
+        insertActionLog(hideAuthData?.user?.id, 'publication', pubId, 'hide');
         alert(td.pubHiddenOk);
         return;
       }
@@ -467,6 +495,7 @@ export default function AdminDashboard() {
       // Ocultación completa: sacar de la vista actual del admin
       setPublications((prev) => prev.filter((p) => p.id !== pubId));
       setSelectedPub((prev) => (prev?.id === pubId ? null : prev));
+      insertActionLog(actorId, 'publication', pubId, 'hide_full');
     } catch {
       alert(td.errorDeletePubGeneric);
     } finally {
@@ -593,6 +622,7 @@ export default function AdminDashboard() {
         stores: prev.stores.filter((s) => s.id !== storeId),
       }));
       setSelectedStore((prev) => (prev?.id === storeId ? null : prev));
+      insertActionLog(actorId, 'store', storeId, 'hide', null, { storeName });
     } finally {
       setDeletingStoreId(null);
     }
@@ -664,6 +694,7 @@ export default function AdminDashboard() {
           : p
       )));
       setSelectedBrand((prev) => (prev?.id === brandId ? null : prev));
+      insertActionLog(actorId, 'brand', brandId, 'hide', null, { brandName });
     } finally {
       setDeletingBrandId(null);
     }
@@ -704,6 +735,7 @@ export default function AdminDashboard() {
         products: prev.products.filter((p) => p.id !== productId),
       }));
       setSelectedProduct((prev) => (prev?.id === productId ? null : prev));
+      insertActionLog(actorId, 'product', productId, 'hide', null, { productName });
     } finally {
       setDeletingProductId(null);
     }
@@ -831,9 +863,12 @@ export default function AdminDashboard() {
         alert(`No se pudo ocultar el contenido reportado: ${hideError.message}`);
         return;
       }
+      insertActionLog(actorId, type, entityIdRaw, 'hide_from_report', null, { reportId: report.id });
     }
     if (action === 'ban' && report.reportedUserId) {
       await supabase.from('users').update({ is_active: false }).eq('id', report.reportedUserId);
+      const { data: authData } = await supabase.auth.getUser();
+      insertActionLog(authData?.user?.id, 'user', report.reportedUserId, 'ban_user', null, { reportId: report.id });
     }
 
     const nextStatus = action === 'reject' ? 'REJECTED' : 'RESOLVED';
@@ -926,6 +961,7 @@ export default function AdminDashboard() {
             { key: 'content',  icon: '◈', label: td.navContent },
             { key: 'reports',  icon: '⚠', label: td.navReports, badge: reportsBadge },
             { key: 'config',   icon: '⚙', label: td.navConfig },
+            { key: 'logs',     icon: '◎', label: td.navLogs },
           ].map((item) => (
             <button
               key={item.key}
@@ -1339,6 +1375,74 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </>
+        )}
+
+        {/* ── LOGS ──────────────────────────────────────────────── */}
+        {activeSection === 'logs' && (
+          <>
+            <SectionHeader title={td.logsTitle} sub={td.logsSub} />
+
+            {logsLoading ? (
+              <LoadingState label={td.logsLoading} />
+            ) : (
+              <>
+                {/* Acciones de administración */}
+                <div style={s.section}>
+                  <div style={s.sectionHead}>
+                    <span style={s.sectionTitle}>{td.logsActionsTitle}</span>
+                    <span style={{ fontSize: 13, color: MUTED }}>{actionLogs.length}</span>
+                  </div>
+                  {actionLogs.length === 0 ? (
+                    <EmptyMsg text={td.logsEmpty} />
+                  ) : (
+                    <div style={s.configCard}>
+                      <div style={{ ...s.tableHead, gridTemplateColumns: '160px 1fr 1fr 1fr 1fr' }}>
+                        {[td.logsColDate, td.logsColAction, td.logsColResource, td.logsColReason, td.logsColActor].map(h => (
+                          <div key={h} style={s.th}>{h}</div>
+                        ))}
+                      </div>
+                      {actionLogs.map(log => (
+                        <div key={log.id} style={{ ...s.tableRow, gridTemplateColumns: '160px 1fr 1fr 1fr 1fr', fontSize: 13 }}>
+                          <div style={s.td}>{new Date(log.created_at).toLocaleString('es-CO')}</div>
+                          <div style={{ ...s.td, fontWeight: 600, color: ACCENT }}>{log.action_type}</div>
+                          <div style={s.td}>{log.resource_type}{log.resource_id ? ` #${log.resource_id}` : ''}</div>
+                          <div style={{ ...s.td, color: MUTED }}>{log.reason || log.metadata?.storeName || log.metadata?.brandName || log.metadata?.productName || log.metadata?.userName || '—'}</div>
+                          <div style={{ ...s.td, color: MUTED, fontSize: 11, wordBreak: 'break-all' }}>{log.actor_user_id?.slice(0, 8)}…</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Logs de acceso */}
+                <div style={s.section}>
+                  <div style={s.sectionHead}>
+                    <span style={s.sectionTitle}>{td.logsLoginTitle}</span>
+                    <span style={{ fontSize: 13, color: MUTED }}>{loginLogs.length}</span>
+                  </div>
+                  {loginLogs.length === 0 ? (
+                    <EmptyMsg text={td.logsEmpty} />
+                  ) : (
+                    <div style={s.configCard}>
+                      <div style={{ ...s.tableHead, gridTemplateColumns: '160px 1fr 1fr 1fr' }}>
+                        {[td.logsColDate, td.logsColEvent, td.logsColUser, td.logsColIP].map(h => (
+                          <div key={h} style={s.th}>{h}</div>
+                        ))}
+                      </div>
+                      {loginLogs.map(log => (
+                        <div key={log.id} style={{ ...s.tableRow, gridTemplateColumns: '160px 1fr 1fr 1fr', fontSize: 13 }}>
+                          <div style={s.td}>{new Date(log.created_at).toLocaleString('es-CO')}</div>
+                          <div style={{ ...s.td, fontWeight: 600, color: log.event_type === 'login' ? 'var(--success)' : log.event_type === 'logout' ? MUTED : ACCENT }}>{log.event_type}</div>
+                          <div style={{ ...s.td, color: MUTED, fontSize: 11, wordBreak: 'break-all' }}>{log.user_id?.slice(0, 8)}…</div>
+                          <div style={{ ...s.td, color: MUTED }}>{log.ip_address || '—'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
       </main>
