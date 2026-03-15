@@ -128,62 +128,70 @@ export const useAuthStore = create((set, get) => ({
     // FIX TOKEN_REFRESHED: añadimos el evento para mantener `session`
     // actualizada cuando Supabase renueva el access_token automáticamente.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        // PASSWORD_RECOVERY se dispara al abrir el link de recuperación.
-        // Lo tratamos igual que SIGNED_IN para hidratar el store correctamente.
+      (event, session) => {
+        // IMPORTANTE: este callback es llamado por _notifyAllSubscribers() mientras
+        // Supabase retiene el auth lock. Cualquier llamada a supabase.from().select()
+        // dentro de este callback invocaría _getAccessToken() → auth.getSession()
+        // → intento de adquirir el mismo lock → DEADLOCK (timeout 10 s).
+        //
+        // Regla: NO hacer await de operaciones que usen supabase.from() aquí.
+        // Usar setTimeout(0) para diferirlas fuera del lock.
+
         if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
-          // Registrar acceso OAuth (Google, etc.) en el log de auditoría.
-          // El login con email/contraseña ya lo registra login() directamente,
-          // así que aquí solo capturamos providers distintos a 'email' para evitar duplicados.
-          if (event === 'SIGNED_IN') {
-            const provider = session.user.app_metadata?.provider;
-            if (provider && provider !== 'email') {
-              insertAuditLog(session.user.id, `login_${provider}`);
-            }
-          }
 
           const currentUser = get().user;
 
-          // Si ya tenemos este usuario cargado con un rol válido, solo actualizamos
-          // la sesión. Esto evita que una llamada concurrente a getUserProfile
-          // (iniciada mientras login() estaba en LOADING) sobreescriba al usuario
-          // correcto con un fallback sin rol.
+          // Si ya tenemos este usuario con rol válido, solo actualizamos la sesión.
           if (currentUser?.id === session.user.id && (currentUser?.role || get().status === AsyncStateEnum.SUCCESS)) {
             set({ session });
             return;
           }
 
-          const profileResult = await usersApi.getUserProfile(session.user.id);
-
-          // Si el fetch falla pero ya teníamos al usuario cargado, conservamos
-          // sus datos en lugar de sobrescribir con un objeto sin rol.
-          if (!profileResult.success) {
-            if (get().user?.id === session.user.id) {
-              set({ session });
-            }
-            return;
-          }
-
-          // Detectar cambio de rol para notificar al usuario
-          const previousRole = get().user?.role;
-          const newRole = profileResult.data?.role;
-          if (previousRole && newRole && previousRole !== newRole) {
-            set({ _roleChangeNotification: newRole });
-          }
-
+          // Guardar sesión y usuario mínimo inmediatamente para que
+          // isAuthenticated sea true y CallbackPage pueda navegar.
           set({
-            user:    profileResult.data,
-            session,                     // ← token siempre fresco
+            user:    currentUser?.id === session.user.id
+              ? currentUser
+              : { id: session.user.id, email: session.user.email },
+            session,
             status:  AsyncStateEnum.SUCCESS,
             error:   null,
           });
 
+          // Diferir todo lo que usa supabase.from() (rompe el deadlock del lock).
+          setTimeout(async () => {
+            // Registrar acceso OAuth (no 'email' para evitar duplicado con login())
+            if (event === 'SIGNED_IN') {
+              const provider = session.user.app_metadata?.provider;
+              if (provider && provider !== 'email') {
+                insertAuditLog(session.user.id, `login_${provider}`);
+              }
+            }
+
+            const profileResult = await usersApi.getUserProfile(session.user.id);
+
+            if (!profileResult.success) {
+              // Conservar datos actuales si el fetch falla
+              return;
+            }
+
+            // Detectar cambio de rol para notificar al usuario
+            const previousRole = get().user?.role;
+            const newRole = profileResult.data?.role;
+            if (previousRole && newRole && previousRole !== newRole) {
+              set({ _roleChangeNotification: newRole });
+            }
+
+            set({
+              user:    profileResult.data,
+              session,
+              status:  AsyncStateEnum.SUCCESS,
+              error:   null,
+            });
+          }, 0);
+
         } else if (event === 'TOKEN_REFRESHED' && session) {
-          // FIX TOKEN_REFRESHED ─────────────────────────────────
-          // Solo actualizamos la sesión; el perfil de usuario no cambió,
-          // así que evitamos un round-trip innecesario a la BD.
           set({ session });
-          // ──────────────────────────────────────────────────────
 
         } else if (event === 'SIGNED_OUT') {
           set({
