@@ -325,7 +325,7 @@ export default function ModeratorDashboard() {
               badge: pendingCount,
             },
             { key: "feed", icon: "◈", label: td.navFeed || "Feed" },
-            { key: "historial", icon: "◎", label: td.navHistory || "Historial" },
+            { key: "historial", icon: "◎", label: td.navHistory || "Logs" },
           ].map((item) => (
             <button
               key={item.key}
