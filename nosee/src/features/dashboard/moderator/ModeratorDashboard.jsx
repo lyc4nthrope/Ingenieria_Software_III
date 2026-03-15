@@ -587,14 +587,7 @@ function ReportDetailsModal({ report, td, onClose, onSave }) {
             onClick={onClose}
             title={td.cancel || "Cancelar"}
             aria-label={td.cancel || "Cancelar"}
-            style={{
-              background: "none",
-              border: "none",
-              color: MUTED,
-              cursor: "pointer",
-              fontSize: 20,
-              lineHeight: 1,
-            }}
+            style={CLOSE_BTN_STYLE}
           >
             ✕
           </button>
@@ -845,7 +838,7 @@ function ActionConfirmModal({ report, action, td, onClose, onConfirm }) {
             onClick={onClose}
             title={td.cancel || "Cancelar"}
             aria-label={td.cancel || "Cancelar"}
-            style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 20, lineHeight: 1 }}
+            style={CLOSE_BTN_STYLE}
           >
             ✕
           </button>
@@ -907,6 +900,7 @@ function EmptyState({ td }) {
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
+const CLOSE_BTN_STYLE = { flexShrink: 0, background: 'var(--bg-elevated)', border: '2px solid var(--border)', borderRadius: '50%', width: 34, height: 34, fontSize: 18, fontWeight: 800, cursor: 'pointer', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 };
 const ACCENT = 'var(--accent)';
 const BG = "var(--bg-base)";
 const SURFACE = "var(--bg-surface)";
