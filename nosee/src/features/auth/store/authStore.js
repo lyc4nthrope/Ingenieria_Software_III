@@ -132,6 +132,16 @@ export const useAuthStore = create((set, get) => ({
         // PASSWORD_RECOVERY se dispara al abrir el link de recuperación.
         // Lo tratamos igual que SIGNED_IN para hidratar el store correctamente.
         if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
+          // Registrar acceso OAuth (Google, etc.) en el log de auditoría.
+          // El login con email/contraseña ya lo registra login() directamente,
+          // así que aquí solo capturamos providers distintos a 'email' para evitar duplicados.
+          if (event === 'SIGNED_IN') {
+            const provider = session.user.app_metadata?.provider;
+            if (provider && provider !== 'email') {
+              insertAuditLog(session.user.id, `login_${provider}`);
+            }
+          }
+
           const currentUser = get().user;
 
           // Si ya tenemos este usuario cargado con un rol válido, solo actualizamos
