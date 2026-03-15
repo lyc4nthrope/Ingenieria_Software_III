@@ -49,20 +49,33 @@ const createPKCEStorage = () => {
 
   return {
     getItem: (key) => {
-      const val = localStorage.getItem(key);
-      if (val !== null) return val;
-      // Fallback para el verifier: buscar en cookie de respaldo
-      if (isVerifierKey(key)) return readCookie();
-      return null;
+      if (isVerifierKey(key)) {
+        // El verifier se guarda en sessionStorage (no en localStorage).
+        // sessionStorage persiste en la misma pestaña a través de navegaciones
+        // (window.location.assign), pero _removeSession() solo llama a
+        // localStorage.removeItem → nunca puede borrar el verifier accidentalmente.
+        const ss = sessionStorage.getItem(key);
+        if (ss !== null) return ss;
+        // Fallback cookie: cubre iOS PWA / Chrome Custom Tabs (contexto separado)
+        return readCookie();
+      }
+      return localStorage.getItem(key);
     },
     setItem: (key, value) => {
-      localStorage.setItem(key, value);
-      // Guardar el verifier también en cookie para sobrevivir cambios de contexto
-      if (isVerifierKey(key)) writeCookie(value);
+      if (isVerifierKey(key)) {
+        // Verifier → sessionStorage + cookie de respaldo
+        sessionStorage.setItem(key, value);
+        writeCookie(value);
+      } else {
+        localStorage.setItem(key, value);
+      }
     },
     removeItem: (key) => {
       localStorage.removeItem(key);
-      if (isVerifierKey(key)) deleteCookie();
+      if (isVerifierKey(key)) {
+        sessionStorage.removeItem(key);
+        deleteCookie();
+      }
     },
   };
 };
