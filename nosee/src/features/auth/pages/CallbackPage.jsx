@@ -86,7 +86,7 @@ export default function CallbackPage() {
   useEffect(() => {
     // Si hay un code en query params → intercambiar por sesión (PKCE)
   if (code) {
-    supabase.auth.exchangeCodeForSession(window.location.href)
+    supabase.auth.exchangeCodeForSession(code)
       .then(({ error }) => {
         if (error) console.error('Error exchanging code:', error);
       });
