@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import StoreForm from '@/features/stores/components/StoreForm';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -8,6 +9,7 @@ export default function CreateStorePage() {
   return (
     <section style={styles.page}>
       <header style={styles.header}>
+        <Link to="/tiendas" style={styles.backLink}>← Tiendas</Link>
         <h1 style={styles.title}>{tc.title}</h1>
         <p style={styles.subtitle}>{tc.subtitle}</p>
       </header>
@@ -28,6 +30,16 @@ const styles = {
     width: '100%',
     maxWidth: '760px',
     margin: '0 auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  backLink: {
+    fontSize: '13px',
+    color: 'var(--accent)',
+    textDecoration: 'none',
+    fontWeight: 600,
+    alignSelf: 'flex-start',
   },
   title: {
     margin: 0,
