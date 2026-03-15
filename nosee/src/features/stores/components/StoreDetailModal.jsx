@@ -366,13 +366,7 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
           {/* Mapa y dirección (tienda física) */}
           {isPhysical ? (
             <div style={styles.section}>
-<<<<<<< HEAD
-              <h3 style={styles.sectionTitle}>{ts.editAddress}</h3>
-=======
-              <h3 style={styles.sectionTitle}>
-                {canEdit ? 'Editar dirección' : 'Ubicación'}
-              </h3>
->>>>>>> prueba
+              <h3 style={styles.sectionTitle}>{canEdit ? ts.editAddress : td.address}</h3>
               <StoreMapPicker
                 latitude={Number.isFinite(Number(editLatitude)) ? Number(editLatitude) : null}
                 longitude={Number.isFinite(Number(editLongitude)) ? Number(editLongitude) : null}
@@ -389,17 +383,6 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
                 }}
                 onAddressChange={(value) => setEditAddress(value)}
               />
-<<<<<<< HEAD
-              <button
-                type="button"
-                onClick={handleSaveStore}
-                disabled={savingStore}
-                style={styles.saveBtn}
-              >
-                {savingStore ? ts.saving : ts.saveLocation}
-              </button>
-              {saveMessage ? <span style={styles.saveMsg}>{saveMessage}</span> : null}
-=======
               {canEdit && (
                 <>
                   <button
@@ -408,12 +391,11 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
                     disabled={savingStore}
                     style={styles.saveBtn}
                   >
-                    {savingStore ? 'Guardando...' : 'Guardar ubicación'}
+                    {savingStore ? ts.saving : ts.saveLocation}
                   </button>
                   {saveMessage ? <span style={styles.saveMsg}>{saveMessage}</span> : null}
                 </>
               )}
->>>>>>> prueba
             </div>
           ) : (
             <div style={styles.section}>
@@ -529,15 +511,10 @@ const styles = {
     justifyContent: 'center',
     color: 'rgba(180, 40, 40, 0.55)',
     flexShrink: 0,
-<<<<<<< HEAD
-    background: 'var(--bg-elevated)',
-    border: '2px solid var(--border)',
-=======
   },
   closeBtn: {
     background: 'var(--bg-muted, rgba(0,0,0,0.06))',
     border: 'none',
->>>>>>> prueba
     borderRadius: '50%',
     width: 34,
     height: 34,

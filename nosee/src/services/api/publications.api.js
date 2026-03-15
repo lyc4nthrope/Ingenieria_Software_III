@@ -2393,10 +2393,9 @@ export const deletePublication = async (publicationId, options = {}) => {
       return { success: true };
     }
 
-    const { error } = await supabase
-      .from("price_publications")
-      .update({ is_active: false })
-      .eq("id", publicationId);
+    const { error } = await supabase.rpc("soft_delete_publication", {
+      p_publication_id: publicationId,
+    });
 
     if (error) {
       console.error("Error eliminando publicación:", error);

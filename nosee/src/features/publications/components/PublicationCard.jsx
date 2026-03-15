@@ -370,15 +370,6 @@ export function PublicationCard({
             {isInList ? '✓ Agregado' : t.shoppingList.addToList}
           </button>
 
-          <button
-            type="button"
-            aria-label={tc.reportLabel(publication.product?.name || tc.unknownProduct)}
-            style={{ ...styles.button, ...styles.buttonSecondary }}
-            onClick={() => setShowReportModal(true)}
-          >
-            {tc.report}
-          </button>
-
           {(isAuthor || isAdmin) && (
             <button
               type="button"

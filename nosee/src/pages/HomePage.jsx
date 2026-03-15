@@ -261,36 +261,11 @@ const PublicationCard = memo(function PublicationCard({
   return (
     <>
       <article className="card">
-<<<<<<< HEAD
-      <div
-        className="card-image-wrap"
-        role="button"
-        tabIndex={0}
-        aria-label={th.expandPhotoLabel(pubName)}
-        onClick={() => setPhotoExpanded(true)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            setPhotoExpanded(true);
-          }
-        }}
-        style={{ cursor: "zoom-in" }}
-      >
-        <img
-          src={publicationImage}
-          alt={pubName}
-          className="card-image"
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
-          onError={handleImageError}
-        />
-=======
       <div className="card-image-wrap" style={{ position: 'relative' }}>
         <div
           role="button"
           tabIndex={0}
-          aria-label={`Expandir foto de ${pubName}`}
+          aria-label={th.expandPhotoLabel(pubName)}
           onClick={() => setPhotoExpanded(true)}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
@@ -323,7 +298,6 @@ const PublicationCard = memo(function PublicationCard({
         >
           !
         </button>
->>>>>>> prueba
       </div>
 
       <div className="card-body">
@@ -361,23 +335,6 @@ const PublicationCard = memo(function PublicationCard({
             aria-label={th.detailLabel(pubName)}
           >
             {th.viewMore}
-          </button>
-
-          <button
-            className="card-action-button"
-            onClick={() => {
-              if (!isAuthenticated) {
-                onRequireAuth?.();
-                return;
-              }
-              onReport(pub);
-            }}
-            aria-label={th.reportLabel(pubName)}
-            aria-disabled={!isAuthenticated}
-            title={!isAuthenticated ? th.loginToReport : th.report}
-            style={!isAuthenticated ? { opacity: 0.6, cursor: "not-allowed" } : undefined}
-          >
-            {th.report}
           </button>
 
           {(isAuthor || userIsAdmin) && (
@@ -430,29 +387,8 @@ const PublicationCard = memo(function PublicationCard({
               <span style={homeVoteStyles.count}>{pub.downvoted_count || 0}</span>
             </button>
           </div>
-<<<<<<< HEAD
-=======
 
 
-          <button
-            className="card-action-button"
-            onClick={() => onOpenDetail(pub.id)}
-            aria-label={th.detailLabel(pubName)}
-          >
-            {th.viewMore}
-          </button>
-
-          {(isAuthor || userIsAdmin) && (
-            <button
-              className="card-action-button"
-              onClick={() => onDelete(pub.id)}
-              aria-label={th.deleteLabel(pubName)}
-              title={th.deleteBtn}
-            >
-              {th.deleteBtn}
-            </button>
-          )}
->>>>>>> prueba
         </div>
       </div>
       </article>
