@@ -48,7 +48,7 @@ vi.mock('@/services/supabase.client', () => ({
 }));
 
 // Importar DESPUÉS del mock
-import { insertActionLog, getActionLogs, getLoginLogs } from '../../src/services/api/audit.api.js';
+import { insertActionLog, getActionLogs, getLoginLogs, insertUserActivityLog, getUserActivityLogs } from '../../src/services/api/audit.api.js';
 
 // ─── Reset entre tests ────────────────────────────────────────────────────────
 function resetMocks() {
@@ -285,5 +285,181 @@ describe('getLoginLogs', () => {
   it('sin parámetros usa valores por defecto (limit 100, offset 0)', async () => {
     await getLoginLogs();
     expect(mockRange).toHaveBeenCalledWith(0, 99);
+  });
+});
+
+// ─── insertUserActivityLog ────────────────────────────────────────────────────
+describe('insertUserActivityLog', () => {
+  beforeEach(resetMocks);
+
+  it('llama a supabase.from("user_activity_logs").insert con los campos correctos', async () => {
+    mockInsert.mockResolvedValueOnce({ data: null, error: null });
+
+    await insertUserActivityLog('user-abc', 'crear_publicacion', { publicationId: 'pub-1' });
+
+    expect(fromMock).toHaveBeenCalledWith('user_activity_logs');
+    expect(mockInsert).toHaveBeenCalledWith({
+      user_id: 'user-abc',
+      action:  'crear_publicacion',
+      details: { publicationId: 'pub-1' },
+    });
+  });
+
+  it('retorna { error: null } cuando el insert es exitoso', async () => {
+    mockInsert.mockResolvedValueOnce({ data: null, error: null });
+
+    const result = await insertUserActivityLog('user-abc', 'actualizar_perfil', {});
+    expect(result).toEqual({ error: null });
+  });
+
+  it('no llama a from() si userId es null — retorna { error: null }', async () => {
+    const result = await insertUserActivityLog(null, 'crear_publicacion', {});
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ error: null });
+  });
+
+  it('no llama a from() si userId es undefined', async () => {
+    await insertUserActivityLog(undefined, 'crear_tienda', {});
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it('retorna { error } cuando supabase devuelve un error RLS (no lanza excepción)', async () => {
+    const rlsError = { message: 'new row violates row-level security policy', code: '42501' };
+    mockInsert.mockResolvedValueOnce({ data: null, error: rlsError });
+
+    const result = await insertUserActivityLog('user-abc', 'crear_alerta', { productId: 1 });
+    expect(result.error).toEqual(rlsError);
+  });
+
+  it('retorna { error } cuando supabase lanza una excepción de red', async () => {
+    mockInsert.mockRejectedValueOnce(new Error('network timeout'));
+
+    const result = await insertUserActivityLog('user-abc', 'agregar_item_lista', {});
+    expect(result.error).toBeInstanceOf(Error);
+    expect(result.error.message).toBe('network timeout');
+  });
+
+  it('no lanza excepción al llamador aunque supabase falle (fire-and-forget seguro)', async () => {
+    mockInsert.mockRejectedValueOnce(new Error('connection refused'));
+
+    await expect(
+      insertUserActivityLog('user-abc', 'eliminar_alerta', {})
+    ).resolves.not.toThrow();
+  });
+
+  it('usa details: {} por defecto si no se pasa details', async () => {
+    mockInsert.mockResolvedValueOnce({ data: null, error: null });
+
+    await insertUserActivityLog('user-abc', 'actualizar_perfil');
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ details: {} })
+    );
+  });
+
+  it('usa details: {} si se pasa null como details', async () => {
+    mockInsert.mockResolvedValueOnce({ data: null, error: null });
+
+    await insertUserActivityLog('user-abc', 'crear_pedido', null);
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ details: {} })
+    );
+  });
+
+  it('soporta todos los tipos de acción de usuario', async () => {
+    const actions = [
+      'crear_publicacion', 'editar_publicacion', 'crear_tienda', 'editar_tienda',
+      'reportar', 'actualizar_perfil', 'crear_pedido',
+      'crear_alerta', 'eliminar_alerta', 'agregar_item_lista', 'eliminar_item_lista',
+    ];
+    for (const action of actions) {
+      resetMocks();
+      mockInsert.mockResolvedValueOnce({ data: null, error: null });
+      await insertUserActivityLog('user-abc', action, {});
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({ action })
+      );
+    }
+  });
+
+  it('pasa el userId exactamente como se recibe (no lo transforma)', async () => {
+    const uid = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+    mockInsert.mockResolvedValueOnce({ data: null, error: null });
+
+    await insertUserActivityLog(uid, 'crear_tienda', { storeName: 'Mi Tienda' });
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: uid })
+    );
+  });
+});
+
+// ─── getUserActivityLogs ──────────────────────────────────────────────────────
+describe('getUserActivityLogs', () => {
+  beforeEach(resetMocks);
+
+  it('consulta la tabla user_activity_logs', async () => {
+    await getUserActivityLogs();
+    expect(fromMock).toHaveBeenCalledWith('user_activity_logs');
+  });
+
+  it('selecciona los campos correctos', async () => {
+    await getUserActivityLogs();
+    expect(mockSelect).toHaveBeenCalledWith('id, user_id, action, details, created_at');
+  });
+
+  it('ordena por created_at descendente', async () => {
+    await getUserActivityLogs();
+    expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
+  });
+
+  it('usa range(0, 199) por defecto (limit=200)', async () => {
+    await getUserActivityLogs();
+    expect(mockRange).toHaveBeenCalledWith(0, 199);
+  });
+
+  it('calcula range correctamente con offset y limit personalizados', async () => {
+    await getUserActivityLogs({ limit: 50, offset: 100 });
+    expect(mockRange).toHaveBeenCalledWith(100, 149);
+  });
+
+  it('filtra por userId cuando se pasa', async () => {
+    await getUserActivityLogs({ userId: 'user-xyz' });
+    expect(mockEq).toHaveBeenCalledWith('user_id', 'user-xyz');
+  });
+
+  it('NO filtra por userId cuando es null (admin ve todo)', async () => {
+    await getUserActivityLogs({ userId: null });
+    expect(mockEq).not.toHaveBeenCalled();
+  });
+
+  it('devuelve los logs tal como vienen de supabase', async () => {
+    const fakeLogs = [
+      { id: 'log-1', user_id: 'u1', action: 'crear_publicacion', details: { publicationId: 'p1' }, created_at: '2026-03-16T12:00:00Z' },
+      { id: 'log-2', user_id: 'u2', action: 'crear_alerta', details: { productId: 5, targetPrice: 10000 }, created_at: '2026-03-16T11:00:00Z' },
+    ];
+    mockRange.mockResolvedValueOnce({ data: fakeLogs, error: null });
+
+    const result = await getUserActivityLogs();
+    expect(result.data).toEqual(fakeLogs);
+    expect(result.error).toBeNull();
+  });
+
+  it('devuelve data:[] cuando supabase devuelve data: null', async () => {
+    mockRange.mockResolvedValueOnce({ data: null, error: null });
+    const result = await getUserActivityLogs();
+    expect(result.data).toEqual([]);
+  });
+
+  it('propaga el error cuando supabase falla (ej: RLS bloquea moderador sin permiso)', async () => {
+    const fakeError = { message: 'permission denied for table user_activity_logs' };
+    mockRange.mockResolvedValueOnce({ data: null, error: fakeError });
+
+    const result = await getUserActivityLogs();
+    expect(result.error).toEqual(fakeError);
+  });
+
+  it('sin parámetros usa valores por defecto (userId null, limit 200, offset 0)', async () => {
+    await getUserActivityLogs();
+    expect(mockEq).not.toHaveBeenCalled();
+    expect(mockRange).toHaveBeenCalledWith(0, 199);
   });
 });
