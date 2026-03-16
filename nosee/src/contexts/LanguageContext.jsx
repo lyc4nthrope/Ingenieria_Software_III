@@ -754,6 +754,7 @@ export const TRANSLATIONS = {
       logsColType: "Tipo",
       logsColUserName: "Usuario",
       logsColActionDone: "Acción realizada",
+      logsColObjectType: "Tipo de objeto",
       logsColObjectAffected: "Objeto afectado",
       logsColDescriptionDetail: "Descripción",
       logActionLabels: {
@@ -2054,6 +2055,7 @@ export const TRANSLATIONS = {
       logsColType: "Type",
       logsColUserName: "User",
       logsColActionDone: "Action performed",
+      logsColObjectType: "Object type",
       logsColObjectAffected: "Affected object",
       logsColDescriptionDetail: "Description",
       logActionLabels: {

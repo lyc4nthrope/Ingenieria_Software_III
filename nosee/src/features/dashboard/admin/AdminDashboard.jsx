@@ -270,20 +270,12 @@ export default function AdminDashboard() {
     setLoginLogs(lLogs || []);
     setActivityLogs(uLogs || []);
 
-    // Construir mapa userId → nombre para mostrar en la tabla
-    const allIds = [...new Set([
-      ...(lLogs || []).map(l => l.user_id),
-      ...(uLogs || []).map(a => a.user_id),
-      ...(aLogs || []).map(a => a.actor_user_id),
-    ].filter(Boolean))];
-    if (allIds.length > 0) {
-      const { data: usersData } = await supabase
-        .from('users')
-        .select('id, full_name, email')
-        .in('id', allIds);
+    // Construir mapa userId → nombre usando getAllUsers (acceso admin)
+    const { data: allUsersData } = await getAllUsers();
+    if (allUsersData?.length) {
       const map = {};
-      (usersData || []).forEach(u => {
-        map[u.id] = u.full_name || u.email || `${u.id.slice(0, 8)}…`;
+      allUsersData.forEach(u => {
+        map[u.id] = u.fullName || u.full_name || u.email || `${u.id.slice(0, 8)}…`;
       });
       setUsersMap(map);
     }
@@ -1481,31 +1473,34 @@ export default function AdminDashboard() {
                 if (ua.includes('Safari')) return 'Safari';
                 return ua.slice(0, 25);
               };
-              const affectedObject = (type, d = {}) => {
+              // Tipo de objeto (categoría)
+              const objectType = (type, d = {}) => {
                 if (!type) return '—';
                 if (type === 'login' || type === 'logout' || type.startsWith('login_')) return OL.session || 'Sesión';
                 if (type === 'actualizar_perfil') return OL.profile || 'Perfil';
+                if (type === 'crear_publicacion' || type === 'editar_publicacion') return OL.publication || 'Publicación';
+                if (type === 'crear_tienda' || type === 'editar_tienda') return OL.store || 'Tienda';
+                if (type === 'reportar') return OL[d.targetType] || d.targetType || OL.publication || 'Publicación';
+                if (type === 'hide' || type === 'hide_full' || type === 'hide_from_report') return OL[d.resource_type] || d.resource_type || '—';
+                if (type === 'ban_user' || type === 'unban_user' || type === 'baneado' || type === 'change_role' || type === 'eliminar_publicacion' || type === 'descartado') return OL.user || 'Usuario';
+                return '—';
+              };
+              // Nombre/ID específico del objeto
+              const objectInfo = (type, d = {}) => {
+                if (!type) return '—';
+                if (type === 'login' || type === 'logout' || type.startsWith('login_')) return '—';
+                if (type === 'actualizar_perfil') return '—';
                 if (type === 'crear_publicacion' || type === 'editar_publicacion') {
                   const pid = d.publicationId?.slice(0, 8);
-                  return pid ? `${OL.publication || 'Publicación'} #${pid}` : OL.publication || 'Publicación';
+                  return pid ? `#${pid}` : '—';
                 }
-                if (type === 'crear_tienda' || type === 'editar_tienda') {
-                  return d.storeName ? `${OL.store || 'Tienda'}: ${d.storeName}` : OL.store || 'Tienda';
-                }
-                if (type === 'reportar') {
-                  const obj = OL[d.targetType] || d.targetType || '—';
-                  return d.targetId ? `${obj} #${String(d.targetId).slice(0, 8)}` : obj;
-                }
+                if (type === 'crear_tienda' || type === 'editar_tienda') return d.storeName || '—';
+                if (type === 'reportar') return d.targetId ? `#${String(d.targetId).slice(0, 8)}` : '—';
                 if (type === 'hide' || type === 'hide_full' || type === 'hide_from_report') {
-                  const name = d.storeName || d.brandName || d.productName;
-                  const rtype = OL[d.resource_type] || d.resource_type || '—';
-                  return name ? `${rtype}: ${name}` : rtype;
+                  return d.storeName || d.brandName || d.productName || (d.resource_id ? `#${String(d.resource_id).slice(0, 8)}` : '—');
                 }
-                if (type === 'ban_user' || type === 'unban_user' || type === 'baneado') {
-                  return d.userName ? `${OL.user || 'Usuario'}: ${d.userName}` : OL.user || 'Usuario';
-                }
-                if (type === 'change_role') {
-                  return d.userName ? `${OL.user || 'Usuario'}: ${d.userName}` : OL.user || 'Usuario';
+                if (type === 'ban_user' || type === 'unban_user' || type === 'baneado' || type === 'change_role' || type === 'eliminar_publicacion' || type === 'descartado') {
+                  return d.userName || '—';
                 }
                 return '—';
               };
@@ -1541,8 +1536,8 @@ export default function AdminDashboard() {
                 return '—';
               };
 
-              const COLS = '150px 150px 175px 175px 1fr';
-              const headers = [td.logsColDate, td.logsColUserName, td.logsColActionDone, td.logsColObjectAffected, td.logsColDescriptionDetail];
+              const COLS = '140px 145px 160px 120px 155px 1fr';
+              const headers = [td.logsColDate, td.logsColUserName, td.logsColActionDone, td.logsColObjectType, td.logsColObjectAffected, td.logsColDescriptionDetail];
 
               const allRows = [
                 ...loginLogs.map(l => ({
@@ -1604,7 +1599,8 @@ export default function AdminDashboard() {
                                    : row.type === 'logout' ? MUTED
                                    : ACCENT,
                             }}>{actionLabel(row.type)}</div>
-                            <div style={s.td}>{affectedObject(row.type, row.details)}</div>
+                            <div style={{ ...s.td, color: MUTED }}>{objectType(row.type, row.details)}</div>
+                            <div style={s.td}>{objectInfo(row.type, row.details)}</div>
                             <div style={{ ...s.td, color: MUTED }}>{description(row.type, row.details, row.ip, row.ua)}</div>
                           </div>
                         ))}
@@ -1630,7 +1626,8 @@ export default function AdminDashboard() {
                             <div style={s.td}>{new Date(row.created_at).toLocaleString('es-CO')}</div>
                             <div style={{ ...s.td, fontWeight: 500 }}>{userName(row.userId)}</div>
                             <div style={{ ...s.td, fontWeight: 600, color: ACCENT }}>{actionLabel(row.type)}</div>
-                            <div style={s.td}>{affectedObject(row.type, row.details)}</div>
+                            <div style={{ ...s.td, color: MUTED }}>{objectType(row.type, row.details)}</div>
+                            <div style={s.td}>{objectInfo(row.type, row.details)}</div>
                             <div style={{ ...s.td, color: MUTED }}>{row.reason || description(row.type, row.details, null, null)}</div>
                           </div>
                         ))}
