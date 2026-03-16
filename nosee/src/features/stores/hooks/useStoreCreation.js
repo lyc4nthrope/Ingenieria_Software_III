@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { storesApi } from '@/services/api';
 import { StoreTypeEnum, validateStoreForm } from '@/features/stores/schemas';
 import { uploadImageToCloudinary } from '@/services/cloudinary';
+import { useAuthStore } from '@/features/auth/store/authStore';
+import { insertUserActivityLog } from '@/services/api/audit.api';
 
 const DUPLICATE_RADIUS_METERS = 150;
 const STORE_TYPE_ID = {
@@ -35,6 +37,7 @@ const initialFormData = {
 
 export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
   const [formData, setFormData] = useState(initialFormData);
+  const currentUserId = useAuthStore(state => state.user?.id);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -325,6 +328,11 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
         setSubmitError(result.error || `No se pudo ${action} la tienda`);
         return result;
       }
+
+      insertUserActivityLog(currentUserId, mode === 'create' ? 'crear_tienda' : 'editar_tienda', {
+        storeId: result.data?.store?.id || result.data?.id,
+        storeName: formData.name,
+      });
 
       // Manejar evidencias solo en modo create/physical
       const resultStoreId = result?.data?.store?.id || result?.data?.id;

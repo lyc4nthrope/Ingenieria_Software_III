@@ -29,6 +29,7 @@ import { create } from 'zustand';
 import { authApi, usersApi } from '@/services/api';
 import { supabase }          from '@/services/supabase.client';
 import { AsyncStateEnum }    from '@/types';
+import { insertUserActivityLog } from '@/services/api/audit.api';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -344,6 +345,8 @@ register: async (email, password, metadata = {}) => {
       status: AsyncStateEnum.SUCCESS,
       error:  null,
     });
+
+    insertUserActivityLog(user.id, 'actualizar_perfil', {});
 
     return { success: true, error: null };
   },

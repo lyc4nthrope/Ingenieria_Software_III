@@ -17,6 +17,8 @@ import { checkReportStatus, submitReport, REPORT_REASONS } from '@/services/api/
 import CelebrationOverlay from '@/components/ui/CelebrationOverlay';
 import { playSuccessSound } from '@/utils/celebrationSound';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuthStore } from '@/features/auth/store/authStore';
+import { insertUserActivityLog } from '@/services/api/audit.api';
 
 const TYPE_LABELS = {
   publication: 'publicación',
@@ -29,6 +31,7 @@ const TYPE_LABELS = {
 export function ReportModal({ targetType, targetId, targetName, onClose, onSuccess }) {
   const { t } = useLanguage();
   const titleId = useId();
+  const currentUserId = useAuthStore(state => state.user?.id);
   const [reason, setReason]               = useState('');
   const [description, setDescription]     = useState('');
   const [evidenceFile, setEvidenceFile]   = useState(null);
@@ -70,6 +73,7 @@ export function ReportModal({ targetType, targetId, targetName, onClose, onSucce
     setError(null);
     const result = await submitReport(targetType, targetId, { reason, description, evidenceFile });
     if (result.success) {
+      insertUserActivityLog(currentUserId, 'reportar', { targetType, targetId });
       onSuccess?.();
       playSuccessSound();
       setShowCelebration(true);

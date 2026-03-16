@@ -9,7 +9,7 @@
  */
 import { useState, useEffect } from 'react';
 import { changeUserRole, getAdminReports, getAllUsers, updateReportReview, updateUserStatus } from '@/services/api/users.api';
-import { insertActionLog, getActionLogs, getLoginLogs } from '@/services/api/audit.api';
+import { insertActionLog, getActionLogs, getLoginLogs, getUserActivityLogs } from '@/services/api/audit.api';
 import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
@@ -215,6 +215,7 @@ export default function AdminDashboard() {
   const [loginLogs, setLoginLogs]             = useState([]);
   const [logsLoading, setLogsLoading]         = useState(false);
   const [logsLoaded, setLogsLoaded]           = useState(false);
+  const [activityLogs, setActivityLogs]       = useState([]);
 
   // Configuración editable de reputación
   const [repParams, setRepParams] = useState(() => {
@@ -259,12 +260,14 @@ export default function AdminDashboard() {
   // ─── Logs de auditoría ────────────────────────────────────────────────────
   const loadLogs = async () => {
     setLogsLoading(true);
-    const [{ data: aLogs }, { data: lLogs }] = await Promise.all([
+    const [{ data: aLogs }, { data: lLogs }, { data: uLogs }] = await Promise.all([
       getActionLogs({ limit: 100 }),
-      getLoginLogs({ limit: 100 }),
+      getLoginLogs({ limit: 200 }),
+      getUserActivityLogs({ limit: 200 }),
     ]);
     setActionLogs(aLogs || []);
     setLoginLogs(lLogs || []);
+    setActivityLogs(uLogs || []);
     setLogsLoading(false);
     setLogsLoaded(true);
   };
@@ -1497,6 +1500,67 @@ export default function AdminDashboard() {
                           <div style={{ ...s.td, color: MUTED }}>{log.ip_address || '—'}</div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actividad de usuarios */}
+                <div style={s.section}>
+                  <div style={s.sectionHead}>
+                    <span style={s.sectionTitle}>{td.logsActivityTitle}</span>
+                    <span style={{ fontSize: 13, color: MUTED }}>{activityLogs.length + loginLogs.length}</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: MUTED, margin: '0 0 10px' }}>{td.logsActivitySub}</p>
+                  {(activityLogs.length === 0 && loginLogs.length === 0) ? (
+                    <EmptyMsg text={td.logsEmpty} />
+                  ) : (
+                    <div style={s.configCard}>
+                      <div style={{ ...s.tableHead, gridTemplateColumns: '160px 120px 140px 1fr' }}>
+                        {[td.logsColDate, td.logsColUser, td.logsColType, td.logsColDetail].map(h => (
+                          <div key={h} style={s.th}>{h}</div>
+                        ))}
+                      </div>
+                      {[
+                        ...loginLogs.map(l => ({
+                          id: l.id,
+                          created_at: l.created_at,
+                          user_id: l.user_id,
+                          type: l.event_type,
+                          detail: l.ip_address ? `IP: ${l.ip_address}` : '—',
+                          isSession: true,
+                        })),
+                        ...activityLogs.map(a => ({
+                          id: a.id,
+                          created_at: a.created_at,
+                          user_id: a.user_id,
+                          type: a.action,
+                          detail: (() => {
+                            const d = a.details || {};
+                            if (a.action === 'crear_publicacion' || a.action === 'editar_publicacion')
+                              return `Pub: ${d.publicationId?.slice(0,8) ?? '—'}`;
+                            if (a.action === 'crear_tienda' || a.action === 'editar_tienda')
+                              return d.storeName || '—';
+                            if (a.action === 'reportar')
+                              return `${d.targetType || '—'}`;
+                            return Object.keys(d).length ? JSON.stringify(d).slice(0, 60) : '—';
+                          })(),
+                          isSession: false,
+                        })),
+                      ]
+                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                        .map(row => (
+                          <div key={row.id} style={{ ...s.tableRow, gridTemplateColumns: '160px 120px 140px 1fr', fontSize: 13 }}>
+                            <div style={s.td}>{new Date(row.created_at).toLocaleString('es-CO')}</div>
+                            <div style={{ ...s.td, color: MUTED, fontSize: 11, wordBreak: 'break-all' }}>{row.user_id?.slice(0,8)}…</div>
+                            <div style={{
+                              ...s.td, fontWeight: 600,
+                              color: row.type === 'login' || row.type?.startsWith('login_') ? 'var(--success)'
+                                   : row.type === 'logout' ? MUTED
+                                   : ACCENT,
+                            }}>{row.type}</div>
+                            <div style={{ ...s.td, color: MUTED }}>{row.detail}</div>
+                          </div>
+                        ))}
                     </div>
                   )}
                 </div>
