@@ -219,6 +219,8 @@ export default function AdminDashboard() {
   const [activityLogs, setActivityLogs]       = useState([]);
   const [usersMap, setUsersMap]               = useState({});
   const [logFilter, setLogFilter]             = useState('');
+  const [logCatFilter, setLogCatFilter]       = useState('all');
+  const [logSourceFilter, setLogSourceFilter] = useState('all');
 
   // Configuración editable de reputación
   const [repParams, setRepParams] = useState(() => {
@@ -1494,32 +1496,27 @@ export default function AdminDashboard() {
             ) : (() => {
               // ── helpers (módulo logHelpers.js) ───────────────────
               const AL = td.logActionLabels || {};
-              const OL = td.logObjectLabels || {};
               const userName    = (id) => usersMap[id] || (id ? `${id.slice(0, 8)}…` : '—');
               const actionLabel = (type) => _getActionLabel(type, AL);
-              const objectType  = (type, d) => _getObjectType(type, d, OL);
               const objectInfo  = (type, d) => _getObjectInfo(type, d);
               const description = (type, d, ip, ua) => _getDescription(type, d, ip, ua);
 
-              // Color por categoría de acción
               const CAT_COLOR = {
-                session:  MUTED,
+                session:  '#94a3b8',
                 create:   'var(--success)',
                 edit:     ACCENT,
                 delete:   'var(--error, #e53e3e)',
                 moderate: '#f59e0b',
-                other:    MUTED,
+                other:    '#94a3b8',
               };
-              const actionColor = (type) => CAT_COLOR[getActionCategory(type)] || MUTED;
+              const actionColor = (type) => CAT_COLOR[getActionCategory(type)] || '#94a3b8';
 
-              // Filtro por nombre de usuario
-              const filterLower = logFilter.trim().toLowerCase();
-              const filterRow   = (row) => !filterLower || userName(row.userId).toLowerCase().includes(filterLower);
+              // Etiquetas de fuente
+              const SOURCE_LABEL = { session: 'Sesión', activity: 'Actividad', admin: 'Admin' };
+              const SOURCE_COLOR = { session: '#64748b', activity: ACCENT, admin: '#f59e0b' };
 
-              const COLS = '140px 145px 160px 120px 155px 1fr';
-              const headers = [td.logsColDate, td.logsColUserName, td.logsColActionDone, td.logsColObjectType, td.logsColObjectAffected, td.logsColDescriptionDetail];
-
-              const allRows = [
+              // Normalizar los 3 sources en filas unificadas
+              const unifiedRows = [
                 ...loginLogs.map(l => ({
                   id: `l-${l.id}`,
                   created_at: l.created_at,
@@ -1529,6 +1526,7 @@ export default function AdminDashboard() {
                   ip: l.ip_address,
                   ua: l.user_agent,
                   source: 'session',
+                  reason: null,
                 })),
                 ...activityLogs.map(a => ({
                   id: `a-${a.id}`,
@@ -1539,74 +1537,162 @@ export default function AdminDashboard() {
                   ip: null,
                   ua: null,
                   source: 'activity',
+                  reason: null,
+                })),
+                ...actionLogs.map(log => ({
+                  id: `ad-${log.id}`,
+                  created_at: log.created_at,
+                  userId: log.actor_user_id,
+                  type: log.action_type,
+                  details: { resource_id: log.resource_id, resource_type: log.resource_type, ...(log.metadata || {}) },
+                  ip: null,
+                  ua: null,
+                  source: 'admin',
+                  reason: log.reason,
                 })),
               ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-              const adminRows = actionLogs.map(log => ({
-                id: `ad-${log.id}`,
-                created_at: log.created_at,
-                userId: log.actor_user_id,
-                type: log.action_type,
-                details: { resource_id: log.resource_id, resource_type: log.resource_type, ...(log.metadata || {}) },
-                ip: null,
-                ua: null,
-                reason: log.reason,
-              }));
+              // Filtros
+              const filterLower = logFilter.trim().toLowerCase();
+              const filterRow = (row) => {
+                if (filterLower && !userName(row.userId).toLowerCase().includes(filterLower)) return false;
+                if (logCatFilter !== 'all' && getActionCategory(row.type) !== logCatFilter) return false;
+                if (logSourceFilter !== 'all' && row.source !== logSourceFilter) return false;
+                return true;
+              };
 
-              const renderTable = (rows) => (
-                <div style={{ ...s.configCard, overflowX: 'auto' }}>
-                  <div style={{ minWidth: 860 }}>
-                    <div style={{ ...s.tableHead, gridTemplateColumns: COLS }}>
-                      {headers.map(h => <div key={h} style={s.th}>{h}</div>)}
-                    </div>
-                    {rows.map(row => (
-                      <div key={row.id} style={{ ...s.tableRow, gridTemplateColumns: COLS, fontSize: 13 }}>
-                        <div style={{ ...s.td, color: MUTED, fontSize: 12 }}>{new Date(row.created_at).toLocaleString('es-CO')}</div>
-                        <div style={{ ...s.td, fontWeight: 700, color: TEXT }}>{userName(row.userId)}</div>
-                        <div style={{ ...s.td, fontWeight: 600, color: actionColor(row.type) }}>{actionLabel(row.type)}</div>
-                        <div style={{ ...s.td, color: MUTED }}>{objectType(row.type, row.details)}</div>
-                        <div style={{ ...s.td, fontWeight: 500 }}>{objectInfo(row.type, row.details)}</div>
-                        <div style={{ ...s.td, color: MUTED, fontSize: 12 }}>{row.reason || description(row.type, row.details, row.ip, row.ua)}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
+              const visibleRows = unifiedRows.filter(filterRow);
+
+              // Formato de fecha compacto
+              const fmtDate = (iso) => {
+                const d = new Date(iso);
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const min = String(d.getMinutes()).padStart(2, '0');
+                return `${dd}/${mm} ${hh}:${min}`;
+              };
+
+              // Conteo por fuente
+              const countSession  = unifiedRows.filter(r => r.source === 'session').length;
+              const countActivity = unifiedRows.filter(r => r.source === 'activity').length;
+              const countAdmin    = unifiedRows.filter(r => r.source === 'admin').length;
+
+              const COLS = '90px 70px 140px 150px 140px 1fr';
+              const headers = [td.logsColDate, 'Fuente', td.logsColUserName, td.logsColActionDone, td.logsColObjectAffected, td.logsColDescriptionDetail];
 
               return (
                 <>
-                  {/* Filtro global por usuario */}
-                  <div style={{ marginBottom: 16 }}>
+                  {/* Barra de filtros */}
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
                     <input
                       value={logFilter}
                       onChange={e => setLogFilter(e.target.value)}
-                      placeholder="Filtrar por nombre de usuario..."
-                      style={{ ...s.filterSelect, maxWidth: 320, fontFamily: 'inherit' }}
+                      placeholder="Buscar usuario..."
+                      style={{ ...s.filterSelect, width: 200, fontFamily: 'inherit' }}
                     />
+                    <select
+                      value={logCatFilter}
+                      onChange={e => setLogCatFilter(e.target.value)}
+                      style={{ ...s.filterSelect, width: 160 }}
+                    >
+                      <option value="all">Todas las acciones</option>
+                      <option value="session">Sesión</option>
+                      <option value="create">Creación</option>
+                      <option value="edit">Edición</option>
+                      <option value="delete">Eliminación/Reporte</option>
+                      <option value="moderate">Moderación</option>
+                    </select>
+                    <select
+                      value={logSourceFilter}
+                      onChange={e => setLogSourceFilter(e.target.value)}
+                      style={{ ...s.filterSelect, width: 150 }}
+                    >
+                      <option value="all">Todas las fuentes</option>
+                      <option value="session">Solo sesiones</option>
+                      <option value="activity">Solo actividad</option>
+                      <option value="admin">Solo admin/mod</option>
+                    </select>
+                    {(logFilter || logCatFilter !== 'all' || logSourceFilter !== 'all') && (
+                      <button
+                        type="button"
+                        onClick={() => { setLogFilter(''); setLogCatFilter('all'); setLogSourceFilter('all'); }}
+                        style={{ fontSize: 12, color: MUTED, background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+                      >
+                        Limpiar filtros
+                      </button>
+                    )}
                   </div>
 
-                  {/* Actividad de usuarios */}
-                  <div style={s.section}>
-                    <div style={s.sectionHead}>
-                      <span style={s.sectionTitle}>{td.logsActivityTitle}</span>
-                      <span style={{ fontSize: 13, color: MUTED }}>{allRows.filter(filterRow).length} / {allRows.length}</span>
-                    </div>
-                    <p style={{ fontSize: 13, color: MUTED, margin: '0 0 10px' }}>{td.logsActivitySub}</p>
-                    {allRows.filter(filterRow).length === 0
-                      ? <EmptyMsg text={td.logsEmpty} />
-                      : renderTable(allRows.filter(filterRow))}
+                  {/* Resumen de conteos */}
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, color: MUTED }}>
+                      <strong style={{ color: TEXT }}>{visibleRows.length}</strong> / {unifiedRows.length} registros
+                    </span>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>Sesión: {countSession}</span>
+                    <span style={{ fontSize: 12, color: ACCENT }}>Actividad: {countActivity}</span>
+                    <span style={{ fontSize: 12, color: '#f59e0b' }}>Admin/Mod: {countAdmin}</span>
+                    {/* Indicador live */}
+                    <span style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+                      <span style={{ color: MUTED }}>En vivo</span>
+                    </span>
                   </div>
 
-                  {/* Acciones de administración */}
-                  <div style={s.section}>
-                    <div style={s.sectionHead}>
-                      <span style={s.sectionTitle}>{td.logsActionsTitle}</span>
-                      <span style={{ fontSize: 13, color: MUTED }}>{adminRows.filter(filterRow).length} / {adminRows.length}</span>
+                  {/* Tabla unificada */}
+                  {visibleRows.length === 0 ? (
+                    <EmptyMsg text={td.logsEmpty} />
+                  ) : (
+                    <div style={{ ...s.configCard, overflowX: 'auto', padding: 0 }}>
+                      <div style={{ minWidth: 780 }}>
+                        {/* Header pegajoso */}
+                        <div style={{ ...s.tableHead, gridTemplateColumns: COLS, position: 'sticky', top: 0, zIndex: 2 }}>
+                          {headers.map(h => <div key={h} style={s.th}>{h}</div>)}
+                        </div>
+                        {visibleRows.map((row, idx) => (
+                          <div
+                            key={row.id}
+                            style={{
+                              ...s.tableRow,
+                              gridTemplateColumns: COLS,
+                              fontSize: 13,
+                              background: idx % 2 === 0 ? 'transparent' : 'var(--bg-elevated, rgba(0,0,0,0.02))',
+                            }}
+                          >
+                            {/* Fecha compacta */}
+                            <div style={{ ...s.td, color: MUTED, fontSize: 11 }} title={new Date(row.created_at).toLocaleString('es-CO')}>
+                              {fmtDate(row.created_at)}
+                            </div>
+                            {/* Badge de fuente */}
+                            <div style={s.td}>
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, padding: '2px 6px',
+                                borderRadius: 999, background: `${SOURCE_COLOR[row.source]}18`,
+                                color: SOURCE_COLOR[row.source], whiteSpace: 'nowrap',
+                              }}>
+                                {SOURCE_LABEL[row.source]}
+                              </span>
+                            </div>
+                            {/* Usuario */}
+                            <div style={{ ...s.td, fontWeight: 700, color: TEXT, fontSize: 12 }}>{userName(row.userId)}</div>
+                            {/* Acción con punto de color */}
+                            <div style={{ ...s.td, fontWeight: 600, fontSize: 12 }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: actionColor(row.type), flexShrink: 0 }} />
+                                <span style={{ color: actionColor(row.type) }}>{actionLabel(row.type)}</span>
+                              </span>
+                            </div>
+                            {/* Objeto afectado */}
+                            <div style={{ ...s.td, fontWeight: 500, fontSize: 12 }}>{objectInfo(row.type, row.details)}</div>
+                            {/* Descripción */}
+                            <div style={{ ...s.td, color: MUTED, fontSize: 11 }}>
+                              {row.reason || description(row.type, row.details, row.ip, row.ua)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    {adminRows.filter(filterRow).length === 0
-                      ? <EmptyMsg text={td.logsEmpty} />
-                      : renderTable(adminRows.filter(filterRow))}
-                  </div>
+                  )}
                 </>
               );
             })()}
