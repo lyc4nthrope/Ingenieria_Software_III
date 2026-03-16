@@ -253,6 +253,36 @@ export default function AdminDashboard() {
     if (activeSection === 'logs'     && !logsLoaded)     loadLogs();
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── Suscripción en tiempo real para logs ────────────────────────────────
+  useEffect(() => {
+    if (activeSection !== 'logs') return;
+
+    const fetchUserName = async (userId) => {
+      if (!userId) return;
+      const { data } = await supabase.from('users').select('id, full_name, email').eq('id', userId).single();
+      if (data) setUsersMap(prev => ({ ...prev, [data.id]: data.full_name || data.email || `${data.id.slice(0, 8)}…` }));
+    };
+
+    const channel = supabase
+      .channel('realtime-audit-logs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_activity_logs' }, async (payload) => {
+        setActivityLogs(prev => [payload.new, ...prev]);
+        fetchUserName(payload.new.user_id);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'login_audit_logs' }, async (payload) => {
+        setLoginLogs(prev => [payload.new, ...prev]);
+        fetchUserName(payload.new.user_id);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_content_audit_log' }, (payload) => {
+        const log = payload.new;
+        setActionLogs(prev => [{ ...log, details: { resource_id: log.resource_id, resource_type: log.resource_type, ...(log.metadata || {}) } }, ...prev]);
+        fetchUserName(log.actor_user_id);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (activeSection !== 'content') return;
     if (pubFilter !== 'unpublished') return;
@@ -1517,7 +1547,7 @@ export default function AdminDashboard() {
                 created_at: log.created_at,
                 userId: log.actor_user_id,
                 type: log.action_type,
-                details: log.metadata || {},
+                details: { resource_id: log.resource_id, resource_type: log.resource_type, ...(log.metadata || {}) },
                 ip: null,
                 ua: null,
                 reason: log.reason,

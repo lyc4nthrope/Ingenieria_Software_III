@@ -289,3 +289,93 @@ describe('getActionCategory', () => {
     expect(getActionCategory(null)).toBe('other');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests para el fix del campo "objeto afectado" en logs de admin
+// (admin_content_audit_log tiene resource_id y resource_type separados)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('getObjectInfo — logs de admin (resource_id + resource_type)', () => {
+  it('usa resource_id como fallback para hide cuando no hay nombre', () => {
+    // Así llegan los datos del admin log: resource_id en la raíz del objeto
+    const d = { resource_id: 'abc12345-xyz', resource_type: 'store' };
+    expect(getObjectInfo('hide', d)).toBe('#abc12345');
+  });
+
+  it('prefiere storeName sobre resource_id en hide', () => {
+    const d = { resource_id: 'abc12345-xyz', resource_type: 'store', storeName: 'MercaXpress' };
+    expect(getObjectInfo('hide', d)).toBe('MercaXpress');
+  });
+
+  it('usa brandName cuando no hay storeName', () => {
+    const d = { resource_id: 'abc12345', resource_type: 'brand', brandName: 'Nike' };
+    expect(getObjectInfo('hide', d)).toBe('Nike');
+  });
+
+  it('usa productName cuando no hay store ni brand', () => {
+    const d = { resource_id: 'abc12345', resource_type: 'product', productName: 'Arroz Diana' };
+    expect(getObjectInfo('hide_full', d)).toBe('Arroz Diana');
+  });
+
+  it('getObjectType usa resource_type para hide', () => {
+    const d = { resource_type: 'store' };
+    expect(getObjectType('hide', d, OL_ES)).toBe('Tienda');
+    expect(getObjectType('hide_full', { resource_type: 'product' }, OL_ES)).toBe('Producto');
+    expect(getObjectType('hide_from_report', { resource_type: 'brand' }, OL_ES)).toBe('Marca');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests para datos de tiempo real (misma transformación, datos llegados vía
+// Supabase Realtime INSERT payload)
+// ─────────────────────────────────────────────────────────────────────────────
+describe('transformación de payload de tiempo real', () => {
+  it('login payload se transforma igual que un log normal', () => {
+    const payload = {
+      id: 'log-1',
+      user_id: 'user-uuid',
+      event_type: 'login',
+      ip_address: '192.168.0.1',
+      user_agent: 'Mozilla/5.0 Chrome/120',
+      created_at: new Date().toISOString(),
+    };
+    expect(getActionLabel(payload.event_type, AL_ES)).toBe('Inicio de sesión');
+    expect(getObjectType(payload.event_type, {}, OL_ES)).toBe('Sesión');
+    expect(getObjectInfo(payload.event_type, {})).toBe('—');
+    const desc = getDescription(payload.event_type, {}, payload.ip_address, payload.user_agent);
+    expect(desc).toContain('IP: 192.168.0.1');
+    expect(desc).toContain('Chrome');
+  });
+
+  it('user_activity_logs payload de crear_publicacion se transforma correctamente', () => {
+    const payload = {
+      id: 'act-1',
+      user_id: 'user-uuid',
+      action: 'crear_publicacion',
+      details: { publicationId: 'pub-abc12345-xyz', productId: 99, storeId: 'str-uuid' },
+      created_at: new Date().toISOString(),
+    };
+    expect(getActionLabel(payload.action, AL_ES)).toBe('Creó publicación');
+    expect(getObjectType(payload.action, payload.details, OL_ES)).toBe('Publicación');
+    expect(getObjectInfo(payload.action, payload.details)).toBe('#pub-abc1');
+    const desc = getDescription(payload.action, payload.details);
+    expect(desc).toContain('Producto: 99');
+  });
+
+  it('admin_content_audit_log payload de ban_user se transforma correctamente', () => {
+    const payload = {
+      id: 'adm-1',
+      actor_user_id: 'admin-uuid',
+      action_type: 'ban_user',
+      resource_type: 'user',
+      resource_id: 'target-user-id',
+      metadata: { userName: 'Usuario Malo' },
+      reason: 'Spam repetitivo',
+      created_at: new Date().toISOString(),
+    };
+    // Así se construye details en adminRows:
+    const details = { resource_id: payload.resource_id, resource_type: payload.resource_type, ...payload.metadata };
+    expect(getActionLabel(payload.action_type, AL_ES)).toBe('Baneó usuario');
+    expect(getObjectType(payload.action_type, details, OL_ES)).toBe('Usuario');
+    expect(getObjectInfo(payload.action_type, details)).toBe('Usuario Malo');
+  });
+});
