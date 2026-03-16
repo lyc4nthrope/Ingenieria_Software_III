@@ -492,3 +492,37 @@ describe('getActionLabel — nuevos tipos', () => {
     expect(getActionLabel('eliminar_item_lista', AL_ES)).toBe('Eliminó ítem de lista');
   });
 });
+
+// ─── Nuevos tipos de ciclo de vida y seguridad ────────────────────────────────
+describe('getActionCategory — nuevos tipos de seguridad y cuenta', () => {
+  it('registro → create', () => expect(getActionCategory('registro')).toBe('create'));
+  it('login_fallido → security', () => expect(getActionCategory('login_fallido')).toBe('security'));
+  it('eliminar_cuenta → delete', () => expect(getActionCategory('eliminar_cuenta')).toBe('delete'));
+  it('desactivar_cuenta → delete', () => expect(getActionCategory('desactivar_cuenta')).toBe('delete'));
+  it('restablecimiento_contrasena → session', () => expect(getActionCategory('restablecimiento_contrasena')).toBe('session'));
+});
+
+describe('getObjectType — nuevos tipos de cuenta', () => {
+  const OL = { account: 'Cuenta', session: 'Sesión' };
+  it('registro → Cuenta', () => expect(getObjectType('registro', {}, OL)).toBe('Cuenta'));
+  it('login_fallido → Cuenta', () => expect(getObjectType('login_fallido', {}, OL)).toBe('Cuenta'));
+  it('eliminar_cuenta → Cuenta', () => expect(getObjectType('eliminar_cuenta', {}, OL)).toBe('Cuenta'));
+  it('desactivar_cuenta → Cuenta', () => expect(getObjectType('desactivar_cuenta', {}, OL)).toBe('Cuenta'));
+  it('restablecimiento_contrasena → Cuenta', () => expect(getObjectType('restablecimiento_contrasena', {}, OL)).toBe('Cuenta'));
+  it('fallback sin OL → Cuenta literal', () => expect(getObjectType('registro', {})).toBe('Cuenta'));
+});
+
+describe('getDescription — login_fallido muestra email intentado', () => {
+  it('login_fallido con email → lo muestra', () =>
+    expect(getDescription('login_fallido', { attemptedEmail: 'hacker@evil.com' })).toBe('Email: hacker@evil.com'));
+  it('login_fallido sin email → —', () =>
+    expect(getDescription('login_fallido', {})).toBe('—'));
+  it('eliminar_cuenta → Eliminación permanente', () =>
+    expect(getDescription('eliminar_cuenta', {})).toBe('Eliminación permanente'));
+  it('desactivar_cuenta → Cuenta desactivada', () =>
+    expect(getDescription('desactivar_cuenta', {})).toBe('Cuenta desactivada'));
+  it('registro → —', () =>
+    expect(getDescription('registro', {})).toBe('—'));
+  it('restablecimiento_contrasena → —', () =>
+    expect(getDescription('restablecimiento_contrasena', {})).toBe('—'));
+});

@@ -238,7 +238,7 @@ describe('getLoginLogs', () => {
   it('selecciona los campos correctos', async () => {
     await getLoginLogs();
     expect(mockSelect).toHaveBeenCalledWith(
-      'id, user_id, event_type, ip_address, user_agent, created_at'
+      'id, user_id, event_type, ip_address, user_agent, metadata, created_at'
     );
   });
 
@@ -461,5 +461,44 @@ describe('getUserActivityLogs', () => {
     await getUserActivityLogs();
     expect(mockEq).not.toHaveBeenCalled();
     expect(mockRange).toHaveBeenCalledWith(0, 199);
+  });
+});
+
+describe('insertUserActivityLog — nuevos tipos de cuenta y seguridad', () => {
+  beforeEach(resetMocks);
+
+  it('loggea eliminar_cuenta correctamente', async () => {
+    mockInsert.mockResolvedValueOnce({ data: null, error: null });
+    await insertUserActivityLog('user-abc', 'eliminar_cuenta', {});
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'eliminar_cuenta', user_id: 'user-abc' })
+    );
+  });
+
+  it('loggea desactivar_cuenta correctamente', async () => {
+    mockInsert.mockResolvedValueOnce({ data: null, error: null });
+    await insertUserActivityLog('user-abc', 'desactivar_cuenta', {});
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'desactivar_cuenta' })
+    );
+  });
+
+  it('loggea restablecimiento_contrasena correctamente', async () => {
+    mockInsert.mockResolvedValueOnce({ data: null, error: null });
+    await insertUserActivityLog('user-abc', 'restablecimiento_contrasena', {});
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'restablecimiento_contrasena' })
+    );
+  });
+});
+
+describe('getLoginLogs — incluye metadata en SELECT', () => {
+  beforeEach(resetMocks);
+
+  it('selecciona metadata además de los campos base', async () => {
+    await getLoginLogs();
+    expect(mockSelect).toHaveBeenCalledWith(
+      'id, user_id, event_type, ip_address, user_agent, metadata, created_at'
+    );
   });
 });

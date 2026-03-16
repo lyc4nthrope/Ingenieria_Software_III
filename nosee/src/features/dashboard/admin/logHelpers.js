@@ -26,6 +26,11 @@ export function getActionLabel(type, AL = {}) {
  */
 export function getObjectType(type, d = {}, OL = {}) {
   if (!type) return '—';
+  if (
+    type === 'registro' || type === 'login_fallido' ||
+    type === 'eliminar_cuenta' || type === 'desactivar_cuenta' ||
+    type === 'restablecimiento_contrasena'
+  ) return OL.account || 'Cuenta';
   if (type === 'login' || type === 'logout' || type.startsWith('login_'))
     return OL.session || 'Sesión';
   if (type === 'actualizar_perfil')
@@ -80,6 +85,11 @@ export function getObjectInfo(type, d = {}) {
   if (type === 'crear_pedido') return d.orderId ? `#${String(d.orderId).slice(0, 8)}` : '—';
   if (type === 'crear_alerta' || type === 'eliminar_alerta') return d.productId ? `P#${d.productId}` : '—';
   if (type === 'agregar_item_lista' || type === 'eliminar_item_lista') return d.productName || '—';
+  if (
+    type === 'registro' || type === 'login_fallido' ||
+    type === 'eliminar_cuenta' || type === 'desactivar_cuenta' ||
+    type === 'restablecimiento_contrasena'
+  ) return '—';
   return '—';
 }
 
@@ -101,6 +111,8 @@ export function getDescription(type, d = {}, ip, ua) {
   }
   if (type === 'logout')
     return ip ? `IP: ${ip}` : '—';
+  if (type === 'login_fallido')
+    return d.attemptedEmail ? `Email: ${d.attemptedEmail}` : '—';
   if (type.startsWith('login_')) {
     const provider = type.replace('login_', '');
     const parts = [];
@@ -147,6 +159,12 @@ export function getDescription(type, d = {}, ip, ua) {
   if (type === 'agregar_item_lista')
     return d.quantity != null ? `Cantidad: ${d.quantity}` : '—';
   if (type === 'eliminar_item_lista') return '—';
+  if (type === 'registro') return '—';
+  if (type === 'login_fallido')
+    return d.attemptedEmail ? `Email: ${d.attemptedEmail}` : '—';
+  if (type === 'eliminar_cuenta') return 'Eliminación permanente';
+  if (type === 'desactivar_cuenta') return 'Cuenta desactivada';
+  if (type === 'restablecimiento_contrasena') return '—';
   return '—';
 }
 
@@ -169,16 +187,19 @@ export function parseBrowser(ua = '') {
  */
 export function getActionCategory(type) {
   if (!type) return 'other';
-  if (type === 'login' || type === 'logout' || type.startsWith('login_')) return 'session';
+  if (type === 'login_fallido') return 'security';
+  if (type === 'login' || type === 'logout' || type.startsWith('login_') || type === 'restablecimiento_contrasena') return 'session';
   if (
     type === 'crear_publicacion' || type === 'crear_tienda' ||
-    type === 'crear_pedido' || type === 'crear_alerta' || type === 'agregar_item_lista'
+    type === 'crear_pedido' || type === 'crear_alerta' || type === 'agregar_item_lista' ||
+    type === 'registro'
   ) return 'create';
   if (type === 'editar_publicacion' || type === 'editar_tienda' || type === 'actualizar_perfil') return 'edit';
   if (
     type === 'hide' || type === 'hide_full' || type === 'ban_user' || type === 'baneado' ||
     type === 'eliminar_publicacion' || type === 'reportar' ||
-    type === 'eliminar_alerta' || type === 'eliminar_item_lista'
+    type === 'eliminar_alerta' || type === 'eliminar_item_lista' ||
+    type === 'eliminar_cuenta' || type === 'desactivar_cuenta'
   ) return 'delete';
   if (
     type === 'unban_user' || type === 'change_role' || type === 'descartado' ||

@@ -93,7 +93,7 @@ export async function getUserActivityLogs({ userId = null, limit = 200, offset =
 export async function getLoginLogs({ limit = 100, offset = 0 } = {}) {
   const { data, error } = await supabase
     .from('login_audit_logs')
-    .select('id, user_id, event_type, ip_address, user_agent, created_at')
+    .select('id, user_id, event_type, ip_address, user_agent, metadata, created_at')
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 

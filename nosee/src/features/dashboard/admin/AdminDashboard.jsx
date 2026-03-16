@@ -221,6 +221,8 @@ export default function AdminDashboard() {
   const [logFilter, setLogFilter]             = useState('');
   const [logCatFilter, setLogCatFilter]       = useState('all');
   const [logSourceFilter, setLogSourceFilter] = useState('all');
+  const [logDateFrom, setLogDateFrom] = useState('');
+  const [logDateTo, setLogDateTo]     = useState('');
 
   // Configuración editable de reputación
   const [repParams, setRepParams] = useState(() => {
@@ -1507,6 +1509,7 @@ export default function AdminDashboard() {
                 edit:     ACCENT,
                 delete:   'var(--error, #e53e3e)',
                 moderate: '#f59e0b',
+                security: '#dc2626',
                 other:    '#94a3b8',
               };
               const actionColor = (type) => CAT_COLOR[getActionCategory(type)] || '#94a3b8';
@@ -1522,7 +1525,7 @@ export default function AdminDashboard() {
                   created_at: l.created_at,
                   userId: l.user_id,
                   type: l.event_type,
-                  details: {},
+                  details: l.metadata || {},
                   ip: l.ip_address,
                   ua: l.user_agent,
                   source: 'session',
@@ -1558,6 +1561,8 @@ export default function AdminDashboard() {
                 if (filterLower && !userName(row.userId).toLowerCase().includes(filterLower)) return false;
                 if (logCatFilter !== 'all' && getActionCategory(row.type) !== logCatFilter) return false;
                 if (logSourceFilter !== 'all' && row.source !== logSourceFilter) return false;
+                if (logDateFrom && new Date(row.created_at) < new Date(logDateFrom + 'T00:00:00')) return false;
+                if (logDateTo   && new Date(row.created_at) > new Date(logDateTo   + 'T23:59:59')) return false;
                 return true;
               };
 
@@ -1602,6 +1607,7 @@ export default function AdminDashboard() {
                       <option value="edit">Edición</option>
                       <option value="delete">Eliminación/Reporte</option>
                       <option value="moderate">Moderación</option>
+                      <option value="security">Seguridad</option>
                     </select>
                     <select
                       value={logSourceFilter}
@@ -1613,10 +1619,24 @@ export default function AdminDashboard() {
                       <option value="activity">Solo actividad</option>
                       <option value="admin">Solo admin/mod</option>
                     </select>
-                    {(logFilter || logCatFilter !== 'all' || logSourceFilter !== 'all') && (
+                    <input
+                      type="date"
+                      value={logDateFrom}
+                      onChange={e => setLogDateFrom(e.target.value)}
+                      title="Desde"
+                      style={{ ...s.filterSelect, width: 140, fontFamily: 'inherit' }}
+                    />
+                    <input
+                      type="date"
+                      value={logDateTo}
+                      onChange={e => setLogDateTo(e.target.value)}
+                      title="Hasta"
+                      style={{ ...s.filterSelect, width: 140, fontFamily: 'inherit' }}
+                    />
+                    {(logFilter || logCatFilter !== 'all' || logSourceFilter !== 'all' || logDateFrom || logDateTo) && (
                       <button
                         type="button"
-                        onClick={() => { setLogFilter(''); setLogCatFilter('all'); setLogSourceFilter('all'); }}
+                        onClick={() => { setLogFilter(''); setLogCatFilter('all'); setLogSourceFilter('all'); setLogDateFrom(''); setLogDateTo(''); }}
                         style={{ fontSize: 12, color: MUTED, background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
                       >
                         Limpiar filtros
