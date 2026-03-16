@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import StoreForm from '@/features/stores/components/StoreForm';
-<<<<<<< HEAD
 import { useLanguage } from '@/contexts/LanguageContext';
-=======
 import { useAuthStore, selectAuthUser } from '@/features/auth/store/authStore';
 import { storesApi } from '@/services/api';
->>>>>>> prueba
 
 export default function EditStorePage() {
   const { t } = useLanguage();
