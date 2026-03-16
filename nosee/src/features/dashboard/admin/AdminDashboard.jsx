@@ -10,6 +10,7 @@
 import { useState, useEffect } from 'react';
 import { changeUserRole, getAdminReports, getAllUsers, updateReportReview, updateUserStatus } from '@/services/api/users.api';
 import { insertActionLog, getActionLogs, getLoginLogs, getUserActivityLogs } from '@/services/api/audit.api';
+import { getActionLabel as _getActionLabel, getObjectType as _getObjectType, getObjectInfo as _getObjectInfo, getDescription as _getDescription, parseBrowser, getActionCategory } from '@/features/dashboard/admin/logHelpers';
 import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
@@ -217,6 +218,7 @@ export default function AdminDashboard() {
   const [logsLoaded, setLogsLoaded]           = useState(false);
   const [activityLogs, setActivityLogs]       = useState([]);
   const [usersMap, setUsersMap]               = useState({});
+  const [logFilter, setLogFilter]             = useState('');
 
   // Configuración editable de reputación
   const [repParams, setRepParams] = useState(() => {
@@ -1460,81 +1462,29 @@ export default function AdminDashboard() {
             {logsLoading ? (
               <LoadingState label={td.logsLoading} />
             ) : (() => {
-              // ── helpers ──────────────────────────────────────────
+              // ── helpers (módulo logHelpers.js) ───────────────────
               const AL = td.logActionLabels || {};
               const OL = td.logObjectLabels || {};
-              const userName = (id) => usersMap[id] || (id ? `${id.slice(0, 8)}…` : '—');
-              const actionLabel = (type) => AL[type] || type || '—';
-              const parseAgent = (ua = '') => {
-                if (!ua) return '—';
-                if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome';
-                if (ua.includes('Firefox')) return 'Firefox';
-                if (ua.includes('Edg')) return 'Edge';
-                if (ua.includes('Safari')) return 'Safari';
-                return ua.slice(0, 25);
+              const userName    = (id) => usersMap[id] || (id ? `${id.slice(0, 8)}…` : '—');
+              const actionLabel = (type) => _getActionLabel(type, AL);
+              const objectType  = (type, d) => _getObjectType(type, d, OL);
+              const objectInfo  = (type, d) => _getObjectInfo(type, d);
+              const description = (type, d, ip, ua) => _getDescription(type, d, ip, ua);
+
+              // Color por categoría de acción
+              const CAT_COLOR = {
+                session:  MUTED,
+                create:   'var(--success)',
+                edit:     ACCENT,
+                delete:   'var(--error, #e53e3e)',
+                moderate: '#f59e0b',
+                other:    MUTED,
               };
-              // Tipo de objeto (categoría)
-              const objectType = (type, d = {}) => {
-                if (!type) return '—';
-                if (type === 'login' || type === 'logout' || type.startsWith('login_')) return OL.session || 'Sesión';
-                if (type === 'actualizar_perfil') return OL.profile || 'Perfil';
-                if (type === 'crear_publicacion' || type === 'editar_publicacion') return OL.publication || 'Publicación';
-                if (type === 'crear_tienda' || type === 'editar_tienda') return OL.store || 'Tienda';
-                if (type === 'reportar') return OL[d.targetType] || d.targetType || OL.publication || 'Publicación';
-                if (type === 'hide' || type === 'hide_full' || type === 'hide_from_report') return OL[d.resource_type] || d.resource_type || '—';
-                if (type === 'ban_user' || type === 'unban_user' || type === 'baneado' || type === 'change_role' || type === 'eliminar_publicacion' || type === 'descartado') return OL.user || 'Usuario';
-                return '—';
-              };
-              // Nombre/ID específico del objeto
-              const objectInfo = (type, d = {}) => {
-                if (!type) return '—';
-                if (type === 'login' || type === 'logout' || type.startsWith('login_')) return '—';
-                if (type === 'actualizar_perfil') return '—';
-                if (type === 'crear_publicacion' || type === 'editar_publicacion') {
-                  const pid = d.publicationId?.slice(0, 8);
-                  return pid ? `#${pid}` : '—';
-                }
-                if (type === 'crear_tienda' || type === 'editar_tienda') return d.storeName || '—';
-                if (type === 'reportar') return d.targetId ? `#${String(d.targetId).slice(0, 8)}` : '—';
-                if (type === 'hide' || type === 'hide_full' || type === 'hide_from_report') {
-                  return d.storeName || d.brandName || d.productName || (d.resource_id ? `#${String(d.resource_id).slice(0, 8)}` : '—');
-                }
-                if (type === 'ban_user' || type === 'unban_user' || type === 'baneado' || type === 'change_role' || type === 'eliminar_publicacion' || type === 'descartado') {
-                  return d.userName || '—';
-                }
-                return '—';
-              };
-              const description = (type, d = {}, ip, ua) => {
-                if (!type) return '—';
-                if (type === 'login' || type === 'login_email') {
-                  const parts = [];
-                  if (ip) parts.push(`IP: ${ip}`);
-                  const br = parseAgent(ua);
-                  if (br !== '—') parts.push(br);
-                  return parts.join(' · ') || '—';
-                }
-                if (type === 'logout') return ip ? `IP: ${ip}` : '—';
-                if (type.startsWith('login_')) {
-                  const provider = type.replace('login_', '');
-                  const parts = [];
-                  if (ip) parts.push(`IP: ${ip}`);
-                  parts.push(provider);
-                  return parts.join(' · ');
-                }
-                if (type === 'actualizar_perfil') return '—';
-                if (type === 'crear_publicacion') return [d.productId && `Producto: ${d.productId}`, d.storeId && `Tienda: ${String(d.storeId).slice(0, 8)}`].filter(Boolean).join(' · ') || '—';
-                if (type === 'editar_publicacion') return d.publicationId ? `ID: ${d.publicationId}` : '—';
-                if (type === 'crear_tienda') return d.storeName ? `"${d.storeName}"` : '—';
-                if (type === 'editar_tienda') return d.storeName ? `"${d.storeName}"` : '—';
-                if (type === 'reportar') return d.targetType && d.targetId ? `${d.targetType} #${String(d.targetId).slice(0, 8)}` : '—';
-                if (type === 'hide' || type === 'hide_full') { const n = d.storeName || d.brandName || d.productName; return n ? `"${n}"` : '—'; }
-                if (type === 'ban_user' || type === 'baneado') return d.userName ? `"${d.userName}"` : '—';
-                if (type === 'unban_user') return d.userName ? `"${d.userName}"` : '—';
-                if (type === 'change_role') return (d.prevRole && d.newRole) ? `${d.prevRole} → ${d.newRole}` : '—';
-                if (type === 'eliminar_publicacion' || type === 'hide_from_report') return d.reportId ? `Reporte: ${String(d.reportId).slice(0, 8)}` : '—';
-                if (type === 'descartado') return '—';
-                return '—';
-              };
+              const actionColor = (type) => CAT_COLOR[getActionCategory(type)] || MUTED;
+
+              // Filtro por nombre de usuario
+              const filterLower = logFilter.trim().toLowerCase();
+              const filterRow   = (row) => !filterLower || userName(row.userId).toLowerCase().includes(filterLower);
 
               const COLS = '140px 145px 160px 120px 155px 1fr';
               const headers = [td.logsColDate, td.logsColUserName, td.logsColActionDone, td.logsColObjectType, td.logsColObjectAffected, td.logsColDescriptionDetail];
@@ -1573,66 +1523,59 @@ export default function AdminDashboard() {
                 reason: log.reason,
               }));
 
+              const renderTable = (rows) => (
+                <div style={{ ...s.configCard, overflowX: 'auto' }}>
+                  <div style={{ minWidth: 860 }}>
+                    <div style={{ ...s.tableHead, gridTemplateColumns: COLS }}>
+                      {headers.map(h => <div key={h} style={s.th}>{h}</div>)}
+                    </div>
+                    {rows.map(row => (
+                      <div key={row.id} style={{ ...s.tableRow, gridTemplateColumns: COLS, fontSize: 13 }}>
+                        <div style={{ ...s.td, color: MUTED, fontSize: 12 }}>{new Date(row.created_at).toLocaleString('es-CO')}</div>
+                        <div style={{ ...s.td, fontWeight: 700, color: TEXT }}>{userName(row.userId)}</div>
+                        <div style={{ ...s.td, fontWeight: 600, color: actionColor(row.type) }}>{actionLabel(row.type)}</div>
+                        <div style={{ ...s.td, color: MUTED }}>{objectType(row.type, row.details)}</div>
+                        <div style={{ ...s.td, fontWeight: 500 }}>{objectInfo(row.type, row.details)}</div>
+                        <div style={{ ...s.td, color: MUTED, fontSize: 12 }}>{row.reason || description(row.type, row.details, row.ip, row.ua)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+
               return (
                 <>
+                  {/* Filtro global por usuario */}
+                  <div style={{ marginBottom: 16 }}>
+                    <input
+                      value={logFilter}
+                      onChange={e => setLogFilter(e.target.value)}
+                      placeholder="Filtrar por nombre de usuario..."
+                      style={{ ...s.filterSelect, maxWidth: 320, fontFamily: 'inherit' }}
+                    />
+                  </div>
+
                   {/* Actividad de usuarios */}
                   <div style={s.section}>
                     <div style={s.sectionHead}>
                       <span style={s.sectionTitle}>{td.logsActivityTitle}</span>
-                      <span style={{ fontSize: 13, color: MUTED }}>{allRows.length}</span>
+                      <span style={{ fontSize: 13, color: MUTED }}>{allRows.filter(filterRow).length} / {allRows.length}</span>
                     </div>
                     <p style={{ fontSize: 13, color: MUTED, margin: '0 0 10px' }}>{td.logsActivitySub}</p>
-                    {allRows.length === 0 ? (
-                      <EmptyMsg text={td.logsEmpty} />
-                    ) : (
-                      <div style={s.configCard}>
-                        <div style={{ ...s.tableHead, gridTemplateColumns: COLS }}>
-                          {headers.map(h => <div key={h} style={s.th}>{h}</div>)}
-                        </div>
-                        {allRows.map(row => (
-                          <div key={row.id} style={{ ...s.tableRow, gridTemplateColumns: COLS, fontSize: 13 }}>
-                            <div style={s.td}>{new Date(row.created_at).toLocaleString('es-CO')}</div>
-                            <div style={{ ...s.td, fontWeight: 500 }}>{userName(row.userId)}</div>
-                            <div style={{
-                              ...s.td, fontWeight: 600,
-                              color: row.type === 'login' || row.type?.startsWith('login_') ? 'var(--success)'
-                                   : row.type === 'logout' ? MUTED
-                                   : ACCENT,
-                            }}>{actionLabel(row.type)}</div>
-                            <div style={{ ...s.td, color: MUTED }}>{objectType(row.type, row.details)}</div>
-                            <div style={s.td}>{objectInfo(row.type, row.details)}</div>
-                            <div style={{ ...s.td, color: MUTED }}>{description(row.type, row.details, row.ip, row.ua)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {allRows.filter(filterRow).length === 0
+                      ? <EmptyMsg text={td.logsEmpty} />
+                      : renderTable(allRows.filter(filterRow))}
                   </div>
 
                   {/* Acciones de administración */}
                   <div style={s.section}>
                     <div style={s.sectionHead}>
                       <span style={s.sectionTitle}>{td.logsActionsTitle}</span>
-                      <span style={{ fontSize: 13, color: MUTED }}>{adminRows.length}</span>
+                      <span style={{ fontSize: 13, color: MUTED }}>{adminRows.filter(filterRow).length} / {adminRows.length}</span>
                     </div>
-                    {adminRows.length === 0 ? (
-                      <EmptyMsg text={td.logsEmpty} />
-                    ) : (
-                      <div style={s.configCard}>
-                        <div style={{ ...s.tableHead, gridTemplateColumns: COLS }}>
-                          {headers.map(h => <div key={h} style={s.th}>{h}</div>)}
-                        </div>
-                        {adminRows.map(row => (
-                          <div key={row.id} style={{ ...s.tableRow, gridTemplateColumns: COLS, fontSize: 13 }}>
-                            <div style={s.td}>{new Date(row.created_at).toLocaleString('es-CO')}</div>
-                            <div style={{ ...s.td, fontWeight: 500 }}>{userName(row.userId)}</div>
-                            <div style={{ ...s.td, fontWeight: 600, color: ACCENT }}>{actionLabel(row.type)}</div>
-                            <div style={{ ...s.td, color: MUTED }}>{objectType(row.type, row.details)}</div>
-                            <div style={s.td}>{objectInfo(row.type, row.details)}</div>
-                            <div style={{ ...s.td, color: MUTED }}>{row.reason || description(row.type, row.details, null, null)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {adminRows.filter(filterRow).length === 0
+                      ? <EmptyMsg text={td.logsEmpty} />
+                      : renderTable(adminRows.filter(filterRow))}
                   </div>
                 </>
               );
