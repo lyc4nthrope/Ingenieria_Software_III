@@ -216,6 +216,7 @@ export default function AdminDashboard() {
   const [logsLoading, setLogsLoading]         = useState(false);
   const [logsLoaded, setLogsLoaded]           = useState(false);
   const [activityLogs, setActivityLogs]       = useState([]);
+  const [usersMap, setUsersMap]               = useState({});
 
   // Configuración editable de reputación
   const [repParams, setRepParams] = useState(() => {
@@ -268,6 +269,25 @@ export default function AdminDashboard() {
     setActionLogs(aLogs || []);
     setLoginLogs(lLogs || []);
     setActivityLogs(uLogs || []);
+
+    // Construir mapa userId → nombre para mostrar en la tabla
+    const allIds = [...new Set([
+      ...(lLogs || []).map(l => l.user_id),
+      ...(uLogs || []).map(a => a.user_id),
+      ...(aLogs || []).map(a => a.actor_user_id),
+    ].filter(Boolean))];
+    if (allIds.length > 0) {
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id, full_name, email')
+        .in('id', allIds);
+      const map = {};
+      (usersData || []).forEach(u => {
+        map[u.id] = u.full_name || u.email || `${u.id.slice(0, 8)}…`;
+      });
+      setUsersMap(map);
+    }
+
     setLogsLoading(false);
     setLogsLoaded(true);
   };
@@ -1447,125 +1467,179 @@ export default function AdminDashboard() {
 
             {logsLoading ? (
               <LoadingState label={td.logsLoading} />
-            ) : (
-              <>
-                {/* Acciones de administración */}
-                <div style={s.section}>
-                  <div style={s.sectionHead}>
-                    <span style={s.sectionTitle}>{td.logsActionsTitle}</span>
-                    <span style={{ fontSize: 13, color: MUTED }}>{actionLogs.length}</span>
-                  </div>
-                  {actionLogs.length === 0 ? (
-                    <EmptyMsg text={td.logsEmpty} />
-                  ) : (
-                    <div style={s.configCard}>
-                      <div style={{ ...s.tableHead, gridTemplateColumns: '160px 1fr 1fr 1fr 1fr' }}>
-                        {[td.logsColDate, td.logsColAction, td.logsColResource, td.logsColReason, td.logsColActor].map(h => (
-                          <div key={h} style={s.th}>{h}</div>
-                        ))}
-                      </div>
-                      {actionLogs.map(log => (
-                        <div key={log.id} style={{ ...s.tableRow, gridTemplateColumns: '160px 1fr 1fr 1fr 1fr', fontSize: 13 }}>
-                          <div style={s.td}>{new Date(log.created_at).toLocaleString('es-CO')}</div>
-                          <div style={{ ...s.td, fontWeight: 600, color: ACCENT }}>{log.action_type}</div>
-                          <div style={s.td}>{log.resource_type}{log.resource_id ? ` #${log.resource_id}` : ''}</div>
-                          <div style={{ ...s.td, color: MUTED }}>{log.reason || log.metadata?.storeName || log.metadata?.brandName || log.metadata?.productName || log.metadata?.userName || '—'}</div>
-                          <div style={{ ...s.td, color: MUTED, fontSize: 11, wordBreak: 'break-all' }}>{log.actor_user_id?.slice(0, 8)}…</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+            ) : (() => {
+              // ── helpers ──────────────────────────────────────────
+              const AL = td.logActionLabels || {};
+              const OL = td.logObjectLabels || {};
+              const userName = (id) => usersMap[id] || (id ? `${id.slice(0, 8)}…` : '—');
+              const actionLabel = (type) => AL[type] || type || '—';
+              const parseAgent = (ua = '') => {
+                if (!ua) return '—';
+                if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome';
+                if (ua.includes('Firefox')) return 'Firefox';
+                if (ua.includes('Edg')) return 'Edge';
+                if (ua.includes('Safari')) return 'Safari';
+                return ua.slice(0, 25);
+              };
+              const affectedObject = (type, d = {}) => {
+                if (!type) return '—';
+                if (type === 'login' || type === 'logout' || type.startsWith('login_')) return OL.session || 'Sesión';
+                if (type === 'actualizar_perfil') return OL.profile || 'Perfil';
+                if (type === 'crear_publicacion' || type === 'editar_publicacion') {
+                  const pid = d.publicationId?.slice(0, 8);
+                  return pid ? `${OL.publication || 'Publicación'} #${pid}` : OL.publication || 'Publicación';
+                }
+                if (type === 'crear_tienda' || type === 'editar_tienda') {
+                  return d.storeName ? `${OL.store || 'Tienda'}: ${d.storeName}` : OL.store || 'Tienda';
+                }
+                if (type === 'reportar') {
+                  const obj = OL[d.targetType] || d.targetType || '—';
+                  return d.targetId ? `${obj} #${String(d.targetId).slice(0, 8)}` : obj;
+                }
+                if (type === 'hide' || type === 'hide_full' || type === 'hide_from_report') {
+                  const name = d.storeName || d.brandName || d.productName;
+                  const rtype = OL[d.resource_type] || d.resource_type || '—';
+                  return name ? `${rtype}: ${name}` : rtype;
+                }
+                if (type === 'ban_user' || type === 'unban_user' || type === 'baneado') {
+                  return d.userName ? `${OL.user || 'Usuario'}: ${d.userName}` : OL.user || 'Usuario';
+                }
+                if (type === 'change_role') {
+                  return d.userName ? `${OL.user || 'Usuario'}: ${d.userName}` : OL.user || 'Usuario';
+                }
+                return '—';
+              };
+              const description = (type, d = {}, ip, ua) => {
+                if (!type) return '—';
+                if (type === 'login' || type === 'login_email') {
+                  const parts = [];
+                  if (ip) parts.push(`IP: ${ip}`);
+                  const br = parseAgent(ua);
+                  if (br !== '—') parts.push(br);
+                  return parts.join(' · ') || '—';
+                }
+                if (type === 'logout') return ip ? `IP: ${ip}` : '—';
+                if (type.startsWith('login_')) {
+                  const provider = type.replace('login_', '');
+                  const parts = [];
+                  if (ip) parts.push(`IP: ${ip}`);
+                  parts.push(provider);
+                  return parts.join(' · ');
+                }
+                if (type === 'actualizar_perfil') return '—';
+                if (type === 'crear_publicacion') return [d.productId && `Producto: ${d.productId}`, d.storeId && `Tienda: ${String(d.storeId).slice(0, 8)}`].filter(Boolean).join(' · ') || '—';
+                if (type === 'editar_publicacion') return d.publicationId ? `ID: ${d.publicationId}` : '—';
+                if (type === 'crear_tienda') return d.storeName ? `"${d.storeName}"` : '—';
+                if (type === 'editar_tienda') return d.storeName ? `"${d.storeName}"` : '—';
+                if (type === 'reportar') return d.targetType && d.targetId ? `${d.targetType} #${String(d.targetId).slice(0, 8)}` : '—';
+                if (type === 'hide' || type === 'hide_full') { const n = d.storeName || d.brandName || d.productName; return n ? `"${n}"` : '—'; }
+                if (type === 'ban_user' || type === 'baneado') return d.userName ? `"${d.userName}"` : '—';
+                if (type === 'unban_user') return d.userName ? `"${d.userName}"` : '—';
+                if (type === 'change_role') return (d.prevRole && d.newRole) ? `${d.prevRole} → ${d.newRole}` : '—';
+                if (type === 'eliminar_publicacion' || type === 'hide_from_report') return d.reportId ? `Reporte: ${String(d.reportId).slice(0, 8)}` : '—';
+                if (type === 'descartado') return '—';
+                return '—';
+              };
 
-                {/* Logs de acceso */}
-                <div style={s.section}>
-                  <div style={s.sectionHead}>
-                    <span style={s.sectionTitle}>{td.logsLoginTitle}</span>
-                    <span style={{ fontSize: 13, color: MUTED }}>{loginLogs.length}</span>
-                  </div>
-                  {loginLogs.length === 0 ? (
-                    <EmptyMsg text={td.logsEmpty} />
-                  ) : (
-                    <div style={s.configCard}>
-                      <div style={{ ...s.tableHead, gridTemplateColumns: '160px 1fr 1fr 1fr' }}>
-                        {[td.logsColDate, td.logsColEvent, td.logsColUser, td.logsColIP].map(h => (
-                          <div key={h} style={s.th}>{h}</div>
-                        ))}
-                      </div>
-                      {loginLogs.map(log => (
-                        <div key={log.id} style={{ ...s.tableRow, gridTemplateColumns: '160px 1fr 1fr 1fr', fontSize: 13 }}>
-                          <div style={s.td}>{new Date(log.created_at).toLocaleString('es-CO')}</div>
-                          <div style={{ ...s.td, fontWeight: 600, color: log.event_type === 'login' ? 'var(--success)' : log.event_type === 'logout' ? MUTED : ACCENT }}>{log.event_type}</div>
-                          <div style={{ ...s.td, color: MUTED, fontSize: 11, wordBreak: 'break-all' }}>{log.user_id?.slice(0, 8)}…</div>
-                          <div style={{ ...s.td, color: MUTED }}>{log.ip_address || '—'}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              const COLS = '150px 150px 175px 175px 1fr';
+              const headers = [td.logsColDate, td.logsColUserName, td.logsColActionDone, td.logsColObjectAffected, td.logsColDescriptionDetail];
 
-                {/* Actividad de usuarios */}
-                <div style={s.section}>
-                  <div style={s.sectionHead}>
-                    <span style={s.sectionTitle}>{td.logsActivityTitle}</span>
-                    <span style={{ fontSize: 13, color: MUTED }}>{activityLogs.length + loginLogs.length}</span>
-                  </div>
-                  <p style={{ fontSize: 13, color: MUTED, margin: '0 0 10px' }}>{td.logsActivitySub}</p>
-                  {(activityLogs.length === 0 && loginLogs.length === 0) ? (
-                    <EmptyMsg text={td.logsEmpty} />
-                  ) : (
-                    <div style={s.configCard}>
-                      <div style={{ ...s.tableHead, gridTemplateColumns: '160px 120px 140px 1fr' }}>
-                        {[td.logsColDate, td.logsColUser, td.logsColType, td.logsColDetail].map(h => (
-                          <div key={h} style={s.th}>{h}</div>
-                        ))}
-                      </div>
-                      {[
-                        ...loginLogs.map(l => ({
-                          id: l.id,
-                          created_at: l.created_at,
-                          user_id: l.user_id,
-                          type: l.event_type,
-                          detail: l.ip_address ? `IP: ${l.ip_address}` : '—',
-                          isSession: true,
-                        })),
-                        ...activityLogs.map(a => ({
-                          id: a.id,
-                          created_at: a.created_at,
-                          user_id: a.user_id,
-                          type: a.action,
-                          detail: (() => {
-                            const d = a.details || {};
-                            if (a.action === 'crear_publicacion' || a.action === 'editar_publicacion')
-                              return `Pub: ${d.publicationId?.slice(0,8) ?? '—'}`;
-                            if (a.action === 'crear_tienda' || a.action === 'editar_tienda')
-                              return d.storeName || '—';
-                            if (a.action === 'reportar')
-                              return `${d.targetType || '—'}`;
-                            return Object.keys(d).length ? JSON.stringify(d).slice(0, 60) : '—';
-                          })(),
-                          isSession: false,
-                        })),
-                      ]
-                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                        .map(row => (
-                          <div key={row.id} style={{ ...s.tableRow, gridTemplateColumns: '160px 120px 140px 1fr', fontSize: 13 }}>
+              const allRows = [
+                ...loginLogs.map(l => ({
+                  id: `l-${l.id}`,
+                  created_at: l.created_at,
+                  userId: l.user_id,
+                  type: l.event_type,
+                  details: {},
+                  ip: l.ip_address,
+                  ua: l.user_agent,
+                  source: 'session',
+                })),
+                ...activityLogs.map(a => ({
+                  id: `a-${a.id}`,
+                  created_at: a.created_at,
+                  userId: a.user_id,
+                  type: a.action,
+                  details: a.details || {},
+                  ip: null,
+                  ua: null,
+                  source: 'activity',
+                })),
+              ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+              const adminRows = actionLogs.map(log => ({
+                id: `ad-${log.id}`,
+                created_at: log.created_at,
+                userId: log.actor_user_id,
+                type: log.action_type,
+                details: log.metadata || {},
+                ip: null,
+                ua: null,
+                reason: log.reason,
+              }));
+
+              return (
+                <>
+                  {/* Actividad de usuarios */}
+                  <div style={s.section}>
+                    <div style={s.sectionHead}>
+                      <span style={s.sectionTitle}>{td.logsActivityTitle}</span>
+                      <span style={{ fontSize: 13, color: MUTED }}>{allRows.length}</span>
+                    </div>
+                    <p style={{ fontSize: 13, color: MUTED, margin: '0 0 10px' }}>{td.logsActivitySub}</p>
+                    {allRows.length === 0 ? (
+                      <EmptyMsg text={td.logsEmpty} />
+                    ) : (
+                      <div style={s.configCard}>
+                        <div style={{ ...s.tableHead, gridTemplateColumns: COLS }}>
+                          {headers.map(h => <div key={h} style={s.th}>{h}</div>)}
+                        </div>
+                        {allRows.map(row => (
+                          <div key={row.id} style={{ ...s.tableRow, gridTemplateColumns: COLS, fontSize: 13 }}>
                             <div style={s.td}>{new Date(row.created_at).toLocaleString('es-CO')}</div>
-                            <div style={{ ...s.td, color: MUTED, fontSize: 11, wordBreak: 'break-all' }}>{row.user_id?.slice(0,8)}…</div>
+                            <div style={{ ...s.td, fontWeight: 500 }}>{userName(row.userId)}</div>
                             <div style={{
                               ...s.td, fontWeight: 600,
                               color: row.type === 'login' || row.type?.startsWith('login_') ? 'var(--success)'
                                    : row.type === 'logout' ? MUTED
                                    : ACCENT,
-                            }}>{row.type}</div>
-                            <div style={{ ...s.td, color: MUTED }}>{row.detail}</div>
+                            }}>{actionLabel(row.type)}</div>
+                            <div style={s.td}>{affectedObject(row.type, row.details)}</div>
+                            <div style={{ ...s.td, color: MUTED }}>{description(row.type, row.details, row.ip, row.ua)}</div>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Acciones de administración */}
+                  <div style={s.section}>
+                    <div style={s.sectionHead}>
+                      <span style={s.sectionTitle}>{td.logsActionsTitle}</span>
+                      <span style={{ fontSize: 13, color: MUTED }}>{adminRows.length}</span>
                     </div>
-                  )}
-                </div>
-              </>
-            )}
+                    {adminRows.length === 0 ? (
+                      <EmptyMsg text={td.logsEmpty} />
+                    ) : (
+                      <div style={s.configCard}>
+                        <div style={{ ...s.tableHead, gridTemplateColumns: COLS }}>
+                          {headers.map(h => <div key={h} style={s.th}>{h}</div>)}
+                        </div>
+                        {adminRows.map(row => (
+                          <div key={row.id} style={{ ...s.tableRow, gridTemplateColumns: COLS, fontSize: 13 }}>
+                            <div style={s.td}>{new Date(row.created_at).toLocaleString('es-CO')}</div>
+                            <div style={{ ...s.td, fontWeight: 500 }}>{userName(row.userId)}</div>
+                            <div style={{ ...s.td, fontWeight: 600, color: ACCENT }}>{actionLabel(row.type)}</div>
+                            <div style={s.td}>{affectedObject(row.type, row.details)}</div>
+                            <div style={{ ...s.td, color: MUTED }}>{row.reason || description(row.type, row.details, null, null)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </>
         )}
       </main>
