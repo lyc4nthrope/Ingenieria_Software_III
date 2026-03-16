@@ -30,6 +30,11 @@ const AL_ES = {
   actualizar_perfil:  'Actualizó perfil',
   ban_user:           'Baneó usuario',
   change_role:        'Cambió rol',
+  crear_pedido:       'Confirmó pedido',
+  crear_alerta:       'Creó alerta de precio',
+  eliminar_alerta:    'Eliminó alerta',
+  agregar_item_lista: 'Agregó ítem a lista',
+  eliminar_item_lista:'Eliminó ítem de lista',
 };
 
 const OL_ES = {
@@ -40,6 +45,9 @@ const OL_ES = {
   user:        'Usuario',
   product:     'Producto',
   brand:       'Marca',
+  order:       'Pedido',
+  alert:       'Alerta',
+  list:        'Lista',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -377,5 +385,110 @@ describe('transformación de payload de tiempo real', () => {
     expect(getActionLabel(payload.action_type, AL_ES)).toBe('Baneó usuario');
     expect(getObjectType(payload.action_type, details, OL_ES)).toBe('Usuario');
     expect(getObjectInfo(payload.action_type, details)).toBe('Usuario Malo');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests para nuevas acciones: pedidos, alertas y lista de compras
+// ─────────────────────────────────────────────────────────────────────────────
+describe('getObjectType — nuevos tipos (pedido, alerta, lista)', () => {
+  it('clasifica crear_pedido como Pedido', () => {
+    expect(getObjectType('crear_pedido', {}, OL_ES)).toBe('Pedido');
+  });
+
+  it('clasifica alertas', () => {
+    expect(getObjectType('crear_alerta', {}, OL_ES)).toBe('Alerta');
+    expect(getObjectType('eliminar_alerta', {}, OL_ES)).toBe('Alerta');
+  });
+
+  it('clasifica ítems de lista', () => {
+    expect(getObjectType('agregar_item_lista', {}, OL_ES)).toBe('Lista');
+    expect(getObjectType('eliminar_item_lista', {}, OL_ES)).toBe('Lista');
+  });
+});
+
+describe('getObjectInfo — nuevos tipos', () => {
+  it('retorna ID parcial del pedido', () => {
+    expect(getObjectInfo('crear_pedido', { orderId: 'NSE-ABC12345' })).toBe('#NSE-ABC1');
+  });
+
+  it('retorna "—" si no hay orderId', () => {
+    expect(getObjectInfo('crear_pedido', {})).toBe('—');
+  });
+
+  it('retorna productId en alertas', () => {
+    expect(getObjectInfo('crear_alerta', { productId: 42 })).toBe('P#42');
+    expect(getObjectInfo('eliminar_alerta', { productId: 7 })).toBe('P#7');
+  });
+
+  it('retorna "—" si no hay productId en alerta', () => {
+    expect(getObjectInfo('crear_alerta', {})).toBe('—');
+  });
+
+  it('retorna productName para ítems de lista', () => {
+    expect(getObjectInfo('agregar_item_lista', { productName: 'Arroz' })).toBe('Arroz');
+    expect(getObjectInfo('eliminar_item_lista', { productName: 'Leche' })).toBe('Leche');
+  });
+
+  it('retorna "—" si no hay productName en lista', () => {
+    expect(getObjectInfo('agregar_item_lista', {})).toBe('—');
+  });
+});
+
+describe('getDescription — nuevos tipos', () => {
+  it('describe pedido con estrategia e ítems', () => {
+    const d = { strategy: 'price', itemCount: 3, deliveryMode: false };
+    const result = getDescription('crear_pedido', d);
+    expect(result).toContain('price');
+    expect(result).toContain('3 ítem(s)');
+    expect(result).toContain('Recojo yo');
+  });
+
+  it('describe pedido con domicilio', () => {
+    const d = { strategy: 'balanced', itemCount: 5, deliveryMode: true };
+    expect(getDescription('crear_pedido', d)).toContain('Domicilio');
+  });
+
+  it('describe alerta con precio máximo', () => {
+    expect(getDescription('crear_alerta', { targetPrice: 5000 })).toBe('Precio máx: $5000');
+  });
+
+  it('retorna "—" para alerta sin precio', () => {
+    expect(getDescription('crear_alerta', {})).toBe('—');
+  });
+
+  it('retorna "—" para eliminar_alerta', () => {
+    expect(getDescription('eliminar_alerta', {})).toBe('—');
+  });
+
+  it('describe ítem agregado con cantidad', () => {
+    expect(getDescription('agregar_item_lista', { quantity: 2 })).toBe('Cantidad: 2');
+  });
+
+  it('retorna "—" para eliminar_item_lista', () => {
+    expect(getDescription('eliminar_item_lista', { productName: 'Arroz' })).toBe('—');
+  });
+});
+
+describe('getActionCategory — nuevos tipos', () => {
+  it('clasifica crear_pedido y crear_alerta como create', () => {
+    expect(getActionCategory('crear_pedido')).toBe('create');
+    expect(getActionCategory('crear_alerta')).toBe('create');
+    expect(getActionCategory('agregar_item_lista')).toBe('create');
+  });
+
+  it('clasifica eliminar_alerta y eliminar_item_lista como delete', () => {
+    expect(getActionCategory('eliminar_alerta')).toBe('delete');
+    expect(getActionCategory('eliminar_item_lista')).toBe('delete');
+  });
+});
+
+describe('getActionLabel — nuevos tipos', () => {
+  it('retorna etiqueta traducida para cada nueva acción', () => {
+    expect(getActionLabel('crear_pedido', AL_ES)).toBe('Confirmó pedido');
+    expect(getActionLabel('crear_alerta', AL_ES)).toBe('Creó alerta de precio');
+    expect(getActionLabel('eliminar_alerta', AL_ES)).toBe('Eliminó alerta');
+    expect(getActionLabel('agregar_item_lista', AL_ES)).toBe('Agregó ítem a lista');
+    expect(getActionLabel('eliminar_item_lista', AL_ES)).toBe('Eliminó ítem de lista');
   });
 });

@@ -10,6 +10,7 @@
  */
 
 import { create } from 'zustand';
+import { insertUserActivityLog } from '@/services/api/audit.api';
 
 const STORAGE_PREFIX = 'nosee-shopping-';
 
@@ -107,10 +108,16 @@ export const useShoppingListStore = create(
           ],
         });
       }
+      const uid = get()._userId;
+      if (uid) insertUserActivityLog(uid, 'agregar_item_lista', { productName: trimmed, quantity: Number(quantity) });
     },
 
-    removeItem: (id) =>
-      set({ items: get().items.filter((i) => i.id !== id) }),
+    removeItem: (id) => {
+      const item = get().items.find((i) => i.id === id);
+      set({ items: get().items.filter((i) => i.id !== id) });
+      const uid = get()._userId;
+      if (uid && item) insertUserActivityLog(uid, 'eliminar_item_lista', { productName: item.productName });
+    },
 
     updateItem: (id, changes) =>
       set({ items: get().items.map((i) => (i.id === id ? { ...i, ...changes } : i)) }),

@@ -42,6 +42,9 @@ export function getObjectType(type, d = {}, OL = {}) {
     type === 'ban_user' || type === 'unban_user' || type === 'baneado' ||
     type === 'change_role' || type === 'eliminar_publicacion' || type === 'descartado'
   ) return OL.user || 'Usuario';
+  if (type === 'crear_pedido') return OL.order || 'Pedido';
+  if (type === 'crear_alerta' || type === 'eliminar_alerta') return OL.alert || 'Alerta';
+  if (type === 'agregar_item_lista' || type === 'eliminar_item_lista') return OL.list || 'Lista';
   return '—';
 }
 
@@ -74,6 +77,9 @@ export function getObjectInfo(type, d = {}) {
     type === 'ban_user' || type === 'unban_user' || type === 'baneado' ||
     type === 'change_role' || type === 'eliminar_publicacion' || type === 'descartado'
   ) return d.userName || '—';
+  if (type === 'crear_pedido') return d.orderId ? `#${String(d.orderId).slice(0, 8)}` : '—';
+  if (type === 'crear_alerta' || type === 'eliminar_alerta') return d.productId ? `P#${d.productId}` : '—';
+  if (type === 'agregar_item_lista' || type === 'eliminar_item_lista') return d.productName || '—';
   return '—';
 }
 
@@ -129,6 +135,18 @@ export function getDescription(type, d = {}, ip, ua) {
   if (type === 'eliminar_publicacion' || type === 'hide_from_report')
     return d.reportId ? `Reporte: ${String(d.reportId).slice(0, 8)}` : '—';
   if (type === 'descartado') return '—';
+  if (type === 'crear_pedido')
+    return [
+      d.strategy && `Estrategia: ${d.strategy}`,
+      d.itemCount != null && `${d.itemCount} ítem(s)`,
+      d.deliveryMode ? 'Domicilio' : 'Recojo yo',
+    ].filter(Boolean).join(' · ') || '—';
+  if (type === 'crear_alerta')
+    return d.targetPrice != null ? `Precio máx: $${d.targetPrice}` : '—';
+  if (type === 'eliminar_alerta') return '—';
+  if (type === 'agregar_item_lista')
+    return d.quantity != null ? `Cantidad: ${d.quantity}` : '—';
+  if (type === 'eliminar_item_lista') return '—';
   return '—';
 }
 
@@ -152,11 +170,15 @@ export function parseBrowser(ua = '') {
 export function getActionCategory(type) {
   if (!type) return 'other';
   if (type === 'login' || type === 'logout' || type.startsWith('login_')) return 'session';
-  if (type === 'crear_publicacion' || type === 'crear_tienda') return 'create';
+  if (
+    type === 'crear_publicacion' || type === 'crear_tienda' ||
+    type === 'crear_pedido' || type === 'crear_alerta' || type === 'agregar_item_lista'
+  ) return 'create';
   if (type === 'editar_publicacion' || type === 'editar_tienda' || type === 'actualizar_perfil') return 'edit';
   if (
     type === 'hide' || type === 'hide_full' || type === 'ban_user' || type === 'baneado' ||
-    type === 'eliminar_publicacion' || type === 'reportar'
+    type === 'eliminar_publicacion' || type === 'reportar' ||
+    type === 'eliminar_alerta' || type === 'eliminar_item_lista'
   ) return 'delete';
   if (
     type === 'unban_user' || type === 'change_role' || type === 'descartado' ||
