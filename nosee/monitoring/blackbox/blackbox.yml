@@ -1,0 +1,45 @@
+modules:
+
+  # ── HTTP 2xx — página devuelve 200 OK ──────────────────────────────────────
+  # Usado para verificar disponibilidad de la SPA en Azure y del metrics-server.
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 301, 302]   # 301/302 son OK para SPA en CDN
+      method: GET
+      no_follow_redirects: false
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      tls_config:
+        insecure_skip_verify: false
+      preferred_ip_protocol: "ip4"
+      ip_protocol_fallback: true
+
+  # ── HTTP 2xx estricto — solo 200 ───────────────────────────────────────────
+  # Usado para endpoints de healthcheck que DEBEN devolver 200 exacto.
+  http_2xx_strict:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200]
+      method: GET
+      no_follow_redirects: true
+      preferred_ip_protocol: "ip4"
+      ip_protocol_fallback: true
+
+  # ── POST JSON — verifica que el endpoint de métricas acepta eventos ────────
+  http_post_metrics:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200]
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: '{"event":"health_probe","data":{}}'
+      no_follow_redirects: true
+      preferred_ip_protocol: "ip4"
+      ip_protocol_fallback: true
