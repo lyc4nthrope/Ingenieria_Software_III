@@ -128,7 +128,40 @@ function DeliveryCard({ order, onCancel }) {
 }
 
 // ─── Carrusel de publicaciones por ítem ───────────────────────────────────────
+const CARD_W = 158; // px — ancho de card
+const CARD_GAP = 8;  // px — gap entre cards
+const SCROLL_STEP = (CARD_W + CARD_GAP) * 3; // desplazar 3 cards por clic
+
 function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail }) {
+  const trackRef = useRef(null);
+  const [showLeft, setShowLeft] = useState(false);
+  const [showRight, setShowRight] = useState(false);
+
+  const checkArrows = useCallback(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    setShowLeft(el.scrollLeft > 4);
+    setShowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    // pequeño timeout para que el DOM se pinte antes de medir
+    const t = setTimeout(checkArrows, 60);
+    el.addEventListener('scroll', checkArrows, { passive: true });
+    window.addEventListener('resize', checkArrows);
+    return () => {
+      clearTimeout(t);
+      el.removeEventListener('scroll', checkArrows);
+      window.removeEventListener('resize', checkArrows);
+    };
+  }, [publications, checkArrows]);
+
+  const scroll = (dir) => {
+    trackRef.current?.scrollBy({ left: dir * SCROLL_STEP, behavior: 'smooth' });
+  };
+
   if (!publications || publications.length === 0) {
     return (
       <div style={carousel.empty}>
@@ -139,7 +172,27 @@ function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail
 
   return (
     <div style={carousel.root}>
-      <div style={carousel.track}>
+      {/* Flecha izquierda */}
+      {showLeft && (
+        <button
+          type="button"
+          aria-label="Anteriores opciones"
+          onClick={() => scroll(-1)}
+          style={{ ...carousel.arrowBtn, left: 0 }}
+        >
+          ‹
+        </button>
+      )}
+
+      <div
+        ref={trackRef}
+        style={{
+          ...carousel.track,
+          // padding lateral para que las flechas no tapen las cards
+          paddingLeft:  showLeft  ? '32px' : '0',
+          paddingRight: showRight ? '32px' : '0',
+        }}
+      >
         {publications.map((pub, idx) => {
           const isBest = idx === 0;
           const isSelected = (pub.id ?? idx) === selectedId;
@@ -178,6 +231,18 @@ function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail
           );
         })}
       </div>
+
+      {/* Flecha derecha */}
+      {showRight && (
+        <button
+          type="button"
+          aria-label="Más opciones"
+          onClick={() => scroll(1)}
+          style={{ ...carousel.arrowBtn, right: 0 }}
+        >
+          ›
+        </button>
+      )}
     </div>
   );
 }
@@ -1256,11 +1321,29 @@ const lista = {
 
 // ── Carousel styles ────────────────────────────────────────────────────────────
 const carousel = {
-  root: { overflow: 'hidden' },
+  root: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
   track: {
     display: 'flex', gap: '8px',
     overflowX: 'auto', paddingBottom: '4px',
-    scrollbarWidth: 'thin',
+    scrollbarWidth: 'none', msOverflowStyle: 'none',
+    transition: 'padding 0.15s',
+  },
+  arrowBtn: {
+    position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+    zIndex: 2,
+    width: '28px', height: '28px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    fontSize: '18px', lineHeight: 1, fontWeight: 700,
+    color: 'var(--text-primary)',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+    padding: 0,
   },
   empty: {
     fontSize: '12px', color: 'var(--text-muted)',
