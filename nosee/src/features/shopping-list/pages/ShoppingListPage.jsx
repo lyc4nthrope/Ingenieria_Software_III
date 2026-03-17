@@ -1,16 +1,25 @@
 /**
- * ShoppingListPage.jsx — Proceso 3
+ * ShoppingListPage.jsx — Proceso 3 (rediseño con pestañas)
  *
- * Layout dos columnas:
- *   Izquierda — tabs: "Mi Lista" | productos del pedido seleccionado
- *   Derecha   — carrusel de pedidos (más grande) + mapa de ruta
+ * Pestaña "Mi Lista":
+ *   - Input de texto para agregar productos manualmente
+ *   - Lista de ítems con eliminación individual
+ *   - Botón "Calcular canasta óptima" — busca coincidencias por producto
+ *   - Tras calcular: cada ítem es expandible y muestra carrusel de coincidencias
+ *   - Botón "Configurar pedido" para el flujo completo (CreateOrderPage)
+ *
+ * Pestaña "Mis Pedidos":
+ *   - Carrusel de pedidos guardados
+ *   - Detalle del pedido seleccionado + tarjeta de domicilio + mapa
  */
 
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import { useLanguage } from '@/contexts/LanguageContext';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
+import * as publicationsApi from '@/services/api/publications.api';
+import PublicationDetailModal from '@/features/publications/components/PublicationDetailModal';
 
 // ─── Iconos ───────────────────────────────────────────────────────────────────
 const TrashIcon = () => (
@@ -24,6 +33,13 @@ const PlusIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
     <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+const ChevronDownIcon = ({ open }) => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"
+    style={{ transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+    <polyline points="6,9 12,15 18,9" />
   </svg>
 );
 
@@ -80,12 +96,8 @@ function DeliveryCard({ order, onCancel }) {
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-          <span style={{ fontSize: '16px', fontWeight: 800, color: cfg.color }}>
-            {cfg.icon}
-          </span>
-          <span style={{ fontSize: '13px', fontWeight: 700, color: cfg.color }}>
-            {cfg.title}
-          </span>
+          <span style={{ fontSize: '16px', fontWeight: 800, color: cfg.color }}>{cfg.icon}</span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: cfg.color }}>{cfg.title}</span>
         </div>
         {cfg.showCancel && (
           <button
@@ -107,10 +119,7 @@ function DeliveryCard({ order, onCancel }) {
         {cfg.desc}
       </span>
       {cfg.showFee && (
-        <span style={{
-          fontSize: '11px', fontWeight: 700, paddingLeft: '23px',
-          color: 'var(--success, #16a34a)',
-        }}>
+        <span style={{ fontSize: '11px', fontWeight: 700, paddingLeft: '23px', color: 'var(--success, #16a34a)' }}>
           Costo domicilio estimado: ${DELIVERY_FEE.toLocaleString('es-CO')} COP
           <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> · tarifa Proceso 4</span>
         </span>
@@ -119,304 +128,334 @@ function DeliveryCard({ order, onCancel }) {
   );
 }
 
-// ─── Columna izquierda ────────────────────────────────────────────────────────
-function LeftColumn({ items, removeItem, clearList, selectedOrder, onShowList, onCancelDelivery }) {
-  const { t } = useLanguage();
-  const ts = t.shoppingList;
-  const navigate = useNavigate();
-  const [selected, setSelected] = useState(() => new Set());
-  // false = desglosado (Lista + Dom.), true = suma total
-  const [showTotalSum, setShowTotalSum] = useState(false);
+// ─── Carrusel de publicaciones por ítem ───────────────────────────────────────
+function PublicationsCarousel({ publications, onOpenDetail }) {
+  if (!publications || publications.length === 0) {
+    return (
+      <div style={carousel.empty}>
+        Sin coincidencias encontradas para este producto.
+      </div>
+    );
+  }
 
-  const toggle = (id) =>
+  return (
+    <div style={carousel.root}>
+      <div style={carousel.track}>
+        {publications.map((pub, idx) => {
+          const isBest = idx === 0;
+          const storeEmoji = Number(pub.store?.store_type_id) === 2 ? '🌐' : '🏪';
+          return (
+            <button
+              key={pub.id ?? idx}
+              type="button"
+              onClick={() => onOpenDetail(pub)}
+              style={{
+                ...carousel.card,
+                ...(isBest ? carousel.cardBest : {}),
+              }}
+            >
+              {isBest && (
+                <span style={carousel.bestBadge}>★ Mejor Opción</span>
+              )}
+              <span style={carousel.storeName}>
+                {storeEmoji} {pub.store?.name ?? 'Tienda'}
+              </span>
+              <span style={carousel.price}>
+                ${(pub.price ?? 0).toLocaleString('es-CO')}
+                <span style={carousel.currency}> COP</span>
+              </span>
+              <span style={carousel.prodName}>{pub.productName ?? pub.product_name ?? '—'}</span>
+              <span style={carousel.verLink}>Ver detalle →</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
+function ListaTab({ items, addItem, removeItem, clearList }) {
+  const navigate = useNavigate();
+  const [inputValue, setInputValue] = useState('');
+  const [selected, setSelected] = useState(() => new Set());
+
+  // Resultados del cálculo: { [itemId]: publications[] }
+  const [calcResults, setCalcResults] = useState(null);
+  const [calculating, setCalculating] = useState(false);
+  const [calcError, setCalcError] = useState(null);
+
+  // Ítem expandido (muestra carrusel)
+  const [expandedId, setExpandedId] = useState(null);
+
+  // Modal de detalle de publicación
+  const [detailPub, setDetailPub] = useState(null);
+
+  const inputRef = useRef(null);
+
+  const handleAdd = () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
+    addItem(trimmed, 1);
+    setInputValue('');
+    setCalcResults(null); // reset cálculo al agregar nuevo ítem
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleAdd();
+  };
+
+  const handleRemove = (id) => {
+    removeItem(id);
+    setSelected((p) => { const n = new Set(p); n.delete(id); return n; });
+    setCalcResults((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    if (expandedId === id) setExpandedId(null);
+  };
+
+  const toggleSelect = (id) =>
     setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const toggleAll = () =>
     setSelected(selected.size === items.length ? new Set() : new Set(items.map((i) => i.id)));
 
+  const handleCalculate = useCallback(async () => {
+    if (items.length === 0) return;
+    setCalculating(true);
+    setCalcError(null);
+    setCalcResults(null);
+    setExpandedId(null);
+
+    try {
+      const results = await Promise.all(
+        items.map(async (item) => {
+          const res = await publicationsApi.getPublications({
+            productName: item.productName,
+            sortBy: 'cheapest',
+            limit: 10,
+          });
+          const pubs = res.success ? (res.data ?? []) : [];
+          // Ordenar de más barato a más caro
+          const sorted = [...pubs].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+          return [item.id, sorted];
+        })
+      );
+      setCalcResults(Object.fromEntries(results));
+    } catch {
+      setCalcError('Error al calcular la canasta. Intentá nuevamente.');
+    } finally {
+      setCalculating(false);
+    }
+  }, [items]);
+
   const handleCreateOrder = () => {
-    if (selected.size === 0) return;
-    navigate('/pedido/nuevo', { state: { items: items.filter((i) => selected.has(i.id)) } });
+    const toSend = selected.size > 0
+      ? items.filter((i) => selected.has(i.id))
+      : items;
+    navigate('/pedido/nuevo', { state: { items: toSend } });
   };
 
-  // ── Vista: productos del pedido seleccionado ──────────────────────────────
-  if (selectedOrder) {
-    const { result, id, createdAt } = selectedOrder;
-    const date = new Date(createdAt).toLocaleDateString('es-CO', {
-      day: '2-digit', month: 'short', year: 'numeric',
-    });
-    const allProducts = result.stores.flatMap((s) =>
-      s.products.map((p) => ({ ...p, storeName: s.store?.name ?? 'Tienda', storeEmoji: Number(s.store?.store_type_id) === 2 ? '🌐' : '🏪' }))
-    );
+  const toggleExpand = (id) => {
+    if (!calcResults) return;
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
 
-    return (
-      <div style={left.col}>
-        {/* Header con botón volver */}
-        <div style={left.orderHeader}>
-          <button type="button" onClick={onShowList} style={left.backBtn} title="Ver mi lista">
-            ← Mi lista
-          </button>
-          <div style={left.orderHeaderInfo}>
-            <span style={left.orderRef}>#{id.slice(-8)}</span>
-            <span style={left.orderDate}>{date}</span>
-          </div>
-        </div>
+  const isCalculated = calcResults !== null;
 
-        {/* Tarjeta de domicilio */}
-        {selectedOrder.deliveryMode && (
-          <DeliveryCard order={selectedOrder} onCancel={onCancelDelivery} />
-        )}
-
-        {/* Totales rápidos */}
-        <div style={left.orderStats}>
-          {/* Stat de total — toggleable cuando hay domicilio en camino */}
-          {selectedOrder.deliveryMode && selectedOrder.deliveryStatus === 'en_camino' ? (
-            <button
-              type="button"
-              onClick={() => setShowTotalSum((v) => !v)}
-              style={{ ...left.stat, cursor: 'pointer', border: '1px solid var(--accent)', position: 'relative' }}
-              title={showTotalSum ? 'Ver desglose' : 'Ver total combinado'}
-            >
-              {showTotalSum ? (
-                <>
-                  <span style={left.statVal}>${(result.totalCost + DELIVERY_FEE).toLocaleString('es-CO')}</span>
-                  <span style={left.statLabel}>Total c/ dom.</span>
-                  <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>← desglosar</span>
-                </>
-              ) : (
-                <>
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
-                    ${result.totalCost.toLocaleString('es-CO')}
-                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> + </span>
-                    ${DELIVERY_FEE.toLocaleString('es-CO')}
-                  </span>
-                  <span style={left.statLabel}>Lista + Domicilio</span>
-                  <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>→ ver total</span>
-                </>
-              )}
-            </button>
-          ) : (
-            <div style={left.stat}>
-              <span style={left.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
-              <span style={left.statLabel}>Total COP</span>
-            </div>
-          )}
-          {result.savings > 0 && (
-            <div style={left.stat}>
-              <span style={{ ...left.statVal, color: 'var(--success, #16a34a)' }}>
-                {result.savingsPct}%
-              </span>
-              <span style={left.statLabel}>Ahorro</span>
-            </div>
-          )}
-          <div style={left.stat}>
-            <span style={left.statVal}>{result.stores.length}</span>
-            <span style={left.statLabel}>{result.stores.length === 1 ? 'Tienda' : 'Tiendas'}</span>
-          </div>
-          <div style={left.stat}>
-            <span style={left.statVal}>{allProducts.length}</span>
-            <span style={left.statLabel}>{allProducts.length === 1 ? 'Producto' : 'Productos'}</span>
-          </div>
-        </div>
-
-        {/* Productos del pedido agrupados por tienda */}
-        <div style={left.orderProductsWrap}>
-          {result.stores.map((s, si) => {
-            const emoji = Number(s.store?.store_type_id) === 2 ? '🌐' : '🏪';
-            const subtotal = s.products.reduce((a, p) => a + (p.price || 0) * p.item.quantity, 0);
-            return (
-              <div key={si} style={left.storeBlock}>
-                <div style={left.storeBlockHeader}>
-                  <span style={left.storeBlockName}>{emoji} {s.store?.name ?? 'Tienda'}</span>
-                  <span style={left.storeBlockTotal}>${subtotal.toLocaleString('es-CO')}</span>
-                </div>
-                <ul style={left.orderProdList}>
-                  {s.products.map((p, pi) => (
-                    <li key={pi} style={left.orderProdItem}>
-                      <div>
-                        <div style={left.orderProdName}>{p.item.productName}</div>
-                        <div style={left.orderProdMeta}>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</div>
-                      </div>
-                      <span style={left.orderProdTotal}>
-                        ${(p.price * p.item.quantity).toLocaleString('es-CO')}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Vista: mi lista de compras ────────────────────────────────────────────
   return (
-    <div style={left.col}>
+    <div style={lista.root}>
+      {/* ── Input para agregar ─────────────────────────────────── */}
+      <div style={lista.inputRow}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Escribe un producto (ej: leche, arroz, jabón...)"
+          style={lista.input}
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          disabled={!inputValue.trim()}
+          style={{
+            ...lista.addBtn,
+            opacity: inputValue.trim() ? 1 : 0.45,
+            cursor: inputValue.trim() ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <PlusIcon /> Agregar
+        </button>
+      </div>
+
       {items.length === 0 ? (
-        <div style={left.empty}>
-          <p style={left.emptyText}>Tu lista está vacía</p>
-          <Link to="/publicaciones" style={left.addLink}>
-            <PlusIcon /> {ts.goToProducts}
-          </Link>
+        <div style={lista.empty}>
+          <p style={lista.emptyText}>Tu lista está vacía</p>
+          <p style={lista.emptyHint}>Escribe un producto arriba para comenzar</p>
         </div>
       ) : (
         <>
-          <div style={left.toolbar}>
-            <label style={left.checkAll}>
+          {/* ── Barra de herramientas ───────────────────────────── */}
+          <div style={lista.toolbar}>
+            <label style={lista.checkAll}>
               <input
                 type="checkbox"
                 checked={selected.size === items.length && items.length > 0}
                 onChange={toggleAll}
               />
-              <span style={left.checkAllLabel}>
+              <span style={lista.checkAllLabel}>
                 {selected.size > 0 ? `${selected.size} seleccionados` : 'Todos'}
               </span>
             </label>
-            <button type="button" onClick={clearList} style={left.clearBtn}>Limpiar</button>
+            <button type="button" onClick={clearList} style={lista.clearBtn}>Limpiar todo</button>
           </div>
 
-          <ul style={left.list}>
-            {items.map((item) => (
-              <li key={item.id} style={left.item}>
-                <label style={left.itemLabel}>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(item.id)}
-                    onChange={() => toggle(item.id)}
-                    style={{ flexShrink: 0 }}
-                  />
-                  <div style={left.itemText}>
-                    <span style={left.itemName}>{item.productName}</span>
-                    {item.price && (
-                      <span style={left.itemPrice}>${item.price.toLocaleString('es-CO')}</span>
-                    )}
+          {/* ── Lista de ítems ──────────────────────────────────── */}
+          <ul style={lista.list}>
+            {items.map((item) => {
+              const isExpanded = expandedId === item.id;
+              const pubs = calcResults?.[item.id];
+              const hasPubs = pubs && pubs.length > 0;
+              const bestPrice = hasPubs ? pubs[0].price : null;
+
+              return (
+                <li key={item.id} style={lista.itemWrap}>
+                  {/* Fila principal del ítem */}
+                  <div
+                    style={{
+                      ...lista.item,
+                      ...(isCalculated ? lista.itemClickable : {}),
+                      ...(isExpanded ? lista.itemExpanded : {}),
+                    }}
+                  >
+                    <label style={lista.itemLabel}>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(item.id)}
+                        onChange={() => toggleSelect(item.id)}
+                        style={{ flexShrink: 0 }}
+                      />
+                      <div style={lista.itemText}>
+                        <span style={lista.itemName}>{item.productName}</span>
+                        {isCalculated && bestPrice !== null && (
+                          <span style={lista.itemBestPrice}>
+                            ★ Desde ${bestPrice.toLocaleString('es-CO')} COP
+                          </span>
+                        )}
+                        {isCalculated && !hasPubs && (
+                          <span style={lista.itemNoPubs}>Sin coincidencias</span>
+                        )}
+                      </div>
+                    </label>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                      {isCalculated && hasPubs && (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(item.id)}
+                          style={lista.expandBtn}
+                          title={isExpanded ? 'Ocultar coincidencias' : 'Ver coincidencias'}
+                        >
+                          <span style={{ fontSize: '11px', fontWeight: 600 }}>
+                            {pubs.length} {pubs.length === 1 ? 'opción' : 'opciones'}
+                          </span>
+                          <ChevronDownIcon open={isExpanded} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(item.id)}
+                        style={lista.removeBtn}
+                        aria-label={`Eliminar ${item.productName}`}
+                      >
+                        <TrashIcon />
+                      </button>
+                    </div>
                   </div>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    removeItem(item.id);
-                    setSelected((p) => { const n = new Set(p); n.delete(item.id); return n; });
-                  }}
-                  style={left.removeBtn}
-                  aria-label={`Eliminar ${item.productName}`}
-                >
-                  <TrashIcon />
-                </button>
-              </li>
-            ))}
+
+                  {/* Carrusel de coincidencias */}
+                  {isExpanded && (
+                    <div style={lista.carouselWrap}>
+                      <PublicationsCarousel
+                        publications={pubs}
+                        onOpenDetail={setDetailPub}
+                      />
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
 
-          <Link to="/publicaciones" style={left.addMore}>
-            <PlusIcon /> Agregar productos
-          </Link>
+          {/* ── Error de cálculo ────────────────────────────────── */}
+          {calcError && (
+            <p style={lista.errorMsg}>{calcError}</p>
+          )}
 
+          {/* ── Botón calcular canasta ──────────────────────────── */}
+          <button
+            type="button"
+            onClick={handleCalculate}
+            disabled={calculating}
+            style={{
+              ...lista.calcBtn,
+              opacity: calculating ? 0.65 : 1,
+              cursor: calculating ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {calculating ? '⏳ Calculando...' : '✦ Calcular canasta óptima'}
+          </button>
+
+          {/* ── Separador ────────────────────────────────────────── */}
+          <div style={lista.separator} />
+
+          {/* ── Botón configurar pedido completo ────────────────── */}
           <button
             type="button"
             onClick={handleCreateOrder}
-            disabled={selected.size === 0}
+            disabled={items.length === 0}
             style={{
-              ...left.orderBtn,
-              opacity: selected.size === 0 ? 0.45 : 1,
-              cursor: selected.size === 0 ? 'not-allowed' : 'pointer',
+              ...lista.orderBtn,
+              opacity: items.length === 0 ? 0.45 : 1,
+              cursor: items.length === 0 ? 'not-allowed' : 'pointer',
             }}
           >
-            {ts.createOrder}
+            Configurar pedido
+            <span style={{ fontSize: '11px', fontWeight: 500, opacity: 0.8, display: 'block', marginTop: '1px' }}>
+              {selected.size > 0
+                ? `${selected.size} producto${selected.size > 1 ? 's' : ''} seleccionado${selected.size > 1 ? 's' : ''}`
+                : `${items.length} producto${items.length > 1 ? 's' : ''} en lista`}
+            </span>
           </button>
         </>
+      )}
+
+      {/* ── Modal de detalle de publicación ──────────────────────── */}
+      {detailPub && (
+        <PublicationDetailModal
+          publication={detailPub}
+          onClose={() => setDetailPub(null)}
+        />
       )}
     </div>
   );
 }
 
-// ─── Columna derecha: carrusel + mapa ─────────────────────────────────────────
-function RightPanel({ orders, selectedIdx, onSelect, onRemove }) {
-  const order = orders[selectedIdx];
-  if (!order) return null;
-  const { result, userCoords } = order;
-
-  return (
-    <div style={right.root}>
-      {/* Carrusel más grande */}
-      <div style={right.carousel}>
-        {orders.map((o, i) => {
-          const active = i === selectedIdx;
-          const d = new Date(o.createdAt);
-          const label = d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
-          return (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => onSelect(i)}
-              style={{ ...right.pill, ...(active ? right.pillActive : {}) }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={right.pillId}>#{o.id.slice(-6)}</span>
-                {o.deliveryMode && <span title="Domicilio">🛵</span>}
-              </span>
-              <span style={{ ...right.pillDate, ...(active ? { opacity: 0.85 } : {}) }}>
-                {label}
-              </span>
-              {active && (
-                <span style={right.pillTotal}>
-                  ${result.totalCost.toLocaleString('es-CO')}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Barra de info del pedido activo */}
-      <div style={right.meta}>
-        <div style={right.metaLeft}>
-          <span style={right.metaId}>{order.id}</span>
-          <span style={right.metaStores}>
-            {result.stores.length} {result.stores.length === 1 ? 'tienda' : 'tiendas'} ·{' '}
-            {result.stores.reduce((a, s) => a + s.products.length, 0)} productos
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => onRemove(order.id)}
-          style={right.deleteBtn}
-          title="Eliminar pedido"
-        >
-          <TrashIcon />
-        </button>
-      </div>
-
-      {/* Mapa */}
-      <div style={right.mapWrap}>
-        <OrderRouteMap
-          key={order.id}
-          stores={result.stores}
-          userCoords={userCoords}
-          driverLocation={order.driverLocation ?? null}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ─── Página ───────────────────────────────────────────────────────────────────
-export default function ShoppingListPage() {
-  const { t } = useLanguage();
-  const ts = t.shoppingList;
-
-  const { items, removeItem, clearList, orders, removeOrder, updateOrderDelivery } = useShoppingListStore();
-
-  // idx del pedido seleccionado en el carrusel; null = mostrar lista
-  const [selectedIdx, setSelectedIdx] = useState(null);
+// ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
+function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [showTotalSum, setShowTotalSum] = useState(false);
   const timerRef = useRef(null);
 
-  const hasOrders = orders.length > 0;
+  const selectedOrder = orders[selectedIdx] ?? null;
 
-  // ── Simulación de estado de domicilio en tiempo real ──────────────────────
-  const selectedOrder = selectedIdx !== null ? orders[selectedIdx] ?? null : null;
-
+  // ── Simulación de estado de domicilio en tiempo real ──────────────────
   useEffect(() => {
     clearTimeout(timerRef.current);
     clearInterval(timerRef.current);
@@ -460,12 +499,11 @@ export default function ShoppingListPage() {
     };
   }, [selectedOrder?.id, selectedOrder?.deliveryStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSelectOrder = (i) => setSelectedIdx(i);
-  const handleShowList = () => setSelectedIdx(null);
-  const handleRemoveOrder = (id) => {
+  const handleRemove = (id) => {
     removeOrder(id);
-    setSelectedIdx((prev) => (prev === null ? null : Math.max(0, prev - 1)));
+    setSelectedIdx((prev) => Math.max(0, prev - 1));
   };
+
   const handleCancelDelivery = () => {
     if (!selectedOrder) return;
     const charged = selectedOrder.deliveryStatus !== 'searching';
@@ -475,109 +513,472 @@ export default function ShoppingListPage() {
     });
   };
 
+  if (orders.length === 0) {
+    return (
+      <div style={pedidos.empty}>
+        <p style={pedidos.emptyText}>No tienes pedidos guardados</p>
+        <p style={pedidos.emptyHint}>
+          Ve a la pestaña <strong>Mi Lista</strong>, configura un pedido y aparecerá aquí.
+        </p>
+      </div>
+    );
+  }
+
+  const { result, userCoords } = selectedOrder;
+  const date = new Date(selectedOrder.createdAt).toLocaleDateString('es-CO', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+  const allProducts = result.stores.flatMap((s) =>
+    s.products.map((p) => ({ ...p, storeName: s.store?.name ?? 'Tienda' }))
+  );
+
+  return (
+    <div style={pedidos.root}>
+      {/* ── Carrusel de pedidos ─────────────────────────────────── */}
+      <div style={pedidos.carousel}>
+        {orders.map((o, i) => {
+          const active = i === selectedIdx;
+          const d = new Date(o.createdAt);
+          const label = d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+          return (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => { setSelectedIdx(i); setShowTotalSum(false); }}
+              style={{ ...pedidos.pill, ...(active ? pedidos.pillActive : {}) }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={pedidos.pillId}>#{o.id.slice(-6)}</span>
+                {o.deliveryMode && <span title="Domicilio">🛵</span>}
+              </span>
+              <span style={{ ...pedidos.pillDate, ...(active ? { opacity: 0.85 } : {}) }}>
+                {label}
+              </span>
+              {active && (
+                <span style={pedidos.pillTotal}>
+                  ${o.result.totalCost.toLocaleString('es-CO')}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Header del pedido activo ────────────────────────────── */}
+      <div style={pedidos.orderHeader}>
+        <div style={pedidos.orderHeaderLeft}>
+          <span style={pedidos.orderRef}>#{selectedOrder.id.slice(-8)}</span>
+          <span style={pedidos.orderDate}>{date}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => handleRemove(selectedOrder.id)}
+          style={pedidos.deleteBtn}
+          title="Eliminar pedido"
+        >
+          <TrashIcon />
+        </button>
+      </div>
+
+      {/* ── Tarjeta de domicilio ─────────────────────────────────── */}
+      {selectedOrder.deliveryMode && (
+        <DeliveryCard order={selectedOrder} onCancel={handleCancelDelivery} />
+      )}
+
+      {/* ── Totales rápidos ──────────────────────────────────────── */}
+      <div style={pedidos.stats}>
+        {selectedOrder.deliveryMode && selectedOrder.deliveryStatus === 'en_camino' ? (
+          <button
+            type="button"
+            onClick={() => setShowTotalSum((v) => !v)}
+            style={{ ...pedidos.stat, cursor: 'pointer', border: '1px solid var(--accent)', position: 'relative' }}
+            title={showTotalSum ? 'Ver desglose' : 'Ver total combinado'}
+          >
+            {showTotalSum ? (
+              <>
+                <span style={pedidos.statVal}>${(result.totalCost + DELIVERY_FEE).toLocaleString('es-CO')}</span>
+                <span style={pedidos.statLabel}>Total c/ dom.</span>
+                <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>← desglosar</span>
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
+                  ${result.totalCost.toLocaleString('es-CO')}
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> + </span>
+                  ${DELIVERY_FEE.toLocaleString('es-CO')}
+                </span>
+                <span style={pedidos.statLabel}>Lista + Domicilio</span>
+                <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>→ ver total</span>
+              </>
+            )}
+          </button>
+        ) : (
+          <div style={pedidos.stat}>
+            <span style={pedidos.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
+            <span style={pedidos.statLabel}>Total COP</span>
+          </div>
+        )}
+        {result.savings > 0 && (
+          <div style={pedidos.stat}>
+            <span style={{ ...pedidos.statVal, color: 'var(--success, #16a34a)' }}>{result.savingsPct}%</span>
+            <span style={pedidos.statLabel}>Ahorro</span>
+          </div>
+        )}
+        <div style={pedidos.stat}>
+          <span style={pedidos.statVal}>{result.stores.length}</span>
+          <span style={pedidos.statLabel}>{result.stores.length === 1 ? 'Tienda' : 'Tiendas'}</span>
+        </div>
+        <div style={pedidos.stat}>
+          <span style={pedidos.statVal}>{allProducts.length}</span>
+          <span style={pedidos.statLabel}>{allProducts.length === 1 ? 'Producto' : 'Productos'}</span>
+        </div>
+      </div>
+
+      {/* ── Productos agrupados por tienda ───────────────────────── */}
+      <div style={pedidos.productsWrap}>
+        {result.stores.map((s, si) => {
+          const emoji = Number(s.store?.store_type_id) === 2 ? '🌐' : '🏪';
+          const subtotal = s.products.reduce((a, p) => a + (p.price || 0) * p.item.quantity, 0);
+          return (
+            <div key={si} style={pedidos.storeBlock}>
+              <div style={pedidos.storeBlockHeader}>
+                <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
+                <span style={{ color: 'var(--accent)', fontSize: '12px' }}>
+                  ${subtotal.toLocaleString('es-CO')}
+                </span>
+              </div>
+              <ul style={pedidos.prodList}>
+                {s.products.map((p, pi) => (
+                  <li key={pi} style={pedidos.prodItem}>
+                    <div>
+                      <div style={pedidos.prodName}>{p.item.productName}</div>
+                      <div style={pedidos.prodMeta}>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</div>
+                    </div>
+                    <span style={pedidos.prodTotal}>
+                      ${(p.price * p.item.quantity).toLocaleString('es-CO')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Mapa ─────────────────────────────────────────────────── */}
+      <div style={pedidos.mapWrap}>
+        <OrderRouteMap
+          key={selectedOrder.id}
+          stores={result.stores}
+          userCoords={userCoords}
+          driverLocation={selectedOrder.driverLocation ?? null}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Página ───────────────────────────────────────────────────────────────────
+export default function ShoppingListPage() {
+  useLanguage();
+
+  const { items, addItem, removeItem, clearList, orders, removeOrder, updateOrderDelivery } =
+    useShoppingListStore();
+
+  const [activeTab, setActiveTab] = useState('lista');
+
+  const TABS = [
+    { key: 'lista', label: 'Mi Lista' },
+    { key: 'pedidos', label: 'Mis Pedidos', badge: orders.length },
+  ];
+
   return (
     <div className="home-wrapper">
-      <style>{`
-        .lista-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 20px;
-          align-items: start;
-        }
-        @media (max-width: 700px) {
-          .lista-grid { grid-template-columns: 1fr; }
-        }
-      `}</style>
-
-      {/* Cabecera centrada */}
+      {/* ── Cabecera ─────────────────────────────────────────────── */}
       <div style={page.header}>
-        <h1 style={page.title}>
-          {hasOrders ? '🛒 Lista & Pedidos' : '🛒 Mi Lista de Compras'}
-        </h1>
-        <p style={page.subtitle}>
-          {hasOrders
-            ? 'Gestiona tus productos pendientes y revisa el historial de tus pedidos'
-            : ts.subtitle}
-        </p>
-        {items.length > 0 && (
-          <span style={page.badge}>{items.length} {items.length === 1 ? 'producto' : 'productos'} en lista</span>
+        <h1 style={page.title}>🛒 {activeTab === 'lista' ? 'Mi Lista de Compras' : 'Mis Pedidos'}</h1>
+        {activeTab === 'lista' && items.length > 0 && (
+          <span style={page.badge}>
+            {items.length} {items.length === 1 ? 'producto' : 'productos'} en lista
+          </span>
         )}
       </div>
 
-      {hasOrders ? (
-        <div className="lista-grid">
-          {/* Izquierda */}
-          <LeftColumn
+      {/* ── Pestañas ─────────────────────────────────────────────── */}
+      <div style={page.tabBar}>
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              ...page.tabBtn,
+              ...(activeTab === tab.key ? page.tabBtnActive : {}),
+            }}
+          >
+            {tab.label}
+            {tab.badge > 0 && (
+              <span style={{
+                ...page.tabBadge,
+                ...(activeTab === tab.key ? page.tabBadgeActive : {}),
+              }}>
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Contenido de la pestaña activa ───────────────────────── */}
+      <div style={page.content}>
+        {activeTab === 'lista' && (
+          <ListaTab
             items={items}
+            addItem={addItem}
             removeItem={removeItem}
             clearList={clearList}
-            selectedOrder={selectedOrder}
-            onShowList={handleShowList}
-            onCancelDelivery={handleCancelDelivery}
           />
-
-          {/* Derecha */}
-          <RightPanel
+        )}
+        {activeTab === 'pedidos' && (
+          <PedidosTab
             orders={orders}
-            selectedIdx={selectedIdx ?? 0}
-            onSelect={handleSelectOrder}
-            onRemove={handleRemoveOrder}
+            removeOrder={removeOrder}
+            updateOrderDelivery={updateOrderDelivery}
           />
-
-        </div>
-      ) : (
-        /* Sin pedidos: columna única centrada */
-        <div style={page.solo}>
-          <LeftColumn
-            items={items}
-            removeItem={removeItem}
-            clearList={clearList}
-            selectedOrder={null}
-            onShowList={handleShowList}
-          />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const page = {
-  root: {},
   header: {
-    textAlign: 'center', marginBottom: '24px',
+    textAlign: 'center', marginBottom: '16px',
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
   },
   title: { fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 },
-  subtitle: { fontSize: '13px', color: 'var(--text-muted)', margin: 0 },
   badge: {
     background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
     border: '1px solid var(--border)',
     borderRadius: '999px', fontSize: '12px', fontWeight: 600,
-    padding: '3px 12px', textAlign: 'center',
+    padding: '3px 12px',
   },
-  solo: { maxWidth: '480px', margin: '0 auto', width: '100%' },
+  tabBar: {
+    display: 'flex', gap: '4px',
+    borderBottom: '2px solid var(--border)',
+    marginBottom: '20px',
+  },
+  tabBtn: {
+    display: 'flex', alignItems: 'center', gap: '6px',
+    padding: '9px 18px',
+    background: 'none', border: 'none',
+    borderBottom: '2px solid transparent', marginBottom: '-2px',
+    fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)',
+    cursor: 'pointer', transition: 'color 0.15s, border-color 0.15s',
+  },
+  tabBtnActive: {
+    color: 'var(--accent)',
+    borderBottomColor: 'var(--accent)',
+  },
+  tabBadge: {
+    padding: '1px 7px', borderRadius: '999px',
+    background: 'var(--bg-elevated)', color: 'var(--text-muted)',
+    fontSize: '11px', fontWeight: 700,
+    border: '1px solid var(--border)',
+  },
+  tabBadgeActive: {
+    background: 'var(--accent-soft)', color: 'var(--accent)',
+    borderColor: 'var(--accent)',
+  },
+  content: { maxWidth: '600px', margin: '0 auto', width: '100%' },
 };
 
-const left = {
-  col: { display: 'flex', flexDirection: 'column', gap: '10px' },
+// ── Lista tab styles ───────────────────────────────────────────────────────────
+const lista = {
+  root: { display: 'flex', flexDirection: 'column', gap: '10px' },
 
-  // ── Vista pedido ────────────────────────────────────────────────────────
+  inputRow: { display: 'flex', gap: '8px' },
+  input: {
+    flex: 1, padding: '10px 14px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-base)', color: 'var(--text-primary)',
+    fontSize: '14px', outline: 'none',
+  },
+  addBtn: {
+    display: 'flex', alignItems: 'center', gap: '5px',
+    padding: '10px 16px',
+    borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontSize: '13px', fontWeight: 700, flexShrink: 0,
+  },
+
+  empty: {
+    padding: '32px 24px', textAlign: 'center',
+    background: 'var(--bg-surface)', border: '1px dashed var(--border)',
+    borderRadius: 'var(--radius-md)',
+    display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center',
+  },
+  emptyText: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 },
+  emptyHint: { fontSize: '12px', color: 'var(--text-muted)', margin: 0 },
+
+  toolbar: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '0 2px',
+  },
+  checkAll: { display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer' },
+  checkAllLabel: { fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 },
+  clearBtn: { background: 'none', border: 'none', fontSize: '12px', color: 'var(--error)', cursor: 'pointer', padding: '2px 4px' },
+
+  list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '4px' },
+  itemWrap: { display: 'flex', flexDirection: 'column' },
+  item: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)', padding: '10px 12px',
+    transition: 'border-color 0.15s',
+  },
+  itemClickable: { cursor: 'default' },
+  itemExpanded: {
+    borderColor: 'var(--accent)',
+    borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
+    borderBottom: 'none',
+  },
+  itemLabel: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 },
+  itemText: { display: 'flex', flexDirection: 'column', gap: '2px' },
+  itemName: { fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' },
+  itemBestPrice: { fontSize: '11px', color: 'var(--accent)', fontWeight: 700 },
+  itemNoPubs: { fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' },
+
+  expandBtn: {
+    display: 'flex', alignItems: 'center', gap: '4px',
+    padding: '4px 8px', borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border)', background: 'var(--bg-elevated)',
+    color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '11px',
+  },
+  removeBtn: {
+    background: 'none', border: 'none', color: 'var(--text-muted)',
+    cursor: 'pointer', padding: '5px', borderRadius: 'var(--radius-sm)',
+    display: 'flex', alignItems: 'center', flexShrink: 0,
+  },
+
+  carouselWrap: {
+    border: '1px solid var(--accent)',
+    borderTop: 'none',
+    borderBottomLeftRadius: 'var(--radius-md)',
+    borderBottomRightRadius: 'var(--radius-md)',
+    background: 'var(--bg-elevated)',
+    padding: '10px',
+  },
+
+  errorMsg: {
+    fontSize: '13px', color: 'var(--error)',
+    background: 'var(--error-soft, #fee2e2)',
+    padding: '10px 14px', borderRadius: 'var(--radius-sm)', margin: 0,
+  },
+
+  calcBtn: {
+    padding: '12px 16px',
+    borderRadius: 'var(--radius-md)', border: '1px solid var(--accent)',
+    background: 'var(--accent-soft)', color: 'var(--accent)',
+    fontWeight: 800, fontSize: '14px', width: '100%', marginTop: '4px',
+  },
+
+  separator: {
+    borderTop: '1px dashed var(--border)', margin: '4px 0',
+  },
+
+  orderBtn: {
+    padding: '12px',
+    borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontWeight: 800, fontSize: '14px', textAlign: 'center', width: '100%',
+  },
+};
+
+// ── Carousel styles ────────────────────────────────────────────────────────────
+const carousel = {
+  root: { overflow: 'hidden' },
+  track: {
+    display: 'flex', gap: '8px',
+    overflowX: 'auto', paddingBottom: '4px',
+    scrollbarWidth: 'thin',
+  },
+  empty: {
+    fontSize: '12px', color: 'var(--text-muted)',
+    fontStyle: 'italic', padding: '4px 0',
+  },
+  card: {
+    flexShrink: 0, minWidth: '150px', maxWidth: '180px',
+    display: 'flex', flexDirection: 'column', gap: '4px',
+    padding: '10px 12px',
+    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)', cursor: 'pointer',
+    textAlign: 'left', transition: 'border-color 0.15s',
+  },
+  cardBest: {
+    borderColor: 'var(--accent)',
+    background: 'var(--accent-soft, rgba(var(--accent-rgb,99,102,241),0.06))',
+  },
+  bestBadge: {
+    fontSize: '10px', fontWeight: 800, color: 'var(--accent)',
+    textTransform: 'uppercase', letterSpacing: '0.04em',
+  },
+  storeName: { fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 },
+  price: { fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' },
+  currency: { fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)' },
+  prodName: { fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.3 },
+  verLink: { fontSize: '11px', color: 'var(--accent)', fontWeight: 600, marginTop: '2px' },
+};
+
+// ── Pedidos tab styles ─────────────────────────────────────────────────────────
+const pedidos = {
+  root: { display: 'flex', flexDirection: 'column', gap: '10px' },
+
+  empty: {
+    padding: '40px 24px', textAlign: 'center',
+    background: 'var(--bg-surface)', border: '1px dashed var(--border)',
+    borderRadius: 'var(--radius-md)',
+    display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center',
+  },
+  emptyText: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 },
+  emptyHint: { fontSize: '12px', color: 'var(--text-muted)', margin: 0 },
+
+  carousel: {
+    display: 'flex', gap: '8px', overflowX: 'auto',
+    paddingBottom: '4px', scrollbarWidth: 'none',
+  },
+  pill: {
+    flexShrink: 0,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
+    padding: '10px 18px', borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border)', background: 'var(--bg-surface)',
+    cursor: 'pointer', transition: 'all 0.15s', minWidth: '90px',
+  },
+  pillActive: {
+    background: 'var(--accent)', borderColor: 'var(--accent)', color: '#fff',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+  },
+  pillId: { fontSize: '14px', fontWeight: 800, fontFamily: 'monospace' },
+  pillDate: { fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 },
+  pillTotal: { fontSize: '11px', fontWeight: 700, marginTop: '2px' },
+
   orderHeader: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '10px 14px',
     background: 'var(--bg-surface)', border: '1px solid var(--border)',
     borderRadius: 'var(--radius-md)',
   },
-  backBtn: {
-    background: 'none', border: 'none', fontSize: '13px', fontWeight: 600,
-    color: 'var(--accent)', cursor: 'pointer', padding: 0,
-  },
-  orderHeaderInfo: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1px' },
+  orderHeaderLeft: { display: 'flex', flexDirection: 'column', gap: '1px' },
   orderRef: { fontSize: '13px', fontWeight: 800, fontFamily: 'monospace', color: 'var(--text-primary)' },
   orderDate: { fontSize: '11px', color: 'var(--text-muted)' },
+  deleteBtn: {
+    background: 'none', border: 'none', color: 'var(--text-muted)',
+    cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center',
+  },
 
-  orderStats: {
+  stats: {
     display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '8px',
   },
   stat: {
@@ -588,9 +989,9 @@ const left = {
   statVal: { fontSize: '15px', fontWeight: 800, color: 'var(--accent)' },
   statLabel: { fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' },
 
-  orderProductsWrap: {
+  productsWrap: {
     display: 'flex', flexDirection: 'column', gap: '8px',
-    maxHeight: '420px', overflowY: 'auto',
+    maxHeight: '320px', overflowY: 'auto',
   },
   storeBlock: {
     background: 'var(--bg-surface)', border: '1px solid var(--border)',
@@ -602,99 +1003,15 @@ const left = {
     borderBottom: '1px solid var(--border)',
     fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)',
   },
-  storeBlockName: {},
-  storeBlockTotal: { fontSize: '12px', fontWeight: 700, color: 'var(--accent)' },
-  orderProdList: { listStyle: 'none', margin: 0, padding: 0 },
-  orderProdItem: {
+  prodList: { listStyle: 'none', margin: 0, padding: 0 },
+  prodItem: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     padding: '8px 14px', borderBottom: '1px solid var(--border)',
     fontSize: '13px',
   },
-  orderProdName: { fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' },
-  orderProdMeta: { fontSize: '11px', color: 'var(--text-muted)' },
-  orderProdTotal: { fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0, marginLeft: '8px' },
-
-  // ── Vista lista ─────────────────────────────────────────────────────────
-  empty: {
-    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px',
-    padding: '24px', background: 'var(--bg-surface)',
-    border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
-  },
-  emptyText: { fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 },
-  addLink: {
-    display: 'inline-flex', alignItems: 'center', gap: '6px',
-    padding: '8px 14px', background: 'var(--accent)', color: '#fff',
-    borderRadius: 'var(--radius-md)', fontSize: '13px', fontWeight: 700,
-    textDecoration: 'none', marginTop: '4px',
-  },
-  toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 2px' },
-  checkAll: { display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer' },
-  checkAllLabel: { fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 },
-  clearBtn: { background: 'none', border: 'none', fontSize: '12px', color: 'var(--error)', cursor: 'pointer', padding: '2px 4px' },
-  list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '6px' },
-  item: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    background: 'var(--bg-surface)', border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-md)', padding: '10px 12px',
-  },
-  itemLabel: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 },
-  itemText: { display: 'flex', flexDirection: 'column', gap: '1px' },
-  itemName: { fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' },
-  itemPrice: { fontSize: '11px', color: 'var(--accent)', fontWeight: 600 },
-  removeBtn: {
-    background: 'none', border: 'none', color: 'var(--text-muted)',
-    cursor: 'pointer', padding: '5px', borderRadius: 'var(--radius-sm)',
-    display: 'flex', alignItems: 'center', flexShrink: 0,
-  },
-  addMore: {
-    display: 'inline-flex', alignItems: 'center', gap: '5px',
-    padding: '7px 12px', border: '1px dashed var(--border)',
-    borderRadius: 'var(--radius-md)', fontSize: '12px', fontWeight: 600,
-    color: 'var(--text-secondary)', textDecoration: 'none', alignSelf: 'flex-start',
-  },
-  orderBtn: {
-    padding: '12px', borderRadius: 'var(--radius-md)', border: 'none',
-    background: 'var(--accent)', color: '#fff', fontWeight: 800,
-    fontSize: '14px', textAlign: 'center', width: '100%', marginTop: '4px',
-  },
-};
-
-const right = {
-  root: { display: 'flex', flexDirection: 'column', gap: '10px' },
-
-  carousel: {
-    display: 'flex', gap: '8px', overflowX: 'auto',
-    paddingBottom: '4px', scrollbarWidth: 'none',
-  },
-  pill: {
-    flexShrink: 0,
-    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
-    padding: '10px 18px', borderRadius: 'var(--radius-md)',
-    border: '1px solid var(--border)', background: 'var(--bg-surface)',
-    cursor: 'pointer', transition: 'all 0.15s',
-    minWidth: '90px',
-  },
-  pillActive: {
-    background: 'var(--accent)', borderColor: 'var(--accent)', color: '#fff',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-  },
-  pillId: { fontSize: '14px', fontWeight: 800, fontFamily: 'monospace' },
-  pillDate: { fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 },
-  pillTotal: { fontSize: '11px', fontWeight: 700, marginTop: '2px' },
-
-  meta: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '10px 14px',
-    background: 'var(--bg-surface)', border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-md)',
-  },
-  metaLeft: { display: 'flex', flexDirection: 'column', gap: '2px' },
-  metaId: { fontSize: '12px', fontFamily: 'monospace', fontWeight: 700, color: 'var(--accent)' },
-  metaStores: { fontSize: '12px', color: 'var(--text-muted)' },
-  deleteBtn: {
-    background: 'none', border: 'none', color: 'var(--text-muted)',
-    cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center',
-  },
+  prodName: { fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' },
+  prodMeta: { fontSize: '11px', color: 'var(--text-muted)' },
+  prodTotal: { fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0, marginLeft: '8px' },
 
   mapWrap: {
     borderRadius: 'var(--radius-md)', overflow: 'hidden',
