@@ -128,7 +128,7 @@ function DeliveryCard({ order, onCancel }) {
 }
 
 // ─── Carrusel de publicaciones por ítem ───────────────────────────────────────
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 8;
 
 function useIsMobile() {
   const [mobile, setMobile] = useState(() => window.innerWidth < 640);
@@ -196,7 +196,7 @@ function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail
     );
   }
 
-  // ── Desktop: paginación de 6 ─────────────────────────────────────────────────
+  // ── Desktop: paginación de 8 ─────────────────────────────────────────────────
   const totalPages = Math.ceil(publications.length / PAGE_SIZE);
   const start = page * PAGE_SIZE;
   const visible = publications.slice(start, start + PAGE_SIZE);
@@ -1321,9 +1321,9 @@ const lista = {
 
 // ── Carousel styles ────────────────────────────────────────────────────────────
 const carousel = {
-  // Desktop: fila estática sin overflow
+  // Desktop: fila estática sin overflow, centrada
   track: {
-    display: 'flex', gap: '8px', flexWrap: 'wrap',
+    display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center',
   },
   // Mobile: scroll horizontal libre
   mobileTrack: {
