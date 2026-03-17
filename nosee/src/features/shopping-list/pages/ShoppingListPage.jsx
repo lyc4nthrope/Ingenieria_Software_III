@@ -182,8 +182,103 @@ function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail
   );
 }
 
+// ─── Construir resultado desde selecciones manuales ───────────────────────────
+function buildResultFromSelections(items, selectedPubs) {
+  const storeMap = {};
+  const noResultItems = [];
+  for (const item of items) {
+    const pub = selectedPubs[item.id];
+    if (!pub) { noResultItems.push(item); continue; }
+    const sid = String(pub.store?.id ?? 'unknown');
+    if (!storeMap[sid]) storeMap[sid] = { store: pub.store, products: [] };
+    storeMap[sid].products.push({ item, publication: pub, price: pub.price ?? 0 });
+  }
+  const stores = Object.values(storeMap);
+  const totalCost = stores.reduce(
+    (s, st) => s + st.products.reduce((ps, p) => ps + p.price * (p.item.quantity || 1), 0), 0
+  );
+  return { stores, totalCost, savings: 0, savingsPct: 0, noResultItems };
+}
+
+// ─── Vista Resultado de Optimización ──────────────────────────────────────────
+function ResultView({ result, deliveryMode, onBack, onConfirm }) {
+  const { stores, totalCost, noResultItems } = result;
+  const isDelivery = deliveryMode === 'delivery';
+  const modeLabel = isDelivery ? 'Pedido con domicilio' : 'Lista para recoger yo';
+  const confirmLabel = isDelivery ? 'Confirmar pedido' : 'Confirmar lista';
+
+  return (
+    <div style={resv.root}>
+      {/* Header */}
+      <div style={resv.header}>
+        <button type="button" onClick={onBack} style={resv.backBtn}>← Volver</button>
+        <h2 style={resv.title}>Resultado de Optimización</h2>
+        <span style={resv.modeBadge}>
+          {isDelivery ? '🛵' : '🚶'} {modeLabel}
+        </span>
+      </div>
+
+      {/* Total */}
+      <div style={resv.totalRow}>
+        <span style={resv.totalLabel}>Total</span>
+        <span style={resv.totalValue}>${totalCost.toLocaleString('es-CO')} COP</span>
+      </div>
+
+      {/* Sin resultados */}
+      {noResultItems.length > 0 && (
+        <div style={resv.warning}>
+          <p style={{ margin: 0, fontWeight: 600, fontSize: '13px' }}>Sin publicación elegida:</p>
+          {noResultItems.map((item) => (
+            <p key={item.id} style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>
+              • {item.productName}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Desglose por tienda */}
+      <div style={resv.storeList}>
+        {stores.map((s, si) => {
+          const emoji = Number(s.store?.store_type_id) === 2 ? '🌐' : '🏪';
+          const subtotal = s.products.reduce((a, p) => a + p.price * (p.item.quantity || 1), 0);
+          return (
+            <div key={si} style={resv.storeCard}>
+              <div style={resv.storeHeader}>
+                <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
+                <span style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: 700 }}>
+                  ${subtotal.toLocaleString('es-CO')}
+                </span>
+              </div>
+              <ul style={resv.prodList}>
+                {s.products.map((p, pi) => (
+                  <li key={pi} style={resv.prodItem}>
+                    <div>
+                      <div style={resv.prodName}>{p.item.productName}</div>
+                      <div style={resv.prodMeta}>
+                        ×{p.item.quantity || 1} · ${p.price.toLocaleString('es-CO')} c/u
+                      </div>
+                    </div>
+                    <span style={resv.prodTotal}>
+                      ${(p.price * (p.item.quantity || 1)).toLocaleString('es-CO')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Botón confirmar */}
+      <button type="button" onClick={onConfirm} style={resv.confirmBtn}>
+        {confirmLabel}
+      </button>
+    </div>
+  );
+}
+
 // ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
-function ListaTab({ items, addItem, removeItem, clearList, saveList }) {
+function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder }) {
   const [inputValue, setInputValue] = useState('');
   const [saveInput, setSaveInput] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
@@ -195,6 +290,13 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList }) {
 
   // Publicación seleccionada por ítem: { [itemId]: publication }
   const [selectedPubs, setSelectedPubs] = useState({});
+
+  // Modo de entrega elegido antes de confirmar
+  const [deliveryMode, setDeliveryMode] = useState(null); // null | 'delivery' | 'pickup'
+
+  // Fase: 'list' = lista normal, 'result' = resultado de optimización
+  const [phase, setPhase] = useState('list');
+  const [orderResult, setOrderResult] = useState(null);
 
   // Ítem expandido (muestra carrusel)
   const [expandedId, setExpandedId] = useState(null);
@@ -270,11 +372,50 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList }) {
   };
 
   const isCalculated = calcResults !== null;
+  const hasSelections = Object.keys(selectedPubs).length > 0;
 
   // Total basado en las opciones seleccionadas
   const total = isCalculated
     ? Object.values(selectedPubs).reduce((sum, pub) => sum + (pub?.price ?? 0), 0)
     : 0;
+
+  const handleGoToResult = () => {
+    const result = buildResultFromSelections(items, selectedPubs);
+    setOrderResult(result);
+    setPhase('result');
+  };
+
+  const handleConfirmOrder = () => {
+    if (!orderResult) return;
+    addOrder({
+      id: `NSE-${Date.now().toString(36).toUpperCase()}`,
+      result: orderResult,
+      userCoords: null,
+      createdAt: new Date().toISOString(),
+      deliveryMode: deliveryMode === 'delivery',
+      deliveryStatus: deliveryMode === 'delivery' ? 'searching' : null,
+      driverLocation: null,
+      cancellationCharged: false,
+    });
+    // Resetear estado
+    setPhase('list');
+    setCalcResults(null);
+    setSelectedPubs({});
+    setDeliveryMode(null);
+    setOrderResult(null);
+  };
+
+  // ── Fase resultado ───────────────────────────────────────────────────────
+  if (phase === 'result' && orderResult) {
+    return (
+      <ResultView
+        result={orderResult}
+        deliveryMode={deliveryMode}
+        onBack={() => setPhase('list')}
+        onConfirm={handleConfirmOrder}
+      />
+    );
+  }
 
   return (
     <div style={lista.root}>
@@ -450,6 +591,47 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList }) {
                 <span style={lista.totalSub}>
                   {Object.keys(selectedPubs).length} {Object.keys(selectedPubs).length === 1 ? 'producto elegido' : 'productos elegidos'}
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Botones de modo de entrega + Confirmar ──────────── */}
+          {isCalculated && hasSelections && (
+            <div style={lista.deliveryBlock}>
+              <p style={lista.deliveryLabel}>¿Cómo vas a recibir tus productos?</p>
+              <div style={lista.deliveryRow}>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMode('delivery')}
+                  style={{
+                    ...lista.deliveryBtn,
+                    ...(deliveryMode === 'delivery' ? lista.deliveryBtnActive : {}),
+                  }}
+                >
+                  🛵 Domicilio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMode('pickup')}
+                  style={{
+                    ...lista.deliveryBtn,
+                    ...(deliveryMode === 'pickup' ? lista.deliveryBtnActive : {}),
+                  }}
+                >
+                  🚶 Voy yo
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGoToResult}
+                  disabled={!deliveryMode}
+                  style={{
+                    ...lista.confirmBtn,
+                    opacity: deliveryMode ? 1 : 0.4,
+                    cursor: deliveryMode ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Confirmar
+                </button>
               </div>
             </div>
           )}
@@ -777,7 +959,7 @@ export default function ShoppingListPage() {
 
   const {
     items, addItem, removeItem, clearList,
-    orders, removeOrder, updateOrderDelivery,
+    orders, addOrder, removeOrder, updateOrderDelivery,
     savedLists, saveList, loadSavedList, deleteSavedList,
   } = useShoppingListStore();
 
@@ -853,6 +1035,7 @@ export default function ShoppingListPage() {
             removeItem={removeItem}
             clearList={clearList}
             saveList={saveList}
+            addOrder={addOrder}
           />
         </div>
       ) : (
@@ -1025,6 +1208,31 @@ const lista = {
     fontSize: '13px', color: 'var(--error)',
     background: 'var(--error-soft, #fee2e2)',
     padding: '10px 14px', borderRadius: 'var(--radius-sm)', margin: 0,
+  },
+
+  deliveryBlock: {
+    display: 'flex', flexDirection: 'column', gap: '8px',
+    padding: '12px', background: 'var(--bg-surface)',
+    border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
+  },
+  deliveryLabel: { fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', margin: 0 },
+  deliveryRow: { display: 'flex', gap: '6px' },
+  deliveryBtn: {
+    flex: 1, padding: '10px 8px',
+    borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
+    fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  deliveryBtnActive: {
+    background: 'var(--accent-soft)', color: 'var(--accent)',
+    borderColor: 'var(--accent)', fontWeight: 700,
+  },
+  confirmBtn: {
+    flex: 1, padding: '10px 8px',
+    borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontSize: '13px', fontWeight: 800,
   },
 
   calcBtn: {
@@ -1226,5 +1434,58 @@ const sidebar = {
   deleteBtn: {
     background: 'none', border: 'none', color: 'var(--text-muted)',
     cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', flexShrink: 0,
+  },
+};
+
+// ── ResultView styles ──────────────────────────────────────────────────────────
+const resv = {
+  root: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  header: { display: 'flex', flexDirection: 'column', gap: '4px' },
+  backBtn: {
+    background: 'none', border: 'none', fontSize: '13px', fontWeight: 600,
+    color: 'var(--accent)', cursor: 'pointer', padding: 0, alignSelf: 'flex-start',
+  },
+  title: { fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 },
+  modeBadge: {
+    display: 'inline-flex', alignItems: 'center', gap: '5px',
+    padding: '4px 10px', borderRadius: '999px',
+    background: 'var(--accent-soft)', color: 'var(--accent)',
+    border: '1px solid var(--accent)', fontSize: '12px', fontWeight: 700,
+    alignSelf: 'flex-start',
+  },
+  totalRow: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '12px 16px', background: 'var(--bg-surface)',
+    border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
+  },
+  totalLabel: { fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 },
+  totalValue: { fontSize: '18px', fontWeight: 800, color: 'var(--accent)' },
+  warning: {
+    background: 'var(--warning-soft, #fef9c3)', border: '1px solid var(--warning, #ca8a04)',
+    borderRadius: 'var(--radius-md)', padding: '10px 14px', color: 'var(--text-primary)',
+  },
+  storeList: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  storeCard: {
+    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)', overflow: 'hidden',
+  },
+  storeHeader: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '9px 14px', background: 'var(--bg-elevated)',
+    borderBottom: '1px solid var(--border)',
+    fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)',
+  },
+  prodList: { listStyle: 'none', margin: 0, padding: 0 },
+  prodItem: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '8px 14px', borderBottom: '1px solid var(--border)', fontSize: '13px',
+  },
+  prodName: { fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' },
+  prodMeta: { fontSize: '11px', color: 'var(--text-muted)' },
+  prodTotal: { fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0, marginLeft: '8px' },
+  confirmBtn: {
+    padding: '14px', borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontWeight: 800, fontSize: '15px', cursor: 'pointer', width: '100%',
   },
 };
