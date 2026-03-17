@@ -10,7 +10,7 @@
 import { useState, useEffect } from 'react';
 import { changeUserRole, getAdminReports, getAllUsers, updateReportReview, updateUserStatus } from '@/services/api/users.api';
 import { insertActionLog, getActionLogs, getLoginLogs, getUserActivityLogs } from '@/services/api/audit.api';
-import { getActionLabel as _getActionLabel, getObjectType as _getObjectType, getObjectInfo as _getObjectInfo, getDescription as _getDescription, parseBrowser, getActionCategory } from '@/features/dashboard/admin/logHelpers';
+import { getActionLabel as _getActionLabel, getObjectType as _getObjectType, getObjectInfo as _getObjectInfo, getDescription as _getDescription, parseBrowser as _parseBrowser, getActionCategory } from '@/features/dashboard/admin/logHelpers';
 import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';

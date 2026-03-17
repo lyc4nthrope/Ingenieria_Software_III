@@ -21,7 +21,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ─── Capturar el listener registrado en onAuthStateChange ────────────────────
 let capturedAuthListener = null;
-let mockInsertFn = null;
 
 const { fromMock, mockInsert: _mockInsert } = vi.hoisted(() => {
   const mockInsert = vi.fn().mockResolvedValue({ data: null, error: null });

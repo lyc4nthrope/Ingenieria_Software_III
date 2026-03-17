@@ -445,7 +445,6 @@ const comboStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
     margin: '0 8px',
   },
   optionName: {

@@ -110,7 +110,7 @@ export default function CreateOrderPage() {
       const optimized = optimizeFn(itemResults);
       setResult(optimized);
       setPhase('result');
-    } catch (err) {
+    } catch {
       setCalcError('Error al calcular la cesta. Intentá nuevamente.');
     } finally {
       setCalculating(false);
