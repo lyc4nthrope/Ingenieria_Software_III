@@ -48,7 +48,7 @@
       },
       "targets": [
         {
-          "expr": "100 * rate(nosee_auth_login_total{result=\"success\"}[5m]) / (rate(nosee_auth_login_total[5m]) > 0)",
+          "expr": "100 * sum(nosee_auth_login_total{result=\"success\"}) / (sum(nosee_auth_login_total) > 0)",
           "legendFormat": "Tasa Éxito Login",
           "refId": "A"
         }
@@ -87,7 +87,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(nosee_auth_login_duration_ms_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, sum by (le) (increase(nosee_auth_login_duration_ms_bucket[24h])))",
           "legendFormat": "JWT Latency P95",
           "refId": "A"
         }
@@ -126,7 +126,7 @@
       },
       "targets": [
         {
-          "expr": "100 * rate(nosee_auth_login_abandons_total[1h]) / (rate(nosee_auth_login_page_views_total[1h]) > 0)",
+          "expr": "100 * sum(nosee_auth_login_abandons_total) / (sum(nosee_auth_login_page_views_total) > 0)",
           "legendFormat": "% Abandono Login",
           "refId": "A"
         }
@@ -165,7 +165,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(nosee_auth_register_duration_seconds_bucket[1h]))",
+          "expr": "histogram_quantile(0.95, sum by (le) (increase(nosee_auth_register_duration_seconds_bucket[24h])))",
           "legendFormat": "Registro P95",
           "refId": "A"
         }
@@ -181,7 +181,7 @@
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "short",
           "custom": { "lineWidth": 2, "fillOpacity": 10 }
         },
         "overrides": [
@@ -197,12 +197,12 @@
       },
       "targets": [
         {
-          "expr": "rate(nosee_auth_login_total{result=\"success\"}[5m])",
+          "expr": "increase(nosee_auth_login_total{result=\"success\"}[1h])",
           "legendFormat": "Éxitos",
           "refId": "A"
         },
         {
-          "expr": "rate(nosee_auth_login_total{result=\"failure\"}[5m])",
+          "expr": "increase(nosee_auth_login_total{result=\"failure\"}[1h])",
           "legendFormat": "Fallos",
           "refId": "B"
         }
@@ -231,20 +231,20 @@
         }
       },
       "options": {
-        "reduceOptions": { "calcs": ["sum"] },
+        "reduceOptions": { "calcs": ["lastNotNull"] },
         "orientation": "auto",
         "textMode": "auto",
         "colorMode": "background"
       },
       "targets": [
         {
-          "expr": "increase(nosee_auth_role_errors_total[24h])",
-          "legendFormat": "Errores de Rol (24h)",
+          "expr": "sum(nosee_auth_role_errors_total) or vector(0)",
+          "legendFormat": "Errores de Rol (total)",
           "refId": "A"
         },
         {
-          "expr": "100 * rate(nosee_auth_password_recovery_total{result=\"success\"}[7d]) / (rate(nosee_auth_password_recovery_total[7d]) > 0)",
-          "legendFormat": "% Recuperación Exitosa (7d)",
+          "expr": "100 * sum(nosee_auth_password_recovery_total{result=\"success\"}) / (sum(nosee_auth_password_recovery_total) > 0)",
+          "legendFormat": "% Recuperación Exitosa",
           "refId": "B"
         }
       ]
@@ -290,7 +290,7 @@
       },
       "targets": [
         {
-          "expr": "nosee_publications_upvote_ratio",
+          "expr": "sum(nosee_publications_votes_total{type=\"upvote\"}) / (sum(nosee_publications_votes_total) > 0)",
           "legendFormat": "Upvote Ratio",
           "refId": "A"
         }
@@ -329,7 +329,7 @@
       },
       "targets": [
         {
-          "expr": "nosee_publications_evidence_ratio",
+          "expr": "sum(nosee_publications_with_image_total) / (sum(nosee_publications_created_total) > 0)",
           "legendFormat": "Evidence Ratio",
           "refId": "A"
         }
@@ -338,8 +338,8 @@
 
     {
       "id": 9,
-      "title": "Publicaciones Creadas (24h)",
-      "description": "Total de publicaciones en las últimas 24 horas",
+      "title": "Publicaciones Creadas (total)",
+      "description": "Total acumulado de publicaciones de precios",
       "type": "stat",
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 18 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
@@ -363,7 +363,7 @@
       },
       "targets": [
         {
-          "expr": "increase(nosee_publications_created_total[24h])",
+          "expr": "sum(nosee_publications_created_total) or vector(0)",
           "legendFormat": "Publicaciones",
           "refId": "A"
         }
@@ -372,7 +372,7 @@
 
     {
       "id": 10,
-      "title": "Contenido Denunciado (24h)",
+      "title": "Contenido Denunciado (total)",
       "description": "Tasa de Contenido Denunciado — Meta: <5% de activas",
       "type": "stat",
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 18 },
@@ -399,7 +399,7 @@
       },
       "targets": [
         {
-          "expr": "increase(nosee_publications_reports_total[24h])",
+          "expr": "sum(nosee_publications_reports_total) or vector(0)",
           "legendFormat": "Reportes",
           "refId": "A"
         }
@@ -408,8 +408,8 @@
 
     {
       "id": 11,
-      "title": "Total de Votos (24h)",
-      "description": "Upvotes vs Downvotes",
+      "title": "Total de Votos",
+      "description": "Upvotes vs Downvotes acumulados",
       "type": "stat",
       "gridPos": { "h": 4, "w": 12, "x": 12, "y": 22 },
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
@@ -439,12 +439,12 @@
       },
       "targets": [
         {
-          "expr": "increase(nosee_publications_votes_total{type=\"upvote\"}[24h])",
+          "expr": "sum(nosee_publications_votes_total{type=\"upvote\"}) or vector(0)",
           "legendFormat": "Upvotes",
           "refId": "A"
         },
         {
-          "expr": "increase(nosee_publications_votes_total{type=\"downvote\"}[24h])",
+          "expr": "sum(nosee_publications_votes_total{type=\"downvote\"}) or vector(0)",
           "legendFormat": "Downvotes",
           "refId": "B"
         }
@@ -465,24 +465,24 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Downvotes/s" },
+            "matcher": { "id": "byName", "options": "Downvotes" },
             "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
           },
           {
-            "matcher": { "id": "byName", "options": "Upvotes/s" },
+            "matcher": { "id": "byName", "options": "Upvotes" },
             "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
           }
         ]
       },
       "targets": [
         {
-          "expr": "rate(nosee_publications_votes_total{type=\"upvote\"}[5m])",
-          "legendFormat": "Upvotes/s",
+          "expr": "increase(nosee_publications_votes_total{type=\"upvote\"}[1h])",
+          "legendFormat": "Upvotes",
           "refId": "A"
         },
         {
-          "expr": "rate(nosee_publications_votes_total{type=\"downvote\"}[5m])",
-          "legendFormat": "Downvotes/s",
+          "expr": "increase(nosee_publications_votes_total{type=\"downvote\"}[1h])",
+          "legendFormat": "Downvotes",
           "refId": "B"
         }
       ]
@@ -528,7 +528,7 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le, endpoint) (rate(nosee_api_request_duration_ms_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, endpoint) (increase(nosee_api_request_duration_ms_bucket[24h])))",
           "legendFormat": "{{ endpoint }}",
           "refId": "A"
         }
@@ -550,17 +550,17 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(nosee_api_request_duration_ms_bucket[5m]))",
+          "expr": "histogram_quantile(0.50, sum by (le) (increase(nosee_api_request_duration_ms_bucket[1h])))",
           "legendFormat": "P50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(nosee_api_request_duration_ms_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, sum by (le) (increase(nosee_api_request_duration_ms_bucket[1h])))",
           "legendFormat": "P95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, rate(nosee_api_request_duration_ms_bucket[5m]))",
+          "expr": "histogram_quantile(0.99, sum by (le) (increase(nosee_api_request_duration_ms_bucket[1h])))",
           "legendFormat": "P99",
           "refId": "C"
         }
@@ -588,10 +588,10 @@
   "refresh": "15s",
   "schemaVersion": 37,
   "tags": ["nosee", "iso25010", "calidad"],
-  "time": { "from": "now-1h", "to": "now" },
+  "time": { "from": "now-24h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
   "title": "NØSEE — Métricas de Calidad ISO/IEC 25010",
   "uid": "nosee-quality-iso25010",
-  "version": 1
+  "version": 2
 }
