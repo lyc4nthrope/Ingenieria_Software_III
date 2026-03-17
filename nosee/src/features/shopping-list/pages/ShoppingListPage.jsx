@@ -128,7 +128,7 @@ function DeliveryCard({ order, onCancel }) {
 }
 
 // ─── Carrusel de publicaciones por ítem ───────────────────────────────────────
-function PublicationsCarousel({ publications, onOpenDetail }) {
+function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail }) {
   if (!publications || publications.length === 0) {
     return (
       <div style={carousel.empty}>
@@ -142,20 +142,23 @@ function PublicationsCarousel({ publications, onOpenDetail }) {
       <div style={carousel.track}>
         {publications.map((pub, idx) => {
           const isBest = idx === 0;
+          const isSelected = (pub.id ?? idx) === selectedId;
           const storeEmoji = Number(pub.store?.store_type_id) === 2 ? '🌐' : '🏪';
           return (
-            <button
+            <div
               key={pub.id ?? idx}
-              type="button"
-              onClick={() => onOpenDetail(pub)}
               style={{
                 ...carousel.card,
                 ...(isBest ? carousel.cardBest : {}),
+                ...(isSelected ? carousel.cardSelected : {}),
               }}
             >
-              {isBest && (
-                <span style={carousel.bestBadge}>★ Mejor Opción</span>
-              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {isBest && <span style={carousel.bestBadge}>★ Mejor Opción</span>}
+                  {isSelected && <span style={carousel.selectedBadge}>✓ Seleccionado</span>}
+                </div>
+              </div>
               <span style={carousel.storeName}>
                 {storeEmoji} {pub.store?.name ?? 'Tienda'}
               </span>
@@ -164,8 +167,26 @@ function PublicationsCarousel({ publications, onOpenDetail }) {
                 <span style={carousel.currency}> COP</span>
               </span>
               <span style={carousel.prodName}>{pub.productName ?? pub.product_name ?? '—'}</span>
-              <span style={carousel.verLink}>Ver detalle →</span>
-            </button>
+              <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(pub)}
+                  style={{
+                    ...carousel.selectBtn,
+                    ...(isSelected ? carousel.selectBtnActive : {}),
+                  }}
+                >
+                  {isSelected ? '✓ Elegida' : 'Elegir'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenDetail(pub)}
+                  style={carousel.detailBtn}
+                >
+                  Ver →
+                </button>
+              </div>
+            </div>
           );
         })}
       </div>
@@ -181,6 +202,9 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
   const [calcResults, setCalcResults] = useState(null);
   const [calculating, setCalculating] = useState(false);
   const [calcError, setCalcError] = useState(null);
+
+  // Publicación seleccionada por ítem: { [itemId]: publication }
+  const [selectedPubs, setSelectedPubs] = useState({});
 
   // Ítem expandido (muestra carrusel)
   const [expandedId, setExpandedId] = useState(null);
@@ -205,12 +229,8 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
 
   const handleRemove = (id) => {
     removeItem(id);
-    setCalcResults((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    setCalcResults((prev) => { if (!prev) return prev; const n = { ...prev }; delete n[id]; return n; });
+    setSelectedPubs((prev) => { const n = { ...prev }; delete n[id]; return n; });
     if (expandedId === id) setExpandedId(null);
   };
 
@@ -235,7 +255,14 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
           return [item.id, sorted];
         })
       );
-      setCalcResults(Object.fromEntries(results));
+      const resultsMap = Object.fromEntries(results);
+      setCalcResults(resultsMap);
+      // Pre-seleccionar la mejor opción (índice 0) para cada ítem
+      const defaults = {};
+      for (const [id, pubs] of results) {
+        if (pubs.length > 0) defaults[id] = pubs[0];
+      }
+      setSelectedPubs(defaults);
     } catch {
       setCalcError('Error al calcular la canasta. Intentá nuevamente.');
     } finally {
@@ -248,7 +275,16 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  const handleSelectPub = (itemId, pub) => {
+    setSelectedPubs((prev) => ({ ...prev, [itemId]: pub }));
+  };
+
   const isCalculated = calcResults !== null;
+
+  // Total basado en las opciones seleccionadas
+  const total = isCalculated
+    ? Object.values(selectedPubs).reduce((sum, pub) => sum + (pub?.price ?? 0), 0)
+    : 0;
 
   return (
     <div style={lista.root}>
@@ -298,7 +334,8 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
               const isExpanded = expandedId === item.id;
               const pubs = calcResults?.[item.id];
               const hasPubs = pubs && pubs.length > 0;
-              const bestPrice = hasPubs ? pubs[0].price : null;
+              const chosenPub = selectedPubs[item.id];
+              const chosenPrice = chosenPub?.price ?? null;
 
               return (
                 <li key={item.id} style={lista.itemWrap}>
@@ -311,9 +348,10 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
                   >
                     <div style={lista.itemText}>
                       <span style={lista.itemName}>{item.productName}</span>
-                      {isCalculated && bestPrice !== null && (
+                      {isCalculated && chosenPrice !== null && (
                         <span style={lista.itemBestPrice}>
-                          ★ Desde ${bestPrice.toLocaleString('es-CO')} COP
+                          ${chosenPrice.toLocaleString('es-CO')} COP
+                          {chosenPub?.store?.name ? ` · ${chosenPub.store.name}` : ''}
                         </span>
                       )}
                       {isCalculated && !hasPubs && (
@@ -327,7 +365,7 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
                           type="button"
                           onClick={() => toggleExpand(item.id)}
                           style={lista.expandBtn}
-                          title={isExpanded ? 'Ocultar coincidencias' : 'Ver coincidencias'}
+                          title={isExpanded ? 'Ocultar opciones' : 'Ver opciones'}
                         >
                           <span style={{ fontSize: '11px', fontWeight: 600 }}>
                             {pubs.length} {pubs.length === 1 ? 'opción' : 'opciones'}
@@ -351,6 +389,8 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
                     <div style={lista.carouselWrap}>
                       <PublicationsCarousel
                         publications={pubs}
+                        selectedId={chosenPub?.id ?? (pubs[0]?.id ?? 0)}
+                        onSelect={(pub) => handleSelectPub(item.id, pub)}
                         onOpenDetail={setDetailPub}
                       />
                     </div>
@@ -359,6 +399,22 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
               );
             })}
           </ul>
+
+          {/* ── Tarjeta de total ────────────────────────────────── */}
+          {isCalculated && Object.keys(selectedPubs).length > 0 && (
+            <div style={lista.totalCard}>
+              <div style={lista.totalCardInner}>
+                <span style={lista.totalLabel}>Total estimado</span>
+                <span style={lista.totalValue}>
+                  ${total.toLocaleString('es-CO')}
+                  <span style={lista.totalCurrency}> COP</span>
+                </span>
+                <span style={lista.totalSub}>
+                  {Object.keys(selectedPubs).length} {Object.keys(selectedPubs).length === 1 ? 'producto elegido' : 'productos elegidos'}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* ── Error de cálculo ────────────────────────────────── */}
           {calcError && (
@@ -815,6 +871,24 @@ const lista = {
     padding: '10px',
   },
 
+  totalCard: {
+    background: 'var(--bg-surface)', border: '2px solid var(--accent)',
+    borderRadius: 'var(--radius-md)', padding: '12px 16px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  totalCardInner: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+  },
+  totalLabel: {
+    fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)',
+    textTransform: 'uppercase', letterSpacing: '0.06em',
+  },
+  totalValue: {
+    fontSize: '22px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2,
+  },
+  totalCurrency: { fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)' },
+  totalSub: { fontSize: '11px', color: 'var(--text-muted)' },
+
   errorMsg: {
     fontSize: '13px', color: 'var(--error)',
     background: 'var(--error-soft, #fee2e2)',
@@ -872,7 +946,34 @@ const carousel = {
   price: { fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' },
   currency: { fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)' },
   prodName: { fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.3 },
-  verLink: { fontSize: '11px', color: 'var(--accent)', fontWeight: 600, marginTop: '2px' },
+  cardSelected: {
+    borderColor: 'var(--accent)',
+    boxShadow: '0 0 0 2px var(--accent)',
+    background: 'var(--accent-soft, rgba(99,102,241,0.08))',
+  },
+  selectedBadge: {
+    fontSize: '10px', fontWeight: 800, color: 'var(--accent)',
+    textTransform: 'uppercase', letterSpacing: '0.04em',
+  },
+  selectBtn: {
+    flex: 1, padding: '4px 0',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
+    color: 'var(--text-secondary)',
+    fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+  },
+  selectBtnActive: {
+    background: 'var(--accent)', borderColor: 'var(--accent)', color: '#fff',
+  },
+  detailBtn: {
+    padding: '4px 8px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border)',
+    background: 'none',
+    color: 'var(--accent)',
+    fontSize: '11px', fontWeight: 600, cursor: 'pointer', flexShrink: 0,
+  },
 };
 
 // ── Pedidos tab styles ─────────────────────────────────────────────────────────
