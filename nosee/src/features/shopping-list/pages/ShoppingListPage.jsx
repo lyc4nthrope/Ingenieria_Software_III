@@ -183,8 +183,10 @@ function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail
 }
 
 // ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
-function ListaTab({ items, addItem, removeItem, clearList }) {
+function ListaTab({ items, addItem, removeItem, clearList, saveList }) {
   const [inputValue, setInputValue] = useState('');
+  const [saveInput, setSaveInput] = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
 
   // Resultados del cálculo: { [itemId]: publications[] }
   const [calcResults, setCalcResults] = useState(null);
@@ -313,8 +315,56 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
             <span style={lista.itemCount}>
               {items.length} {items.length === 1 ? 'producto' : 'productos'}
             </span>
-            <button type="button" onClick={clearList} style={lista.clearBtn}>Limpiar todo</button>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setShowSaveInput((v) => !v)}
+                style={lista.saveBtn}
+                title="Guardar lista con un nombre"
+              >
+                💾 Guardar
+              </button>
+              <button type="button" onClick={clearList} style={lista.clearBtn}>Limpiar</button>
+            </div>
           </div>
+
+          {/* ── Input para guardar lista ────────────────────────── */}
+          {showSaveInput && (
+            <div style={lista.saveRow}>
+              <input
+                type="text"
+                value={saveInput}
+                onChange={(e) => setSaveInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && saveInput.trim()) {
+                    saveList(saveInput);
+                    setSaveInput('');
+                    setShowSaveInput(false);
+                  }
+                  if (e.key === 'Escape') setShowSaveInput(false);
+                }}
+                placeholder="Nombre de la lista (ej: Mercado semanal)"
+                style={lista.saveInput}
+                autoFocus
+              />
+              <button
+                type="button"
+                disabled={!saveInput.trim()}
+                onClick={() => {
+                  saveList(saveInput);
+                  setSaveInput('');
+                  setShowSaveInput(false);
+                }}
+                style={{
+                  ...lista.saveConfirmBtn,
+                  opacity: saveInput.trim() ? 1 : 0.45,
+                  cursor: saveInput.trim() ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Guardar
+              </button>
+            </div>
+          )}
 
           {/* ── Lista de ítems ──────────────────────────────────── */}
           <ul style={lista.list}>
@@ -668,12 +718,68 @@ function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
   );
 }
 
+// ─── Sidebar de listas guardadas ──────────────────────────────────────────────
+function SavedListsSidebar({ savedLists, onLoad, onDelete }) {
+  return (
+    <aside style={sidebar.root}>
+      <div style={sidebar.header}>
+        <span style={sidebar.title}>Listas guardadas</span>
+        {savedLists.length > 0 && (
+          <span style={sidebar.count}>{savedLists.length}</span>
+        )}
+      </div>
+
+      {savedLists.length === 0 ? (
+        <div style={sidebar.empty}>
+          <span style={sidebar.emptyIcon}>📋</span>
+          <p style={sidebar.emptyText}>Sin listas guardadas</p>
+          <p style={sidebar.emptyHint}>Guarda tu lista actual con un nombre para encontrarla aquí.</p>
+        </div>
+      ) : (
+        <ul style={sidebar.list}>
+          {savedLists.map((sl) => {
+            const date = new Date(sl.savedAt).toLocaleDateString('es-CO', {
+              day: '2-digit', month: 'short',
+            });
+            return (
+              <li key={sl.id} style={sidebar.item}>
+                <button
+                  type="button"
+                  onClick={() => onLoad(sl.id)}
+                  style={sidebar.itemBtn}
+                  title={`Cargar "${sl.name}"`}
+                >
+                  <span style={sidebar.itemName}>{sl.name}</span>
+                  <span style={sidebar.itemMeta}>
+                    {sl.items.length} {sl.items.length === 1 ? 'producto' : 'productos'} · {date}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(sl.id)}
+                  style={sidebar.deleteBtn}
+                  aria-label={`Eliminar lista "${sl.name}"`}
+                >
+                  <TrashIcon />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </aside>
+  );
+}
+
 // ─── Página ───────────────────────────────────────────────────────────────────
 export default function ShoppingListPage() {
   useLanguage();
 
-  const { items, addItem, removeItem, clearList, orders, removeOrder, updateOrderDelivery } =
-    useShoppingListStore();
+  const {
+    items, addItem, removeItem, clearList,
+    orders, removeOrder, updateOrderDelivery,
+    savedLists, saveList, loadSavedList, deleteSavedList,
+  } = useShoppingListStore();
 
   const [activeTab, setActiveTab] = useState('lista');
 
@@ -684,6 +790,18 @@ export default function ShoppingListPage() {
 
   return (
     <div className="home-wrapper">
+      <style>{`
+        .lista-layout {
+          display: grid;
+          grid-template-columns: 220px 1fr;
+          gap: 20px;
+          align-items: start;
+        }
+        @media (max-width: 680px) {
+          .lista-layout { grid-template-columns: 1fr; }
+        }
+      `}</style>
+
       {/* ── Cabecera ─────────────────────────────────────────────── */}
       <div style={page.header}>
         <h1 style={page.title}>🛒 {activeTab === 'lista' ? 'Mi Lista de Compras' : 'Mis Pedidos'}</h1>
@@ -719,24 +837,33 @@ export default function ShoppingListPage() {
         ))}
       </div>
 
-      {/* ── Contenido de la pestaña activa ───────────────────────── */}
-      <div style={page.content}>
-        {activeTab === 'lista' && (
+      {/* ── Contenido ────────────────────────────────────────────── */}
+      {activeTab === 'lista' ? (
+        <div className="lista-layout">
+          {/* Sidebar izquierda */}
+          <SavedListsSidebar
+            savedLists={savedLists}
+            onLoad={loadSavedList}
+            onDelete={deleteSavedList}
+          />
+          {/* Lista principal */}
           <ListaTab
             items={items}
             addItem={addItem}
             removeItem={removeItem}
             clearList={clearList}
+            saveList={saveList}
           />
-        )}
-        {activeTab === 'pedidos' && (
+        </div>
+      ) : (
+        <div style={page.content}>
           <PedidosTab
             orders={orders}
             removeOrder={removeOrder}
             updateOrderDelivery={updateOrderDelivery}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -818,7 +945,24 @@ const lista = {
     padding: '0 2px',
   },
   itemCount: { fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 },
+  saveBtn: {
+    background: 'none', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)', fontSize: '11px', fontWeight: 600,
+    color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px 8px',
+  },
   clearBtn: { background: 'none', border: 'none', fontSize: '12px', color: 'var(--error)', cursor: 'pointer', padding: '2px 4px' },
+  saveRow: { display: 'flex', gap: '6px' },
+  saveInput: {
+    flex: 1, padding: '8px 12px',
+    borderRadius: 'var(--radius-md)', border: '1px solid var(--accent)',
+    background: 'var(--bg-base)', color: 'var(--text-primary)',
+    fontSize: '13px', outline: 'none',
+  },
+  saveConfirmBtn: {
+    padding: '8px 14px', borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontSize: '12px', fontWeight: 700, flexShrink: 0,
+  },
 
   list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '4px' },
   itemWrap: { display: 'flex', flexDirection: 'column' },
@@ -1037,5 +1181,50 @@ const pedidos = {
   mapWrap: {
     borderRadius: 'var(--radius-md)', overflow: 'hidden',
     border: '1px solid var(--border)',
+  },
+};
+
+// ── Sidebar styles ─────────────────────────────────────────────────────────────
+const sidebar = {
+  root: {
+    display: 'flex', flexDirection: 'column', gap: '8px',
+    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)', padding: '12px',
+    position: 'sticky', top: '80px',
+  },
+  header: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    paddingBottom: '8px', borderBottom: '1px solid var(--border)',
+  },
+  title: { fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  count: {
+    padding: '1px 7px', borderRadius: '999px',
+    background: 'var(--accent-soft)', color: 'var(--accent)',
+    fontSize: '11px', fontWeight: 700, border: '1px solid var(--accent)',
+  },
+  empty: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+    padding: '16px 8px', textAlign: 'center',
+  },
+  emptyIcon: { fontSize: '24px' },
+  emptyText: { fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 },
+  emptyHint: { fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 },
+  list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '4px' },
+  item: {
+    display: 'flex', alignItems: 'center', gap: '4px',
+    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+    transition: 'border-color 0.15s',
+  },
+  itemBtn: {
+    flex: 1, padding: '8px 10px', background: 'none', border: 'none',
+    cursor: 'pointer', textAlign: 'left',
+    display: 'flex', flexDirection: 'column', gap: '2px',
+  },
+  itemName: { fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 },
+  itemMeta: { fontSize: '10px', color: 'var(--text-muted)' },
+  deleteBtn: {
+    background: 'none', border: 'none', color: 'var(--text-muted)',
+    cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', flexShrink: 0,
   },
 };
