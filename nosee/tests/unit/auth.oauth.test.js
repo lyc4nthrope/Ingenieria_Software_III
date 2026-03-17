@@ -17,7 +17,7 @@
  * Ejecutar: npm test -- auth.oauth.test.js
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // ─── Capturar el listener registrado en onAuthStateChange ────────────────────
 let capturedAuthListener = null;
@@ -74,17 +74,34 @@ function resetMocks() {
   _mockInsert.mockResolvedValue({ data: null, error: null });
 }
 
+// Mock de @/services/metrics para evitar llamadas fetch en tests
+vi.mock('@/services/metrics', () => ({
+  recordTokenRefresh: vi.fn(),
+  recordLoginAttempt: vi.fn(),
+  recordLoginPageView: vi.fn(),
+  recordLoginAbandon: vi.fn(),
+  recordRegisterDuration: vi.fn(),
+  recordRoleError: vi.fn(),
+  recordPasswordRecovery: vi.fn(),
+}));
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 describe('authStore — log de auditoría en onAuthStateChange', () => {
   beforeEach(async () => {
+    vi.useFakeTimers();
     resetMocks();
     // Inicializar el store para registrar el listener
     await useAuthStore.getState().initialize();
     expect(capturedAuthListener).not.toBeNull();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('SIGNED_IN con Google registra login_google en login_audit_logs', async () => {
-    await capturedAuthListener('SIGNED_IN', buildSession('google'));
+    capturedAuthListener('SIGNED_IN', buildSession('google'));
+    await vi.runAllTimersAsync();
 
     expect(fromMock).toHaveBeenCalledWith('login_audit_logs');
     expect(_mockInsert).toHaveBeenCalledWith(
@@ -96,7 +113,8 @@ describe('authStore — log de auditoría en onAuthStateChange', () => {
   });
 
   it('SIGNED_IN con GitHub registra login_github en login_audit_logs', async () => {
-    await capturedAuthListener('SIGNED_IN', buildSession('github'));
+    capturedAuthListener('SIGNED_IN', buildSession('github'));
+    await vi.runAllTimersAsync();
 
     expect(fromMock).toHaveBeenCalledWith('login_audit_logs');
     expect(_mockInsert).toHaveBeenCalledWith(
@@ -108,7 +126,8 @@ describe('authStore — log de auditoría en onAuthStateChange', () => {
   });
 
   it('SIGNED_IN con email NO registra (evita duplicado con login())', async () => {
-    await capturedAuthListener('SIGNED_IN', buildSession('email'));
+    capturedAuthListener('SIGNED_IN', buildSession('email'));
+    await vi.runAllTimersAsync();
 
     // from() puede llamarse por getUserProfile — verificamos que NO sea login_audit_logs
     const loginLogCall = fromMock.mock.calls.find(([table]) => table === 'login_audit_logs');
@@ -116,21 +135,24 @@ describe('authStore — log de auditoría en onAuthStateChange', () => {
   });
 
   it('PASSWORD_RECOVERY no registra log de acceso', async () => {
-    await capturedAuthListener('PASSWORD_RECOVERY', buildSession('email'));
+    capturedAuthListener('PASSWORD_RECOVERY', buildSession('email'));
+    await vi.runAllTimersAsync();
 
     const loginLogCall = fromMock.mock.calls.find(([table]) => table === 'login_audit_logs');
     expect(loginLogCall).toBeUndefined();
   });
 
   it('TOKEN_REFRESHED no registra log de acceso', async () => {
-    await capturedAuthListener('TOKEN_REFRESHED', buildSession('google'));
+    capturedAuthListener('TOKEN_REFRESHED', buildSession('google'));
+    await vi.runAllTimersAsync();
 
     const loginLogCall = fromMock.mock.calls.find(([table]) => table === 'login_audit_logs');
     expect(loginLogCall).toBeUndefined();
   });
 
   it('SIGNED_OUT no registra log de acceso', async () => {
-    await capturedAuthListener('SIGNED_OUT', null);
+    capturedAuthListener('SIGNED_OUT', null);
+    await vi.runAllTimersAsync();
 
     const loginLogCall = fromMock.mock.calls.find(([table]) => table === 'login_audit_logs');
     expect(loginLogCall).toBeUndefined();
@@ -138,7 +160,8 @@ describe('authStore — log de auditoría en onAuthStateChange', () => {
 
   it('SIGNED_IN OAuth sin app_metadata no registra (datos incompletos)', async () => {
     const sessionSinMeta = { user: { id: 'user-uuid-abc', app_metadata: {} } };
-    await capturedAuthListener('SIGNED_IN', sessionSinMeta);
+    capturedAuthListener('SIGNED_IN', sessionSinMeta);
+    await vi.runAllTimersAsync();
 
     const loginLogCall = fromMock.mock.calls.find(([table]) => table === 'login_audit_logs');
     expect(loginLogCall).toBeUndefined();
@@ -147,8 +170,8 @@ describe('authStore — log de auditoría en onAuthStateChange', () => {
   it('fallo en insert no lanza excepción (log es no-bloqueante)', async () => {
     _mockInsert.mockRejectedValueOnce(new Error('network error'));
 
-    await expect(
-      capturedAuthListener('SIGNED_IN', buildSession('google'))
-    ).resolves.not.toThrow();
+    expect(() => capturedAuthListener('SIGNED_IN', buildSession('google'))).not.toThrow();
+    await vi.runAllTimersAsync();
+    // Si llegamos aquí sin excepción no capturada, el test pasa
   });
 });

@@ -9,7 +9,8 @@
  */
 import { useState, useEffect } from 'react';
 import { changeUserRole, getAdminReports, getAllUsers, updateReportReview, updateUserStatus } from '@/services/api/users.api';
-import { insertActionLog, getActionLogs, getLoginLogs } from '@/services/api/audit.api';
+import { insertActionLog, getActionLogs, getLoginLogs, getUserActivityLogs } from '@/services/api/audit.api';
+import { getActionLabel as _getActionLabel, getObjectType as _getObjectType, getObjectInfo as _getObjectInfo, getDescription as _getDescription, parseBrowser, getActionCategory } from '@/features/dashboard/admin/logHelpers';
 import { supabase } from '@/services/supabase.client';
 import { UserRoleEnum } from '@/types';
 import { Spinner } from '@/components/ui/Spinner';
@@ -215,6 +216,13 @@ export default function AdminDashboard() {
   const [loginLogs, setLoginLogs]             = useState([]);
   const [logsLoading, setLogsLoading]         = useState(false);
   const [logsLoaded, setLogsLoaded]           = useState(false);
+  const [activityLogs, setActivityLogs]       = useState([]);
+  const [usersMap, setUsersMap]               = useState({});
+  const [logFilter, setLogFilter]             = useState('');
+  const [logCatFilter, setLogCatFilter]       = useState('all');
+  const [logSourceFilter, setLogSourceFilter] = useState('all');
+  const [logDateFrom, setLogDateFrom] = useState('');
+  const [logDateTo, setLogDateTo]     = useState('');
 
   // Configuración editable de reputación
   const [repParams, setRepParams] = useState(() => {
@@ -249,6 +257,36 @@ export default function AdminDashboard() {
     if (activeSection === 'logs'     && !logsLoaded)     loadLogs();
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── Suscripción en tiempo real para logs ────────────────────────────────
+  useEffect(() => {
+    if (activeSection !== 'logs') return;
+
+    const fetchUserName = async (userId) => {
+      if (!userId) return;
+      const { data } = await supabase.from('users').select('id, full_name, email').eq('id', userId).single();
+      if (data) setUsersMap(prev => ({ ...prev, [data.id]: data.full_name || data.email || `${data.id.slice(0, 8)}…` }));
+    };
+
+    const channel = supabase
+      .channel('realtime-audit-logs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_activity_logs' }, async (payload) => {
+        setActivityLogs(prev => [payload.new, ...prev]);
+        fetchUserName(payload.new.user_id);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'login_audit_logs' }, async (payload) => {
+        setLoginLogs(prev => [payload.new, ...prev]);
+        fetchUserName(payload.new.user_id);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_content_audit_log' }, (payload) => {
+        const log = payload.new;
+        setActionLogs(prev => [{ ...log, details: { resource_id: log.resource_id, resource_type: log.resource_type, ...(log.metadata || {}) } }, ...prev]);
+        fetchUserName(log.actor_user_id);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (activeSection !== 'content') return;
     if (pubFilter !== 'unpublished') return;
@@ -259,12 +297,25 @@ export default function AdminDashboard() {
   // ─── Logs de auditoría ────────────────────────────────────────────────────
   const loadLogs = async () => {
     setLogsLoading(true);
-    const [{ data: aLogs }, { data: lLogs }] = await Promise.all([
+    const [{ data: aLogs }, { data: lLogs }, { data: uLogs }] = await Promise.all([
       getActionLogs({ limit: 100 }),
-      getLoginLogs({ limit: 100 }),
+      getLoginLogs({ limit: 200 }),
+      getUserActivityLogs({ limit: 200 }),
     ]);
     setActionLogs(aLogs || []);
     setLoginLogs(lLogs || []);
+    setActivityLogs(uLogs || []);
+
+    // Construir mapa userId → nombre usando getAllUsers (acceso admin)
+    const { data: allUsersData } = await getAllUsers();
+    if (allUsersData?.length) {
+      const map = {};
+      allUsersData.forEach(u => {
+        map[u.id] = u.fullName || u.full_name || u.email || `${u.id.slice(0, 8)}…`;
+      });
+      setUsersMap(map);
+    }
+
     setLogsLoading(false);
     setLogsLoaded(true);
   };
@@ -1444,64 +1495,227 @@ export default function AdminDashboard() {
 
             {logsLoading ? (
               <LoadingState label={td.logsLoading} />
-            ) : (
-              <>
-                {/* Acciones de administración */}
-                <div style={s.section}>
-                  <div style={s.sectionHead}>
-                    <span style={s.sectionTitle}>{td.logsActionsTitle}</span>
-                    <span style={{ fontSize: 13, color: MUTED }}>{actionLogs.length}</span>
-                  </div>
-                  {actionLogs.length === 0 ? (
-                    <EmptyMsg text={td.logsEmpty} />
-                  ) : (
-                    <div style={s.configCard}>
-                      <div style={{ ...s.tableHead, gridTemplateColumns: '160px 1fr 1fr 1fr 1fr' }}>
-                        {[td.logsColDate, td.logsColAction, td.logsColResource, td.logsColReason, td.logsColActor].map(h => (
-                          <div key={h} style={s.th}>{h}</div>
-                        ))}
-                      </div>
-                      {actionLogs.map(log => (
-                        <div key={log.id} style={{ ...s.tableRow, gridTemplateColumns: '160px 1fr 1fr 1fr 1fr', fontSize: 13 }}>
-                          <div style={s.td}>{new Date(log.created_at).toLocaleString('es-CO')}</div>
-                          <div style={{ ...s.td, fontWeight: 600, color: ACCENT }}>{log.action_type}</div>
-                          <div style={s.td}>{log.resource_type}{log.resource_id ? ` #${log.resource_id}` : ''}</div>
-                          <div style={{ ...s.td, color: MUTED }}>{log.reason || log.metadata?.storeName || log.metadata?.brandName || log.metadata?.productName || log.metadata?.userName || '—'}</div>
-                          <div style={{ ...s.td, color: MUTED, fontSize: 11, wordBreak: 'break-all' }}>{log.actor_user_id?.slice(0, 8)}…</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+            ) : (() => {
+              // ── helpers (módulo logHelpers.js) ───────────────────
+              const AL = td.logActionLabels || {};
+              const userName    = (id) => usersMap[id] || (id ? `${id.slice(0, 8)}…` : '—');
+              const actionLabel = (type) => _getActionLabel(type, AL);
+              const objectInfo  = (type, d) => _getObjectInfo(type, d);
+              const description = (type, d, ip, ua) => _getDescription(type, d, ip, ua);
 
-                {/* Logs de acceso */}
-                <div style={s.section}>
-                  <div style={s.sectionHead}>
-                    <span style={s.sectionTitle}>{td.logsLoginTitle}</span>
-                    <span style={{ fontSize: 13, color: MUTED }}>{loginLogs.length}</span>
+              const CAT_COLOR = {
+                session:  '#94a3b8',
+                create:   'var(--success)',
+                edit:     ACCENT,
+                delete:   'var(--error, #e53e3e)',
+                moderate: '#f59e0b',
+                security: '#dc2626',
+                other:    '#94a3b8',
+              };
+              const actionColor = (type) => CAT_COLOR[getActionCategory(type)] || '#94a3b8';
+
+              // Etiquetas de fuente
+              const SOURCE_LABEL = { session: 'Sesión', activity: 'Actividad', admin: 'Admin' };
+              const SOURCE_COLOR = { session: '#64748b', activity: ACCENT, admin: '#f59e0b' };
+
+              // Normalizar los 3 sources en filas unificadas
+              const unifiedRows = [
+                ...loginLogs.map(l => ({
+                  id: `l-${l.id}`,
+                  created_at: l.created_at,
+                  userId: l.user_id,
+                  type: l.event_type,
+                  details: l.metadata || {},
+                  ip: l.ip_address,
+                  ua: l.user_agent,
+                  source: 'session',
+                  reason: null,
+                })),
+                ...activityLogs.map(a => ({
+                  id: `a-${a.id}`,
+                  created_at: a.created_at,
+                  userId: a.user_id,
+                  type: a.action,
+                  details: a.details || {},
+                  ip: null,
+                  ua: null,
+                  source: 'activity',
+                  reason: null,
+                })),
+                ...actionLogs.map(log => ({
+                  id: `ad-${log.id}`,
+                  created_at: log.created_at,
+                  userId: log.actor_user_id,
+                  type: log.action_type,
+                  details: { resource_id: log.resource_id, resource_type: log.resource_type, ...(log.metadata || {}) },
+                  ip: null,
+                  ua: null,
+                  source: 'admin',
+                  reason: log.reason,
+                })),
+              ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+              // Filtros
+              const filterLower = logFilter.trim().toLowerCase();
+              const filterRow = (row) => {
+                if (filterLower && !userName(row.userId).toLowerCase().includes(filterLower)) return false;
+                if (logCatFilter !== 'all' && getActionCategory(row.type) !== logCatFilter) return false;
+                if (logSourceFilter !== 'all' && row.source !== logSourceFilter) return false;
+                if (logDateFrom && new Date(row.created_at) < new Date(logDateFrom + 'T00:00:00')) return false;
+                if (logDateTo   && new Date(row.created_at) > new Date(logDateTo   + 'T23:59:59')) return false;
+                return true;
+              };
+
+              const visibleRows = unifiedRows.filter(filterRow);
+
+              // Formato de fecha compacto
+              const fmtDate = (iso) => {
+                const d = new Date(iso);
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const min = String(d.getMinutes()).padStart(2, '0');
+                return `${dd}/${mm} ${hh}:${min}`;
+              };
+
+              // Conteo por fuente
+              const countSession  = unifiedRows.filter(r => r.source === 'session').length;
+              const countActivity = unifiedRows.filter(r => r.source === 'activity').length;
+              const countAdmin    = unifiedRows.filter(r => r.source === 'admin').length;
+
+              const COLS = '90px 70px 140px 150px 140px 1fr';
+              const headers = [td.logsColDate, 'Fuente', td.logsColUserName, td.logsColActionDone, td.logsColObjectAffected, td.logsColDescriptionDetail];
+
+              return (
+                <>
+                  {/* Barra de filtros */}
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14, alignItems: 'center' }}>
+                    <input
+                      value={logFilter}
+                      onChange={e => setLogFilter(e.target.value)}
+                      placeholder="Buscar usuario..."
+                      style={{ ...s.filterSelect, width: 200, fontFamily: 'inherit' }}
+                    />
+                    <select
+                      value={logCatFilter}
+                      onChange={e => setLogCatFilter(e.target.value)}
+                      style={{ ...s.filterSelect, width: 160 }}
+                    >
+                      <option value="all">Todas las acciones</option>
+                      <option value="session">Sesión</option>
+                      <option value="create">Creación</option>
+                      <option value="edit">Edición</option>
+                      <option value="delete">Eliminación/Reporte</option>
+                      <option value="moderate">Moderación</option>
+                      <option value="security">Seguridad</option>
+                    </select>
+                    <select
+                      value={logSourceFilter}
+                      onChange={e => setLogSourceFilter(e.target.value)}
+                      style={{ ...s.filterSelect, width: 150 }}
+                    >
+                      <option value="all">Todas las fuentes</option>
+                      <option value="session">Solo sesiones</option>
+                      <option value="activity">Solo actividad</option>
+                      <option value="admin">Solo admin/mod</option>
+                    </select>
+                    <input
+                      type="date"
+                      value={logDateFrom}
+                      onChange={e => setLogDateFrom(e.target.value)}
+                      title="Desde"
+                      style={{ ...s.filterSelect, width: 140, fontFamily: 'inherit' }}
+                    />
+                    <input
+                      type="date"
+                      value={logDateTo}
+                      onChange={e => setLogDateTo(e.target.value)}
+                      title="Hasta"
+                      style={{ ...s.filterSelect, width: 140, fontFamily: 'inherit' }}
+                    />
+                    {(logFilter || logCatFilter !== 'all' || logSourceFilter !== 'all' || logDateFrom || logDateTo) && (
+                      <button
+                        type="button"
+                        onClick={() => { setLogFilter(''); setLogCatFilter('all'); setLogSourceFilter('all'); setLogDateFrom(''); setLogDateTo(''); }}
+                        style={{ fontSize: 12, color: MUTED, background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+                      >
+                        Limpiar filtros
+                      </button>
+                    )}
                   </div>
-                  {loginLogs.length === 0 ? (
+
+                  {/* Resumen de conteos */}
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, color: MUTED }}>
+                      <strong style={{ color: TEXT }}>{visibleRows.length}</strong> / {unifiedRows.length} registros
+                    </span>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>Sesión: {countSession}</span>
+                    <span style={{ fontSize: 12, color: ACCENT }}>Actividad: {countActivity}</span>
+                    <span style={{ fontSize: 12, color: '#f59e0b' }}>Admin/Mod: {countAdmin}</span>
+                    {/* Indicador live */}
+                    <span style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+                      <span style={{ color: MUTED }}>En vivo</span>
+                    </span>
+                  </div>
+
+                  {/* Tabla unificada */}
+                  {visibleRows.length === 0 ? (
                     <EmptyMsg text={td.logsEmpty} />
                   ) : (
-                    <div style={s.configCard}>
-                      <div style={{ ...s.tableHead, gridTemplateColumns: '160px 1fr 1fr 1fr' }}>
-                        {[td.logsColDate, td.logsColEvent, td.logsColUser, td.logsColIP].map(h => (
-                          <div key={h} style={s.th}>{h}</div>
+                    <div style={{ ...s.configCard, overflowX: 'auto', padding: 0 }}>
+                      <div style={{ minWidth: 780 }}>
+                        {/* Header pegajoso */}
+                        <div style={{ ...s.tableHead, gridTemplateColumns: COLS, position: 'sticky', top: 0, zIndex: 2 }}>
+                          {headers.map(h => <div key={h} style={s.th}>{h}</div>)}
+                        </div>
+                        {visibleRows.map((row, idx) => (
+                          <div
+                            key={row.id}
+                            style={{
+                              ...s.tableRow,
+                              gridTemplateColumns: COLS,
+                              fontSize: 13,
+                              background: idx % 2 === 0 ? 'transparent' : 'var(--bg-elevated, rgba(0,0,0,0.02))',
+                            }}
+                          >
+                            {/* Fecha compacta */}
+                            <div style={{ ...s.td, color: MUTED, fontSize: 11 }} title={new Date(row.created_at).toLocaleString('es-CO')}>
+                              {fmtDate(row.created_at)}
+                            </div>
+                            {/* Badge de fuente */}
+                            <div style={s.td}>
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, padding: '2px 6px',
+                                borderRadius: 999, background: `${SOURCE_COLOR[row.source]}18`,
+                                color: SOURCE_COLOR[row.source], whiteSpace: 'nowrap',
+                              }}>
+                                {SOURCE_LABEL[row.source]}
+                              </span>
+                            </div>
+                            {/* Usuario */}
+                            <div style={{ ...s.td, fontWeight: 700, color: TEXT, fontSize: 12 }}>{userName(row.userId)}</div>
+                            {/* Acción con punto de color */}
+                            <div style={{ ...s.td, fontWeight: 600, fontSize: 12 }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: actionColor(row.type), flexShrink: 0 }} />
+                                <span style={{ color: actionColor(row.type) }}>{actionLabel(row.type)}</span>
+                              </span>
+                            </div>
+                            {/* Objeto afectado */}
+                            <div style={{ ...s.td, fontWeight: 500, fontSize: 12 }}>{objectInfo(row.type, row.details)}</div>
+                            {/* Descripción */}
+                            <div style={{ ...s.td, color: MUTED, fontSize: 11 }}>
+                              {row.reason || description(row.type, row.details, row.ip, row.ua)}
+                            </div>
+                          </div>
                         ))}
                       </div>
-                      {loginLogs.map(log => (
-                        <div key={log.id} style={{ ...s.tableRow, gridTemplateColumns: '160px 1fr 1fr 1fr', fontSize: 13 }}>
-                          <div style={s.td}>{new Date(log.created_at).toLocaleString('es-CO')}</div>
-                          <div style={{ ...s.td, fontWeight: 600, color: log.event_type === 'login' ? 'var(--success)' : log.event_type === 'logout' ? MUTED : ACCENT }}>{log.event_type}</div>
-                          <div style={{ ...s.td, color: MUTED, fontSize: 11, wordBreak: 'break-all' }}>{log.user_id?.slice(0, 8)}…</div>
-                          <div style={{ ...s.td, color: MUTED }}>{log.ip_address || '—'}</div>
-                        </div>
-                      ))}
                     </div>
                   )}
-                </div>
-              </>
-            )}
+                </>
+              );
+            })()}
           </>
         )}
       </main>

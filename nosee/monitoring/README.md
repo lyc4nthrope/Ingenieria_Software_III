@@ -26,18 +26,50 @@ React Frontend
 
 ## Inicio rápido
 
-### 1. Levantar el stack de monitoreo
+### 1. Configurar la URL de producción (Azure SWA)
+
+Editar `monitoring/prometheus/targets/blackbox_targets.yml` y reemplazar:
+```yaml
+- https://NOSEE_APP.azurestaticapps.net
+```
+con la URL real de tu Azure Static Web App (ej: `https://brave-sea-1234.azurestaticapps.net`).
+
+### 2. Levantar el stack de monitoreo
 
 ```bash
 cd monitoring
 docker compose up -d
 ```
 
-| Servicio    | URL                         | Credenciales    |
-|-------------|-----------------------------|-----------------|
-| Grafana     | http://localhost:3000       | admin / nosee2026 |
-| Prometheus  | http://localhost:9090       | —               |
-| Métricas    | http://localhost:3001/metrics | —             |
+| Servicio            | URL                          | Credenciales    |
+|---------------------|------------------------------|-----------------|
+| Grafana             | http://localhost:3000        | admin / nosee2026 |
+| Prometheus          | http://localhost:9090        | —               |
+| Métricas            | http://localhost:3001/metrics | —              |
+| Blackbox Exporter   | http://localhost:9115        | —               |
+
+### 3. Verificar que el Blackbox Exporter funciona
+
+```bash
+# Probar manualmente cualquier URL
+curl "http://localhost:9115/probe?target=http://metrics-server:3001/health&module=http_2xx_strict"
+```
+
+### 4. Configurar métricas de CI desde GitHub Actions (opcional)
+
+Para que el workflow `.github/workflows/ci-metrics.yml` envíe métricas al Pushgateway local:
+
+```bash
+# Terminal 1 — exponer el Pushgateway al exterior (requiere ngrok)
+ngrok http 9091
+# Copia la URL pública: https://xxxxxxxx.ngrok-free.app
+
+# Terminal 2 — ir a GitHub → Settings → Secrets → New secret
+# Nombre: PUSHGATEWAY_URL
+# Valor:  https://xxxxxxxx.ngrok-free.app
+```
+
+El workflow corre automáticamente en cada push a `main` o `cristhian`.
 
 ### 2. Configurar el frontend
 

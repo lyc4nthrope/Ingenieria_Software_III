@@ -17,7 +17,7 @@ import {
   trackRegisterComplete,
   trackRegisterFailure,
 } from "@/services/analytics";
-import { recordRegisterDuration } from "@/services/metrics";
+import { recordRegisterDuration, recordRegistrationStarted } from "@/services/metrics";
 
 // Vista de verificación de email
 function VerificationView({ email, onResend }) {
@@ -139,6 +139,11 @@ export default function RegisterPage() {
 
   // Timestamp de apertura del formulario (para medir tiempo de registro)
   const formOpenedAt = useRef(Date.now());
+
+  // Métrica: inicio del flujo de registro (denominador para conversión)
+  useEffect(() => {
+    recordRegistrationStarted();
+  }, []);
 
   // Solo redirigir si ya terminó la inicialización y está logueado
   useEffect(() => {

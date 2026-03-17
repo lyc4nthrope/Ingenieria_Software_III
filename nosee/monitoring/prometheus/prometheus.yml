@@ -6,7 +6,7 @@ global:
     environment: 'development'
 
 scrape_configs:
-  # Métricas personalizadas de NØSEE
+  # ── Métricas personalizadas de NØSEE (Proceso 1 + 2) ──────────────────────
   - job_name: 'nosee-app'
     static_configs:
       - targets: ['metrics-server:3001']
@@ -14,3 +14,63 @@ scrape_configs:
     scrape_interval: 15s
     scrape_timeout: 10s
     honor_labels: true
+
+  # ── Blackbox Exporter — Disponibilidad HTTP (RNF 4.2.1, 4.4.1) ────────────
+  #
+  # probe_success{instance="..."} == 1  → endpoint responde OK
+  # probe_http_status_code              → código HTTP recibido
+  # probe_http_duration_seconds         → latencia total de la petición
+  # probe_duration_seconds              → tiempo total del probe (con TLS)
+  #
+  # Alerts útiles en Grafana:
+  #   probe_success == 0         → ALERTA: endpoint caído
+  #   probe_duration_seconds > 3 → ALERTA: latencia > 3 000 ms
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    file_sd_configs:
+      - files:
+          - '/etc/prometheus/targets/blackbox_targets.yml'
+        refresh_interval: 30s
+    relabel_configs:
+      # El target (URL a probar) se pasa como parámetro al blackbox exporter
+      - source_labels: [__address__]
+        target_label: __param_target
+      # Guardar la URL original como label "instance" para identificación
+      - source_labels: [__param_target]
+        target_label: instance
+      # Redirigir el scrape al blackbox exporter en vez de al target directamente
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # ── Pushgateway — Métricas de CI (GitHub Actions) ─────────────────────────
+  #
+  # Métricas enviadas por el workflow ci-metrics.yml:
+  #   nosee_ci_coverage_percent      — cobertura de tests (meta: >60%)
+  #   nosee_ci_tests_passed_total    — tests que pasan
+  #   nosee_ci_tests_failed_total    — tests que fallan
+  #   nosee_ci_lint_errors_total     — errores ESLint (meta: 0)
+  #   nosee_ci_lint_warnings_total   — warnings ESLint
+  #   nosee_ci_build_duration_seconds — tiempo de build de Vite
+  #   nosee_ci_bundle_size_bytes{chunk} — tamaño de cada chunk del bundle
+  - job_name: 'pushgateway'
+    honor_labels: true
+    static_configs:
+      - targets: ['pushgateway:9091']
+
+  # ── Blackbox — Healthcheck estricto del metrics-server ────────────────────
+  - job_name: 'blackbox-metrics-server-health'
+    metrics_path: /probe
+    params:
+      module: [http_2xx_strict]
+    static_configs:
+      - targets:
+          - http://metrics-server:3001/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

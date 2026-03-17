@@ -20,6 +20,8 @@ import {
   optimizeByFewestStores,
   optimizeBalanced,
 } from '@/features/orders/utils/optimizationAlgorithms';
+import { useAuthStore } from '@/features/auth/store/authStore';
+import { insertUserActivityLog } from '@/services/api/audit.api';
 
 // ─── Radios disponibles ───────────────────────────────────────────────────────
 const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
@@ -31,6 +33,7 @@ export default function CreateOrderPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const addOrder = useShoppingListStore((s) => s.addOrder);
+  const currentUserId = useAuthStore((s) => s.user?.id);
 
   // Ítems recibidos desde ShoppingListPage
   const selectedItems = location.state?.items ?? [];
@@ -125,6 +128,13 @@ export default function CreateOrderPage() {
       deliveryStatus: wantsDelivery ? 'searching' : null,
       driverLocation: null,
       cancellationCharged: false,
+    });
+    insertUserActivityLog(currentUserId, 'crear_pedido', {
+      orderId,
+      strategy,
+      itemCount: selectedItems.length,
+      totalCost: result?.totalCost,
+      deliveryMode: wantsDelivery,
     });
     setPhase('confirmed');
     setTimeout(() => {

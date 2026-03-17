@@ -17,6 +17,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePublicationCreation } from "@/features/publications/hooks";
 import { Spinner } from "@/components/ui";
+import { recordPublicationFormStarted, recordPublicationFormAbandoned } from "@/services/metrics";
 import PhotoUploader from "./PhotoUploader";
 import StoreCreateModal from "@/features/stores/components/StoreCreateModal";
 import ProductQuickCreateModal from "./ProductQuickCreateModal";
@@ -243,6 +244,19 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
       setHasLoadedInitialData(true);
     }
   }, [isLoading, hasLoadedInitialData, formData.productId, formData.storeId]);
+
+  // Métricas: inicio y abandono de formulario de publicación (RNF 4.3.5)
+  const formSubmittedRef = useRef(false);
+  useEffect(() => {
+    if (mode !== 'create') return;
+    recordPublicationFormStarted();
+    return () => {
+      if (!formSubmittedRef.current) {
+        recordPublicationFormAbandoned();
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─── Cerrar dropdowns al clickar fuera ────────────────────────────────────
   useEffect(() => {
@@ -658,6 +672,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     const result = await submit();
 
     if (result.success) {
+      formSubmittedRef.current = true;
       onSuccess?.(result.data);
       if (mode === "create") {
         setProductQuery("");
