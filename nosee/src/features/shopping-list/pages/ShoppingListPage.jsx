@@ -178,7 +178,6 @@ function PublicationsCarousel({ publications, onOpenDetail }) {
 function ListaTab({ items, addItem, removeItem, clearList }) {
   const navigate = useNavigate();
   const [inputValue, setInputValue] = useState('');
-  const [selected, setSelected] = useState(() => new Set());
 
   // Resultados del cálculo: { [itemId]: publications[] }
   const [calcResults, setCalcResults] = useState(null);
@@ -208,7 +207,6 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
 
   const handleRemove = (id) => {
     removeItem(id);
-    setSelected((p) => { const n = new Set(p); n.delete(id); return n; });
     setCalcResults((prev) => {
       if (!prev) return prev;
       const next = { ...prev };
@@ -217,12 +215,6 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
     });
     if (expandedId === id) setExpandedId(null);
   };
-
-  const toggleSelect = (id) =>
-    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-
-  const toggleAll = () =>
-    setSelected(selected.size === items.length ? new Set() : new Set(items.map((i) => i.id)));
 
   const handleCalculate = useCallback(async () => {
     if (items.length === 0) return;
@@ -254,10 +246,7 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
   }, [items]);
 
   const handleCreateOrder = () => {
-    const toSend = selected.size > 0
-      ? items.filter((i) => selected.has(i.id))
-      : items;
-    navigate('/pedido/nuevo', { state: { items: toSend } });
+    navigate('/pedido/nuevo', { state: { items } });
   };
 
   const toggleExpand = (id) => {
@@ -303,16 +292,9 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
         <>
           {/* ── Barra de herramientas ───────────────────────────── */}
           <div style={lista.toolbar}>
-            <label style={lista.checkAll}>
-              <input
-                type="checkbox"
-                checked={selected.size === items.length && items.length > 0}
-                onChange={toggleAll}
-              />
-              <span style={lista.checkAllLabel}>
-                {selected.size > 0 ? `${selected.size} seleccionados` : 'Todos'}
-              </span>
-            </label>
+            <span style={lista.itemCount}>
+              {items.length} {items.length === 1 ? 'producto' : 'productos'}
+            </span>
             <button type="button" onClick={clearList} style={lista.clearBtn}>Limpiar todo</button>
           </div>
 
@@ -330,29 +312,20 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
                   <div
                     style={{
                       ...lista.item,
-                      ...(isCalculated ? lista.itemClickable : {}),
                       ...(isExpanded ? lista.itemExpanded : {}),
                     }}
                   >
-                    <label style={lista.itemLabel}>
-                      <input
-                        type="checkbox"
-                        checked={selected.has(item.id)}
-                        onChange={() => toggleSelect(item.id)}
-                        style={{ flexShrink: 0 }}
-                      />
-                      <div style={lista.itemText}>
-                        <span style={lista.itemName}>{item.productName}</span>
-                        {isCalculated && bestPrice !== null && (
-                          <span style={lista.itemBestPrice}>
-                            ★ Desde ${bestPrice.toLocaleString('es-CO')} COP
-                          </span>
-                        )}
-                        {isCalculated && !hasPubs && (
-                          <span style={lista.itemNoPubs}>Sin coincidencias</span>
-                        )}
-                      </div>
-                    </label>
+                    <div style={lista.itemText}>
+                      <span style={lista.itemName}>{item.productName}</span>
+                      {isCalculated && bestPrice !== null && (
+                        <span style={lista.itemBestPrice}>
+                          ★ Desde ${bestPrice.toLocaleString('es-CO')} COP
+                        </span>
+                      )}
+                      {isCalculated && !hasPubs && (
+                        <span style={lista.itemNoPubs}>Sin coincidencias</span>
+                      )}
+                    </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                       {isCalculated && hasPubs && (
@@ -409,7 +382,7 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
               cursor: calculating ? 'not-allowed' : 'pointer',
             }}
           >
-            {calculating ? '⏳ Calculando...' : '✦ Calcular canasta óptima'}
+            {calculating ? '⏳ Optimizando...' : '✦ Optimizar Lista'}
           </button>
 
           {/* ── Separador ────────────────────────────────────────── */}
@@ -428,9 +401,7 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
           >
             Configurar pedido
             <span style={{ fontSize: '11px', fontWeight: 500, opacity: 0.8, display: 'block', marginTop: '1px' }}>
-              {selected.size > 0
-                ? `${selected.size} producto${selected.size > 1 ? 's' : ''} seleccionado${selected.size > 1 ? 's' : ''}`
-                : `${items.length} producto${items.length > 1 ? 's' : ''} en lista`}
+              {items.length} {items.length === 1 ? 'producto' : 'productos'} en lista
             </span>
           </button>
         </>
@@ -827,8 +798,7 @@ const lista = {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     padding: '0 2px',
   },
-  checkAll: { display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer' },
-  checkAllLabel: { fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 },
+  itemCount: { fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 },
   clearBtn: { background: 'none', border: 'none', fontSize: '12px', color: 'var(--error)', cursor: 'pointer', padding: '2px 4px' },
 
   list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '4px' },
@@ -839,14 +809,12 @@ const lista = {
     borderRadius: 'var(--radius-md)', padding: '10px 12px',
     transition: 'border-color 0.15s',
   },
-  itemClickable: { cursor: 'default' },
   itemExpanded: {
     borderColor: 'var(--accent)',
     borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
     borderBottom: 'none',
   },
-  itemLabel: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 },
-  itemText: { display: 'flex', flexDirection: 'column', gap: '2px' },
+  itemText: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 },
   itemName: { fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' },
   itemBestPrice: { fontSize: '11px', color: 'var(--accent)', fontWeight: 700 },
   itemNoPubs: { fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' },
