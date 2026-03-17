@@ -14,7 +14,6 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import { useLanguage } from '@/contexts/LanguageContext';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
@@ -176,7 +175,6 @@ function PublicationsCarousel({ publications, onOpenDetail }) {
 
 // ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
 function ListaTab({ items, addItem, removeItem, clearList }) {
-  const navigate = useNavigate();
   const [inputValue, setInputValue] = useState('');
 
   // Resultados del cálculo: { [itemId]: publications[] }
@@ -244,10 +242,6 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
       setCalculating(false);
     }
   }, [items]);
-
-  const handleCreateOrder = () => {
-    navigate('/pedido/nuevo', { state: { items } });
-  };
 
   const toggleExpand = (id) => {
     if (!calcResults) return;
@@ -385,25 +379,6 @@ function ListaTab({ items, addItem, removeItem, clearList }) {
             {calculating ? '⏳ Optimizando...' : '✦ Optimizar Lista'}
           </button>
 
-          {/* ── Separador ────────────────────────────────────────── */}
-          <div style={lista.separator} />
-
-          {/* ── Botón configurar pedido completo ────────────────── */}
-          <button
-            type="button"
-            onClick={handleCreateOrder}
-            disabled={items.length === 0}
-            style={{
-              ...lista.orderBtn,
-              opacity: items.length === 0 ? 0.45 : 1,
-              cursor: items.length === 0 ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Configurar pedido
-            <span style={{ fontSize: '11px', fontWeight: 500, opacity: 0.8, display: 'block', marginTop: '1px' }}>
-              {items.length} {items.length === 1 ? 'producto' : 'productos'} en lista
-            </span>
-          </button>
         </>
       )}
 
