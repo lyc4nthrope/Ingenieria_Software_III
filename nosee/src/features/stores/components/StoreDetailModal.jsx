@@ -644,9 +644,6 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   lightboxImg: {
     maxWidth: '90vw',

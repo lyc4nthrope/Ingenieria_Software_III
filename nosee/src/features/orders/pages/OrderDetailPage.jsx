@@ -6,7 +6,6 @@
  * Punto de salida hacia Proceso 4 (domicilio).
  */
 
-import { useState } from 'react';
 import { useLocation, useParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 
