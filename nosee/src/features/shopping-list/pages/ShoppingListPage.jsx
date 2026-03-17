@@ -128,120 +128,120 @@ function DeliveryCard({ order, onCancel }) {
 }
 
 // ─── Carrusel de publicaciones por ítem ───────────────────────────────────────
-const CARD_W = 158; // px — ancho de card
-const CARD_GAP = 8;  // px — gap entre cards
-const SCROLL_STEP = (CARD_W + CARD_GAP) * 3; // desplazar 3 cards por clic
+const PAGE_SIZE = 6;
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 640);
+  useEffect(() => {
+    const fn = () => setMobile(window.innerWidth < 640);
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
+  }, []);
+  return mobile;
+}
+
+function CarouselCard({ pub, globalIdx, isSelected, onSelect, onOpenDetail }) {
+  const isBest = globalIdx === 0;
+  const storeEmoji = Number(pub.store?.store_type_id) === 2 ? '🌐' : '🏪';
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(pub)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(pub); }}
+      style={{ ...carousel.card, ...(isSelected ? carousel.cardSelected : {}), cursor: 'pointer' }}
+    >
+      {isBest && <span style={carousel.bestBadge}>★ Mejor Opción</span>}
+      {isSelected && <span style={carousel.selectedBadge}>✓ Seleccionado</span>}
+      <span style={carousel.storeName}>{storeEmoji} {pub.store?.name ?? 'Tienda'}</span>
+      <span style={carousel.price}>
+        ${(pub.price ?? 0).toLocaleString('es-CO')}
+        <span style={carousel.currency}> COP</span>
+      </span>
+      <span style={carousel.prodName}>{pub.productName ?? pub.product_name ?? '—'}</span>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onOpenDetail(pub); }}
+        style={carousel.detailBtn}
+      >
+        Ver detalle →
+      </button>
+    </div>
+  );
+}
 
 function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail }) {
-  const trackRef = useRef(null);
-  const [showLeft, setShowLeft] = useState(false);
-  const [showRight, setShowRight] = useState(false);
-
-  const checkArrows = useCallback(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    setShowLeft(el.scrollLeft > 4);
-    setShowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
-  }, []);
-
-  useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    // pequeño timeout para que el DOM se pinte antes de medir
-    const t = setTimeout(checkArrows, 60);
-    el.addEventListener('scroll', checkArrows, { passive: true });
-    window.addEventListener('resize', checkArrows);
-    return () => {
-      clearTimeout(t);
-      el.removeEventListener('scroll', checkArrows);
-      window.removeEventListener('resize', checkArrows);
-    };
-  }, [publications, checkArrows]);
-
-  const scroll = (dir) => {
-    trackRef.current?.scrollBy({ left: dir * SCROLL_STEP, behavior: 'smooth' });
-  };
+  const [page, setPage] = useState(0);
+  const isMobile = useIsMobile();
 
   if (!publications || publications.length === 0) {
+    return <div style={carousel.empty}>Sin coincidencias encontradas para este producto.</div>;
+  }
+
+  // ── Mobile: scroll horizontal libre ──────────────────────────────────────────
+  if (isMobile) {
     return (
-      <div style={carousel.empty}>
-        Sin coincidencias encontradas para este producto.
+      <div style={carousel.mobileTrack}>
+        {publications.map((pub, idx) => (
+          <CarouselCard
+            key={pub.id ?? idx}
+            pub={pub}
+            globalIdx={idx}
+            isSelected={(pub.id ?? idx) === selectedId}
+            onSelect={onSelect}
+            onOpenDetail={onOpenDetail}
+          />
+        ))}
       </div>
     );
   }
 
-  return (
-    <div style={carousel.root}>
-      {/* Flecha izquierda */}
-      {showLeft && (
-        <button
-          type="button"
-          aria-label="Anteriores opciones"
-          onClick={() => scroll(-1)}
-          style={{ ...carousel.arrowBtn, left: 0 }}
-        >
-          ‹
-        </button>
-      )}
+  // ── Desktop: paginación de 6 ─────────────────────────────────────────────────
+  const totalPages = Math.ceil(publications.length / PAGE_SIZE);
+  const start = page * PAGE_SIZE;
+  const visible = publications.slice(start, start + PAGE_SIZE);
+  const canPrev = page > 0;
+  const canNext = page < totalPages - 1;
 
-      <div
-        ref={trackRef}
-        style={{
-          ...carousel.track,
-          // padding lateral para que las flechas no tapen las cards
-          paddingLeft:  showLeft  ? '32px' : '0',
-          paddingRight: showRight ? '32px' : '0',
-        }}
-      >
-        {publications.map((pub, idx) => {
-          const isBest = idx === 0;
-          const isSelected = (pub.id ?? idx) === selectedId;
-          const storeEmoji = Number(pub.store?.store_type_id) === 2 ? '🌐' : '🏪';
-          return (
-            <div
-              key={pub.id ?? idx}
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelect(pub)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(pub); }}
-              style={{
-                ...carousel.card,
-                ...(isSelected ? carousel.cardSelected : {}),
-                cursor: 'pointer',
-              }}
-            >
-              {isBest && <span style={carousel.bestBadge}>★ Mejor Opción</span>}
-              {isSelected && <span style={carousel.selectedBadge}>✓ Seleccionado</span>}
-              <span style={carousel.storeName}>
-                {storeEmoji} {pub.store?.name ?? 'Tienda'}
-              </span>
-              <span style={carousel.price}>
-                ${(pub.price ?? 0).toLocaleString('es-CO')}
-                <span style={carousel.currency}> COP</span>
-              </span>
-              <span style={carousel.prodName}>{pub.productName ?? pub.product_name ?? '—'}</span>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onOpenDetail(pub); }}
-                style={carousel.detailBtn}
-              >
-                Ver detalle →
-              </button>
-            </div>
-          );
-        })}
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div style={carousel.track}>
+        {visible.map((pub, idx) => (
+          <CarouselCard
+            key={pub.id ?? (start + idx)}
+            pub={pub}
+            globalIdx={start + idx}
+            isSelected={(pub.id ?? (start + idx)) === selectedId}
+            onSelect={onSelect}
+            onOpenDetail={onOpenDetail}
+          />
+        ))}
       </div>
 
-      {/* Flecha derecha */}
-      {showRight && (
-        <button
-          type="button"
-          aria-label="Más opciones"
-          onClick={() => scroll(1)}
-          style={{ ...carousel.arrowBtn, right: 0 }}
-        >
-          ›
-        </button>
+      {totalPages > 1 && (
+        <div style={carousel.navBar}>
+          <button
+            type="button"
+            disabled={!canPrev}
+            onClick={() => setPage(p => p - 1)}
+            style={{ ...carousel.arrowBtn, opacity: canPrev ? 1 : 0.3 }}
+            aria-label="Opciones anteriores"
+          >
+            ‹
+          </button>
+          <span style={carousel.pageInfo}>
+            {start + 1}–{Math.min(start + PAGE_SIZE, publications.length)} de {publications.length}
+          </span>
+          <button
+            type="button"
+            disabled={!canNext}
+            onClick={() => setPage(p => p + 1)}
+            style={{ ...carousel.arrowBtn, opacity: canNext ? 1 : 0.3 }}
+            aria-label="Más opciones"
+          >
+            ›
+          </button>
+        </div>
       )}
     </div>
   );
@@ -1321,19 +1321,22 @@ const lista = {
 
 // ── Carousel styles ────────────────────────────────────────────────────────────
 const carousel = {
-  root: {
-    position: 'relative',
-    overflow: 'hidden',
-  },
+  // Desktop: fila estática sin overflow
   track: {
+    display: 'flex', gap: '8px', flexWrap: 'wrap',
+  },
+  // Mobile: scroll horizontal libre
+  mobileTrack: {
     display: 'flex', gap: '8px',
-    overflowX: 'auto', paddingBottom: '4px',
-    scrollbarWidth: 'none', msOverflowStyle: 'none',
-    transition: 'padding 0.15s',
+    overflowX: 'auto', paddingBottom: '6px',
+    scrollbarWidth: 'thin',
+  },
+  // Barra de navegación (solo desktop, cuando hay >6 opciones)
+  navBar: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+    paddingTop: '2px',
   },
   arrowBtn: {
-    position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-    zIndex: 2,
     width: '28px', height: '28px',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     background: 'var(--bg-elevated)',
@@ -1342,8 +1345,10 @@ const carousel = {
     cursor: 'pointer',
     fontSize: '18px', lineHeight: 1, fontWeight: 700,
     color: 'var(--text-primary)',
-    boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
     padding: 0,
+  },
+  pageInfo: {
+    fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500,
   },
   empty: {
     fontSize: '12px', color: 'var(--text-muted)',
