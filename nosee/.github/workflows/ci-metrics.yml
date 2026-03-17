@@ -1,0 +1,212 @@
+name: CI — Métricas de Calidad ISO/IEC 25010
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Ejecuta tests, lint y build en cada push/PR a main o cristhian.
+# Si PUSHGATEWAY_URL está configurado como secret en GitHub, envía las
+# métricas al stack de monitoreo local (requiere exponer el puerto 9091,
+# por ejemplo con ngrok: ngrok http 9091).
+#
+# Secrets requeridos (opcionales):
+#   PUSHGATEWAY_URL — URL pública del Pushgateway (ej: https://xxx.ngrok-free.app)
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main, cristhian]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci-quality:
+    name: Tests + Lint + Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. Setup Node.js ────────────────────────────────────────────────────
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── 3. Instalar dependencias ─────────────────────────────────────────────
+      - name: Instalar dependencias
+        run: npm ci
+
+      # ── 4. Tests con cobertura ───────────────────────────────────────────────
+      - name: Tests unitarios con cobertura
+        id: tests
+        run: |
+          npm run test:coverage -- --reporter=json 2>&1 | tee /tmp/test-output.txt || true
+
+          # Extraer totales del coverage-summary.json
+          COVERAGE_FILE="coverage/coverage-summary.json"
+          if [ -f "$COVERAGE_FILE" ]; then
+            LINES_PCT=$(node -e "const c=require('./$COVERAGE_FILE'); console.log(c.total.lines.pct)")
+            STMTS_PCT=$(node -e "const c=require('./$COVERAGE_FILE'); console.log(c.total.statements.pct)")
+            FUNCS_PCT=$(node -e "const c=require('./$COVERAGE_FILE'); console.log(c.total.functions.pct)")
+            BRANCH_PCT=$(node -e "const c=require('./$COVERAGE_FILE'); console.log(c.total.branches.pct)")
+          else
+            LINES_PCT=0; STMTS_PCT=0; FUNCS_PCT=0; BRANCH_PCT=0
+          fi
+
+          # Extraer conteo de tests del output JSON de vitest
+          TEST_JSON_FILE="test-results.json"
+          npx vitest run --reporter=json --outputFile="$TEST_JSON_FILE" 2>/dev/null || true
+          if [ -f "$TEST_JSON_FILE" ]; then
+            TESTS_PASSED=$(node -e "const r=require('./$TEST_JSON_FILE'); console.log(r.numPassedTests || 0)")
+            TESTS_FAILED=$(node -e "const r=require('./$TEST_JSON_FILE'); console.log(r.numFailedTests || 0)")
+          else
+            TESTS_PASSED=0; TESTS_FAILED=0
+          fi
+
+          echo "lines_pct=$LINES_PCT"     >> $GITHUB_OUTPUT
+          echo "stmts_pct=$STMTS_PCT"     >> $GITHUB_OUTPUT
+          echo "funcs_pct=$FUNCS_PCT"     >> $GITHUB_OUTPUT
+          echo "branch_pct=$BRANCH_PCT"   >> $GITHUB_OUTPUT
+          echo "tests_passed=$TESTS_PASSED" >> $GITHUB_OUTPUT
+          echo "tests_failed=$TESTS_FAILED" >> $GITHUB_OUTPUT
+
+          echo "### Cobertura de tests" >> $GITHUB_STEP_SUMMARY
+          echo "| Métrica | Valor | Meta |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Líneas  | ${LINES_PCT}% | >60% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Funciones | ${FUNCS_PCT}% | >60% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests ✓ | $TESTS_PASSED | — |"   >> $GITHUB_STEP_SUMMARY
+          echo "| Tests ✗ | $TESTS_FAILED | 0 |"   >> $GITHUB_STEP_SUMMARY
+
+      # ── 5. Lint ──────────────────────────────────────────────────────────────
+      - name: ESLint
+        id: lint
+        run: |
+          # --format json para parsear resultados; || true para no fallar el job
+          npx eslint . --format json --output-file /tmp/eslint-results.json || true
+
+          ERRORS=$(node -e "
+            const results = require('/tmp/eslint-results.json');
+            console.log(results.reduce((sum, f) => sum + f.errorCount, 0));
+          " 2>/dev/null || echo 0)
+          WARNINGS=$(node -e "
+            const results = require('/tmp/eslint-results.json');
+            console.log(results.reduce((sum, f) => sum + f.warningCount, 0));
+          " 2>/dev/null || echo 0)
+
+          echo "errors=$ERRORS"   >> $GITHUB_OUTPUT
+          echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
+
+          echo "### ESLint" >> $GITHUB_STEP_SUMMARY
+          echo "| | Cantidad | Meta |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Errores  | $ERRORS | 0 |"     >> $GITHUB_STEP_SUMMARY
+          echo "| Warnings | $WARNINGS | <10 |" >> $GITHUB_STEP_SUMMARY
+
+      # ── 6. Build de producción ───────────────────────────────────────────────
+      - name: Build Vite
+        id: build
+        run: |
+          BUILD_START=$(date +%s%3N)
+          npm run build
+          BUILD_END=$(date +%s%3N)
+          BUILD_DURATION_MS=$((BUILD_END - BUILD_START))
+          BUILD_DURATION_S=$(echo "scale=3; $BUILD_DURATION_MS / 1000" | bc)
+          echo "duration_s=$BUILD_DURATION_S" >> $GITHUB_OUTPUT
+
+          # Tamaños de chunks principales en bytes
+          VENDOR_REACT=$(stat -c%s dist/assets/vendor-react-*.js 2>/dev/null | head -1 || echo 0)
+          VENDOR_SUPA=$(stat -c%s dist/assets/vendor-supabase-*.js 2>/dev/null | head -1 || echo 0)
+          VENDOR_STATE=$(stat -c%s dist/assets/vendor-state-*.js 2>/dev/null | head -1 || echo 0)
+          INDEX_JS=$(stat -c%s dist/assets/index-*.js 2>/dev/null | head -1 || echo 0)
+          TOTAL_DIST=$(du -sb dist/ 2>/dev/null | cut -f1 || echo 0)
+
+          echo "vendor_react=$VENDOR_REACT"   >> $GITHUB_OUTPUT
+          echo "vendor_supa=$VENDOR_SUPA"     >> $GITHUB_OUTPUT
+          echo "vendor_state=$VENDOR_STATE"   >> $GITHUB_OUTPUT
+          echo "index_js=$INDEX_JS"           >> $GITHUB_OUTPUT
+          echo "total_dist=$TOTAL_DIST"       >> $GITHUB_OUTPUT
+
+          echo "### Build" >> $GITHUB_STEP_SUMMARY
+          echo "| Chunk | Tamaño |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| vendor-react   | $(numfmt --to=iec $VENDOR_REACT 2>/dev/null || echo ${VENDOR_REACT}B) |" >> $GITHUB_STEP_SUMMARY
+          echo "| vendor-supabase | $(numfmt --to=iec $VENDOR_SUPA 2>/dev/null || echo ${VENDOR_SUPA}B) |" >> $GITHUB_STEP_SUMMARY
+          echo "| index.js       | $(numfmt --to=iec $INDEX_JS 2>/dev/null || echo ${INDEX_JS}B) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Total dist** | $(numfmt --to=iec $TOTAL_DIST 2>/dev/null || echo ${TOTAL_DIST}B) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build time     | ${BUILD_DURATION_S}s |" >> $GITHUB_STEP_SUMMARY
+
+      # ── 7. Subir artefactos de cobertura ─────────────────────────────────────
+      - name: Subir reporte de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
+      # ── 8. Enviar métricas al Pushgateway ────────────────────────────────────
+      # Solo se ejecuta si el secret PUSHGATEWAY_URL está configurado.
+      # Para exponer el Pushgateway local: ngrok http 9091
+      # Luego configurar el secret en GitHub: Settings → Secrets → PUSHGATEWAY_URL
+      - name: Enviar métricas a Prometheus Pushgateway
+        if: ${{ secrets.PUSHGATEWAY_URL != '' }}
+        env:
+          PUSHGATEWAY_URL: ${{ secrets.PUSHGATEWAY_URL }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          LINES_PCT:      ${{ steps.tests.outputs.lines_pct }}
+          FUNCS_PCT:      ${{ steps.tests.outputs.funcs_pct }}
+          BRANCH_PCT:     ${{ steps.tests.outputs.branch_pct }}
+          TESTS_PASSED:   ${{ steps.tests.outputs.tests_passed }}
+          TESTS_FAILED:   ${{ steps.tests.outputs.tests_failed }}
+          LINT_ERRORS:    ${{ steps.lint.outputs.errors }}
+          LINT_WARNINGS:  ${{ steps.lint.outputs.warnings }}
+          BUILD_DURATION: ${{ steps.build.outputs.duration_s }}
+          VENDOR_REACT:   ${{ steps.build.outputs.vendor_react }}
+          VENDOR_SUPA:    ${{ steps.build.outputs.vendor_supa }}
+          VENDOR_STATE:   ${{ steps.build.outputs.vendor_state }}
+          INDEX_JS:       ${{ steps.build.outputs.index_js }}
+          TOTAL_DIST:     ${{ steps.build.outputs.total_dist }}
+        run: |
+          JOB_URL="${PUSHGATEWAY_URL}/metrics/job/nosee_ci/branch/${BRANCH}"
+
+          cat <<PROM_EOF | curl --silent --show-error --data-binary @- "${JOB_URL}"
+          # HELP nosee_ci_coverage_lines_percent Cobertura de líneas de código (meta: >60%)
+          # TYPE nosee_ci_coverage_lines_percent gauge
+          nosee_ci_coverage_lines_percent ${LINES_PCT:-0}
+          # HELP nosee_ci_coverage_functions_percent Cobertura de funciones (meta: >60%)
+          # TYPE nosee_ci_coverage_functions_percent gauge
+          nosee_ci_coverage_functions_percent ${FUNCS_PCT:-0}
+          # HELP nosee_ci_coverage_branches_percent Cobertura de ramas (meta: >50%)
+          # TYPE nosee_ci_coverage_branches_percent gauge
+          nosee_ci_coverage_branches_percent ${BRANCH_PCT:-0}
+          # HELP nosee_ci_tests_passed_total Tests unitarios que pasaron
+          # TYPE nosee_ci_tests_passed_total gauge
+          nosee_ci_tests_passed_total ${TESTS_PASSED:-0}
+          # HELP nosee_ci_tests_failed_total Tests unitarios que fallaron (meta: 0)
+          # TYPE nosee_ci_tests_failed_total gauge
+          nosee_ci_tests_failed_total ${TESTS_FAILED:-0}
+          # HELP nosee_ci_lint_errors_total Errores de ESLint (meta: 0)
+          # TYPE nosee_ci_lint_errors_total gauge
+          nosee_ci_lint_errors_total ${LINT_ERRORS:-0}
+          # HELP nosee_ci_lint_warnings_total Warnings de ESLint (meta: <10)
+          # TYPE nosee_ci_lint_warnings_total gauge
+          nosee_ci_lint_warnings_total ${LINT_WARNINGS:-0}
+          # HELP nosee_ci_build_duration_seconds Duración del build de Vite en segundos
+          # TYPE nosee_ci_build_duration_seconds gauge
+          nosee_ci_build_duration_seconds ${BUILD_DURATION:-0}
+          # HELP nosee_ci_bundle_size_bytes Tamaño de cada chunk del bundle en bytes
+          # TYPE nosee_ci_bundle_size_bytes gauge
+          nosee_ci_bundle_size_bytes{chunk="vendor_react"} ${VENDOR_REACT:-0}
+          nosee_ci_bundle_size_bytes{chunk="vendor_supabase"} ${VENDOR_SUPA:-0}
+          nosee_ci_bundle_size_bytes{chunk="vendor_state"} ${VENDOR_STATE:-0}
+          nosee_ci_bundle_size_bytes{chunk="index_js"} ${INDEX_JS:-0}
+          nosee_ci_bundle_size_bytes{chunk="total_dist"} ${TOTAL_DIST:-0}
+          PROM_EOF
+
+          echo "✅ Métricas enviadas a $JOB_URL"

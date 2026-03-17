@@ -55,6 +55,22 @@ docker compose up -d
 curl "http://localhost:9115/probe?target=http://metrics-server:3001/health&module=http_2xx_strict"
 ```
 
+### 4. Configurar métricas de CI desde GitHub Actions (opcional)
+
+Para que el workflow `.github/workflows/ci-metrics.yml` envíe métricas al Pushgateway local:
+
+```bash
+# Terminal 1 — exponer el Pushgateway al exterior (requiere ngrok)
+ngrok http 9091
+# Copia la URL pública: https://xxxxxxxx.ngrok-free.app
+
+# Terminal 2 — ir a GitHub → Settings → Secrets → New secret
+# Nombre: PUSHGATEWAY_URL
+# Valor:  https://xxxxxxxx.ngrok-free.app
+```
+
+El workflow corre automáticamente en cada push a `main` o `cristhian`.
+
 ### 2. Configurar el frontend
 
 Agregar en `.env`:

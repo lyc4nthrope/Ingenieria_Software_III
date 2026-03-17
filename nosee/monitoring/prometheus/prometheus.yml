@@ -44,6 +44,21 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox-exporter:9115
 
+  # ── Pushgateway — Métricas de CI (GitHub Actions) ─────────────────────────
+  #
+  # Métricas enviadas por el workflow ci-metrics.yml:
+  #   nosee_ci_coverage_percent      — cobertura de tests (meta: >60%)
+  #   nosee_ci_tests_passed_total    — tests que pasan
+  #   nosee_ci_tests_failed_total    — tests que fallan
+  #   nosee_ci_lint_errors_total     — errores ESLint (meta: 0)
+  #   nosee_ci_lint_warnings_total   — warnings ESLint
+  #   nosee_ci_build_duration_seconds — tiempo de build de Vite
+  #   nosee_ci_bundle_size_bytes{chunk} — tamaño de cada chunk del bundle
+  - job_name: 'pushgateway'
+    honor_labels: true
+    static_configs:
+      - targets: ['pushgateway:9091']
+
   # ── Blackbox — Healthcheck estricto del metrics-server ────────────────────
   - job_name: 'blackbox-metrics-server-health'
     metrics_path: /probe

@@ -34,6 +34,19 @@ services:
       timeout: 10s
       retries: 3
 
+  # ── Prometheus Pushgateway ────────────────────────────────────────────────
+  # Recibe métricas de CI (GitHub Actions) y las expone para que Prometheus las scrapee.
+  # Para enviar desde GitHub Actions, exponer el puerto 9091 públicamente.
+  # Opción local: ngrok http 9091 → configurar secret PUSHGATEWAY_URL en GitHub.
+  pushgateway:
+    image: prom/pushgateway:v1.6.2
+    container_name: nosee-pushgateway
+    ports:
+      - "9091:9091"
+    restart: unless-stopped
+    networks:
+      - monitoring
+
   # ── Blackbox Exporter ─────────────────────────────────────────────────────
   blackbox-exporter:
     image: prom/blackbox-exporter:v0.24.0
