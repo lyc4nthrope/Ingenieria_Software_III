@@ -153,7 +153,6 @@ function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(pub); }}
               style={{
                 ...carousel.card,
-                ...(isBest ? carousel.cardBest : {}),
                 ...(isSelected ? carousel.cardSelected : {}),
                 cursor: 'pointer',
               }}
