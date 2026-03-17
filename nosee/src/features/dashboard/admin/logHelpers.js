@@ -65,7 +65,7 @@ export function getObjectInfo(type, d = {}) {
   if (type === 'actualizar_perfil')
     return '—';
   if (type === 'crear_publicacion' || type === 'editar_publicacion') {
-    const pid = d.publicationId?.slice(0, 8);
+    const pid = d.publicationId != null ? String(d.publicationId).slice(0, 8) : null;
     return pid ? `#${pid}` : '—';
   }
   if (type === 'crear_tienda' || type === 'editar_tienda')
