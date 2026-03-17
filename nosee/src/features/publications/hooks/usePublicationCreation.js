@@ -4,6 +4,7 @@ import { useGeoLocation } from './useGeoLocation';
 import { playSuccessSound } from '@/utils/celebrationSound';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { insertUserActivityLog } from '@/services/api/audit.api';
+import { recordPublicationCreated } from '@/services/metrics';
 
 const initialFormData = {
   productId: '',
@@ -114,6 +115,10 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
       if (!result.success) {
         setSubmitError(result.error || 'Error al procesar la publicación');
         return result;
+      }
+
+      if (mode === 'create') {
+        recordPublicationCreated(!!payload.photoUrl);
       }
 
       insertUserActivityLog(currentUserId, mode === 'create' ? 'crear_publicacion' : 'editar_publicacion', {

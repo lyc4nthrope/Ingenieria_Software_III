@@ -26,7 +26,7 @@ import {
   detectRestrictedContentText,
   detectIndecentImageByModeration,
 } from "@/services/moderation";
-import { recordVoteDuplicateRejected } from "@/services/metrics";
+import { recordVote, recordPublicationReport, recordVoteDuplicateRejected } from "@/services/metrics";
 
 // ─── TIPOS / INTERFACES ───────────────────────────────────────────────────────
 
@@ -1583,6 +1583,7 @@ export const validatePublication = async (publicationId, voteType = 1) => {
       }
     }
 
+    recordVote(voteType === 1 ? 'upvote' : 'downvote');
     return { success: true, data: vote };
   } catch (err) {
     console.error("Error en validatePublication:", err);
@@ -1886,8 +1887,9 @@ export const reportPublication = async (
       status: report.status,
     });
 
-    return { 
-      success: true, 
+    recordPublicationReport();
+    return {
+      success: true,
       data: report,
       message: "Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE."
     };

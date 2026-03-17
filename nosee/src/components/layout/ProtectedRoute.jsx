@@ -14,6 +14,7 @@ import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/feat
 import { PageLoader } from '@/components/ui/Spinner';
 import { getRolePath } from '@/utils/roleUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { recordRoleError } from '@/services/metrics';
 
 export default function ProtectedRoute({ children, redirectTo = '/login', allowedRoles }) {
   const { t } = useLanguage();
@@ -32,6 +33,7 @@ export default function ProtectedRoute({ children, redirectTo = '/login', allowe
 
   // Si se definieron roles permitidos y el usuario no los tiene → redirigir a su dashboard
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
+    recordRoleError(allowedRoles[0], user?.role ?? 'unknown');
     return <Navigate to={getRolePath(user?.role)} replace />;
   }
 
