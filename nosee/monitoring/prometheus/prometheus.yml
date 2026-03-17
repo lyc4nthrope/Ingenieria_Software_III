@@ -9,7 +9,8 @@ scrape_configs:
   # ── Métricas personalizadas de NØSEE (Proceso 1 + 2) ──────────────────────
   - job_name: 'nosee-app'
     static_configs:
-      - targets: ['metrics-server:3001']
+      - targets: ['ingenieriasoftwareiii-production.up.railway.app']
+    scheme: https
     metrics_path: '/metrics'
     scrape_interval: 15s
     scrape_timeout: 10s
@@ -66,7 +67,7 @@ scrape_configs:
       module: [http_2xx_strict]
     static_configs:
       - targets:
-          - http://metrics-server:3001/health
+          - https://ingenieriasoftwareiii-production.up.railway.app/health
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
