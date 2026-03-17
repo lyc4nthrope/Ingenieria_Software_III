@@ -24,7 +24,7 @@
  *   Site URL: http://localhost:5173 (dev) / https://tudominio.com (prod)
  *   Redirect URLs: http://localhost:5173/auth/callback
  */
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import { supabase } from '@/services/supabase.client';
@@ -48,6 +48,14 @@ function Spinner({ label = "Loading" }) {
   );
 }
 
+// ── Guardia de nivel módulo contra el doble-exchange de PKCE ──────────────────
+// useRef(false) NO sirve porque React 18 StrictMode hace full remount
+// (mount → unmount → mount) reseteando el ref cada vez.
+// Una variable de módulo sobrevive cualquier remount del componente.
+// Guardamos el code ya intentado (no solo un booleano) para permitir
+// flujos genuinamente nuevos con un code diferente.
+let _lastAttemptedCode = null;
+
 // ── Tipos de callback que puede recibir ──
 const CALLBACK_TYPE = {
   SIGNUP:   'signup',    // Confirmación de email tras registro
@@ -59,8 +67,6 @@ export default function CallbackPage() {
   const { t } = useLanguage();
   const tcp = t.callbackPage;
   const navigate = useNavigate();
-  // Guardia contra doble invocación (React StrictMode en dev hace mount→unmount→mount)
-  const exchangeAttempted = useRef(false);
   const isInitialized = useAuthStore(selectIsInitialized);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
@@ -87,11 +93,11 @@ export default function CallbackPage() {
 
   useEffect(() => {
     // Si hay un code en query params → intercambiar por sesión (PKCE)
-    // La guardia evita el doble-intercambio que lanza React StrictMode en dev
-    // y cualquier re-render que vuelva a disparar el effect con el mismo code.
+    // Usamos _lastAttemptedCode (módulo) en vez de useRef porque StrictMode
+    // hace full remount y resetea cualquier ref/estado del componente.
     if (code) {
-      if (exchangeAttempted.current) return;
-      exchangeAttempted.current = true;
+      if (_lastAttemptedCode === code) return;
+      _lastAttemptedCode = code;
       supabase.auth.exchangeCodeForSession(code)
         .then(({ error }) => {
           if (error) console.error('Error exchanging code:', error);
