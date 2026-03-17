@@ -147,18 +147,19 @@ function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail
           return (
             <div
               key={pub.id ?? idx}
+              role="button"
+              tabIndex={0}
+              onClick={() => onSelect(pub)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(pub); }}
               style={{
                 ...carousel.card,
                 ...(isBest ? carousel.cardBest : {}),
                 ...(isSelected ? carousel.cardSelected : {}),
+                cursor: 'pointer',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '4px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  {isBest && <span style={carousel.bestBadge}>★ Mejor Opción</span>}
-                  {isSelected && <span style={carousel.selectedBadge}>✓ Seleccionado</span>}
-                </div>
-              </div>
+              {isBest && <span style={carousel.bestBadge}>★ Mejor Opción</span>}
+              {isSelected && <span style={carousel.selectedBadge}>✓ Seleccionado</span>}
               <span style={carousel.storeName}>
                 {storeEmoji} {pub.store?.name ?? 'Tienda'}
               </span>
@@ -167,25 +168,13 @@ function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail
                 <span style={carousel.currency}> COP</span>
               </span>
               <span style={carousel.prodName}>{pub.productName ?? pub.product_name ?? '—'}</span>
-              <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(pub)}
-                  style={{
-                    ...carousel.selectBtn,
-                    ...(isSelected ? carousel.selectBtnActive : {}),
-                  }}
-                >
-                  {isSelected ? '✓ Elegida' : 'Elegir'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onOpenDetail(pub)}
-                  style={carousel.detailBtn}
-                >
-                  Ver →
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenDetail(pub); }}
+                style={carousel.detailBtn}
+              >
+                Ver detalle →
+              </button>
             </div>
           );
         })}
@@ -954,17 +943,6 @@ const carousel = {
   selectedBadge: {
     fontSize: '10px', fontWeight: 800, color: 'var(--accent)',
     textTransform: 'uppercase', letterSpacing: '0.04em',
-  },
-  selectBtn: {
-    flex: 1, padding: '4px 0',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)',
-    background: 'var(--bg-elevated)',
-    color: 'var(--text-secondary)',
-    fontSize: '11px', fontWeight: 600, cursor: 'pointer',
-  },
-  selectBtnActive: {
-    background: 'var(--accent)', borderColor: 'var(--accent)', color: '#fff',
   },
   detailBtn: {
     padding: '4px 8px',
