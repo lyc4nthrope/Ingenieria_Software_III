@@ -24,7 +24,7 @@
  *   Site URL: http://localhost:5173 (dev) / https://tudominio.com (prod)
  *   Redirect URLs: http://localhost:5173/auth/callback
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import { supabase } from '@/services/supabase.client';
@@ -59,6 +59,8 @@ export default function CallbackPage() {
   const { t } = useLanguage();
   const tcp = t.callbackPage;
   const navigate = useNavigate();
+  // Guardia contra doble invocación (React StrictMode en dev hace mount→unmount→mount)
+  const exchangeAttempted = useRef(false);
   const isInitialized = useAuthStore(selectIsInitialized);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
@@ -85,19 +87,23 @@ export default function CallbackPage() {
 
   useEffect(() => {
     // Si hay un code en query params → intercambiar por sesión (PKCE)
-  if (code) {
-    supabase.auth.exchangeCodeForSession(code)
-      .then(({ error }) => {
-        if (error) console.error('Error exchanging code:', error);
-      });
-    return;
-  }
+    // La guardia evita el doble-intercambio que lanza React StrictMode en dev
+    // y cualquier re-render que vuelva a disparar el effect con el mismo code.
+    if (code) {
+      if (exchangeAttempted.current) return;
+      exchangeAttempted.current = true;
+      supabase.auth.exchangeCodeForSession(code)
+        .then(({ error }) => {
+          if (error) console.error('Error exchanging code:', error);
+        });
+      return;
+    }
 
     // Si no hay hash ni code ni error → alguien llegó directo
-  if (!hash && !urlError && !code) {
-    navigate('/login', { replace: true });
-  }
-}, [code, hash, urlError, navigate]);
+    if (!hash && !urlError && !code) {
+      navigate('/login', { replace: true });
+    }
+  }, [code, hash, urlError, navigate]);
 
   useEffect(() => {
     if (!isInitialized) return;
