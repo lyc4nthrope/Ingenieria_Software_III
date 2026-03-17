@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGeoLocation } from "@/features/publications/hooks";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { recordGeocodingRequest } from "@/services/metrics";
 
 const MAP_HEIGHT = 360;
 const DEFAULT_ZOOM = 16;
@@ -71,15 +72,21 @@ async function reverseGeocode(latitude, longitude) {
   url.searchParams.set("lat", String(latitude));
   url.searchParams.set("lon", String(longitude));
 
-  const response = await fetch(url, {
-    headers: { Accept: "application/json" },
-  });
+  let response;
+  try {
+    response = await fetch(url, { headers: { Accept: "application/json" } });
+  } catch (err) {
+    recordGeocodingRequest('failure', 'reverse');
+    throw err;
+  }
 
   if (!response.ok) {
+    recordGeocodingRequest('failure', 'reverse');
     throw new Error("No se pudo resolver la dirección para este punto.");
   }
 
   const data = await response.json();
+  recordGeocodingRequest('success', 'reverse');
   return data?.display_name || "";
 }
 
@@ -89,20 +96,27 @@ async function geocodeAddress(address) {
   url.searchParams.set("q", address);
   url.searchParams.set("limit", "1");
 
-  const response = await fetch(url, {
-    headers: { Accept: "application/json" },
-  });
+  let response;
+  try {
+    response = await fetch(url, { headers: { Accept: "application/json" } });
+  } catch (err) {
+    recordGeocodingRequest('failure', 'forward');
+    throw err;
+  }
 
   if (!response.ok) {
+    recordGeocodingRequest('failure', 'forward');
     throw new Error("No se pudo ubicar la dirección escrita.");
   }
 
   const data = await response.json();
   const result = data?.[0];
   if (!result) {
+    recordGeocodingRequest('failure', 'forward');
     throw new Error("No encontramos resultados para esa dirección.");
   }
 
+  recordGeocodingRequest('success', 'forward');
   return {
     latitude: Number(Number(result.lat).toFixed(6)),
     longitude: Number(Number(result.lon).toFixed(6)),

@@ -30,6 +30,7 @@ import { authApi, usersApi } from '@/services/api';
 import { supabase }          from '@/services/supabase.client';
 import { AsyncStateEnum }    from '@/types';
 import { insertUserActivityLog } from '@/services/api/audit.api';
+import { recordTokenRefresh } from '@/services/metrics';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -198,6 +199,7 @@ export const useAuthStore = create((set, get) => ({
 
         } else if (event === 'TOKEN_REFRESHED' && session) {
           set({ session });
+          recordTokenRefresh('success');
 
         } else if (event === 'SIGNED_OUT') {
           set({

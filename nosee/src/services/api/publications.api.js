@@ -26,6 +26,7 @@ import {
   detectRestrictedContentText,
   detectIndecentImageByModeration,
 } from "@/services/moderation";
+import { recordVoteDuplicateRejected } from "@/services/metrics";
 
 // ─── TIPOS / INTERFACES ───────────────────────────────────────────────────────
 
@@ -1522,6 +1523,7 @@ export const validatePublication = async (publicationId, voteType = 1) => {
       .single();
 
     if (existingVote) {
+      recordVoteDuplicateRejected();
       return { success: false, error: "Ya votaste esta publicación" };
     }
 

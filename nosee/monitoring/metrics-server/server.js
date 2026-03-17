@@ -136,6 +136,78 @@ const publicationReportsTotal = new Counter({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CLOUDINARY — Subida de imágenes de evidencia (RNF 4.2.3, 4.2.4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const cloudinaryUploadsTotal = new Counter({
+  name: 'nosee_cloudinary_upload_total',
+  help: 'Total de subidas de imagen a Cloudinary (meta éxito: >99%)',
+  labelNames: ['result'],
+  registers: [register],
+});
+
+const imageUploadSizeBytes = new Histogram({
+  name: 'nosee_image_upload_size_bytes',
+  help: 'Tamaño de imágenes subidas en bytes (meta: ≤5MB)',
+  buckets: [50000, 200000, 500000, 1000000, 2000000, 5000000, 10000000],
+  registers: [register],
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOKEN REFRESH — Renovación de sesión (RNF 4.1.4)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const tokenRefreshTotal = new Counter({
+  name: 'nosee_token_refresh_total',
+  help: 'Renovaciones de token JWT por Supabase (meta éxito: >99.9%)',
+  labelNames: ['result'],
+  registers: [register],
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORMULARIOS — Inicio y abandono (RNF 4.3.5, 4.1.3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const publicationFormStartedTotal = new Counter({
+  name: 'nosee_publication_form_started_total',
+  help: 'Usuarios que abren el formulario de crear publicación (denominador para tasa de abandono)',
+  registers: [register],
+});
+
+const publicationFormAbandonedTotal = new Counter({
+  name: 'nosee_publication_form_abandoned_total',
+  help: 'Usuarios que abandonan el formulario sin publicar (meta: <15% de iniciados)',
+  registers: [register],
+});
+
+const registrationStartedTotal = new Counter({
+  name: 'nosee_registration_started_total',
+  help: 'Usuarios que abren el formulario de registro (denominador para conversión)',
+  registers: [register],
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GEOCODIFICACIÓN — Nominatim (RNF 4.2.2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const geocodingRequestsTotal = new Counter({
+  name: 'nosee_geocoding_requests_total',
+  help: 'Peticiones totales a Nominatim (reverse + forward geocoding)',
+  labelNames: ['result', 'type'],
+  registers: [register],
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VOTOS — Duplicados rechazados (RNF 4.1.2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const voteDuplicateRejectedTotal = new Counter({
+  name: 'nosee_vote_duplicate_rejected_total',
+  help: 'Intentos de voto duplicado bloqueados (meta: 0 duplicados persistidos)',
+  registers: [register],
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // RENDIMIENTO
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -249,6 +321,47 @@ app.post('/api/metrics', (req, res) => {
 
     case 'publication_report':
       publicationReportsTotal.inc();
+      break;
+
+    // ── Cloudinary ────────────────────────────────────────────────────────
+    case 'cloudinary_upload': {
+      const uploadResult = data.result === 'success' ? 'success' : 'failure';
+      cloudinaryUploadsTotal.inc({ result: uploadResult });
+      if (typeof data.size_bytes === 'number' && data.size_bytes > 0) {
+        imageUploadSizeBytes.observe(data.size_bytes);
+      }
+      break;
+    }
+
+    // ── Token Refresh ─────────────────────────────────────────────────────
+    case 'token_refresh':
+      tokenRefreshTotal.inc({ result: data.result === 'success' ? 'success' : 'failure' });
+      break;
+
+    // ── Formularios ───────────────────────────────────────────────────────
+    case 'publication_form_started':
+      publicationFormStartedTotal.inc();
+      break;
+
+    case 'publication_form_abandoned':
+      publicationFormAbandonedTotal.inc();
+      break;
+
+    case 'registration_started':
+      registrationStartedTotal.inc();
+      break;
+
+    // ── Geocodificación ───────────────────────────────────────────────────
+    case 'geocoding_request':
+      geocodingRequestsTotal.inc({
+        result: data.result === 'success' ? 'success' : 'failure',
+        type: data.type === 'forward' ? 'forward' : 'reverse',
+      });
+      break;
+
+    // ── Votos duplicados ──────────────────────────────────────────────────
+    case 'vote_duplicate_rejected':
+      voteDuplicateRejectedTotal.inc();
       break;
 
     // ── Rendimiento ───────────────────────────────────────────────────────
