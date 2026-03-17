@@ -1321,9 +1321,9 @@ const lista = {
 
 // ── Carousel styles ────────────────────────────────────────────────────────────
 const carousel = {
-  // Desktop: fila estática sin overflow, centrada
+  // Desktop: fila horizontal en línea recta, sin wrapping
   track: {
-    display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center',
+    display: 'flex', gap: '8px', flexWrap: 'nowrap',
   },
   // Mobile: scroll horizontal libre
   mobileTrack: {
