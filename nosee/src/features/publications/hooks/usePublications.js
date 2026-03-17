@@ -21,6 +21,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as publicationsApi from '@/services/api/publications.api';
 import { debugPublications } from '@/utils/debugLogger';
+import { recordApiLatency } from '@/services/metrics';
 
 const REQUEST_GUARD_TIMEOUT_MS = 32000;
 const TAB_REFETCH_DEBOUNCE_MS = 1500;
@@ -207,6 +208,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
 
         // Llamar a API
         const result = await publicationsApi.getPublications(queryFilters);
+        recordApiLatency('publications_list', Date.now() - startedAt);
 
         if (!isMountedRef.current || requestId !== activeRequestIdRef.current) {
           return;
