@@ -465,7 +465,7 @@ img {
   width: 28px;
   height: 28px;
   padding: 0;
-  background: rgba(255,255,255,0.85);
+  background: var(--bg-elevated);
   border: 1.5px solid rgba(180, 40, 40, 0.35);
   border-radius: 50%;
   color: rgba(180, 40, 40, 0.65);

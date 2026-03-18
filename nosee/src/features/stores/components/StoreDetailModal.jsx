@@ -256,7 +256,7 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
                 e.currentTarget.style.color = 'var(--bg-surface, #fff)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'none';
+                e.currentTarget.style.background = 'var(--bg-elevated)';
                 e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
                 e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
               }}
@@ -498,7 +498,7 @@ const styles = {
     color: 'var(--info)',
   },
   reportBtn: {
-    background: 'none',
+    background: 'var(--bg-elevated)',
     border: '1.5px solid rgba(180, 40, 40, 0.25)',
     borderRadius: '50%',
     width: '28px',

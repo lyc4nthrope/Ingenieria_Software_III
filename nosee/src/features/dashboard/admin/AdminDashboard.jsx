@@ -1705,17 +1705,8 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
 
-<<<<<<< HEAD
-  const productName = pub.productName || pub.product?.name || '—';
-  const productBarcode = pub.productBarcode || pub.product?.barcode || td.noCode;
-  const brandName   = pub.brandName   || pub.product?.brand?.name || td.noBrand;
-  const storeName   = pub.storeName   || pub.store?.name   || '—';
-  const authorName  = pub.authorName  || pub.userName || pub.user?.full_name || '—';
-  const createdAt   = pub.createdAt   ? new Date(pub.createdAt).toLocaleString('es-CO') : '—';
-=======
   const authorName = pub.authorName || pub.userName || pub.user?.full_name || '—';
   const createdAt  = pub.createdAt  ? new Date(pub.createdAt).toLocaleString('es-CO') : '—';
->>>>>>> prueba
   const confidence = typeof pub.confidenceScore === 'number' ? pub.confidenceScore.toFixed(2) : '—';
   const productBarcode = pub.productBarcode || pub.product?.barcode || 'Sin código';
   const brandName      = pub.brandName || pub.product?.brand?.name || 'Sin marca';
@@ -1781,17 +1772,10 @@ function PublicationDetailModal({ pub, onClose, onSave, onDelete }) {
             <StatusBadge status={pub.is_active ? 'active' : 'hidden'} />
           </div>
           <div style={s.detailGrid}>
-<<<<<<< HEAD
-            <DetailRow label={td.pubProductLabel} value={productName} />
-            <DetailRow label={td.pubBarcodeLabel} value={productBarcode} />
-            <DetailRow label={td.pubBrandLabel} value={brandName} />
-            <DetailRow label={td.pubStoreLabel}   value={storeName} />
-=======
             <DetailRow label={td.pubProductLabel} value={productQuery || '—'} />
             <DetailRow label="Código de barras" value={productBarcode} />
             <DetailRow label="Marca" value={brandName} />
             <DetailRow label={td.pubStoreLabel}   value={storeQuery || '—'} />
->>>>>>> prueba
             <DetailRow label={td.pubPriceLabel}   value={`$${typeof pub.price === 'number' ? pub.price.toLocaleString('es-CO') : pub.price || '—'}`} />
             <DetailRow label={td.pubAuthorLabel}  value={authorName} />
             <DetailRow label={td.pubDateLabel}    value={createdAt} />
@@ -2227,12 +2211,9 @@ function ReportDetailsModal({ report, onClose, onSave }) {
   );
 }
 
-<<<<<<< HEAD
-function StoreDetailModal({ store, onClose, onDelete, isDeleting }) {
+function StoreDetailModal({ store, onClose, onDelete, isDeleting, onSave }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
-=======
-function StoreDetailModal({ store, onClose, onDelete, isDeleting, onSave }) {
   const [name, setName]           = useState(store.name || '');
   const [storeTypeId, setStoreTypeId] = useState(String(store.store_type_id || '1'));
   const [address, setAddress]     = useState(store.address || '');
@@ -2253,8 +2234,6 @@ function StoreDetailModal({ store, onClose, onDelete, isDeleting, onSave }) {
     setSaving(false);
     if (ok !== false) setSaved(true);
   };
-
->>>>>>> prueba
   return (
     <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
       <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
@@ -2267,17 +2246,8 @@ function StoreDetailModal({ store, onClose, onDelete, isDeleting, onSave }) {
         </div>
 
         <div style={s.detailGrid}>
-<<<<<<< HEAD
-          <DetailRow label={td.labelName} value={store.name || '—'} />
-          <DetailRow label={td.labelType} value={store.typeLabel || '—'} />
-          <DetailRow label={td.labelAddress} value={store.address || '—'} />
-          <DetailRow label={td.labelWeb} value={store.website_url || '—'} />
-          <DetailRow label={td.labelCreatedAt} value={store.created_at ? new Date(store.created_at).toLocaleString('es-CO') : '—'} />
-          <DetailRow label={td.labelRelatedPubs} value={store.relatedCount ?? 0} />
-=======
           <DetailRow label="Creada el" value={store.created_at ? new Date(store.created_at).toLocaleString('es-CO') : '—'} />
           <DetailRow label="Publicaciones (vista actual)" value={store.relatedCount ?? 0} />
->>>>>>> prueba
         </div>
 
         <hr style={{ border: 'none', borderTop: `1px solid ${BORDER}`, margin: '12px 0' }} />
@@ -2315,28 +2285,21 @@ function StoreDetailModal({ store, onClose, onDelete, isDeleting, onSave }) {
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
             {isDeleting ? td.hidingBtn : td.hideStoreBtn}
           </button>
-<<<<<<< HEAD
-          <button onClick={onClose} style={s.btnDismiss}>{td.closeBtn}</button>
-=======
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
             <button onClick={save} style={{ ...s.filterBtn, ...s.filterBtnActive }} disabled={saving}>
               {saving ? '...' : 'Guardar cambios'}
             </button>
           </div>
->>>>>>> prueba
         </div>
       </div>
     </div>
   );
 }
 
-<<<<<<< HEAD
-function BrandDetailModal({ brand, onClose, onDelete, isDeleting }) {
+function BrandDetailModal({ brand, onClose, onDelete, isDeleting, onSave }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
-=======
-function BrandDetailModal({ brand, onClose, onDelete, isDeleting, onSave }) {
   const [name, setName] = useState(brand.name || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
@@ -2349,8 +2312,6 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting, onSave }) {
     setSaving(false);
     if (ok !== false) setSaved(true);
   };
-
->>>>>>> prueba
   return (
     <div role="button" tabIndex={0} style={s.modalOverlay} onClick={onClose} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
       <div role="button" tabIndex={0} style={{ ...s.modalCard, maxWidth: 560 }} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
@@ -2362,18 +2323,10 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting, onSave }) {
           <button onClick={onClose} style={CLOSE_BTN_STYLE}>✕</button>
         </div>
         <div style={s.detailGrid}>
-<<<<<<< HEAD
-          <DetailRow label={td.colProduct} value={brand.productName || '—'} />
-          <DetailRow label={td.colBarcode} value={brand.productBarcode || td.noCode} />
-          <DetailRow label={td.colBrand} value={brand.name || '—'} />
-          <DetailRow label={td.labelAssociatedProducts} value={brand.productsCount ?? 0} />
-          <DetailRow label={td.labelCreatedAt} value={brand.created_at ? new Date(brand.created_at).toLocaleString('es-CO') : '—'} />
-=======
           <DetailRow label="Producto relacionado" value={brand.productName || '—'} />
           <DetailRow label="Código de barras" value={brand.productBarcode || 'Sin código'} />
           <DetailRow label="Productos asociados" value={brand.productsCount ?? 0} />
           <DetailRow label="Creada el" value={brand.created_at ? new Date(brand.created_at).toLocaleString('es-CO') : '—'} />
->>>>>>> prueba
         </div>
 
         <hr style={{ border: 'none', borderTop: `1px solid ${BORDER}`, margin: '12px 0' }} />
@@ -2389,28 +2342,21 @@ function BrandDetailModal({ brand, onClose, onDelete, isDeleting, onSave }) {
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
             {isDeleting ? td.hidingBtn : td.hideBrandBtn}
           </button>
-<<<<<<< HEAD
-          <button onClick={onClose} style={s.btnDismiss}>{td.closeBtn}</button>
-=======
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
             <button onClick={save} style={{ ...s.filterBtn, ...s.filterBtnActive }} disabled={saving}>
               {saving ? '...' : 'Guardar cambios'}
             </button>
           </div>
->>>>>>> prueba
         </div>
       </div>
     </div>
   );
 }
 
-<<<<<<< HEAD
-function ProductDetailModal({ product, onClose, onDelete, isDeleting }) {
+function ProductDetailModal({ product, onClose, onDelete, isDeleting, onSave }) {
   const { t } = useLanguage();
   const td = t.adminDashboard;
-=======
-function ProductDetailModal({ product, onClose, onDelete, isDeleting, onSave }) {
   const [name, setName]             = useState(product?.name || '');
   const [barcode, setBarcode]       = useState(product?.barcode || '');
   const [baseQuantity, setBaseQuantity] = useState(product?.base_quantity ?? '');
@@ -2452,8 +2398,6 @@ function ProductDetailModal({ product, onClose, onDelete, isDeleting, onSave }) 
     setSaving(false);
     if (ok !== false) setSaved(true);
   };
-
->>>>>>> prueba
   const quantity = product?.base_quantity != null && product?.unit?.abbreviation
     ? `${product.base_quantity} ${product.unit.abbreviation}`
     : product?.base_quantity != null && product?.unit?.name
@@ -2472,16 +2416,8 @@ function ProductDetailModal({ product, onClose, onDelete, isDeleting, onSave }) 
         </div>
 
         <div style={s.detailGrid}>
-<<<<<<< HEAD
-          <DetailRow label={td.colProduct} value={product?.name || '—'} />
-          <DetailRow label={td.colBrand} value={product?.brand?.name || td.noBrand} />
-          <DetailRow label={td.colBarcode} value={product?.barcode || td.noCode} />
-          <DetailRow label={td.labelBaseQuantity} value={quantity} />
-          <DetailRow label={td.labelCreatedAtProduct} value={product?.created_at ? new Date(product.created_at).toLocaleString('es-CO') : '—'} />
-=======
           <DetailRow label="Cantidad base (original)" value={quantity} />
           <DetailRow label="Creado el" value={product?.created_at ? new Date(product.created_at).toLocaleString('es-CO') : '—'} />
->>>>>>> prueba
         </div>
 
         <hr style={{ border: 'none', borderTop: `1px solid ${BORDER}`, margin: '12px 0' }} />
@@ -2538,16 +2474,12 @@ function ProductDetailModal({ product, onClose, onDelete, isDeleting, onSave }) 
           <button onClick={onDelete} style={s.btnDelete} disabled={isDeleting}>
             {isDeleting ? td.hidingBtn : td.hideProductBtn}
           </button>
-<<<<<<< HEAD
-          <button onClick={onClose} style={s.btnDismiss}>{td.closeBtn}</button>
-=======
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onClose} style={s.btnDismiss}>Cerrar</button>
             <button onClick={save} style={{ ...s.filterBtn, ...s.filterBtnActive }} disabled={saving || loadingMeta}>
               {saving ? '...' : 'Guardar cambios'}
             </button>
           </div>
->>>>>>> prueba
         </div>
       </div>
     </div>

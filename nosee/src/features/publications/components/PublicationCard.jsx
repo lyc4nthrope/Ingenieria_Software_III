@@ -218,7 +218,7 @@ export function PublicationCard({
           e.currentTarget.style.color = '#fff';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.85)';
+          e.currentTarget.style.background = 'var(--bg-elevated)';
           e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.35)';
           e.currentTarget.style.color = 'rgba(180, 40, 40, 0.65)';
         }}
@@ -654,7 +654,7 @@ const styles = {
     top: '10px',
     right: '10px',
     zIndex: 1,
-    background: 'rgba(255,255,255,0.85)',
+    background: 'var(--bg-elevated)',
     border: '1.5px solid rgba(180, 40, 40, 0.35)',
     borderRadius: '50%',
     width: '28px',
