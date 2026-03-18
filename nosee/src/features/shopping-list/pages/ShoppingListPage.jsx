@@ -659,26 +659,11 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
     ? Object.values(selectedPubs).reduce((sum, pub) => sum + (pub?.price ?? 0), 0)
     : 0;
 
-  const handleGoToResult = () => {
-    const result = buildResultFromSelections(items, selectedPubs);
-    setOrderResult(result);
-    setPhase('result');
-  };
-
-  // Primer clic = seleccionar, segundo clic en mismo = confirmar
-  const handleDeliveryPress = (mode) => {
-    if (deliveryMode === mode) {
-      handleGoToResult();
-    } else {
-      setDeliveryMode(mode);
-    }
-  };
-
   const handleConfirmOrder = () => {
-    if (!orderResult) return;
+    const result = buildResultFromSelections(items, selectedPubs);
     addOrder({
       id: `NSE-${Date.now().toString(36).toUpperCase()}`,
-      result: orderResult,
+      result,
       userCoords: hasLocation ? { lat: latitude, lng: longitude } : null,
       createdAt: new Date().toISOString(),
       deliveryMode: deliveryMode === 'delivery',
@@ -694,21 +679,17 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
       setOrderResult(null);
       onConfirmedDelivery?.();
     } else {
+      setOrderResult(result);
       setPhase('pickup');
     }
   };
 
-  // ── Fase resultado ────────────────────────────────────────────────────────
-  if (phase === 'result' && orderResult) {
-    return (
-      <ResultView
-        result={orderResult}
-        deliveryMode={deliveryMode}
-        onBack={() => setPhase('list')}
-        onConfirm={handleConfirmOrder}
-      />
-    );
-  }
+  const handleChangeMode = () => {
+    setDeliveryMode(null);
+    setCalcResults(null);
+    setSelectedPubs({});
+    setExpandedId(null);
+  };
 
   // ── Fase "Voy yo" — vista lista + mapa ───────────────────────────────────
   if (phase === 'pickup' && orderResult) {
@@ -826,6 +807,47 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
             </div>
           )}
 
+          {/* ── Selector de modo — intención ANTES de optimizar ── */}
+          {!isCalculated && (
+            <div style={lista.modeBlock}>
+              <p style={lista.modeLabel}>¿Cómo vas a recibir tus productos?</p>
+              <div style={lista.modeRow}>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMode('delivery')}
+                  style={{ ...lista.modeCard, ...(deliveryMode === 'delivery' ? lista.modeCardActive : {}) }}
+                >
+                  <span style={lista.modeCardIcon}>🛵</span>
+                  <span style={lista.modeCardName}>Domicilio</span>
+                  <span style={lista.modeCardDesc}>Te lo llevamos a tu puerta</span>
+                  <span style={lista.modeCardFee}>+${DELIVERY_FEE.toLocaleString('es-CO')} aprox.</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMode('pickup')}
+                  style={{ ...lista.modeCard, ...(deliveryMode === 'pickup' ? lista.modeCardActive : {}) }}
+                >
+                  <span style={lista.modeCardIcon}>🚶</span>
+                  <span style={lista.modeCardName}>Voy yo</span>
+                  <span style={lista.modeCardDesc}>Tú recoges en tienda</span>
+                  <span style={lista.modeCardFee}>Sin costo extra · mapa incluido</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Badge de modo activo (post-optimización) ─────────── */}
+          {isCalculated && deliveryMode && (
+            <div style={lista.modeBadgeBar}>
+              <span style={lista.modeBadgeText}>
+                {deliveryMode === 'delivery' ? '🛵 Domicilio' : '🚶 Voy yo'}
+              </span>
+              <button type="button" onClick={handleChangeMode} style={lista.modeBadgeChange}>
+                Cambiar modo
+              </button>
+            </div>
+          )}
+
           {/* ── Lista de ítems ──────────────────────────────────── */}
           <ul style={lista.list}>
             {items.map((item) => {
@@ -904,7 +926,7 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
             })}
           </ul>
 
-          {/* ── Tarjeta de total ────────────────────────────────── */}
+          {/* ── Tarjeta de total ─────────────────────────────────── */}
           {isCalculated && Object.keys(selectedPubs).length > 0 && (
             <div style={lista.totalCard}>
               <div style={lista.totalCardInner}>
@@ -920,45 +942,18 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
             </div>
           )}
 
-          {/* ── Botones de modo de entrega ───────────────────────── */}
-          {isCalculated && hasSelections && (
-            <div style={lista.deliveryBlock}>
-              <p style={lista.deliveryLabel}>¿Cómo vas a recibir tus productos?</p>
-              <div style={lista.deliveryRow}>
-                <button
-                  type="button"
-                  onClick={() => handleDeliveryPress('delivery')}
-                  style={{
-                    ...lista.deliveryBtn,
-                    ...(deliveryMode === 'delivery' ? lista.deliveryBtnActive : {}),
-                  }}
-                >
-                  🛵 Domicilio
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeliveryPress('pickup')}
-                  style={{
-                    ...lista.deliveryBtn,
-                    ...(deliveryMode === 'pickup' ? lista.deliveryBtnActive : {}),
-                  }}
-                >
-                  🚶 Voy yo
-                </button>
-              </div>
-              {deliveryMode && (
-                <p style={lista.deliveryHint}>Presiona de nuevo para confirmar</p>
-              )}
-            </div>
+          {/* ── Botón de confirmación único ──────────────────────── */}
+          {isCalculated && hasSelections && deliveryMode && (
+            <button type="button" onClick={handleConfirmOrder} style={lista.confirmBtn}>
+              {deliveryMode === 'delivery'
+                ? `🛵 Confirmar pedido — $${total.toLocaleString('es-CO')} COP`
+                : `🚶 Ver ruta de compra — $${total.toLocaleString('es-CO')} COP`}
+            </button>
           )}
 
           {/* ── Error de cálculo ────────────────────────────────── */}
-          {calcError && (
-            <p style={lista.errorMsg}>{calcError}</p>
-          )}
-          {coordsError && (
-            <p style={lista.errorMsg}>{coordsError}</p>
-          )}
+          {calcError && <p style={lista.errorMsg}>{calcError}</p>}
+          {coordsError && <p style={lista.errorMsg}>{coordsError}</p>}
 
           {/* ── Panel de configuración ───────────────────────────── */}
           {showOptimSettings && (
@@ -975,22 +970,25 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
             <button
               type="button"
               onClick={handleCalculate}
-              disabled={calculating}
+              disabled={calculating || !deliveryMode}
               style={{
                 ...lista.calcBtn,
-                opacity: calculating ? 0.65 : 1,
-                cursor: calculating ? 'not-allowed' : 'pointer',
+                opacity: (calculating || !deliveryMode) ? 0.45 : 1,
+                cursor: (calculating || !deliveryMode) ? 'not-allowed' : 'pointer',
               }}
             >
-              {calculating ? '⏳ Optimizando...' : '✦ Optimizar Lista'}
+              {calculating
+                ? '⏳ Optimizando...'
+                : !deliveryMode
+                  ? '✦ Elige cómo recibirás primero'
+                  : deliveryMode === 'delivery'
+                    ? '✦ Optimizar para domicilio'
+                    : '✦ Optimizar mi ruta de compra'}
             </button>
             <button
               type="button"
               onClick={() => setShowOptimSettings((v) => !v)}
-              style={{
-                ...lista.gearBtn,
-                ...(showOptimSettings ? lista.gearBtnActive : {}),
-              }}
+              style={{ ...lista.gearBtn, ...(showOptimSettings ? lista.gearBtnActive : {}) }}
               title="Configuración de optimización"
               aria-label="Configuración de optimización"
             >
@@ -1758,27 +1756,42 @@ const lista = {
     padding: '10px 14px', borderRadius: 'var(--radius-sm)', margin: 0,
   },
 
-  deliveryBlock: {
-    display: 'flex', flexDirection: 'column', gap: '8px',
-    padding: '12px', background: 'var(--bg-surface)',
-    border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
+  // ── Selector de modo (intención primero) ──
+  modeBlock: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  modeLabel: {
+    fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', margin: 0,
+    textTransform: 'uppercase', letterSpacing: '0.04em',
   },
-  deliveryLabel: { fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', margin: 0 },
-  deliveryRow: { display: 'flex', gap: '8px' },
-  deliveryBtn: {
-    flex: 1, padding: '11px 8px',
-    borderRadius: 'var(--radius-md)', border: '2px solid var(--border)',
-    background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
-    fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-    transition: 'all 0.15s',
+  modeRow: { display: 'flex', gap: '10px' },
+  modeCard: {
+    flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'center',
+    padding: '14px 10px', borderRadius: 'var(--radius-md)', border: '2px solid var(--border)',
+    background: 'var(--bg-surface)', cursor: 'pointer', transition: 'all 0.15s',
+    textAlign: 'center',
   },
-  deliveryBtnActive: {
-    background: 'var(--accent-soft)', color: 'var(--accent)',
-    borderColor: 'var(--accent)', fontWeight: 700,
+  modeCardActive: { borderColor: 'var(--accent)', background: 'var(--accent-soft)' },
+  modeCardIcon: { fontSize: '22px', lineHeight: 1 },
+  modeCardName: { fontSize: '13px', fontWeight: 800, color: 'var(--text-primary)' },
+  modeCardDesc: { fontSize: '11px', color: 'var(--text-secondary)', margin: 0 },
+  modeCardFee: { fontSize: '10px', color: 'var(--text-muted)', margin: 0 },
+
+  // ── Badge modo activo (post-optimización) ──
+  modeBadgeBar: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '7px 12px', background: 'var(--accent-soft)',
+    border: '1px solid var(--accent)', borderRadius: 'var(--radius-sm)',
   },
-  deliveryHint: {
-    fontSize: '11px', color: 'var(--accent)', margin: 0,
-    textAlign: 'center', fontWeight: 600,
+  modeBadgeText: { fontSize: '12px', fontWeight: 700, color: 'var(--accent)' },
+  modeBadgeChange: {
+    background: 'none', border: 'none', fontSize: '11px', color: 'var(--accent)',
+    cursor: 'pointer', fontWeight: 600, padding: 0, textDecoration: 'underline',
+  },
+
+  // ── Botón confirmar único ──
+  confirmBtn: {
+    padding: '14px', borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontWeight: 800, fontSize: '14px', cursor: 'pointer', width: '100%',
   },
 
   calcRow: {
