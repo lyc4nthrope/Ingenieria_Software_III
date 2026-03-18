@@ -94,6 +94,8 @@ function SuccessView() {
 // ── Página principal ──────────────────────────────────────────────────────
 export default function NewPasswordPage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
+  const tnp = t.newPasswordPage;
 
   const [form, setForm] = useState({ password: '', confirmPassword: '' });
   const [showPassword, setShowPassword] = useState(false);
@@ -178,6 +180,9 @@ export default function NewPasswordPage() {
 
       if (error) throw error;
 
+      // Cerrar la sesión temporal de recovery antes de mostrar el éxito.
+      // Así el usuario llega a /login limpio, sin estar autenticado.
+      await supabase.auth.signOut();
       setSuccess(true);
     } catch (err) {
       setServerError(err.message || tnp.errorUpdate);

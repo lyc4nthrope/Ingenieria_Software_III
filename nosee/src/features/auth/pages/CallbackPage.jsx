@@ -26,8 +26,9 @@
  */
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore, selectIsInitialized } from '@/features/auth/store/authStore';
-//import { supabase } from '@/services/supabase.client';
+import { useAuthStore, selectIsInitialized, selectIsAuthenticated } from '@/features/auth/store/authStore';
+import { supabase } from '@/services/supabase.client';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // ── Spinner inline para no depender de importaciones que podrían no estar ──
 function Spinner({ label = "Loading" }) {
@@ -70,6 +71,7 @@ export default function CallbackPage() {
 
   // Detectar errores en query params O en hash
   const searchParams = new URLSearchParams(window.location.search);
+  const code = searchParams.get('code'); // PKCE code flow (OAuth / magic link)
   const hash = window.location.hash;
   const params = new URLSearchParams(hash.substring(1)); // quitar el '#'
   const urlType = params.get('type');

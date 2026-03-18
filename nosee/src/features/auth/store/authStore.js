@@ -57,6 +57,11 @@ const initialState = {
   error:         null,
   isInitialized: false,
 
+  // Cuando Supabase dispara PASSWORD_RECOVERY, el usuario tiene una sesión
+  // temporal de recuperación. Lo marcamos aquí para que NINGÚN componente
+  // lo trate como autenticado y lo redirija antes de que cambie su contraseña.
+  isRecoveryMode: false,
+
   // FIX StrictMode: guardamos la función de unsubscribe del listener de Supabase.
   // Si initialize() se llama de nuevo antes de que el listener anterior se limpie,
   // lo cancelamos primero para no acumular suscripciones duplicadas.
@@ -140,7 +145,7 @@ export const useAuthStore = create((set, get) => ({
         // Regla: NO hacer await de operaciones que usen supabase.from() aquí.
         // Usar setTimeout(0) para diferirlas fuera del lock.
 
-        if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
+        if (event === 'SIGNED_IN' && session) {
 
           const currentUser = get().user;
 
@@ -159,20 +164,15 @@ export const useAuthStore = create((set, get) => ({
             session,
             status:  AsyncStateEnum.SUCCESS,
             error:   null,
+            isRecoveryMode: false,
           });
 
           // Diferir todo lo que usa supabase.from() (rompe el deadlock del lock).
           setTimeout(async () => {
             // Registrar acceso OAuth (no 'email' para evitar duplicado con login())
-            if (event === 'SIGNED_IN') {
-              const provider = session.user.app_metadata?.provider;
-              if (provider && provider !== 'email') {
-                insertAuditLog(session.user.id, `login_${provider}`);
-              }
-            }
-
-            if (event === 'PASSWORD_RECOVERY') {
-              insertUserActivityLog(session.user.id, 'restablecimiento_contrasena', {});
+            const provider = session.user.app_metadata?.provider;
+            if (provider && provider !== 'email') {
+              insertAuditLog(session.user.id, `login_${provider}`);
             }
 
             const profileResult = await usersApi.getUserProfile(session.user.id);
@@ -197,16 +197,27 @@ export const useAuthStore = create((set, get) => ({
             });
           }, 0);
 
+        } else if (event === 'PASSWORD_RECOVERY' && session) {
+          // Sesión temporal de recuperación: marcamos el modo recovery pero
+          // NO autenticamos al usuario en el store. Así ningún componente lo
+          // redirige a su dashboard antes de que cambie la contraseña.
+          // El cliente Supabase ya tiene la sesión internamente → updateUser() funciona.
+          set({ isRecoveryMode: true });
+          setTimeout(() => {
+            insertUserActivityLog(session.user.id, 'restablecimiento_contrasena', {});
+          }, 0);
+
         } else if (event === 'TOKEN_REFRESHED' && session) {
           set({ session });
           recordTokenRefresh('success');
 
         } else if (event === 'SIGNED_OUT') {
           set({
-            user:    null,
-            session: null,
-            status:  AsyncStateEnum.IDLE,
-            error:   null,
+            user:           null,
+            session:        null,
+            status:         AsyncStateEnum.IDLE,
+            error:          null,
+            isRecoveryMode: false,
           });
         }
       }
@@ -448,5 +459,6 @@ export const selectAuthError       = (state) => state.error;
 export const selectIsInitialized   = (state) => state.isInitialized;
 export const selectSession         = (state) => state.session;
 export const selectIsAuthenticated = (state) => !!state.user && !!state.session;
+export const selectIsRecoveryMode  = (state) => state.isRecoveryMode;
 
 export default useAuthStore;
