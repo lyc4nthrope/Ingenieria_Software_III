@@ -1,24 +1,23 @@
 /**
- * ShoppingListPage.jsx — Proceso 3 (rediseño con pestañas)
+ * ShoppingListPage.jsx — Proceso 3 (rediseño responsive v2)
  *
- * Pestaña "Mi Lista":
- *   - Input de texto para agregar productos manualmente
- *   - Lista de ítems con eliminación individual
- *   - Botón "Calcular canasta óptima" — busca coincidencias por producto
- *   - Tras calcular: cada ítem es expandible y muestra carrusel de coincidencias
- *   - Botón "Configurar pedido" para el flujo completo (CreateOrderPage)
- *
- * Pestaña "Mis Pedidos":
- *   - Carrusel de pedidos guardados
- *   - Detalle del pedido seleccionado + tarjeta de domicilio + mapa
+ * Cambios v2:
+ * - Sidebar: colapsable en móvil con flecha toggle
+ * - Botón agregar: solo símbolo +
+ * - Ítems: checkbox con tachado al marcar
+ * - Post-optimización: área completa del ítem es toggle del carrusel
+ * - Carrusel: scroll infinito horizontal (10 por batch), tarjeta con nombre/unidad/cantidad
+ * - Guardar lista: notificación + brillo en título del sidebar
+ * - Domicilio/Voy yo: primer clic = seleccionar, segundo clic = confirmar
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import { useLanguage } from '@/contexts/LanguageContext';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import * as publicationsApi from '@/services/api/publications.api';
-import PublicationDetailModal from '@/features/publications/components/PublicationDetailModal';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { useGeoLocation } from '@/features/publications/hooks/useGeoLocation';
 
 // ─── Iconos ───────────────────────────────────────────────────────────────────
 const TrashIcon = () => (
@@ -29,7 +28,7 @@ const TrashIcon = () => (
   </svg>
 );
 const PlusIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
     <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
   </svg>
@@ -37,13 +36,46 @@ const PlusIcon = () => (
 const ChevronDownIcon = ({ open }) => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"
-    style={{ transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+    style={{ transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', flexShrink: 0 }}>
     <polyline points="6,9 12,15 18,9" />
+  </svg>
+);
+const GearIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
 );
 
 // Tarifa estimada de domicilio — placeholder hasta implementar Proceso 4
 const DELIVERY_FEE = 8_000; // COP
+
+// ─── Preferencias de optimización ────────────────────────────────────────────
+const OPTIM_PREFS_KEY = 'nosee-optim-prefs';
+const DEFAULT_PREFS = {
+  sortMode: 'cheapest',     // 'cheapest' | 'nearest' | 'balanced'
+  maxDistance: 5,           // km — solo aplica en nearest/balanced
+  storeType: 'all',         // 'all' | 'physical' | 'online'
+  validatedOnly: false,     // filtrar solo publicaciones validadas
+};
+
+function useOptimPrefs() {
+  const [prefs, setPrefs] = useState(() => {
+    try {
+      const stored = localStorage.getItem(OPTIM_PREFS_KEY);
+      return stored ? { ...DEFAULT_PREFS, ...JSON.parse(stored) } : { ...DEFAULT_PREFS };
+    } catch { return { ...DEFAULT_PREFS }; }
+  });
+
+  const savePrefs = (updated) => {
+    const next = { ...prefs, ...updated };
+    setPrefs(next);
+    try { localStorage.setItem(OPTIM_PREFS_KEY, JSON.stringify(next)); } catch { /* noop */ }
+  };
+
+  return [prefs, savePrefs];
+}
 
 // ─── Tarjeta de estado de domicilio ───────────────────────────────────────────
 function DeliveryCard({ order, onCancel }) {
@@ -127,22 +159,17 @@ function DeliveryCard({ order, onCancel }) {
   );
 }
 
-// ─── Carrusel de publicaciones por ítem ───────────────────────────────────────
-const PAGE_SIZE = 8;
+// ─── Utilidades ───────────────────────────────────────────────────────────────
+const getStoreEmoji = (storeTypeId) => Number(storeTypeId) === 2 ? '🌐' : '🏪';
 
-function useIsMobile() {
-  const [mobile, setMobile] = useState(() => window.innerWidth < 640);
-  useEffect(() => {
-    const fn = () => setMobile(window.innerWidth < 640);
-    window.addEventListener('resize', fn);
-    return () => window.removeEventListener('resize', fn);
-  }, []);
-  return mobile;
-}
-
-function CarouselCard({ pub, globalIdx, isSelected, onSelect, onOpenDetail }) {
+// ─── Tarjeta de publicación en carrusel ───────────────────────────────────────
+function CarouselCard({ pub, globalIdx, isSelected, onSelect }) {
   const isBest = globalIdx === 0;
-  const storeEmoji = Number(pub.store?.store_type_id) === 2 ? '🌐' : '🏪';
+  const storeEmoji = getStoreEmoji(pub.store?.store_type_id);
+  const quantity = pub.quantity ?? pub.unit_quantity ?? null;
+  const unit = pub.unit ?? pub.measurement_unit ?? null;
+  const hasUnitInfo = quantity !== null || unit !== null;
+
   return (
     <div
       role="button"
@@ -152,102 +179,210 @@ function CarouselCard({ pub, globalIdx, isSelected, onSelect, onOpenDetail }) {
       style={{ ...carousel.card, ...(isSelected ? carousel.cardSelected : {}), cursor: 'pointer' }}
     >
       {isBest && <span style={carousel.bestBadge}>★ Mejor Opción</span>}
-      {isSelected && <span style={carousel.selectedBadge}>✓ Seleccionado</span>}
+      {isSelected && !isBest && <span style={carousel.selectedBadge}>✓ Seleccionado</span>}
       <span style={carousel.storeName}>{storeEmoji} {pub.store?.name ?? 'Tienda'}</span>
       <span style={carousel.price}>
         ${(pub.price ?? 0).toLocaleString('es-CO')}
         <span style={carousel.currency}> COP</span>
       </span>
       <span style={carousel.prodName}>{pub.productName ?? pub.product_name ?? '—'}</span>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onOpenDetail(pub); }}
-        style={carousel.detailBtn}
-      >
-        Ver detalle →
-      </button>
+      {hasUnitInfo && (
+        <span style={carousel.unitQty}>
+          {[quantity, unit].filter(Boolean).join(' ')}
+        </span>
+      )}
     </div>
   );
 }
 
-function PublicationsCarousel({ publications, selectedId, onSelect, onOpenDetail }) {
-  const [page, setPage] = useState(0);
-  const isMobile = useIsMobile();
+// ─── Carrusel horizontal con carga infinita ───────────────────────────────────
+function InfiniteHorizontalCarousel({ publications, selectedId, onSelect }) {
+  const [visibleCount, setVisibleCount] = useState(10);
+  const scrollRef = useRef(null);
 
-  if (!publications || publications.length === 0) {
+  const total = publications?.length ?? 0;
+  const hasMore = visibleCount < total;
+  const visible = (publications ?? []).slice(0, visibleCount);
+
+  // Resetear al cambiar publicaciones
+  useEffect(() => { setVisibleCount(10); }, [publications]);
+
+  // Scroll infinito: detectar cuando el usuario llega cerca del borde derecho
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || !hasMore) return;
+    const handleScroll = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = container;
+      if (scrollWidth - scrollLeft - clientWidth < 120) {
+        setVisibleCount((v) => Math.min(v + 10, total));
+      }
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [hasMore, total]);
+
+  if (total === 0) {
     return <div style={carousel.empty}>Sin coincidencias encontradas para este producto.</div>;
   }
 
-  // ── Mobile: scroll horizontal libre ──────────────────────────────────────────
-  if (isMobile) {
-    return (
-      <div style={carousel.mobileTrack}>
-        {publications.map((pub, idx) => (
-          <CarouselCard
-            key={pub.id ?? idx}
-            pub={pub}
-            globalIdx={idx}
-            isSelected={(pub.id ?? idx) === selectedId}
-            onSelect={onSelect}
-            onOpenDetail={onOpenDetail}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  // ── Desktop: paginación de 8 ─────────────────────────────────────────────────
-  const totalPages = Math.ceil(publications.length / PAGE_SIZE);
-  const start = page * PAGE_SIZE;
-  const visible = publications.slice(start, start + PAGE_SIZE);
-  const canPrev = page > 0;
-  const canNext = page < totalPages - 1;
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      <div style={carousel.track}>
-        {visible.map((pub, idx) => (
-          <CarouselCard
-            key={pub.id ?? (start + idx)}
-            pub={pub}
-            globalIdx={start + idx}
-            isSelected={(pub.id ?? (start + idx)) === selectedId}
-            onSelect={onSelect}
-            onOpenDetail={onOpenDetail}
-          />
-        ))}
-      </div>
-
-      {totalPages > 1 && (
-        <div style={carousel.navBar}>
-          <button
-            type="button"
-            disabled={!canPrev}
-            onClick={() => setPage(p => p - 1)}
-            style={{ ...carousel.arrowBtn, opacity: canPrev ? 1 : 0.3 }}
-            aria-label="Opciones anteriores"
-          >
-            ‹
-          </button>
-          <span style={carousel.pageInfo}>
-            {start + 1}–{Math.min(start + PAGE_SIZE, publications.length)} de {publications.length}
-          </span>
-          <button
-            type="button"
-            disabled={!canNext}
-            onClick={() => setPage(p => p + 1)}
-            style={{ ...carousel.arrowBtn, opacity: canNext ? 1 : 0.3 }}
-            aria-label="Más opciones"
-          >
-            ›
-          </button>
+    <div ref={scrollRef} style={carousel.infiniteTrack}>
+      {visible.map((pub, idx) => (
+        <CarouselCard
+          key={pub.id ?? idx}
+          pub={pub}
+          globalIdx={idx}
+          isSelected={(pub.id ?? idx) === selectedId}
+          onSelect={onSelect}
+        />
+      ))}
+      {hasMore && (
+        <div style={carousel.loadMoreSentinel}>
+          <span style={{ fontSize: '20px', color: 'var(--text-muted)', letterSpacing: '4px', lineHeight: 1 }}>···</span>
         </div>
       )}
     </div>
   );
 }
 
-// ─── Construir resultado desde selecciones manuales ───────────────────────────
+// ─── Panel de configuración de optimización ───────────────────────────────────
+function OptimSettingsPanel({ prefs, savePrefs, coordsAvailable, onRequestCoords }) {
+  const SORT_MODES = [
+    { key: 'cheapest', label: '💰 Más barato', desc: 'Prioriza el precio más bajo' },
+    { key: 'nearest',  label: '📍 Más cerca',  desc: 'Prioriza tiendas cercanas' },
+    { key: 'balanced', label: '⚖️ Equilibrado', desc: 'Precio y distancia combinados' },
+  ];
+  const STORE_TYPES = [
+    { key: 'all',      label: 'Todas' },
+    { key: 'physical', label: '🏪 Física' },
+    { key: 'online',   label: '🌐 En línea' },
+  ];
+
+  const needsCoords = prefs.sortMode === 'nearest' || prefs.sortMode === 'balanced';
+
+  return (
+    <div style={optim.panel}>
+      <div style={optim.panelHeader}>
+        <span style={optim.panelTitle}>Configuración de optimización</span>
+        <button
+          type="button"
+          onClick={() => savePrefs({ ...DEFAULT_PREFS })}
+          style={optim.resetBtn}
+          title="Restablecer por defecto"
+        >
+          Restablecer
+        </button>
+      </div>
+
+      {/* ── Modo de ordenamiento ──────────────────────────────── */}
+      <div style={optim.section}>
+        <p style={optim.sectionLabel}>Prioridad de búsqueda</p>
+        <div style={optim.segmentRow}>
+          {SORT_MODES.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => savePrefs({ sortMode: m.key })}
+              style={{
+                ...optim.segmentBtn,
+                ...(prefs.sortMode === m.key ? optim.segmentBtnActive : {}),
+              }}
+              title={m.desc}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <p style={optim.sectionHint}>
+          {SORT_MODES.find((m) => m.key === prefs.sortMode)?.desc}
+        </p>
+      </div>
+
+      {/* ── Distancia máxima ──────────────────────────────────── */}
+      <div style={optim.section}>
+        <div style={optim.sliderHeader}>
+          <p style={optim.sectionLabel}>Distancia máxima</p>
+          <span style={optim.sliderValue}>{prefs.maxDistance} km</span>
+        </div>
+        <div style={optim.sliderWrap}>
+          <span style={optim.sliderEdge}>1 km</span>
+          <input
+            type="range"
+            min={1}
+            max={15}
+            step={1}
+            value={prefs.maxDistance}
+            onChange={(e) => savePrefs({ maxDistance: Number(e.target.value) })}
+            style={optim.slider}
+            aria-label="Distancia máxima de búsqueda"
+          />
+          <span style={optim.sliderEdge}>15 km</span>
+        </div>
+        <p style={optim.sectionHint}>
+          {needsCoords
+            ? 'Se usa para filtrar tiendas cercanas'
+            : 'Solo aplica en modo "Más cerca" o "Equilibrado"'}
+        </p>
+        {needsCoords && !coordsAvailable && (
+          <button type="button" onClick={onRequestCoords} style={optim.locationBtn}>
+            📍 Permitir acceso a mi ubicación
+          </button>
+        )}
+        {needsCoords && coordsAvailable && (
+          <p style={{ ...optim.sectionHint, color: 'var(--success, #16a34a)', fontWeight: 600, margin: 0 }}>
+            ✓ Ubicación disponible
+          </p>
+        )}
+      </div>
+
+      {/* ── Tipo de tienda ────────────────────────────────────── */}
+      <div style={optim.section}>
+        <p style={optim.sectionLabel}>Tipo de tienda</p>
+        <div style={optim.segmentRow}>
+          {STORE_TYPES.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => savePrefs({ storeType: t.key })}
+              style={{
+                ...optim.segmentBtn,
+                ...(prefs.storeType === t.key ? optim.segmentBtnActive : {}),
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Solo validadas ────────────────────────────────────── */}
+      <div style={optim.section}>
+        <label style={optim.toggleRow}>
+          <span style={optim.sectionLabel}>Solo publicaciones validadas</span>
+          <div
+            role="switch"
+            aria-checked={prefs.validatedOnly}
+            tabIndex={0}
+            onClick={() => savePrefs({ validatedOnly: !prefs.validatedOnly })}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') savePrefs({ validatedOnly: !prefs.validatedOnly }); }}
+            style={{
+              ...optim.toggle,
+              background: prefs.validatedOnly ? 'var(--accent)' : 'var(--border)',
+            }}
+          >
+            <div style={{
+              ...optim.toggleThumb,
+              transform: prefs.validatedOnly ? 'translateX(18px)' : 'translateX(2px)',
+            }} />
+          </div>
+        </label>
+        <p style={optim.sectionHint}>Muestra solo las publicaciones verificadas por la comunidad</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Construir resultado desde selecciones ────────────────────────────────────
 function buildResultFromSelections(items, selectedPubs) {
   const storeMap = {};
   const noResultItems = [];
@@ -265,7 +400,7 @@ function buildResultFromSelections(items, selectedPubs) {
   return { stores, totalCost, savings: 0, savingsPct: 0, noResultItems };
 }
 
-// ─── Vista Resultado de Optimización ──────────────────────────────────────────
+// ─── Vista Resultado de Optimización ─────────────────────────────────────────
 function ResultView({ result, deliveryMode, onBack, onConfirm }) {
   const { stores, totalCost, noResultItems } = result;
   const isDelivery = deliveryMode === 'delivery';
@@ -304,7 +439,7 @@ function ResultView({ result, deliveryMode, onBack, onConfirm }) {
       {/* Desglose por tienda */}
       <div style={resv.storeList}>
         {stores.map((s, si) => {
-          const emoji = Number(s.store?.store_type_id) === 2 ? '🌐' : '🏪';
+          const emoji = getStoreEmoji(s.store?.store_type_id);
           const subtotal = s.products.reduce((a, p) => a + p.price * (p.item.quantity || 1), 0);
           return (
             <div key={si} style={resv.storeCard}>
@@ -343,10 +478,24 @@ function ResultView({ result, deliveryMode, onBack, onConfirm }) {
 }
 
 // ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
-function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder }) {
+function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, onSaved }) {
   const [inputValue, setInputValue] = useState('');
   const [saveInput, setSaveInput] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
+  const [showOptimSettings, setShowOptimSettings] = useState(false);
+
+  // Notificación al guardar
+  const [saveStatus, setSaveStatus] = useState(null); // null | 'success' | 'error'
+  const saveTimerRef = useRef(null);
+
+  // Preferencias de optimización persistidas
+  const [prefs, savePrefs] = useOptimPrefs();
+
+  // Geolocalización — reutiliza el hook compartido con error handling y persistencia
+  const {
+    latitude, longitude, hasLocation,
+    error: coordsError, refetch: requestCoords,
+  } = useGeoLocation({ timeout: 8000 });
 
   // Resultados del cálculo: { [itemId]: publications[] }
   const [calcResults, setCalcResults] = useState(null);
@@ -356,27 +505,30 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
   // Publicación seleccionada por ítem: { [itemId]: publication }
   const [selectedPubs, setSelectedPubs] = useState({});
 
-  // Modo de entrega elegido antes de confirmar
+  // Modo de entrega elegido
   const [deliveryMode, setDeliveryMode] = useState(null); // null | 'delivery' | 'pickup'
 
-  // Fase: 'list' = lista normal, 'result' = resultado de optimización
+  // Fase: 'list' | 'result'
   const [phase, setPhase] = useState('list');
   const [orderResult, setOrderResult] = useState(null);
 
   // Ítem expandido (muestra carrusel)
   const [expandedId, setExpandedId] = useState(null);
 
-  // Modal de detalle de publicación
-  const [detailPub, setDetailPub] = useState(null);
+  // Checkboxes: set de IDs marcados
+  const [checkedItems, setCheckedItems] = useState(new Set());
 
   const inputRef = useRef(null);
+
+  // Limpieza del timer al desmontar
+  useEffect(() => () => clearTimeout(saveTimerRef.current), []);
 
   const handleAdd = () => {
     const trimmed = inputValue.trim();
     if (!trimmed) return;
     addItem(trimmed, 1);
     setInputValue('');
-    setCalcResults(null); // reset cálculo al agregar nuevo ítem
+    setCalcResults(null);
     inputRef.current?.focus();
   };
 
@@ -388,7 +540,20 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
     removeItem(id);
     setCalcResults((prev) => { if (!prev) return prev; const n = { ...prev }; delete n[id]; return n; });
     setSelectedPubs((prev) => { const n = { ...prev }; delete n[id]; return n; });
+    setCheckedItems((prev) => { const n = new Set(prev); n.delete(id); return n; });
     if (expandedId === id) setExpandedId(null);
+  };
+
+  const handleSaveList = (name) => {
+    clearTimeout(saveTimerRef.current);
+    try {
+      saveList(name);
+      setSaveStatus('success');
+      onSaved?.();
+    } catch {
+      setSaveStatus('error');
+    }
+    saveTimerRef.current = setTimeout(() => setSaveStatus(null), 3000);
   };
 
   const handleCalculate = useCallback(async () => {
@@ -398,16 +563,32 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
     setCalcResults(null);
     setExpandedId(null);
 
+    // Mapear sortMode a parámetros del API
+    const needsCoords = prefs.sortMode === 'nearest' || prefs.sortMode === 'balanced';
+    const apiSortBy = prefs.validatedOnly ? 'validated' : 'cheapest';
+    const distanceParams = needsCoords && hasLocation
+      ? { maxDistance: prefs.maxDistance, latitude, longitude }
+      : {};
+
     try {
       const results = await Promise.all(
         items.map(async (item) => {
           const res = await publicationsApi.getPublications({
             productName: item.productName,
-            sortBy: 'cheapest',
-            limit: 10,
+            sortBy: apiSortBy,
+            limit: 30,
+            ...distanceParams,
           });
-          const pubs = res.success ? (res.data ?? []) : [];
-          // Ordenar de más barato a más caro
+          let pubs = res.success ? (res.data ?? []) : [];
+
+          // Filtrar por tipo de tienda en cliente
+          if (prefs.storeType === 'physical') {
+            pubs = pubs.filter((p) => Number(p.store?.store_type_id) !== 2);
+          } else if (prefs.storeType === 'online') {
+            pubs = pubs.filter((p) => Number(p.store?.store_type_id) === 2);
+          }
+
+          // Ordenar: balanced/cheapest → precio; nearest con coords → por distancia (el backend ya filtra)
           const sorted = [...pubs].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
           return [item.id, sorted];
         })
@@ -425,7 +606,7 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
     } finally {
       setCalculating(false);
     }
-  }, [items]);
+  }, [items, prefs, hasLocation, latitude, longitude]);
 
   const toggleExpand = (id) => {
     if (!calcResults) return;
@@ -436,10 +617,18 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
     setSelectedPubs((prev) => ({ ...prev, [itemId]: pub }));
   };
 
+  const toggleCheck = (id, e) => {
+    e.stopPropagation();
+    setCheckedItems((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
   const isCalculated = calcResults !== null;
   const hasSelections = Object.keys(selectedPubs).length > 0;
 
-  // Total basado en las opciones seleccionadas
   const total = isCalculated
     ? Object.values(selectedPubs).reduce((sum, pub) => sum + (pub?.price ?? 0), 0)
     : 0;
@@ -450,19 +639,27 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
     setPhase('result');
   };
 
+  // Primer clic = seleccionar, segundo clic en mismo = confirmar
+  const handleDeliveryPress = (mode) => {
+    if (deliveryMode === mode) {
+      handleGoToResult();
+    } else {
+      setDeliveryMode(mode);
+    }
+  };
+
   const handleConfirmOrder = () => {
     if (!orderResult) return;
     addOrder({
       id: `NSE-${Date.now().toString(36).toUpperCase()}`,
       result: orderResult,
-      userCoords: null,
+      userCoords: hasLocation ? { lat: latitude, lng: longitude } : null,
       createdAt: new Date().toISOString(),
       deliveryMode: deliveryMode === 'delivery',
       deliveryStatus: deliveryMode === 'delivery' ? 'searching' : null,
       driverLocation: null,
       cancellationCharged: false,
     });
-    // Resetear estado
     setPhase('list');
     setCalcResults(null);
     setSelectedPubs({});
@@ -470,7 +667,7 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
     setOrderResult(null);
   };
 
-  // ── Fase resultado ───────────────────────────────────────────────────────
+  // ── Fase resultado ────────────────────────────────────────────────────────
   if (phase === 'result' && orderResult) {
     return (
       <ResultView
@@ -499,13 +696,14 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
           type="button"
           onClick={handleAdd}
           disabled={!inputValue.trim()}
+          aria-label="Agregar producto"
           style={{
             ...lista.addBtn,
             opacity: inputValue.trim() ? 1 : 0.45,
             cursor: inputValue.trim() ? 'pointer' : 'not-allowed',
           }}
         >
-          <PlusIcon /> Agregar
+          <PlusIcon />
         </button>
       </div>
 
@@ -534,7 +732,17 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
             </div>
           </div>
 
-          {/* ── Input para guardar lista ────────────────────────── */}
+          {/* ── Notificación de guardado ────────────────────────── */}
+          {saveStatus && (
+            <div style={{
+              ...lista.saveNotice,
+              ...(saveStatus === 'success' ? lista.saveNoticeSuccess : lista.saveNoticeError),
+            }}>
+              {saveStatus === 'success' ? '✓ Lista guardada correctamente' : '✗ No se pudo guardar la lista'}
+            </div>
+          )}
+
+          {/* ── Input para guardar lista ─────────────────────────── */}
           {showSaveInput && (
             <div style={lista.saveRow}>
               <input
@@ -543,7 +751,7 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
                 onChange={(e) => setSaveInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && saveInput.trim()) {
-                    saveList(saveInput);
+                    handleSaveList(saveInput.trim());
                     setSaveInput('');
                     setShowSaveInput(false);
                   }
@@ -557,7 +765,8 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
                 type="button"
                 disabled={!saveInput.trim()}
                 onClick={() => {
-                  saveList(saveInput);
+                  if (!saveInput.trim()) return;
+                  handleSaveList(saveInput.trim());
                   setSaveInput('');
                   setShowSaveInput(false);
                 }}
@@ -580,18 +789,50 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
               const hasPubs = pubs && pubs.length > 0;
               const chosenPub = selectedPubs[item.id];
               const chosenPrice = chosenPub?.price ?? null;
+              const isChecked = checkedItems.has(item.id);
+              const isInteractive = isCalculated && hasPubs;
 
               return (
                 <li key={item.id} style={lista.itemWrap}>
                   {/* Fila principal del ítem */}
                   <div
+                    role={isInteractive ? 'button' : undefined}
+                    tabIndex={isInteractive ? 0 : undefined}
+                    onClick={isInteractive ? () => toggleExpand(item.id) : undefined}
+                    onKeyDown={isInteractive ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') toggleExpand(item.id);
+                    } : undefined}
                     style={{
                       ...lista.item,
                       ...(isExpanded ? lista.itemExpanded : {}),
+                      ...(isInteractive ? { cursor: 'pointer' } : {}),
                     }}
                   >
+                    {/* Checkbox */}
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => toggleCheck(item.id, e)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={lista.checkbox}
+                    />
+
+                    {/* Texto del ítem */}
                     <div style={lista.itemText}>
-                      <span style={lista.itemName}>{item.productName}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span style={{
+                          ...lista.itemName,
+                          ...(isChecked ? lista.itemChecked : {}),
+                        }}>
+                          {item.productName}
+                        </span>
+                        {isCalculated && hasPubs && (
+                          <span style={lista.optionsBadge}>
+                            {pubs.length} {pubs.length === 1 ? 'opción' : 'opciones'}
+                            <ChevronDownIcon open={isExpanded} />
+                          </span>
+                        )}
+                      </div>
                       {isCalculated && chosenPrice !== null && (
                         <span style={lista.itemBestPrice}>
                           ${chosenPrice.toLocaleString('es-CO')} COP
@@ -603,39 +844,24 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                      {isCalculated && hasPubs && (
-                        <button
-                          type="button"
-                          onClick={() => toggleExpand(item.id)}
-                          style={lista.expandBtn}
-                          title={isExpanded ? 'Ocultar opciones' : 'Ver opciones'}
-                        >
-                          <span style={{ fontSize: '11px', fontWeight: 600 }}>
-                            {pubs.length} {pubs.length === 1 ? 'opción' : 'opciones'}
-                          </span>
-                          <ChevronDownIcon open={isExpanded} />
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(item.id)}
-                        style={lista.removeBtn}
-                        aria-label={`Eliminar ${item.productName}`}
-                      >
-                        <TrashIcon />
-                      </button>
-                    </div>
+                    {/* Botón eliminar */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
+                      style={lista.removeBtn}
+                      aria-label={`Eliminar ${item.productName}`}
+                    >
+                      <TrashIcon />
+                    </button>
                   </div>
 
-                  {/* Carrusel de coincidencias */}
-                  {isExpanded && (
+                  {/* Carrusel de publicaciones */}
+                  {isExpanded && hasPubs && (
                     <div style={lista.carouselWrap}>
-                      <PublicationsCarousel
+                      <InfiniteHorizontalCarousel
                         publications={pubs}
                         selectedId={chosenPub?.id ?? (pubs[0]?.id ?? 0)}
                         onSelect={(pub) => handleSelectPub(item.id, pub)}
-                        onOpenDetail={setDetailPub}
                       />
                     </div>
                   )}
@@ -660,14 +886,14 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
             </div>
           )}
 
-          {/* ── Botones de modo de entrega + Confirmar ──────────── */}
+          {/* ── Botones de modo de entrega ───────────────────────── */}
           {isCalculated && hasSelections && (
             <div style={lista.deliveryBlock}>
               <p style={lista.deliveryLabel}>¿Cómo vas a recibir tus productos?</p>
               <div style={lista.deliveryRow}>
                 <button
                   type="button"
-                  onClick={() => setDeliveryMode('delivery')}
+                  onClick={() => handleDeliveryPress('delivery')}
                   style={{
                     ...lista.deliveryBtn,
                     ...(deliveryMode === 'delivery' ? lista.deliveryBtnActive : {}),
@@ -677,7 +903,7 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
                 </button>
                 <button
                   type="button"
-                  onClick={() => setDeliveryMode('pickup')}
+                  onClick={() => handleDeliveryPress('pickup')}
                   style={{
                     ...lista.deliveryBtn,
                     ...(deliveryMode === 'pickup' ? lista.deliveryBtnActive : {}),
@@ -685,19 +911,10 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
                 >
                   🚶 Voy yo
                 </button>
-                <button
-                  type="button"
-                  onClick={handleGoToResult}
-                  disabled={!deliveryMode}
-                  style={{
-                    ...lista.confirmBtn,
-                    opacity: deliveryMode ? 1 : 0.4,
-                    cursor: deliveryMode ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  Confirmar
-                </button>
               </div>
+              {deliveryMode && (
+                <p style={lista.deliveryHint}>Presiona de nuevo para confirmar</p>
+              )}
             </div>
           )}
 
@@ -705,30 +922,48 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder })
           {calcError && (
             <p style={lista.errorMsg}>{calcError}</p>
           )}
+          {coordsError && (
+            <p style={lista.errorMsg}>{coordsError}</p>
+          )}
 
-          {/* ── Botón calcular canasta ──────────────────────────── */}
-          <button
-            type="button"
-            onClick={handleCalculate}
-            disabled={calculating}
-            style={{
-              ...lista.calcBtn,
-              opacity: calculating ? 0.65 : 1,
-              cursor: calculating ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {calculating ? '⏳ Optimizando...' : '✦ Optimizar Lista'}
-          </button>
+          {/* ── Panel de configuración ───────────────────────────── */}
+          {showOptimSettings && (
+            <OptimSettingsPanel
+              prefs={prefs}
+              savePrefs={savePrefs}
+              coordsAvailable={hasLocation}
+              onRequestCoords={requestCoords}
+            />
+          )}
 
+          {/* ── Fila: Botón optimizar + tuerca ──────────────────── */}
+          <div style={lista.calcRow}>
+            <button
+              type="button"
+              onClick={handleCalculate}
+              disabled={calculating}
+              style={{
+                ...lista.calcBtn,
+                opacity: calculating ? 0.65 : 1,
+                cursor: calculating ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {calculating ? '⏳ Optimizando...' : '✦ Optimizar Lista'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowOptimSettings((v) => !v)}
+              style={{
+                ...lista.gearBtn,
+                ...(showOptimSettings ? lista.gearBtnActive : {}),
+              }}
+              title="Configuración de optimización"
+              aria-label="Configuración de optimización"
+            >
+              <GearIcon />
+            </button>
+          </div>
         </>
-      )}
-
-      {/* ── Modal de detalle de publicación ──────────────────────── */}
-      {detailPub && (
-        <PublicationDetailModal
-          publication={detailPub}
-          onClose={() => setDetailPub(null)}
-        />
       )}
     </div>
   );
@@ -924,7 +1159,7 @@ function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
       {/* ── Productos agrupados por tienda ───────────────────────── */}
       <div style={pedidos.productsWrap}>
         {result.stores.map((s, si) => {
-          const emoji = Number(s.store?.store_type_id) === 2 ? '🌐' : '🏪';
+          const emoji = getStoreEmoji(s.store?.store_type_id);
           const subtotal = s.products.reduce((a, p) => a + (p.price || 0) * p.item.quantity, 0);
           return (
             <div key={si} style={pedidos.storeBlock}>
@@ -966,53 +1201,83 @@ function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
 }
 
 // ─── Sidebar de listas guardadas ──────────────────────────────────────────────
-function SavedListsSidebar({ savedLists, onLoad, onDelete }) {
+function SavedListsSidebar({ savedLists, onLoad, onDelete, flash }) {
+  const isMobile = useIsMobile(680);
+  const [isOpen, setIsOpen] = useState(true);
+
+  // Colapsado por defecto en móvil, expandido en desktop
+  useEffect(() => {
+    setIsOpen(!isMobile);
+  }, [isMobile]);
+
   return (
     <aside style={sidebar.root}>
-      <div style={sidebar.header}>
-        <span style={sidebar.title}>Listas guardadas</span>
-        {savedLists.length > 0 && (
-          <span style={sidebar.count}>{savedLists.length}</span>
-        )}
+      {/* Header — clickeable en móvil para toggle */}
+      <div
+        style={{
+          ...sidebar.header,
+          ...(isMobile ? { cursor: 'pointer', userSelect: 'none' } : {}),
+        }}
+        onClick={isMobile ? () => setIsOpen((v) => !v) : undefined}
+        role={isMobile ? 'button' : undefined}
+        tabIndex={isMobile ? 0 : undefined}
+        onKeyDown={isMobile ? (e) => { if (e.key === 'Enter' || e.key === ' ') setIsOpen((v) => !v); } : undefined}
+        aria-expanded={isMobile ? isOpen : undefined}
+      >
+        <span style={{
+          ...sidebar.title,
+          ...(flash ? { animation: 'savedFlash 0.8s ease' } : {}),
+        }}>
+          Listas guardadas
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {savedLists.length > 0 && (
+            <span style={sidebar.count}>{savedLists.length}</span>
+          )}
+          {isMobile && <ChevronDownIcon open={isOpen} />}
+        </div>
       </div>
 
-      {savedLists.length === 0 ? (
-        <div style={sidebar.empty}>
-          <span style={sidebar.emptyIcon}>📋</span>
-          <p style={sidebar.emptyText}>Sin listas guardadas</p>
-          <p style={sidebar.emptyHint}>Guarda tu lista actual con un nombre para encontrarla aquí.</p>
-        </div>
-      ) : (
-        <ul style={sidebar.list}>
-          {savedLists.map((sl) => {
-            const date = new Date(sl.savedAt).toLocaleDateString('es-CO', {
-              day: '2-digit', month: 'short',
-            });
-            return (
-              <li key={sl.id} style={sidebar.item}>
-                <button
-                  type="button"
-                  onClick={() => onLoad(sl.id)}
-                  style={sidebar.itemBtn}
-                  title={`Cargar "${sl.name}"`}
-                >
-                  <span style={sidebar.itemName}>{sl.name}</span>
-                  <span style={sidebar.itemMeta}>
-                    {sl.items.length} {sl.items.length === 1 ? 'producto' : 'productos'} · {date}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(sl.id)}
-                  style={sidebar.deleteBtn}
-                  aria-label={`Eliminar lista "${sl.name}"`}
-                >
-                  <TrashIcon />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+      {/* Contenido colapsable */}
+      {isOpen && (
+        savedLists.length === 0 ? (
+          <div style={sidebar.empty}>
+            <span style={sidebar.emptyIcon}>📋</span>
+            <p style={sidebar.emptyText}>Sin listas guardadas</p>
+            <p style={sidebar.emptyHint}>Guarda tu lista actual con un nombre para encontrarla aquí.</p>
+          </div>
+        ) : (
+          <ul style={sidebar.list}>
+            {savedLists.map((sl) => {
+              const date = new Date(sl.savedAt).toLocaleDateString('es-CO', {
+                day: '2-digit', month: 'short',
+              });
+              return (
+                <li key={sl.id} style={sidebar.item}>
+                  <button
+                    type="button"
+                    onClick={() => onLoad(sl.id)}
+                    style={sidebar.itemBtn}
+                    title={`Cargar "${sl.name}"`}
+                  >
+                    <span style={sidebar.itemName}>{sl.name}</span>
+                    <span style={sidebar.itemMeta}>
+                      {sl.items.length} {sl.items.length === 1 ? 'producto' : 'productos'} · {date}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(sl.id)}
+                    style={sidebar.deleteBtn}
+                    aria-label={`Eliminar lista "${sl.name}"`}
+                  >
+                    <TrashIcon />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )
       )}
     </aside>
   );
@@ -1029,11 +1294,21 @@ export default function ShoppingListPage() {
   } = useShoppingListStore();
 
   const [activeTab, setActiveTab] = useState('lista');
+  const [savedFlash, setSavedFlash] = useState(false);
+  const flashTimerRef = useRef(null);
 
-  const TABS = [
+  useEffect(() => () => clearTimeout(flashTimerRef.current), []);
+
+  const handleSaved = () => {
+    setSavedFlash(true);
+    clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setSavedFlash(false), 2000);
+  };
+
+  const tabs = useMemo(() => [
     { key: 'lista', label: 'Mi Lista' },
     { key: 'pedidos', label: 'Mis Pedidos', badge: orders.length },
-  ];
+  ], [orders.length]);
 
   return (
     <div className="home-wrapper">
@@ -1046,6 +1321,10 @@ export default function ShoppingListPage() {
         }
         @media (max-width: 680px) {
           .lista-layout { grid-template-columns: 1fr; }
+        }
+        @keyframes savedFlash {
+          0%, 100% { color: var(--text-secondary); }
+          50% { color: var(--accent); text-shadow: 0 0 10px var(--accent); }
         }
       `}</style>
 
@@ -1061,7 +1340,7 @@ export default function ShoppingListPage() {
 
       {/* ── Pestañas ─────────────────────────────────────────────── */}
       <div style={page.tabBar}>
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
@@ -1092,6 +1371,7 @@ export default function ShoppingListPage() {
             savedLists={savedLists}
             onLoad={loadSavedList}
             onDelete={deleteSavedList}
+            flash={savedFlash}
           />
           {/* Lista principal */}
           <ListaTab
@@ -1101,6 +1381,7 @@ export default function ShoppingListPage() {
             clearList={clearList}
             saveList={saveList}
             addOrder={addOrder}
+            onSaved={handleSaved}
           />
         </div>
       ) : (
@@ -1172,11 +1453,10 @@ const lista = {
     fontSize: '14px', outline: 'none',
   },
   addBtn: {
-    display: 'flex', alignItems: 'center', gap: '5px',
-    padding: '10px 16px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: '42px', height: '42px', flexShrink: 0,
     borderRadius: 'var(--radius-md)', border: 'none',
     background: 'var(--accent)', color: '#fff',
-    fontSize: '13px', fontWeight: 700, flexShrink: 0,
   },
 
   empty: {
@@ -1199,6 +1479,23 @@ const lista = {
     color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px 8px',
   },
   clearBtn: { background: 'none', border: 'none', fontSize: '12px', color: 'var(--error)', cursor: 'pointer', padding: '2px 4px' },
+
+  // Notificación de guardado
+  saveNotice: {
+    padding: '8px 12px', borderRadius: 'var(--radius-sm)',
+    fontSize: '12px', fontWeight: 600,
+  },
+  saveNoticeSuccess: {
+    background: 'var(--success-soft, #dcfce7)',
+    color: 'var(--success, #16a34a)',
+    border: '1px solid var(--success, #16a34a)',
+  },
+  saveNoticeError: {
+    background: 'var(--error-soft, #fee2e2)',
+    color: 'var(--error, #dc2626)',
+    border: '1px solid var(--error, #dc2626)',
+  },
+
   saveRow: { display: 'flex', gap: '6px' },
   saveInput: {
     flex: 1, padding: '8px 12px',
@@ -1215,7 +1512,7 @@ const lista = {
   list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '4px' },
   itemWrap: { display: 'flex', flexDirection: 'column' },
   item: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    display: 'flex', alignItems: 'center', gap: '8px',
     background: 'var(--bg-surface)', border: '1px solid var(--border)',
     borderRadius: 'var(--radius-md)', padding: '10px 12px',
     transition: 'border-color 0.15s',
@@ -1225,17 +1522,34 @@ const lista = {
     borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
     borderBottom: 'none',
   },
-  itemText: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 },
+
+  // Checkbox
+  checkbox: {
+    width: '15px', height: '15px', flexShrink: 0,
+    accentColor: 'var(--accent)', cursor: 'pointer',
+  },
+
+  itemText: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 },
   itemName: { fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' },
+  itemChecked: {
+    textDecoration: 'line-through',
+    color: 'var(--text-muted)',
+    fontWeight: 400,
+  },
   itemBestPrice: { fontSize: '11px', color: 'var(--accent)', fontWeight: 700 },
   itemNoPubs: { fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' },
 
-  expandBtn: {
-    display: 'flex', alignItems: 'center', gap: '4px',
-    padding: '4px 8px', borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)', background: 'var(--bg-elevated)',
-    color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '11px',
+  // Badge de opciones inline
+  optionsBadge: {
+    display: 'inline-flex', alignItems: 'center', gap: '3px',
+    padding: '2px 7px',
+    borderRadius: '999px',
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    color: 'var(--text-secondary)',
+    fontSize: '11px', fontWeight: 600, flexShrink: 0,
   },
+
   removeBtn: {
     background: 'none', border: 'none', color: 'var(--text-muted)',
     cursor: 'pointer', padding: '5px', borderRadius: 'var(--radius-sm)',
@@ -1249,6 +1563,7 @@ const lista = {
     borderBottomRightRadius: 'var(--radius-md)',
     background: 'var(--bg-elevated)',
     padding: '10px',
+    overflow: 'hidden',
   },
 
   totalCard: {
@@ -1281,10 +1596,10 @@ const lista = {
     border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
   },
   deliveryLabel: { fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', margin: 0 },
-  deliveryRow: { display: 'flex', gap: '6px' },
+  deliveryRow: { display: 'flex', gap: '8px' },
   deliveryBtn: {
-    flex: 1, padding: '10px 8px',
-    borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
+    flex: 1, padding: '11px 8px',
+    borderRadius: 'var(--radius-md)', border: '2px solid var(--border)',
     background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
     fontSize: '13px', fontWeight: 600, cursor: 'pointer',
     transition: 'all 0.15s',
@@ -1293,103 +1608,172 @@ const lista = {
     background: 'var(--accent-soft)', color: 'var(--accent)',
     borderColor: 'var(--accent)', fontWeight: 700,
   },
-  confirmBtn: {
-    flex: 1, padding: '10px 8px',
-    borderRadius: 'var(--radius-md)', border: 'none',
-    background: 'var(--accent)', color: '#fff',
-    fontSize: '13px', fontWeight: 800,
+  deliveryHint: {
+    fontSize: '11px', color: 'var(--accent)', margin: 0,
+    textAlign: 'center', fontWeight: 600,
   },
 
+  calcRow: {
+    display: 'flex', gap: '8px', marginTop: '4px', alignItems: 'stretch',
+  },
   calcBtn: {
+    flex: 1,
     padding: '12px 16px',
     borderRadius: 'var(--radius-md)', border: '1px solid var(--accent)',
     background: 'var(--accent-soft)', color: 'var(--accent)',
-    fontWeight: 800, fontSize: '14px', width: '100%', marginTop: '4px',
+    fontWeight: 800, fontSize: '14px',
   },
-
-  separator: {
-    borderTop: '1px dashed var(--border)', margin: '4px 0',
+  gearBtn: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: '44px', flexShrink: 0,
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
+    cursor: 'pointer', transition: 'all 0.15s',
   },
+  gearBtnActive: {
+    background: 'var(--accent-soft)', color: 'var(--accent)',
+    borderColor: 'var(--accent)',
+  },
+};
 
-  orderBtn: {
-    padding: '12px',
-    borderRadius: 'var(--radius-md)', border: 'none',
-    background: 'var(--accent)', color: '#fff',
-    fontWeight: 800, fontSize: '14px', textAlign: 'center', width: '100%',
+// ── Optim settings panel styles ───────────────────────────────────────────────
+const optim = {
+  panel: {
+    background: 'var(--bg-surface)', border: '1px solid var(--accent)',
+    borderRadius: 'var(--radius-md)', padding: '14px 16px',
+    display: 'flex', flexDirection: 'column', gap: '14px',
+  },
+  panelHeader: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  },
+  panelTitle: {
+    fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)',
+    textTransform: 'uppercase', letterSpacing: '0.05em',
+  },
+  resetBtn: {
+    background: 'none', border: 'none',
+    fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer',
+    textDecoration: 'underline', padding: 0,
+  },
+  section: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  sectionLabel: {
+    fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)',
+    textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0,
+  },
+  sectionHint: {
+    fontSize: '11px', color: 'var(--text-muted)', margin: 0,
+  },
+  segmentRow: {
+    display: 'flex', gap: '4px',
+  },
+  segmentBtn: {
+    flex: 1, padding: '7px 4px',
+    borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)', color: 'var(--text-secondary)',
+    fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+    transition: 'all 0.15s', textAlign: 'center',
+    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+  },
+  segmentBtnActive: {
+    background: 'var(--accent-soft)', color: 'var(--accent)',
+    borderColor: 'var(--accent)', fontWeight: 700,
+  },
+  sliderHeader: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  },
+  sliderValue: {
+    fontSize: '13px', fontWeight: 800, color: 'var(--accent)',
+  },
+  sliderWrap: {
+    display: 'flex', alignItems: 'center', gap: '8px',
+  },
+  slider: {
+    flex: 1, accentColor: 'var(--accent)',
+    height: '4px', cursor: 'pointer',
+  },
+  sliderEdge: {
+    fontSize: '10px', color: 'var(--text-muted)', fontWeight: 600, flexShrink: 0,
+  },
+  locationBtn: {
+    padding: '7px 12px',
+    borderRadius: 'var(--radius-sm)', border: '1px solid var(--accent)',
+    background: 'var(--accent-soft)', color: 'var(--accent)',
+    fontSize: '12px', fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-start',
+  },
+  toggleRow: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    cursor: 'pointer',
+  },
+  toggle: {
+    width: '38px', height: '22px',
+    borderRadius: '999px',
+    position: 'relative', cursor: 'pointer',
+    transition: 'background 0.2s', flexShrink: 0,
+    border: 'none', outline: 'none',
+  },
+  toggleThumb: {
+    position: 'absolute', top: '3px',
+    width: '16px', height: '16px',
+    borderRadius: '50%',
+    background: '#fff',
+    transition: 'transform 0.2s',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
   },
 };
 
 // ── Carousel styles ────────────────────────────────────────────────────────────
 const carousel = {
-  // Desktop: fila horizontal en línea recta, sin wrapping
-  track: {
-    display: 'flex', gap: '8px', flexWrap: 'nowrap',
-  },
-  // Mobile: scroll horizontal libre
-  mobileTrack: {
+  // Track unificado: scroll horizontal con carga infinita
+  infiniteTrack: {
     display: 'flex', gap: '8px',
-    overflowX: 'auto', paddingBottom: '6px',
+    overflowX: 'auto', overflowY: 'hidden',
+    paddingBottom: '6px', paddingRight: '4px',
     scrollbarWidth: 'thin',
+    scrollSnapType: 'x mandatory',
   },
-  // Barra de navegación (solo desktop, cuando hay >6 opciones)
-  navBar: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-    paddingTop: '2px',
-  },
-  arrowBtn: {
-    width: '28px', height: '28px',
+  loadMoreSentinel: {
+    flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: 'var(--bg-elevated)',
-    border: '1px solid var(--border)',
-    borderRadius: '50%',
-    cursor: 'pointer',
-    fontSize: '18px', lineHeight: 1, fontWeight: 700,
-    color: 'var(--text-primary)',
-    padding: 0,
-  },
-  pageInfo: {
-    fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500,
+    minWidth: '48px', height: '100%',
+    color: 'var(--text-muted)',
+    alignSelf: 'center',
   },
   empty: {
     fontSize: '12px', color: 'var(--text-muted)',
     fontStyle: 'italic', padding: '4px 0',
   },
   card: {
-    flexShrink: 0, minWidth: '150px', maxWidth: '180px',
+    flexShrink: 0,
+    width: '150px',
     display: 'flex', flexDirection: 'column', gap: '4px',
     padding: '10px 12px',
     background: 'var(--bg-surface)', border: '1px solid var(--border)',
     borderRadius: 'var(--radius-md)', cursor: 'pointer',
     textAlign: 'left', transition: 'border-color 0.15s',
+    scrollSnapAlign: 'start',
+    boxSizing: 'border-box',
   },
-  cardBest: {
-    borderColor: 'var(--accent)',
-    background: 'var(--accent-soft, rgba(var(--accent-rgb,99,102,241),0.06))',
-  },
-  bestBadge: {
-    fontSize: '10px', fontWeight: 800, color: 'var(--accent)',
-    textTransform: 'uppercase', letterSpacing: '0.04em',
-  },
-  storeName: { fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 },
-  price: { fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' },
-  currency: { fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)' },
-  prodName: { fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.3 },
   cardSelected: {
     borderColor: 'var(--accent)',
     boxShadow: '0 0 0 2px var(--accent)',
     background: 'var(--accent-soft, rgba(99,102,241,0.08))',
   },
+  bestBadge: {
+    fontSize: '10px', fontWeight: 800, color: 'var(--accent)',
+    textTransform: 'uppercase', letterSpacing: '0.04em',
+  },
   selectedBadge: {
     fontSize: '10px', fontWeight: 800, color: 'var(--accent)',
     textTransform: 'uppercase', letterSpacing: '0.04em',
   },
-  detailBtn: {
-    padding: '4px 8px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)',
-    background: 'none',
-    color: 'var(--accent)',
-    fontSize: '11px', fontWeight: 600, cursor: 'pointer', flexShrink: 0,
+  storeName: { fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  price: { fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' },
+  currency: { fontSize: '11px', fontWeight: 500, color: 'var(--text-muted)' },
+  prodName: { fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  unitQty: {
+    fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
   },
 };
 
@@ -1492,7 +1876,10 @@ const sidebar = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     paddingBottom: '8px', borderBottom: '1px solid var(--border)',
   },
-  title: { fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  title: {
+    fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)',
+    textTransform: 'uppercase', letterSpacing: '0.05em',
+  },
   count: {
     padding: '1px 7px', borderRadius: '999px',
     background: 'var(--accent-soft)', color: 'var(--accent)',
