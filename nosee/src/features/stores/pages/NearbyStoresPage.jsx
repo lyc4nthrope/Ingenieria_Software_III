@@ -225,11 +225,14 @@ export default function NearbyStoresPage() {
 
   // Fetch stores
   useEffect(() => {
+    let cancelled = false;
     getAllPhysicalStoresWithLocation().then((result) => {
+      if (cancelled) return;
       if (result.success) setStores(result.data || []);
       else setLoadError(result.error);
       setLoadingStores(false);
     });
+    return () => { cancelled = true; };
   }, []);
 
   // Get user location
@@ -239,20 +242,23 @@ export default function NearbyStoresPage() {
       setLocationLoading(false);
       return;
     }
-    const watchId = navigator.geolocation.getCurrentPosition(
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        setLocationLoading(false);
+        if (!cancelled) {
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setLocationLoading(false);
+        }
       },
       () => {
-        setLocationError('No se pudo obtener tu ubicación. El mapa se centrará en Bogotá.');
-        setLocationLoading(false);
+        if (!cancelled) {
+          setLocationError('No se pudo obtener tu ubicación. El mapa se centrará en Bogotá.');
+          setLocationLoading(false);
+        }
       },
       { enableHighAccuracy: true, timeout: GEO_TIMEOUT_MS, maximumAge: 30000 }
     );
-    return () => {
-      if (typeof watchId === 'number') navigator.geolocation.clearWatch?.(watchId);
-    };
+    return () => { cancelled = true; };
   }, []);
 
   // Load Leaflet + MarkerCluster
@@ -309,6 +315,7 @@ export default function NearbyStoresPage() {
       clusterGroupRef.current = null;
       userMarkerRef.current = null;
       tileLayerRef.current = null;
+      setClusterReady(false);
     };
   }, [mapReady, locationLoading, userLocation]);
 
@@ -477,13 +484,14 @@ const styles = {
     background: 'var(--bg-base)',
   },
   header: {
-    padding: '12px 16px 8px',
+    padding: '10px 16px 8px',
     borderBottom: '1px solid var(--border)',
     background: 'var(--bg-surface)',
     flexShrink: 0,
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    flexWrap: 'wrap',
+    gap: '8px 12px',
   },
   backBtn: {
     display: 'inline-flex',
@@ -496,10 +504,11 @@ const styles = {
     padding: '4px 8px',
     borderRadius: 'var(--radius-sm)',
     flexShrink: 0,
+    whiteSpace: 'nowrap',
   },
   title: {
     margin: 0,
-    fontSize: '18px',
+    fontSize: 'clamp(15px, 4vw, 18px)',
     fontWeight: 700,
     color: 'var(--text-primary)',
   },
@@ -507,6 +516,9 @@ const styles = {
     margin: 0,
     fontSize: '12px',
     color: 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   locationBanner: {
     display: 'flex',
@@ -558,17 +570,19 @@ const styles = {
   },
   legend: {
     position: 'absolute',
-    bottom: '24px',
-    left: '12px',
+    bottom: '12px',
+    left: '8px',
     zIndex: 1000,
     background: 'var(--bg-surface)',
     border: '1px solid var(--border)',
     borderRadius: 'var(--radius-md)',
-    padding: '8px 12px',
+    padding: '6px 10px',
     display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: '4px 10px',
     boxShadow: 'var(--shadow-md)',
+    maxWidth: 'calc(100vw - 70px)',
   },
   legendItem: {
     display: 'flex',
