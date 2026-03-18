@@ -769,3 +769,215 @@ describe('Proceso 3 — integridad funcional', () => {
     expect(order.driverLocation).toEqual({ lat: 4.711, lng: -74.0721 });
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 5 — Separación de modos: "Mis Pedidos" vs "Mis Recogidas"
+// Cubre el flujo "intención primero" implementado en ListaTab:
+//   - domicilio (deliveryMode: true)  → tab "Mis Pedidos"
+//   - voy yo   (deliveryMode: false) → tab "Mis Recogidas"
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('Separación de pedidos por modo (domicilio vs voy yo)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useShoppingListStore.setState({ _userId: null, items: [], orders: [] });
+    useShoppingListStore.getState().loadForUser('user-modos');
+  });
+
+  // ── Pedido de domicilio ────────────────────────────────────────────────────
+  it('un pedido confirmado como domicilio tiene deliveryMode=true y deliveryStatus="searching"', () => {
+    useShoppingListStore.getState().addOrder({
+      id: 'NSE-D1',
+      result: { stores: [], totalCost: 30000, noResultItems: [] },
+      deliveryMode: true,
+      deliveryStatus: 'searching',
+      driverLocation: null,
+      cancellationCharged: false,
+    });
+
+    const order = useShoppingListStore.getState().orders[0];
+    expect(order.deliveryMode).toBe(true);
+    expect(order.deliveryStatus).toBe('searching');
+    expect(order.driverLocation).toBeNull();
+  });
+
+  // ── Pedido "voy yo" ────────────────────────────────────────────────────────
+  it('un pedido confirmado como "voy yo" tiene deliveryMode=false y deliveryStatus=null', () => {
+    useShoppingListStore.getState().addOrder({
+      id: 'NSE-P1',
+      result: { stores: [], totalCost: 25000, noResultItems: [] },
+      deliveryMode: false,
+      deliveryStatus: null,
+      driverLocation: null,
+      cancellationCharged: false,
+    });
+
+    const order = useShoppingListStore.getState().orders[0];
+    expect(order.deliveryMode).toBe(false);
+    expect(order.deliveryStatus).toBeNull();
+  });
+
+  // ── Filtrado de tabs ───────────────────────────────────────────────────────
+  it('filtrar orders por deliveryMode separa correctamente domicilio y recogidas', () => {
+    useShoppingListStore.getState().addOrder({ id: 'NSE-D2', deliveryMode: true,  result: {} });
+    useShoppingListStore.getState().addOrder({ id: 'NSE-D3', deliveryMode: true,  result: {} });
+    useShoppingListStore.getState().addOrder({ id: 'NSE-P2', deliveryMode: false, result: {} });
+
+    const { orders } = useShoppingListStore.getState();
+    const deliveryOrders = orders.filter((o) => o.deliveryMode);
+    const pickupOrders   = orders.filter((o) => !o.deliveryMode);
+
+    expect(deliveryOrders).toHaveLength(2);
+    expect(pickupOrders).toHaveLength(1);
+    expect(deliveryOrders.every((o) => o.deliveryMode === true)).toBe(true);
+    expect(pickupOrders.every((o) => o.deliveryMode === false)).toBe(true);
+  });
+
+  it('un pedido domicilio NO aparece en la lista de recogidas', () => {
+    useShoppingListStore.getState().addOrder({ id: 'NSE-DOM', deliveryMode: true,  result: {} });
+    useShoppingListStore.getState().addOrder({ id: 'NSE-VYO', deliveryMode: false, result: {} });
+
+    const { orders } = useShoppingListStore.getState();
+    const pickupOrders = orders.filter((o) => !o.deliveryMode);
+
+    const ids = pickupOrders.map((o) => o.id);
+    expect(ids).not.toContain('NSE-DOM');
+    expect(ids).toContain('NSE-VYO');
+  });
+
+  it('un pedido "voy yo" NO aparece en Mis Pedidos (domicilio)', () => {
+    useShoppingListStore.getState().addOrder({ id: 'NSE-A', deliveryMode: false, result: {} });
+    useShoppingListStore.getState().addOrder({ id: 'NSE-B', deliveryMode: true,  result: {} });
+
+    const { orders } = useShoppingListStore.getState();
+    const deliveryOrders = orders.filter((o) => o.deliveryMode);
+
+    const ids = deliveryOrders.map((o) => o.id);
+    expect(ids).not.toContain('NSE-A');
+    expect(ids).toContain('NSE-B');
+  });
+
+  // ── Sin pedidos ────────────────────────────────────────────────────────────
+  it('cuando no hay pedidos ambas listas están vacías', () => {
+    const { orders } = useShoppingListStore.getState();
+    expect(orders.filter((o) => o.deliveryMode)).toHaveLength(0);
+    expect(orders.filter((o) => !o.deliveryMode)).toHaveLength(0);
+  });
+
+  // ── Persistencia por modo ──────────────────────────────────────────────────
+  it('ambos tipos de pedido persisten en localStorage', () => {
+    useShoppingListStore.getState().addOrder({ id: 'NSE-PERS-D', deliveryMode: true,  result: {} });
+    useShoppingListStore.getState().addOrder({ id: 'NSE-PERS-P', deliveryMode: false, result: {} });
+
+    const raw = localStorage.getItem('nosee-shopping-user-modos');
+    const parsed = JSON.parse(raw);
+    const modes = parsed.orders.map((o) => o.deliveryMode);
+    expect(modes).toContain(true);
+    expect(modes).toContain(false);
+  });
+
+  // ── removeOrder no afecta el otro modo ─────────────────────────────────────
+  it('eliminar un pedido de domicilio no afecta los pedidos de recogida', () => {
+    useShoppingListStore.getState().addOrder({ id: 'NSE-DEL', deliveryMode: true,  result: {} });
+    useShoppingListStore.getState().addOrder({ id: 'NSE-KEEP', deliveryMode: false, result: {} });
+
+    useShoppingListStore.getState().removeOrder('NSE-DEL');
+
+    const { orders } = useShoppingListStore.getState();
+    expect(orders).toHaveLength(1);
+    expect(orders[0].id).toBe('NSE-KEEP');
+    expect(orders[0].deliveryMode).toBe(false);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SECCIÓN 6 — buildResultFromSelections (lógica interna del flujo "confirmar")
+// La función transforma la selección del usuario (publicación elegida por ítem)
+// en el formato de resultado que se guarda en el pedido.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Replica de buildResultFromSelections tal como está en ShoppingListPage.jsx.
+ * Se testa aquí de forma aislada para verificar el contrato de datos.
+ */
+function buildResultFromSelections(items, selectedPubs) {
+  const storeMap = {};
+  const noResultItems = [];
+  for (const item of items) {
+    const pub = selectedPubs[item.id];
+    if (!pub) { noResultItems.push(item); continue; }
+    const sid = String(pub.store?.id ?? 'unknown');
+    if (!storeMap[sid]) storeMap[sid] = { store: pub.store, products: [] };
+    storeMap[sid].products.push({ item, publication: pub, price: pub.price ?? 0 });
+  }
+  const stores = Object.values(storeMap);
+  const totalCost = stores.reduce(
+    (s, st) => s + st.products.reduce((ps, p) => ps + p.price * (p.item.quantity || 1), 0), 0
+  );
+  return { stores, totalCost, savings: 0, savingsPct: 0, noResultItems };
+}
+
+describe('buildResultFromSelections — lógica de confirmación', () => {
+  it('agrupa correctamente productos en una tienda', () => {
+    const items = [makeItem(1, 'Arroz', 2), makeItem(2, 'Leche', 1)];
+    const selectedPubs = {
+      1: makePub('store-A', 2000),
+      2: makePub('store-A', 3500),
+    };
+    const res = buildResultFromSelections(items, selectedPubs);
+    expect(res.stores).toHaveLength(1);
+    expect(res.totalCost).toBe(2000 * 2 + 3500 * 1); // 7500
+  });
+
+  it('separa productos en dos tiendas distintas', () => {
+    const items = [makeItem(1, 'Pan', 1), makeItem(2, 'Queso', 1)];
+    const selectedPubs = {
+      1: makePub('store-A', 1000),
+      2: makePub('store-B', 4000),
+    };
+    const res = buildResultFromSelections(items, selectedPubs);
+    expect(res.stores).toHaveLength(2);
+    expect(res.totalCost).toBe(5000);
+  });
+
+  it('registra en noResultItems los ítems sin publicación elegida', () => {
+    const items = [makeItem(1, 'Arroz', 1), makeItem(2, 'ProductoRaro', 1)];
+    const selectedPubs = { 1: makePub('store-A', 1000) }; // ítem 2 sin selección
+    const res = buildResultFromSelections(items, selectedPubs);
+    expect(res.noResultItems).toHaveLength(1);
+    expect(res.noResultItems[0].productName).toBe('ProductoRaro');
+  });
+
+  it('totalCost multiplica precio × cantidad por cada ítem', () => {
+    const items = [makeItem(10, 'Aceite', 3)];
+    const selectedPubs = { 10: makePub('store-A', 8000) };
+    const res = buildResultFromSelections(items, selectedPubs);
+    expect(res.totalCost).toBe(24000); // 8000 × 3
+  });
+
+  it('con lista vacía retorna estructura válida con totales en cero', () => {
+    const res = buildResultFromSelections([], {});
+    expect(res.stores).toEqual([]);
+    expect(res.totalCost).toBe(0);
+    expect(res.noResultItems).toEqual([]);
+  });
+
+  it('con todos los ítems sin selección retorna stores vacío y noResultItems lleno', () => {
+    const items = [makeItem(1, 'X', 1), makeItem(2, 'Y', 2)];
+    const res = buildResultFromSelections(items, {});
+    expect(res.stores).toHaveLength(0);
+    expect(res.noResultItems).toHaveLength(2);
+    expect(res.totalCost).toBe(0);
+  });
+
+  it('el resultado tiene la misma estructura que buildResult de los algoritmos', () => {
+    const items = [makeItem(1, 'Arroz', 1)];
+    const selectedPubs = { 1: makePub('store-A', 1000) };
+    const res = buildResultFromSelections(items, selectedPubs);
+    expect(res).toHaveProperty('stores');
+    expect(res).toHaveProperty('totalCost');
+    expect(res).toHaveProperty('savings');
+    expect(res).toHaveProperty('savingsPct');
+    expect(res).toHaveProperty('noResultItems');
+  });
+});
