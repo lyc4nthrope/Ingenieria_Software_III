@@ -507,7 +507,7 @@ function ResultView({ result, deliveryMode, onBack, onConfirm }) {
 }
 
 // ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
-function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, onSaved, onConfirmedDelivery }) {
+function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, onSaved, onConfirmedDelivery, onConfirmedPickup }) {
   const [inputValue, setInputValue] = useState('');
   const [saveInput, setSaveInput] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
@@ -719,6 +719,7 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
       setSelectedPubs({});
       setDeliveryMode(null);
       setOrderResult(null);
+      onConfirmedPickup?.();
     };
     return <VoyYoMapView result={orderResult} userCoords={pickupCoords} onDone={resetAll} />;
   }
@@ -1077,15 +1078,12 @@ function VoyYoMapView({ result, userCoords, onDone }) {
             </button>
           </div>
           {/* Derecha: mapa grande */}
-          <div style={{
-            borderRadius: 'var(--radius-md)', overflow: 'hidden',
-            border: '1px solid var(--border)',
-            height: '520px', position: 'sticky', top: '80px',
-          }}>
+          <div style={{ position: 'sticky', top: '80px' }}>
             <OrderRouteMap
               stores={stores}
               userCoords={userCoords}
               driverLocation={null}
+              mapHeight="480px"
             />
           </div>
         </div>
@@ -1095,7 +1093,7 @@ function VoyYoMapView({ result, userCoords, onDone }) {
 }
 
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
-function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
+function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
   const timerRef = useRef(null);
@@ -1171,9 +1169,9 @@ function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
   if (orders.length === 0) {
     return (
       <div style={pedidos.empty}>
-        <p style={pedidos.emptyText}>No tienes pedidos guardados</p>
+        <p style={pedidos.emptyText}>No hay pedidos aquí aún</p>
         <p style={pedidos.emptyHint}>
-          Ve a la pestaña <strong>Mi Lista</strong>, configura un pedido y aparecerá aquí.
+          {emptyHint ?? 'Ve a la pestaña Mi Lista, configura un pedido y aparecerá aquí.'}
         </p>
       </div>
     );
@@ -1332,6 +1330,7 @@ function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
             stores={result.stores}
             userCoords={userCoords}
             driverLocation={selectedOrder.driverLocation ?? null}
+            mapHeight="480px"
           />
         </div>
       </div>
@@ -1444,10 +1443,14 @@ export default function ShoppingListPage() {
     flashTimerRef.current = setTimeout(() => setSavedFlash(false), 2000);
   };
 
+  const deliveryOrders = useMemo(() => orders.filter((o) => o.deliveryMode), [orders]);
+  const pickupOrders   = useMemo(() => orders.filter((o) => !o.deliveryMode), [orders]);
+
   const tabs = useMemo(() => [
-    { key: 'lista', label: 'Mi Lista' },
-    { key: 'pedidos', label: 'Mis Pedidos', badge: orders.length },
-  ], [orders.length]);
+    { key: 'lista',     label: 'Mi Lista' },
+    { key: 'pedidos',   label: 'Mis Pedidos',    badge: deliveryOrders.length },
+    { key: 'recogidas', label: 'Mis Recogidas',  badge: pickupOrders.length },
+  ], [deliveryOrders.length, pickupOrders.length]);
 
   return (
     <div className="home-wrapper">
@@ -1478,7 +1481,11 @@ export default function ShoppingListPage() {
 
       {/* ── Cabecera ─────────────────────────────────────────────── */}
       <div style={page.header}>
-        <h1 style={page.title}>🛒 {activeTab === 'lista' ? 'Mi Lista de Compras' : 'Mis Pedidos'}</h1>
+        <h1 style={page.title}>
+          {activeTab === 'lista'     ? '🛒 Mi Lista de Compras' :
+           activeTab === 'pedidos'   ? '🛵 Mis Pedidos'         :
+                                       '🚶 Mis Recogidas'}
+        </h1>
         {activeTab === 'lista' && items.length > 0 && (
           <span style={page.badge}>
             {items.length} {items.length === 1 ? 'producto' : 'productos'} en lista
@@ -1512,16 +1519,14 @@ export default function ShoppingListPage() {
       </div>
 
       {/* ── Contenido ────────────────────────────────────────────── */}
-      {activeTab === 'lista' ? (
+      {activeTab === 'lista' && (
         <div className="lista-layout">
-          {/* Sidebar izquierda */}
           <SavedListsSidebar
             savedLists={savedLists}
             onLoad={loadSavedList}
             onDelete={deleteSavedList}
             flash={savedFlash}
           />
-          {/* Lista principal */}
           <ListaTab
             items={items}
             addItem={addItem}
@@ -1531,13 +1536,24 @@ export default function ShoppingListPage() {
             addOrder={addOrder}
             onSaved={handleSaved}
             onConfirmedDelivery={() => setActiveTab('pedidos')}
+            onConfirmedPickup={() => setActiveTab('recogidas')}
           />
         </div>
-      ) : (
+      )}
+      {activeTab === 'pedidos' && (
         <PedidosTab
-          orders={orders}
+          orders={deliveryOrders}
           removeOrder={removeOrder}
           updateOrderDelivery={updateOrderDelivery}
+          emptyHint="Confirma un pedido con 🛵 Domicilio y aparecerá aquí."
+        />
+      )}
+      {activeTab === 'recogidas' && (
+        <PedidosTab
+          orders={pickupOrders}
+          removeOrder={removeOrder}
+          updateOrderDelivery={updateOrderDelivery}
+          emptyHint="Confirma un pedido con 🚶 Voy yo y aparecerá aquí."
         />
       )}
     </div>
@@ -2020,9 +2036,6 @@ const pedidos = {
     border: '1px solid var(--border)',
   },
   mapCol: {
-    borderRadius: 'var(--radius-md)', overflow: 'hidden',
-    border: '1px solid var(--border)',
-    height: '520px',
     position: 'sticky', top: '80px',
   },
 };

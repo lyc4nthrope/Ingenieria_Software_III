@@ -76,7 +76,7 @@ async function fetchOsrmRoute(waypoints) {
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
-export default function OrderRouteMap({ stores, userCoords, driverLocation = null }) {
+export default function OrderRouteMap({ stores, userCoords, driverLocation = null, mapHeight = '340px' }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const leafletRef = useRef(null); // guardar instancia de L para efectos posteriores
@@ -268,7 +268,7 @@ export default function OrderRouteMap({ stores, userCoords, driverLocation = nul
         {status === 'error' && (
           <div style={styles.overlay}>No se pudo cargar el mapa</div>
         )}
-        <div ref={containerRef} style={styles.map} />
+        <div ref={containerRef} style={{ ...styles.map, height: mapHeight }} />
 
         {/* Botón centrar en mi ubicación — superpuesto sobre el mapa */}
         {status === 'ready' && (
@@ -334,7 +334,6 @@ const styles = {
     border: '1px solid var(--border)',
   },
   map: {
-    height: '340px',
     width: '100%',
   },
   overlay: {
