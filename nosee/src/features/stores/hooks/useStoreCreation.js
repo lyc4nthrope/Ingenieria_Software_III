@@ -76,13 +76,17 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
   const updateField = (field, value) => {
     setFormData((prev) => {
       if (field === 'type' && value === StoreTypeEnum.VIRTUAL) {
+        // Revocar URLs de preview antes de limpiar evidencias
+        prev.evidenceFiles?.forEach((ev) => {
+          if (ev?.previewUrl) URL.revokeObjectURL(ev.previewUrl);
+        });
         return {
           ...prev,
           type: value,
           address: '',
           latitude: null,
           longitude: null,
-          evidenceUrls: [],
+          evidenceFiles: [],
         };
       }
 
@@ -130,10 +134,11 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
   };
 
   const removeEvidenceFile = (evidenceId) => {
-    setFormData((prev) => ({
-      ...prev,
-      evidenceFiles: prev.evidenceFiles.filter((item) => item.id !== evidenceId),
-    }));
+    setFormData((prev) => {
+      const target = prev.evidenceFiles.find((item) => item.id === evidenceId);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return { ...prev, evidenceFiles: prev.evidenceFiles.filter((item) => item.id !== evidenceId) };
+    });
   };
 
   const checkNearbyDuplicates = async () => {
@@ -368,9 +373,14 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
         setSubmitSuccess(`Tienda ${action} exitosamente`);
       }
 
-      // Solo resetear en modo create
+      // Solo resetear en modo create — revocar previews antes de limpiar
       if (mode === 'create') {
-        setFormData(initialFormData);
+        setFormData((prev) => {
+          prev.evidenceFiles?.forEach((ev) => {
+            if (ev?.previewUrl) URL.revokeObjectURL(ev.previewUrl);
+          });
+          return initialFormData;
+        });
       }
 
       setErrors({});

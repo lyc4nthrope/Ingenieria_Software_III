@@ -3,11 +3,33 @@ import { useGeoLocation } from "@/features/publications/hooks";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { recordGeocodingRequest } from "@/services/metrics";
 
-const MAP_HEIGHT = 360;
+const MAP_HEIGHT = 340;
 const DEFAULT_ZOOM = 16;
 const DEFAULT_CENTER = { latitude: 4.711, longitude: -74.0721 };
 const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+
+const TILE_LAYERS = {
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
+  },
+  light: {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
+  },
+  highContrast: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
+  },
+};
+
+function getA11yTileTheme() {
+  const classes = document.documentElement.classList;
+  if (classes.contains('a11y-light-mode')) return 'light';
+  if (classes.contains('a11y-high-contrast') || classes.contains('a11y-smart-contrast')) return 'highContrast';
+  return 'dark';
+}
 
 function getLeaflet() {
   return window.L;
@@ -58,13 +80,20 @@ function ensureLeafletLoaded() {
       reject(new Error("No se pudo cargar Leaflet desde CDN."));
     document.body.appendChild(script);
   }).catch((error) => {
-    // Permite reintentar la carga si falló por red/CDN en un intento previo.
     window.__leafletLoaderPromise = null;
     throw error;
   });
 
   return window.__leafletLoaderPromise;
 }
+
+// Nominatim requiere identificar la aplicación. En entornos browser el header
+// User-Agent está restringido por el navegador, pero el Referer se envía
+// automáticamente. Usamos Accept-Language para mejorar la calidad de respuesta.
+const NOMINATIM_HEADERS = {
+  Accept: "application/json",
+  "Accept-Language": "es,en;q=0.9",
+};
 
 async function reverseGeocode(latitude, longitude) {
   const url = new URL("https://nominatim.openstreetmap.org/reverse");
@@ -74,7 +103,7 @@ async function reverseGeocode(latitude, longitude) {
 
   let response;
   try {
-    response = await fetch(url, { headers: { Accept: "application/json" } });
+    response = await fetch(url, { headers: NOMINATIM_HEADERS });
   } catch (err) {
     recordGeocodingRequest('failure', 'reverse');
     throw err;
@@ -98,7 +127,7 @@ async function geocodeAddress(address) {
 
   let response;
   try {
-    response = await fetch(url, { headers: { Accept: "application/json" } });
+    response = await fetch(url, { headers: NOMINATIM_HEADERS });
   } catch (err) {
     recordGeocodingRequest('failure', 'forward');
     throw err;
@@ -134,14 +163,11 @@ export default function StoreMapPicker({
   readOnly = false,
 }) {
   const { t } = useLanguage();
-  // Store translations in a ref so stable useCallback([]) closures can access current values
   const tMapRef = useRef(t.storeMap);
   useEffect(() => {
     tMapRef.current = t.storeMap;
   }, [t]);
 
-  const latInput = latitude ?? "";
-  const lonInput = longitude ?? "";
   const addressInput = address ?? "";
   const [status, setStatus] = useState("");
   const [loadingAddress, setLoadingAddress] = useState(false);
@@ -151,25 +177,15 @@ export default function StoreMapPicker({
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
+  const tileLayerRef = useRef(null);
 
-  // ─── Refs para callbacks estables ────────────────────────────────────────────
-  // Guardamos la última versión de los callbacks en refs para que el efecto de
-  // inicialización del mapa use deps=[] y no destruya/recree el mapa en cada render.
   const onLocationChangeRef = useRef(onLocationChange);
   const onAddressChangeRef = useRef(onAddressChange);
   const readOnlyRef = useRef(readOnly);
 
-  useEffect(() => {
-    onLocationChangeRef.current = onLocationChange;
-  }, [onLocationChange]);
-
-  useEffect(() => {
-    onAddressChangeRef.current = onAddressChange;
-  }, [onAddressChange]);
-
-  useEffect(() => {
-    readOnlyRef.current = readOnly;
-  }, [readOnly]);
+  useEffect(() => { onLocationChangeRef.current = onLocationChange; }, [onLocationChange]);
+  useEffect(() => { onAddressChangeRef.current = onAddressChange; }, [onAddressChange]);
+  useEffect(() => { readOnlyRef.current = readOnly; }, [readOnly]);
 
   const {
     latitude: geoLatitude,
@@ -180,14 +196,12 @@ export default function StoreMapPicker({
     refetch,
   } = useGeoLocation({ autoFetch: true, enableHighAccuracy: true });
 
-  // null/undefined deben tratarse como "sin coordenadas" — Number(null)=0 pasa isFinite, por eso verificamos != null
   const hasCoords =
     latitude != null &&
     longitude != null &&
     Number.isFinite(Number(latitude)) &&
     Number.isFinite(Number(longitude));
 
-  // resolveAddressForCurrentPoint usa la ref para no depender de onLocationChange
   const resolveAddressForCurrentPoint = useCallback(
     async (nextLat, nextLon) => {
       setLoadingAddress(true);
@@ -199,7 +213,7 @@ export default function StoreMapPicker({
           longitude: nextLon,
           address: resolvedAddress,
         });
-        setStatus(tMapRef.current.statusAddressUpdated);
+        setStatus("");
       } catch (resolveError) {
         setStatus(resolveError.message);
       } finally {
@@ -207,7 +221,7 @@ export default function StoreMapPicker({
       }
     },
     [],
-  ); // sin deps: usa siempre la ref actualizada
+  );
 
   const setMarkerPosition = useCallback(
     (nextLat, nextLon, { panTo = true } = {}) => {
@@ -235,8 +249,6 @@ export default function StoreMapPicker({
         const L = await ensureLeafletLoaded();
         if (!mounted || !mapContainerRef.current) return;
 
-        // Leer los valores iniciales de los props via ref para no necesitarlos en deps.
-        // Usamos != null para descartar null/undefined (Number(null)=0 pasaría isFinite incorrectamente).
         const initLat =
           latitude != null && Number.isFinite(Number(latitude))
             ? Number(latitude)
@@ -250,16 +262,16 @@ export default function StoreMapPicker({
           zoomControl: true,
         }).setView([initLat, initLon], DEFAULT_ZOOM);
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        const initialTheme = getA11yTileTheme();
+        const tileCfg = TILE_LAYERS[initialTheme];
+        tileLayerRef.current = L.tileLayer(tileCfg.url, {
+          attribution: tileCfg.attribution,
+          subdomains: 'abcd',
           maxZoom: 19,
-          attribution: "&copy; OpenStreetMap contributors",
         }).addTo(map);
 
-        const marker = L.marker([initLat, initLon], { draggable: !readOnlyRef.current }).addTo(
-          map,
-        );
+        const marker = L.marker([initLat, initLon], { draggable: !readOnlyRef.current }).addTo(map);
 
-        // Evita el mapa en blanco cuando el contenedor cambia de layout al montar.
         setTimeout(() => map.invalidateSize(), 0);
 
         if (!readOnlyRef.current) {
@@ -268,11 +280,7 @@ export default function StoreMapPicker({
             const nextLon = Number(event.latlng.lng.toFixed(6));
             marker.setLatLng([nextLat, nextLon]);
             if (typeof onLocationChangeRef.current === 'function') {
-              onLocationChangeRef.current({
-                latitude: nextLat,
-                longitude: nextLon,
-                address: "",
-              });
+              onLocationChangeRef.current({ latitude: nextLat, longitude: nextLon, address: "" });
             }
             await resolveAddressForCurrentPoint(nextLat, nextLon);
           });
@@ -282,11 +290,7 @@ export default function StoreMapPicker({
             const nextLat = Number(nextPosition.lat.toFixed(6));
             const nextLon = Number(nextPosition.lng.toFixed(6));
             if (typeof onLocationChangeRef.current === 'function') {
-              onLocationChangeRef.current({
-                latitude: nextLat,
-                longitude: nextLon,
-                address: "",
-              });
+              onLocationChangeRef.current({ latitude: nextLat, longitude: nextLon, address: "" });
             }
             await resolveAddressForCurrentPoint(nextLat, nextLon);
           });
@@ -309,10 +313,32 @@ export default function StoreMapPicker({
         mapInstanceRef.current = null;
       }
       markerRef.current = null;
+      tileLayerRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Inicializar formData con la ubicación del dispositivo (si no hay coords) ─
+  // ─── Observar cambios de accesibilidad y cambiar tile layer ──────────────────
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const map = mapInstanceRef.current;
+      const L = window.L;
+      if (!map || !L || !tileLayerRef.current) return;
+
+      const theme = getA11yTileTheme();
+      const tileCfg = TILE_LAYERS[theme];
+      tileLayerRef.current.remove();
+      tileLayerRef.current = L.tileLayer(tileCfg.url, {
+        attribution: tileCfg.attribution,
+        subdomains: 'abcd',
+        maxZoom: 19,
+      }).addTo(map);
+    });
+
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // ─── Inicializar con ubicación del dispositivo (si no hay coords) ─────────────
   useEffect(() => {
     if (hasInitializedWithGeo.current) return;
     if (!hasLocation) return;
@@ -322,61 +348,33 @@ export default function StoreMapPicker({
     const nextLon = Number(Number(geoLongitude).toFixed(6));
     if (!Number.isFinite(nextLat) || !Number.isFinite(nextLon)) return;
     if (!readOnlyRef.current && typeof onLocationChangeRef.current === 'function') {
-      onLocationChangeRef.current({
-        latitude: nextLat,
-        longitude: nextLon,
-        address: "",
-      });
+      onLocationChangeRef.current({ latitude: nextLat, longitude: nextLon, address: "" });
     }
     setMarkerPosition(nextLat, nextLon);
   }, [hasLocation, hasCoords, geoLatitude, geoLongitude, setMarkerPosition]);
 
-  // Sincronizar el marcador/mapa cuando coordenadas externas cambian
-  // (por ejemplo, por autocompletado de tienda cercana).
+  // Sincronizar marcador cuando coordenadas externas cambian
   useEffect(() => {
     if (!mapInstanceRef.current || !markerRef.current) return;
     if (!hasCoords) return;
-
     const nextLat = Number(latitude);
     const nextLon = Number(longitude);
     if (!Number.isFinite(nextLat) || !Number.isFinite(nextLon)) return;
     const signature = `${nextLat.toFixed(6)}:${nextLon.toFixed(6)}`;
     if (lastExternalSyncRef.current === signature) return;
     lastExternalSyncRef.current = signature;
-
     markerRef.current.setLatLng([nextLat, nextLon]);
-    mapInstanceRef.current.setView([nextLat, nextLon], mapInstanceRef.current.getZoom(), {
-      animate: false,
-    });
-    setStatus(tMapRef.current.statusAutoFilled || "Ubicación autocompletada.");
+    mapInstanceRef.current.setView([nextLat, nextLon], mapInstanceRef.current.getZoom(), { animate: false });
   }, [hasCoords, latitude, longitude]);
 
-  // ─── Handlers de la UI ───────────────────────────────────────────────────────
+  // ─── Handlers ────────────────────────────────────────────────────────────────
 
-  const applyFromCoordinates = async (
-    nextLat,
-    nextLon,
-    { resolveAddress = false } = {},
-  ) => {
-    onLocationChangeRef.current({
-      latitude: nextLat,
-      longitude: nextLon,
-      address: "",
-    });
+  const applyFromCoordinates = async (nextLat, nextLon, { resolveAddress = false } = {}) => {
+    onLocationChangeRef.current({ latitude: nextLat, longitude: nextLon, address: "" });
     setMarkerPosition(nextLat, nextLon);
     if (resolveAddress) {
       await resolveAddressForCurrentPoint(nextLat, nextLon);
     }
-  };
-
-  const applyManualCoordinates = async () => {
-    const parsedLat = Number(latInput);
-    const parsedLon = Number(lonInput);
-    if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLon)) {
-      setStatus(tMapRef.current.statusInvalidCoords);
-      return;
-    }
-    await applyFromCoordinates(parsedLat, parsedLon, { resolveAddress: true });
   };
 
   const applyAddressSearch = async () => {
@@ -392,7 +390,7 @@ export default function StoreMapPicker({
       onAddressChangeRef.current(result.address);
       onLocationChangeRef.current(result);
       setMarkerPosition(result.latitude, result.longitude);
-      setStatus(tMapRef.current.statusFound);
+      setStatus("");
     } catch (geocodeError) {
       setStatus(geocodeError.message);
     } finally {
@@ -400,7 +398,6 @@ export default function StoreMapPicker({
     }
   };
 
-  // Botón "Usar mi ubicación actual" — usa la Promise de refetch para coordenadas frescas
   const useCurrentLocation = async () => {
     try {
       setStatus(tMapRef.current.statusGetting);
@@ -414,20 +411,13 @@ export default function StoreMapPicker({
   };
 
   const centerMap = () => {
-    const parsedLat = Number(latitude ?? latInput);
-    const parsedLon = Number(longitude ?? lonInput);
-
-    if (
-      !Number.isFinite(parsedLat) ||
-      !Number.isFinite(parsedLon) ||
-      !mapInstanceRef.current
-    ) {
+    const parsedLat = Number(latitude);
+    const parsedLon = Number(longitude);
+    if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLon) || !mapInstanceRef.current) {
       setStatus(tMapRef.current.statusCenterSelect);
       return;
     }
-
     setMarkerPosition(parsedLat, parsedLon, { panTo: true });
-    setStatus(tMapRef.current.statusCentered);
   };
 
   const osmUrl = hasCoords
@@ -438,119 +428,95 @@ export default function StoreMapPicker({
 
   return (
     <div style={styles.container}>
-      <div style={styles.title}>{tm.title}</div>
+      {/* Mapa con botones flotantes */}
+      <div style={styles.mapWrapper} className="store-map-container" role="region" aria-label={tm.title}>
+        <div ref={mapContainerRef} style={styles.mapCanvas} />
+        {!readOnly && (
+          <div style={styles.mapControls}>
+            <button
+              type="button"
+              onClick={useCurrentLocation}
+              style={{
+                ...styles.mapBtn,
+                opacity: (geoLoading || loadingAddress) ? 0.5 : 1,
+              }}
+              disabled={geoLoading || loadingAddress}
+              aria-label={geoLoading ? tm.gettingLocation : tm.useLocationBtn}
+              title={geoLoading ? tm.gettingLocation : tm.useLocationBtn}
+            >
+              <span style={styles.mapBtnIcon}>📍</span>
+              <span style={styles.mapBtnLabel}>
+                {geoLoading ? '…' : tm.btnLabelLocate}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={centerMap}
+              style={{
+                ...styles.mapBtn,
+                opacity: loadingAddress ? 0.5 : 1,
+              }}
+              disabled={loadingAddress}
+              aria-label={tm.centerMap}
+              title={tm.centerMap}
+            >
+              <span style={styles.mapBtnIcon}>⊕</span>
+              <span style={styles.mapBtnLabel}>{tm.btnLabelCenter}</span>
+            </button>
+          </div>
+        )}
+      </div>
 
+      {/* Dirección debajo del mapa */}
       {!readOnly && (
-        <div style={styles.row}>
+        <div style={styles.addressRow}>
           <input
             type="text"
             aria-label={tm.addressPlaceholder}
             value={addressInput}
             placeholder={tm.addressPlaceholder}
-            onChange={(event) => {
-              onAddressChangeRef.current(event.target.value);
-            }}
-            style={styles.input}
+            onChange={(e) => onAddressChangeRef.current(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && applyAddressSearch()}
+            style={styles.addressInput}
           />
           <button
             type="button"
             aria-label={tm.searchBtn}
             onClick={applyAddressSearch}
-            style={styles.button}
+            style={styles.searchBtn}
             disabled={loadingAddress}
           >
-            {tm.searchBtn}
+            {loadingAddress ? '…' : tm.searchBtn}
           </button>
         </div>
       )}
 
-      <div style={styles.map} className="store-map-container" role="region" aria-label={tm.title}>
-        <div ref={mapContainerRef} style={styles.mapCanvas} />
-      </div>
-
-      {!readOnly && (
-        <>
-          <div style={styles.row}>
-            <input
-              type="number"
-              step="any"
-              aria-label={tm.latPlaceholder}
-              value={latInput}
-              placeholder={tm.latPlaceholder}
-              onChange={() => {}}
-              style={styles.input}
-            />
-            <input
-              type="number"
-              step="any"
-              aria-label={tm.lonPlaceholder}
-              value={lonInput}
-              placeholder={tm.lonPlaceholder}
-              onChange={() => {}}
-              style={styles.input}
-            />
-            <button
-              type="button"
-              aria-label={tm.applyBtn}
-              onClick={applyManualCoordinates}
-              style={styles.button}
-              disabled={loadingAddress}
-            >
-              {tm.applyBtn}
-            </button>
-          </div>
-
-          <div style={styles.row}>
-            <button
-              type="button"
-              onClick={useCurrentLocation}
-              style={styles.secondaryButton}
-              disabled={geoLoading || loadingAddress}
-            >
-              {geoLoading ? tm.gettingLocation : tm.useLocationBtn}
-            </button>
-            <button
-              type="button"
-              onClick={centerMap}
-              style={styles.secondaryButton}
-              disabled={loadingAddress}
-            >
-              {tm.centerMap}
-            </button>
-            <a href={osmUrl} target="_blank" rel="noreferrer" style={styles.link}>
+      {readOnly && (
+        <div style={styles.addressRow}>
+          {address && <span style={styles.addressText}>{address}</span>}
+          {hasCoords && (
+            <a href={osmUrl} target="_blank" rel="noreferrer" style={styles.osmLink}>
               {tm.viewOSM}
             </a>
-          </div>
-        </>
-      )}
-
-      {readOnly && hasCoords && (
-        <div style={styles.row}>
-          <a href={osmUrl} target="_blank" rel="noreferrer" style={styles.link}>
-            {tm.viewOSM}
-          </a>
+          )}
         </div>
       )}
 
-      {!readOnly && status ? <div style={styles.helper}>{status}</div> : null}
-      {!readOnly && geoError ? <div style={styles.helper}>{tm.geoPrefix} {geoError}</div> : null}
-      {leafletError ? <div style={styles.error}>{leafletError}</div> : null}
-      {!readOnly && <div style={styles.helper}>{tm.footer}</div>}
-      {error ? <div style={styles.error}>{error}</div> : null}
+      {!readOnly && status && <div style={styles.helper}>{status}</div>}
+      {!readOnly && geoError && <div style={styles.helper}>{tm.geoPrefix} {geoError}</div>}
+      {leafletError && <div style={styles.error}>{leafletError}</div>}
+      {error && <div style={styles.error}>{error}</div>}
     </div>
   );
 }
 
 const styles = {
   container: {
-    border: "1px dashed var(--border-soft)",
-    borderRadius: "var(--radius-md)",
-    padding: "12px",
-    display: "grid",
+    display: "flex",
+    flexDirection: "column",
     gap: "8px",
   },
-  title: { fontWeight: 700, color: "var(--text-primary)" },
-  map: {
+  mapWrapper: {
     position: "relative",
     zIndex: 0,
     width: "100%",
@@ -565,17 +531,65 @@ const styles = {
     height: "100%",
     zIndex: 0,
   },
-  row: { display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" },
-  input: {
+  mapControls: {
+    position: "absolute",
+    bottom: "10px",
+    right: "10px",
+    zIndex: 800,
+    display: "flex",
+    flexDirection: "column",
+    gap: "4px",
+  },
+  mapBtn: {
+    background: "var(--bg-surface)",
+    border: "1px solid var(--border)",
+    borderRadius: "6px",
+    minWidth: "48px",
+    padding: "6px 4px 5px",
+    cursor: "pointer",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "2px",
+    boxShadow: "var(--shadow-md)",
+    fontFamily: "inherit",
+    transition: "opacity 0.15s",
+  },
+  mapBtnIcon: {
+    fontSize: "17px",
+    lineHeight: 1,
+  },
+  mapBtnLabel: {
+    fontSize: "9px",
+    color: "var(--text-muted)",
+    lineHeight: 1,
+    fontWeight: 500,
+    letterSpacing: "0.01em",
+    whiteSpace: "nowrap",
+  },
+  addressRow: {
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+  },
+  addressInput: {
     flex: 1,
-    minWidth: "120px",
+    minWidth: 0,
     border: "1px solid var(--border)",
     borderRadius: "var(--radius-sm)",
-    padding: "10px",
+    padding: "10px 12px",
     background: "var(--bg-elevated)",
     color: "var(--text-primary)",
+    fontSize: "13px",
+    fontFamily: "inherit",
+    outline: "none",
   },
-  button: {
+  addressText: {
+    flex: 1,
+    fontSize: "13px",
+    color: "var(--text-secondary)",
+  },
+  searchBtn: {
     border: "1px solid var(--accent)",
     background: "var(--accent-soft)",
     color: "var(--accent)",
@@ -583,18 +597,16 @@ const styles = {
     fontWeight: 600,
     padding: "10px 14px",
     cursor: "pointer",
+    fontSize: "13px",
+    whiteSpace: "nowrap",
+    fontFamily: "inherit",
   },
-  secondaryButton: {
-    border: "1px solid var(--border-soft)",
-    borderRadius: "var(--radius-sm)",
-    background: "var(--bg-elevated)",
-    color: "var(--text-secondary)",
-    width: "fit-content",
-    padding: "8px 12px",
+  osmLink: {
+    fontSize: "12px",
+    color: "var(--accent)",
     fontWeight: 600,
-    cursor: "pointer",
+    whiteSpace: "nowrap",
   },
-  link: { fontSize: "12px", color: "var(--accent)", fontWeight: 600 },
   helper: { fontSize: "12px", color: "var(--text-muted)" },
   error: { fontSize: "12px", color: "var(--error)", fontWeight: 600 },
 };

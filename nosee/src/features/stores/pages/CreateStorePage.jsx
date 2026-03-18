@@ -8,12 +8,11 @@ export default function CreateStorePage() {
 
   return (
     <section style={styles.page}>
-      <header style={styles.header}>
+      <div style={styles.inner}>
         <Link to="/tiendas" style={styles.backLink}>← Tiendas</Link>
         <h1 style={styles.title}>{tc.title}</h1>
         <p style={styles.subtitle}>{tc.subtitle}</p>
-      </header>
-
+      </div>
       <StoreForm />
     </section>
   );
@@ -23,12 +22,13 @@ const styles = {
   page: {
     width: '100%',
     padding: '24px 16px 32px',
-    display: 'grid',
-    gap: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
   },
-  header: {
+  inner: {
     width: '100%',
-    maxWidth: '760px',
+    maxWidth: '980px',
     margin: '0 auto',
     display: 'flex',
     flexDirection: 'column',
@@ -48,7 +48,7 @@ const styles = {
     color: 'var(--text-primary)',
   },
   subtitle: {
-    margin: '8px 0 0',
+    margin: 0,
     color: 'var(--text-secondary)',
   },
 };

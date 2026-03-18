@@ -2,34 +2,31 @@
  * StoreCreateModal
  *
  * Modal para crear una tienda desde el formulario de publicaciones.
- * Usa el mismo hook y componentes que el formulario completo, pero
- * sin CelebrationOverlay y con diseño compacto de modal.
- *
- * Props:
- *   initialName {string}           - Nombre pre-relleno desde la búsqueda
- *   onSuccess   {(store) => void}  - Recibe los datos de la tienda creada
- *   onClose     {() => void}       - Cierra el modal sin crear
+ * Layout idéntico al de CreateStorePage/StoreForm:
+ *   - Tienda física: 2 columnas (formulario + evidencias | mapa), 1 columna en móvil.
+ *   - Tienda virtual: 1 columna siempre.
  */
 
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { useStoreCreation } from '@/features/stores/hooks/useStoreCreation';
 import { StoreTypeEnum } from '@/features/stores/schemas';
 import StoreTypeSwitch from '@/features/stores/components/StoreTypeSwitch';
 import StoreMapPicker from '@/features/stores/components/StoreMapPicker';
 import StoreEvidenceUploader from '@/features/stores/components/StoreEvidenceUploader';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useEffect } from 'react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 export default function StoreCreateModal({ initialName = '', onSuccess, onClose }) {
   const { t } = useLanguage();
   const tc = t.storeCreateModal;
+  const isMobile = useIsMobile();
+  const dialogRef = useRef(null);
 
   const {
     formData,
     errors,
     isSubmitting,
     submitError,
-    nearbyStoreMessage,
     updateField,
     setLocation,
     addEvidenceFile,
@@ -41,13 +38,19 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
   const nameId  = useId();
   const urlId   = useId();
 
-  // Pre-rellenar nombre si viene de la búsqueda
+  // Mover foco al diálogo al abrirse para que lectores de pantalla lo anuncien
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
+
+  // Pre-rellenar nombre desde la búsqueda (solo en el primer render)
   useEffect(() => {
     if (initialName) updateField('name', initialName);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps — solo al montar
   }, []);
 
   const isPhysical = formData.type === StoreTypeEnum.PHYSICAL;
+  const twoCol = isPhysical && !isMobile;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,13 +65,14 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
   };
 
   return (
-    <div style={s.overlay} onClick={handleOverlayClick} aria-hidden="true">
+    <div style={s.overlay} onClick={handleOverlayClick}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         style={s.card}
-        aria-hidden="false"
+        tabIndex={-1}
       >
         {/* Header */}
         <div style={s.header}>
@@ -82,36 +86,82 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
           <div role="alert" style={s.errorBox}>⚠ {submitError}</div>
         )}
 
-        <form onSubmit={handleSubmit} style={s.form} noValidate>
-          {/* Nombre */}
-          <div style={s.group}>
-            <label htmlFor={nameId} style={s.label}>{tc.nameLabel}</label>
-            <input
-              id={nameId}
-              type="text"
-              value={formData.name}
-              onChange={(e) => updateField('name', e.target.value)}
-              placeholder={tc.namePlaceholder}
-              style={s.input}
-              aria-required="true"
-              aria-invalid={Boolean(errors.name)}
-            />
-            {errors.name && <span style={s.fieldError}>{errors.name}</span>}
+        <form
+          onSubmit={handleSubmit}
+          style={twoCol ? s.formGrid : s.formSingle}
+          noValidate
+        >
+          {/* ── Columna izquierda ── */}
+          <div style={s.leftCol}>
+            {/* Tipo */}
+            <div style={s.group}>
+              <span style={s.label} id="modal-type-label">{tc.typeLabel}</span>
+              <StoreTypeSwitch
+                value={formData.type}
+                onChange={(v) => updateField('type', v)}
+                ariaLabelledBy="modal-type-label"
+              />
+            </div>
+
+            {/* Nombre */}
+            <div style={s.group}>
+              <label htmlFor={nameId} style={s.label}>{tc.nameLabel}</label>
+              <input
+                id={nameId}
+                type="text"
+                value={formData.name}
+                onChange={(e) => updateField('name', e.target.value)}
+                placeholder={tc.namePlaceholder}
+                style={s.input}
+                aria-required="true"
+                aria-invalid={Boolean(errors.name)}
+              />
+              {errors.name && <span style={s.fieldError}>{errors.name}</span>}
+            </div>
+
+            {/* URL (virtual) */}
+            {!isPhysical && (
+              <div style={s.group}>
+                <label htmlFor={urlId} style={s.label}>{tc.urlLabel}</label>
+                <input
+                  id={urlId}
+                  type="url"
+                  value={formData.websiteUrl}
+                  onChange={(e) => updateField('websiteUrl', e.target.value)}
+                  placeholder="https://mitienda.com"
+                  style={s.input}
+                  aria-required="true"
+                  aria-invalid={Boolean(errors.websiteUrl)}
+                />
+                {errors.websiteUrl && <span style={s.fieldError}>{errors.websiteUrl}</span>}
+              </div>
+            )}
+
+            {/* Evidencias (física) — ocupa el espacio restante */}
+            {isPhysical && (
+              <StoreEvidenceUploader
+                evidenceFiles={formData.evidenceFiles}
+                onAddEvidence={addEvidenceFile}
+                onRemoveEvidence={removeEvidenceFile}
+                error={errors.evidenceUrls}
+                containerStyle={s.evidenceContainer}
+              />
+            )}
+
+            {/* Acciones */}
+            <div style={s.actions}>
+              <button type="button" onClick={onClose} style={s.cancelBtn}>
+                {tc.cancel}
+              </button>
+              <button type="submit" style={s.submitBtn} disabled={isSubmitting}>
+                {isSubmitting ? tc.creating : tc.create}
+              </button>
+            </div>
           </div>
 
-          {/* Tipo */}
-          <div style={s.group}>
-            <span style={s.label} id="modal-type-label">{tc.typeLabel}</span>
-            <StoreTypeSwitch
-              value={formData.type}
-              onChange={(v) => updateField('type', v)}
-              ariaLabelledBy="modal-type-label"
-            />
-          </div>
-
-          {/* Mapa + dirección (física) */}
+          {/* ── Columna derecha: mapa (física) — o debajo en móvil ── */}
           {isPhysical && (
-            <>
+            <div style={s.rightCol}>
               <StoreMapPicker
                 latitude={formData.latitude}
                 longitude={formData.longitude}
@@ -120,49 +170,8 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
                 onAddressChange={(v) => updateField('address', v)}
                 error={errors.location}
               />
-              {nearbyStoreMessage && (
-                <p style={s.hint}>{nearbyStoreMessage}</p>
-              )}
-            </>
-          )}
-
-          {/* URL (virtual) */}
-          {!isPhysical && (
-            <div style={s.group}>
-              <label htmlFor={urlId} style={s.label}>{tc.urlLabel}</label>
-              <input
-                id={urlId}
-                type="url"
-                value={formData.websiteUrl}
-                onChange={(e) => updateField('websiteUrl', e.target.value)}
-                placeholder="https://mitienda.com"
-                style={s.input}
-                aria-required="true"
-                aria-invalid={Boolean(errors.websiteUrl)}
-              />
-              {errors.websiteUrl && <span style={s.fieldError}>{errors.websiteUrl}</span>}
             </div>
           )}
-
-          {/* Evidencia (física) — compacta */}
-          {isPhysical && (
-            <StoreEvidenceUploader
-              evidenceFiles={formData.evidenceFiles}
-              onAddEvidence={addEvidenceFile}
-              onRemoveEvidence={removeEvidenceFile}
-              error={errors.evidenceUrls}
-            />
-          )}
-
-          {/* Acciones */}
-          <div style={s.actions}>
-            <button type="button" onClick={onClose} style={s.cancelBtn}>
-              {tc.cancel}
-            </button>
-            <button type="submit" style={s.submitBtn} disabled={isSubmitting}>
-              {isSubmitting ? tc.creating : tc.create}
-            </button>
-          </div>
         </form>
       </div>
     </div>
@@ -187,7 +196,7 @@ const s = {
     borderRadius: 'var(--radius-md)',
     padding: '24px',
     width: '100%',
-    maxWidth: '600px',
+    maxWidth: '980px',
     boxShadow: 'var(--shadow-lg)',
     marginTop: '16px',
     marginBottom: '16px',
@@ -196,7 +205,7 @@ const s = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '16px',
+    marginBottom: '20px',
   },
   title: {
     fontSize: '18px',
@@ -229,10 +238,31 @@ const s = {
     fontSize: '13px',
     marginBottom: '16px',
   },
-  form: {
+  /* 2 columnas: izquierda fija, derecha flexible */
+  formGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 300px) 1fr',
+    gap: '20px',
+    alignItems: 'stretch',
+  },
+  /* 1 columna */
+  formSingle: {
     display: 'flex',
     flexDirection: 'column',
     gap: '16px',
+  },
+  leftCol: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '14px',
+  },
+  rightCol: {
+    display: 'flex',
+    flexDirection: 'column',
+    minWidth: 0,
+  },
+  evidenceContainer: {
+    flex: 1,
   },
   group: {
     display: 'flex',
@@ -259,12 +289,6 @@ const s = {
     color: 'var(--error)',
     fontWeight: 600,
   },
-  hint: {
-    fontSize: '12px',
-    color: 'var(--text-muted)',
-    margin: 0,
-    lineHeight: 1.5,
-  },
   actions: {
     display: 'flex',
     gap: '10px',
@@ -280,6 +304,7 @@ const s = {
     cursor: 'pointer',
     background: 'var(--bg-elevated)',
     color: 'var(--text-secondary)',
+    fontFamily: 'inherit',
   },
   submitBtn: {
     flex: 2,
@@ -291,5 +316,6 @@ const s = {
     cursor: 'pointer',
     background: 'var(--accent)',
     color: 'var(--bg-base)',
+    fontFamily: 'inherit',
   },
 };
