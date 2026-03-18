@@ -31,6 +31,21 @@ function getA11yTileTheme() {
   return 'dark';
 }
 
+function createMarkerIcon(L) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="38" viewBox="0 0 28 38">
+    <path d="M14 0C6.268 0 0 6.268 0 14c0 9.333 14 24 14 24S28 23.333 28 14C28 6.268 21.732 0 14 0z"
+          fill="var(--accent)" stroke="var(--bg-surface)" stroke-width="1.5"/>
+    <circle cx="14" cy="14" r="5" fill="var(--bg-surface)" opacity="0.9"/>
+  </svg>`;
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [28, 38],
+    iconAnchor: [14, 38],
+    popupAnchor: [0, -38],
+  });
+}
+
 function getLeaflet() {
   return window.L;
 }
@@ -270,7 +285,10 @@ export default function StoreMapPicker({
           maxZoom: 19,
         }).addTo(map);
 
-        const marker = L.marker([initLat, initLon], { draggable: !readOnlyRef.current }).addTo(map);
+        const marker = L.marker([initLat, initLon], {
+          draggable: !readOnlyRef.current,
+          icon: createMarkerIcon(L),
+        }).addTo(map);
 
         setTimeout(() => map.invalidateSize(), 0);
 
@@ -332,6 +350,10 @@ export default function StoreMapPicker({
         subdomains: 'abcd',
         maxZoom: 19,
       }).addTo(map);
+
+      if (markerRef.current) {
+        markerRef.current.setIcon(createMarkerIcon(L));
+      }
     });
 
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
