@@ -507,7 +507,7 @@ function ResultView({ result, deliveryMode, onBack, onConfirm }) {
 }
 
 // ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
-function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, onSaved }) {
+function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, onSaved, onConfirmedDelivery }) {
   const [inputValue, setInputValue] = useState('');
   const [saveInput, setSaveInput] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
@@ -544,9 +544,6 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
   // Ítem expandido (muestra carrusel)
   const [expandedId, setExpandedId] = useState(null);
 
-  // Checkboxes: set de IDs marcados
-  const [checkedItems, setCheckedItems] = useState(new Set());
-
   const inputRef = useRef(null);
 
   // Limpieza del timer al desmontar
@@ -569,7 +566,6 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
     removeItem(id);
     setCalcResults((prev) => { if (!prev) return prev; const n = { ...prev }; delete n[id]; return n; });
     setSelectedPubs((prev) => { const n = { ...prev }; delete n[id]; return n; });
-    setCheckedItems((prev) => { const n = new Set(prev); n.delete(id); return n; });
     if (expandedId === id) setExpandedId(null);
   };
 
@@ -656,15 +652,6 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
     setSelectedPubs((prev) => ({ ...prev, [itemId]: pub }));
   };
 
-  const toggleCheck = (id, e) => {
-    e.stopPropagation();
-    setCheckedItems((prev) => {
-      const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
-    });
-  };
-
   const isCalculated = calcResults !== null;
   const hasSelections = Object.keys(selectedPubs).length > 0;
 
@@ -699,11 +686,16 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
       driverLocation: null,
       cancellationCharged: false,
     });
-    setPhase('list');
-    setCalcResults(null);
-    setSelectedPubs({});
-    setDeliveryMode(null);
-    setOrderResult(null);
+    if (deliveryMode === 'delivery') {
+      setPhase('list');
+      setCalcResults(null);
+      setSelectedPubs({});
+      setDeliveryMode(null);
+      setOrderResult(null);
+      onConfirmedDelivery?.();
+    } else {
+      setPhase('pickup');
+    }
   };
 
   // ── Fase resultado ────────────────────────────────────────────────────────
@@ -716,6 +708,19 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
         onConfirm={handleConfirmOrder}
       />
     );
+  }
+
+  // ── Fase "Voy yo" — vista lista + mapa ───────────────────────────────────
+  if (phase === 'pickup' && orderResult) {
+    const pickupCoords = hasLocation ? { lat: latitude, lng: longitude } : null;
+    const resetAll = () => {
+      setPhase('list');
+      setCalcResults(null);
+      setSelectedPubs({});
+      setDeliveryMode(null);
+      setOrderResult(null);
+    };
+    return <VoyYoMapView result={orderResult} userCoords={pickupCoords} onDone={resetAll} />;
   }
 
   return (
@@ -828,7 +833,6 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
               const hasPubs = pubs && pubs.length > 0;
               const chosenPub = selectedPubs[item.id];
               const chosenPrice = chosenPub?.price ?? null;
-              const isChecked = checkedItems.has(item.id);
               const isInteractive = isCalculated && hasPubs;
 
               return (
@@ -849,22 +853,10 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
                       ...(isInteractive ? { cursor: 'pointer' } : {}),
                     }}
                   >
-                    {/* Checkbox */}
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={(e) => toggleCheck(item.id, e)}
-                      onClick={(e) => e.stopPropagation()}
-                      style={lista.checkbox}
-                    />
-
                     {/* Texto del ítem */}
                     <div style={lista.itemText}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{
-                          ...lista.itemName,
-                          ...(isChecked ? lista.itemChecked : {}),
-                        }}>
+                        <span style={lista.itemName}>
                           {item.productName}
                         </span>
                         {isCalculated && hasPubs && (
@@ -1010,6 +1002,98 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
   );
 }
 
+// ─── Vista "Voy yo" — lista + mapa ───────────────────────────────────────────
+function VoyYoMapView({ result, userCoords, onDone }) {
+  const { stores, totalCost } = result;
+  return (
+    <>
+      <style>{`
+        .voyyo-layout {
+          display: grid;
+          grid-template-columns: 1fr 1.6fr;
+          gap: 16px;
+          align-items: start;
+        }
+        @media (max-width: 760px) {
+          .voyyo-layout { grid-template-columns: 1fr; }
+        }
+      `}</style>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button type="button" onClick={onDone} style={resv.backBtn}>← Volver</button>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+            🚶 Voy yo — Lista de compras
+          </h2>
+        </div>
+        <div className="voyyo-layout">
+          {/* Izquierda: lista de productos por tienda */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{
+              padding: '12px 16px',
+              background: 'var(--bg-surface)', border: '2px solid var(--accent)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Total estimado
+              </span>
+              <span style={{ fontSize: '20px', fontWeight: 800, color: 'var(--accent)' }}>
+                ${totalCost.toLocaleString('es-CO')} <span style={{ fontSize: '12px', fontWeight: 500 }}>COP</span>
+              </span>
+            </div>
+            {stores.map((s, si) => {
+              const emoji = getStoreEmoji(s.store?.store_type_id);
+              const subtotal = s.products.reduce((a, p) => a + p.price * (p.item.quantity || 1), 0);
+              return (
+                <div key={si} style={resv.storeCard}>
+                  <div style={resv.storeHeader}>
+                    <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
+                    <span style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: 700 }}>
+                      ${subtotal.toLocaleString('es-CO')}
+                    </span>
+                  </div>
+                  <ul style={resv.prodList}>
+                    {s.products.map((p, pi) => (
+                      <li key={pi} style={resv.prodItem}>
+                        <div>
+                          <div style={resv.prodName}>{p.item.productName}</div>
+                          <div style={resv.prodMeta}>×{p.item.quantity || 1} · ${p.price.toLocaleString('es-CO')} c/u</div>
+                        </div>
+                        <span style={resv.prodTotal}>
+                          ${(p.price * (p.item.quantity || 1)).toLocaleString('es-CO')}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+            <button type="button" onClick={onDone} style={{
+              padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
+              background: 'var(--bg-surface)', color: 'var(--text-secondary)',
+              fontWeight: 700, fontSize: '13px', cursor: 'pointer', width: '100%',
+            }}>
+              ✓ Listo, terminé mis compras
+            </button>
+          </div>
+          {/* Derecha: mapa grande */}
+          <div style={{
+            borderRadius: 'var(--radius-md)', overflow: 'hidden',
+            border: '1px solid var(--border)',
+            height: '520px', position: 'sticky', top: '80px',
+          }}>
+            <OrderRouteMap
+              stores={stores}
+              userCoords={userCoords}
+              driverLocation={null}
+            />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
 function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -1135,115 +1219,121 @@ function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
         })}
       </div>
 
-      {/* ── Header del pedido activo ────────────────────────────── */}
-      <div style={pedidos.orderHeader}>
-        <div style={pedidos.orderHeaderLeft}>
-          <span style={pedidos.orderRef}>#{selectedOrder.id.slice(-8)}</span>
-          <span style={pedidos.orderDate}>{date}</span>
-        </div>
-        <button
-          type="button"
-          onClick={() => handleRemove(selectedOrder.id)}
-          style={pedidos.deleteBtn}
-          title="Eliminar pedido"
-        >
-          <TrashIcon />
-        </button>
-      </div>
-
-      {/* ── Tarjeta de domicilio ─────────────────────────────────── */}
-      {selectedOrder.deliveryMode && (
-        <DeliveryCard order={selectedOrder} onCancel={handleCancelDelivery} />
-      )}
-
-      {/* ── Totales rápidos ──────────────────────────────────────── */}
-      <div style={pedidos.stats}>
-        {selectedOrder.deliveryMode && selectedOrder.deliveryStatus === 'en_camino' ? (
-          <button
-            type="button"
-            onClick={() => setShowTotalSum((v) => !v)}
-            style={{ ...pedidos.stat, cursor: 'pointer', border: '1px solid var(--accent)', position: 'relative' }}
-            title={showTotalSum ? 'Ver desglose' : 'Ver total combinado'}
-          >
-            {showTotalSum ? (
-              <>
-                <span style={pedidos.statVal}>${(result.totalCost + DELIVERY_FEE).toLocaleString('es-CO')}</span>
-                <span style={pedidos.statLabel}>Total c/ dom.</span>
-                <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>← desglosar</span>
-              </>
-            ) : (
-              <>
-                <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
-                  ${result.totalCost.toLocaleString('es-CO')}
-                  <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> + </span>
-                  ${DELIVERY_FEE.toLocaleString('es-CO')}
-                </span>
-                <span style={pedidos.statLabel}>Lista + Domicilio</span>
-                <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>→ ver total</span>
-              </>
-            )}
-          </button>
-        ) : (
-          <div style={pedidos.stat}>
-            <span style={pedidos.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
-            <span style={pedidos.statLabel}>Total COP</span>
-          </div>
-        )}
-        {result.savings > 0 && (
-          <div style={pedidos.stat}>
-            <span style={{ ...pedidos.statVal, color: 'var(--success, #16a34a)' }}>{result.savingsPct}%</span>
-            <span style={pedidos.statLabel}>Ahorro</span>
-          </div>
-        )}
-        <div style={pedidos.stat}>
-          <span style={pedidos.statVal}>{result.stores.length}</span>
-          <span style={pedidos.statLabel}>{result.stores.length === 1 ? 'Tienda' : 'Tiendas'}</span>
-        </div>
-        <div style={pedidos.stat}>
-          <span style={pedidos.statVal}>{allProducts.length}</span>
-          <span style={pedidos.statLabel}>{allProducts.length === 1 ? 'Producto' : 'Productos'}</span>
-        </div>
-      </div>
-
-      {/* ── Productos agrupados por tienda ───────────────────────── */}
-      <div style={pedidos.productsWrap}>
-        {result.stores.map((s, si) => {
-          const emoji = getStoreEmoji(s.store?.store_type_id);
-          const subtotal = s.products.reduce((a, p) => a + (p.price || 0) * p.item.quantity, 0);
-          return (
-            <div key={si} style={pedidos.storeBlock}>
-              <div style={pedidos.storeBlockHeader}>
-                <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
-                <span style={{ color: 'var(--accent)', fontSize: '12px' }}>
-                  ${subtotal.toLocaleString('es-CO')}
-                </span>
-              </div>
-              <ul style={pedidos.prodList}>
-                {s.products.map((p, pi) => (
-                  <li key={pi} style={pedidos.prodItem}>
-                    <div>
-                      <div style={pedidos.prodName}>{p.item.productName}</div>
-                      <div style={pedidos.prodMeta}>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</div>
-                    </div>
-                    <span style={pedidos.prodTotal}>
-                      ${(p.price * p.item.quantity).toLocaleString('es-CO')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+      {/* ── Layout dos columnas: info izq + mapa derecha ──────── */}
+      <div className="pedidos-layout">
+        {/* Columna izquierda */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* ── Header del pedido activo ── */}
+          <div style={pedidos.orderHeader}>
+            <div style={pedidos.orderHeaderLeft}>
+              <span style={pedidos.orderRef}>#{selectedOrder.id.slice(-8)}</span>
+              <span style={pedidos.orderDate}>{date}</span>
             </div>
-          );
-        })}
-      </div>
+            <button
+              type="button"
+              onClick={() => handleRemove(selectedOrder.id)}
+              style={pedidos.deleteBtn}
+              title="Eliminar pedido"
+            >
+              <TrashIcon />
+            </button>
+          </div>
 
-      {/* ── Mapa ─────────────────────────────────────────────────── */}
-      <div style={pedidos.mapWrap}>
-        <OrderRouteMap
-          key={selectedOrder.id}
-          stores={result.stores}
-          userCoords={userCoords}
-          driverLocation={selectedOrder.driverLocation ?? null}
-        />
+          {/* ── Tarjeta de domicilio ── */}
+          {selectedOrder.deliveryMode && (
+            <DeliveryCard order={selectedOrder} onCancel={handleCancelDelivery} />
+          )}
+
+          {/* ── Totales rápidos ── */}
+          <div style={pedidos.stats}>
+            {selectedOrder.deliveryMode && selectedOrder.deliveryStatus === 'en_camino' ? (
+              <button
+                type="button"
+                onClick={() => setShowTotalSum((v) => !v)}
+                style={{ ...pedidos.stat, cursor: 'pointer', border: '1px solid var(--accent)', position: 'relative' }}
+                title={showTotalSum ? 'Ver desglose' : 'Ver total combinado'}
+              >
+                {showTotalSum ? (
+                  <>
+                    <span style={pedidos.statVal}>${(result.totalCost + DELIVERY_FEE).toLocaleString('es-CO')}</span>
+                    <span style={pedidos.statLabel}>Total c/ dom.</span>
+                    <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>← desglosar</span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
+                      ${result.totalCost.toLocaleString('es-CO')}
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> + </span>
+                      ${DELIVERY_FEE.toLocaleString('es-CO')}
+                    </span>
+                    <span style={pedidos.statLabel}>Lista + Domicilio</span>
+                    <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>→ ver total</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <div style={pedidos.stat}>
+                <span style={pedidos.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
+                <span style={pedidos.statLabel}>Total COP</span>
+              </div>
+            )}
+            {result.savings > 0 && (
+              <div style={pedidos.stat}>
+                <span style={{ ...pedidos.statVal, color: 'var(--success, #16a34a)' }}>{result.savingsPct}%</span>
+                <span style={pedidos.statLabel}>Ahorro</span>
+              </div>
+            )}
+            <div style={pedidos.stat}>
+              <span style={pedidos.statVal}>{result.stores.length}</span>
+              <span style={pedidos.statLabel}>{result.stores.length === 1 ? 'Tienda' : 'Tiendas'}</span>
+            </div>
+            <div style={pedidos.stat}>
+              <span style={pedidos.statVal}>{allProducts.length}</span>
+              <span style={pedidos.statLabel}>{allProducts.length === 1 ? 'Producto' : 'Productos'}</span>
+            </div>
+          </div>
+
+          {/* ── Productos agrupados por tienda ── */}
+          <div style={pedidos.productsWrap}>
+            {result.stores.map((s, si) => {
+              const emoji = getStoreEmoji(s.store?.store_type_id);
+              const subtotal = s.products.reduce((a, p) => a + (p.price || 0) * p.item.quantity, 0);
+              return (
+                <div key={si} style={pedidos.storeBlock}>
+                  <div style={pedidos.storeBlockHeader}>
+                    <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
+                    <span style={{ color: 'var(--accent)', fontSize: '12px' }}>
+                      ${subtotal.toLocaleString('es-CO')}
+                    </span>
+                  </div>
+                  <ul style={pedidos.prodList}>
+                    {s.products.map((p, pi) => (
+                      <li key={pi} style={pedidos.prodItem}>
+                        <div>
+                          <div style={pedidos.prodName}>{p.item.productName}</div>
+                          <div style={pedidos.prodMeta}>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</div>
+                        </div>
+                        <span style={pedidos.prodTotal}>
+                          ${(p.price * p.item.quantity).toLocaleString('es-CO')}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Columna derecha: mapa rectangular */}
+        <div style={pedidos.mapCol}>
+          <OrderRouteMap
+            key={selectedOrder.id}
+            stores={result.stores}
+            userCoords={userCoords}
+            driverLocation={selectedOrder.driverLocation ?? null}
+          />
+        </div>
       </div>
     </div>
   );
@@ -1371,6 +1461,15 @@ export default function ShoppingListPage() {
         @media (max-width: 680px) {
           .lista-layout { grid-template-columns: 1fr; }
         }
+        .pedidos-layout {
+          display: grid;
+          grid-template-columns: 1fr 1.6fr;
+          gap: 16px;
+          align-items: start;
+        }
+        @media (max-width: 760px) {
+          .pedidos-layout { grid-template-columns: 1fr; }
+        }
         @keyframes savedFlash {
           0%, 100% { color: var(--text-secondary); }
           50% { color: var(--accent); text-shadow: 0 0 10px var(--accent); }
@@ -1431,16 +1530,15 @@ export default function ShoppingListPage() {
             saveList={saveList}
             addOrder={addOrder}
             onSaved={handleSaved}
+            onConfirmedDelivery={() => setActiveTab('pedidos')}
           />
         </div>
       ) : (
-        <div style={page.content}>
-          <PedidosTab
-            orders={orders}
-            removeOrder={removeOrder}
-            updateOrderDelivery={updateOrderDelivery}
-          />
-        </div>
+        <PedidosTab
+          orders={orders}
+          removeOrder={removeOrder}
+          updateOrderDelivery={updateOrderDelivery}
+        />
       )}
     </div>
   );
@@ -1920,6 +2018,12 @@ const pedidos = {
   mapWrap: {
     borderRadius: 'var(--radius-md)', overflow: 'hidden',
     border: '1px solid var(--border)',
+  },
+  mapCol: {
+    borderRadius: 'var(--radius-md)', overflow: 'hidden',
+    border: '1px solid var(--border)',
+    height: '520px',
+    position: 'sticky', top: '80px',
   },
 };
 
