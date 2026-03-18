@@ -707,6 +707,47 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
 
   return (
     <div style={lista.root}>
+      {/* ── Selector de modo — encima del buscador ─────────────── */}
+      {!isCalculated && (
+        <div style={lista.modeBlock}>
+          <p style={lista.modeLabel}>¿Cómo vas a recibir tus productos?</p>
+          <div style={lista.modeRow}>
+            <button
+              type="button"
+              onClick={() => setDeliveryMode('delivery')}
+              style={{ ...lista.modeCard, ...(deliveryMode === 'delivery' ? lista.modeCardActive : {}) }}
+            >
+              <span style={lista.modeCardIcon}>🛵</span>
+              <span style={lista.modeCardName}>Domicilio</span>
+              <span style={lista.modeCardDesc}>Te lo llevamos a tu puerta</span>
+              <span style={lista.modeCardFee}>+${DELIVERY_FEE.toLocaleString('es-CO')} aprox.</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeliveryMode('pickup')}
+              style={{ ...lista.modeCard, ...(deliveryMode === 'pickup' ? lista.modeCardActive : {}) }}
+            >
+              <span style={lista.modeCardIcon}>🚶</span>
+              <span style={lista.modeCardName}>Voy yo</span>
+              <span style={lista.modeCardDesc}>Tú recoges en tienda</span>
+              <span style={lista.modeCardFee}>Sin costo extra · mapa incluido</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Badge de modo activo (post-optimización) ─────────────── */}
+      {isCalculated && deliveryMode && (
+        <div style={lista.modeBadgeBar}>
+          <span style={lista.modeBadgeText}>
+            {deliveryMode === 'delivery' ? '🛵 Domicilio' : '🚶 Voy yo'}
+          </span>
+          <button type="button" onClick={handleChangeMode} style={lista.modeBadgeChange}>
+            Cambiar modo
+          </button>
+        </div>
+      )}
+
       {/* ── Input para agregar ─────────────────────────────────── */}
       <div style={lista.inputRow}>
         <input
@@ -803,47 +844,6 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
                 }}
               >
                 Guardar
-              </button>
-            </div>
-          )}
-
-          {/* ── Selector de modo — intención ANTES de optimizar ── */}
-          {!isCalculated && (
-            <div style={lista.modeBlock}>
-              <p style={lista.modeLabel}>¿Cómo vas a recibir tus productos?</p>
-              <div style={lista.modeRow}>
-                <button
-                  type="button"
-                  onClick={() => setDeliveryMode('delivery')}
-                  style={{ ...lista.modeCard, ...(deliveryMode === 'delivery' ? lista.modeCardActive : {}) }}
-                >
-                  <span style={lista.modeCardIcon}>🛵</span>
-                  <span style={lista.modeCardName}>Domicilio</span>
-                  <span style={lista.modeCardDesc}>Te lo llevamos a tu puerta</span>
-                  <span style={lista.modeCardFee}>+${DELIVERY_FEE.toLocaleString('es-CO')} aprox.</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeliveryMode('pickup')}
-                  style={{ ...lista.modeCard, ...(deliveryMode === 'pickup' ? lista.modeCardActive : {}) }}
-                >
-                  <span style={lista.modeCardIcon}>🚶</span>
-                  <span style={lista.modeCardName}>Voy yo</span>
-                  <span style={lista.modeCardDesc}>Tú recoges en tienda</span>
-                  <span style={lista.modeCardFee}>Sin costo extra · mapa incluido</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Badge de modo activo (post-optimización) ─────────── */}
-          {isCalculated && deliveryMode && (
-            <div style={lista.modeBadgeBar}>
-              <span style={lista.modeBadgeText}>
-                {deliveryMode === 'delivery' ? '🛵 Domicilio' : '🚶 Voy yo'}
-              </span>
-              <button type="button" onClick={handleChangeMode} style={lista.modeBadgeChange}>
-                Cambiar modo
               </button>
             </div>
           )}
