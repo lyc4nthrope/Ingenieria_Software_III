@@ -440,12 +440,16 @@ export async function searchNearbyStores(
  * @param {'physical'|'virtual'|1|2} type
  * @param {string|null} address
  * @param {string|null} websiteUrl
+ * @param {number|null} latitude
+ * @param {number|null} longitude
  */
 export async function createStoreSimple(
   name,
   type = "physical",
   address = null,
   websiteUrl = null,
+  latitude = null,
+  longitude = null,
 ) {
   try {
     const userResult = await getCurrentUserId();
@@ -471,6 +475,9 @@ export async function createStoreSimple(
       insert.address = address.trim();
     if (uiType === "virtual" && websiteUrl?.trim())
       insert.website_url = websiteUrl.trim();
+
+    if (Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude)))
+      insert.location = `POINT(${Number(longitude)} ${Number(latitude)})`;
 
     const { data, error } = await supabase
       .from("stores")

@@ -1,73 +1,62 @@
 /**
  * StoreCreateModal
  *
- * Modal ligero para crear una tienda rápidamente desde el
- * formulario de publicaciones. No incluye mapa ni evidencias;
- * para la creación completa usar la página /tiendas.
+ * Modal para crear una tienda desde el formulario de publicaciones.
+ * Usa el mismo hook y componentes que el formulario completo, pero
+ * sin CelebrationOverlay y con diseño compacto de modal.
  *
  * Props:
  *   initialName {string}           - Nombre pre-relleno desde la búsqueda
- *   onSuccess   {(store) => void}  - Recibe { id, name, type, address }
+ *   onSuccess   {(store) => void}  - Recibe los datos de la tienda creada
  *   onClose     {() => void}       - Cierra el modal sin crear
  */
 
-import { useId, useState } from 'react';
-import { createStoreSimple } from '@/services/api/stores.api';
+import { useId } from 'react';
+import { useStoreCreation } from '@/features/stores/hooks/useStoreCreation';
+import { StoreTypeEnum } from '@/features/stores/schemas';
+import StoreTypeSwitch from '@/features/stores/components/StoreTypeSwitch';
+import StoreMapPicker from '@/features/stores/components/StoreMapPicker';
+import StoreEvidenceUploader from '@/features/stores/components/StoreEvidenceUploader';
 import { useLanguage } from '@/contexts/LanguageContext';
-
-const STORE_TYPE_ID = {
-  physical: 1,
-  virtual: 2,
-};
+import { useEffect } from 'react';
 
 export default function StoreCreateModal({ initialName = '', onSuccess, onClose }) {
   const { t } = useLanguage();
   const tc = t.storeCreateModal;
-  const [name, setName]           = useState(() => initialName);
-  const [type, setType]           = useState('physical');
-  const [address, setAddress]     = useState('');
-  const [websiteUrl, setWebsiteUrl] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError]         = useState(null);
 
-  const titleId      = useId();
-  const nameId       = useId();
-  const addressId    = useId();
-  const websiteUrlId = useId();
+  const {
+    formData,
+    errors,
+    isSubmitting,
+    submitError,
+    nearbyStoreMessage,
+    updateField,
+    setLocation,
+    addEvidenceFile,
+    removeEvidenceFile,
+    submit,
+  } = useStoreCreation({ mode: 'create' });
+
+  const titleId = useId();
+  const nameId  = useId();
+  const urlId   = useId();
+
+  // Pre-rellenar nombre si viene de la búsqueda
+  useEffect(() => {
+    if (initialName) updateField('name', initialName);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const isPhysical = formData.type === StoreTypeEnum.PHYSICAL;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) { setError(tc.nameRequired); return; }
-    if (type === 'virtual' && !websiteUrl.trim()) {
-      setError(tc.urlRequired);
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-     try {
-      const result = await createStoreSimple(
-        name,
-        STORE_TYPE_ID[type],
-        type === 'physical' ? address : null,
-        type === 'virtual'  ? websiteUrl : null,
-      );
-
-    if (!result.success) {
-        setError(result.error || tc.errorCreate);
-        return;
-      }
-
-      onSuccess(result.data);
-    } catch (submitError) {
-      setError(submitError?.message || tc.errorUnexpected);
-    } finally {
-      setIsSubmitting(false);
+    const result = await submit();
+    if (result.success) {
+      onSuccess(result.data?.store ?? result.data);
     }
   };
 
-  // Cerrar al hacer click en el overlay (no en la card)
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
@@ -89,81 +78,80 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
           </button>
         </div>
 
-        <p style={s.hint}>
-          {tc.hint}
-        </p>
-
-        {error && (
-          <div role="alert" style={s.errorBox}>{error}</div>
+        {submitError && (
+          <div role="alert" style={s.errorBox}>⚠ {submitError}</div>
         )}
 
-        <form onSubmit={handleSubmit} style={s.form}>
+        <form onSubmit={handleSubmit} style={s.form} noValidate>
           {/* Nombre */}
           <div style={s.group}>
             <label htmlFor={nameId} style={s.label}>{tc.nameLabel}</label>
             <input
               id={nameId}
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={formData.name}
+              onChange={(e) => updateField('name', e.target.value)}
               placeholder={tc.namePlaceholder}
               style={s.input}
               aria-required="true"
+              aria-invalid={Boolean(errors.name)}
             />
+            {errors.name && <span style={s.fieldError}>{errors.name}</span>}
           </div>
 
           {/* Tipo */}
           <div style={s.group}>
-            <span id="store-type-label" style={s.label}>{tc.typeLabel}</span>
-            <div role="group" aria-labelledby="store-type-label" style={s.typeRow}>
-              <button
-                type="button"
-                aria-pressed={type === 'physical'}
-                style={{ ...s.typeBtn, ...(type === 'physical' ? s.typeBtnActive : {}) }}
-                onClick={() => setType('physical')}
-              >
-                {tc.physical}
-              </button>
-              <button
-                type="button"
-                aria-pressed={type === 'virtual'}
-                style={{ ...s.typeBtn, ...(type === 'virtual' ? s.typeBtnActive : {}) }}
-                onClick={() => setType('virtual')}
-              >
-                {tc.virtual}
-              </button>
-            </div>
+            <span style={s.label} id="modal-type-label">{tc.typeLabel}</span>
+            <StoreTypeSwitch
+              value={formData.type}
+              onChange={(v) => updateField('type', v)}
+              ariaLabelledBy="modal-type-label"
+            />
           </div>
 
-          {/* Dirección (solo física) */}
-          {type === 'physical' && (
-            <div style={s.group}>
-              <label htmlFor={addressId} style={s.label}>{tc.addressLabel}</label>
-              <input
-                id={addressId}
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder={tc.addressPlaceholder}
-                style={s.input}
+          {/* Mapa + dirección (física) */}
+          {isPhysical && (
+            <>
+              <StoreMapPicker
+                latitude={formData.latitude}
+                longitude={formData.longitude}
+                address={formData.address}
+                onLocationChange={setLocation}
+                onAddressChange={(v) => updateField('address', v)}
+                error={errors.location}
               />
-            </div>
+              {nearbyStoreMessage && (
+                <p style={s.hint}>{nearbyStoreMessage}</p>
+              )}
+            </>
           )}
 
-          {/* URL (solo virtual) */}
-          {type === 'virtual' && (
+          {/* URL (virtual) */}
+          {!isPhysical && (
             <div style={s.group}>
-              <label htmlFor={websiteUrlId} style={s.label}>{tc.urlLabel}</label>
+              <label htmlFor={urlId} style={s.label}>{tc.urlLabel}</label>
               <input
-                id={websiteUrlId}
+                id={urlId}
                 type="url"
-                value={websiteUrl}
-                onChange={(e) => setWebsiteUrl(e.target.value)}
+                value={formData.websiteUrl}
+                onChange={(e) => updateField('websiteUrl', e.target.value)}
                 placeholder="https://mitienda.com"
                 style={s.input}
                 aria-required="true"
+                aria-invalid={Boolean(errors.websiteUrl)}
               />
+              {errors.websiteUrl && <span style={s.fieldError}>{errors.websiteUrl}</span>}
             </div>
+          )}
+
+          {/* Evidencia (física) — compacta */}
+          {isPhysical && (
+            <StoreEvidenceUploader
+              evidenceFiles={formData.evidenceFiles}
+              onAddEvidence={addEvidenceFile}
+              onRemoveEvidence={removeEvidenceFile}
+              error={errors.evidenceUrls}
+            />
           )}
 
           {/* Acciones */}
@@ -187,10 +175,11 @@ const s = {
     inset: 0,
     background: 'var(--overlay)',
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
     zIndex: 1000,
     padding: '16px',
+    overflowY: 'auto',
   },
   card: {
     background: 'var(--bg-surface)',
@@ -198,14 +187,16 @@ const s = {
     borderRadius: 'var(--radius-md)',
     padding: '24px',
     width: '100%',
-    maxWidth: '440px',
+    maxWidth: '600px',
     boxShadow: 'var(--shadow-lg)',
+    marginTop: '16px',
+    marginBottom: '16px',
   },
   header: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '8px',
+    marginBottom: '16px',
   },
   title: {
     fontSize: '18px',
@@ -228,12 +219,6 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
     lineHeight: 1,
-  },
-  hint: {
-    fontSize: '13px',
-    color: 'var(--text-muted)',
-    marginBottom: '20px',
-    lineHeight: 1.5,
   },
   errorBox: {
     background: 'var(--error-soft)',
@@ -269,27 +254,16 @@ const s = {
     background: 'var(--bg-elevated)',
     color: 'var(--text-primary)',
   },
-  typeRow: {
-    display: 'flex',
-    gap: '8px',
-  },
-  typeBtn: {
-    flex: 1,
-    padding: '10px',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm)',
-    fontSize: '13px',
-    fontWeight: 500,
-    cursor: 'pointer',
-    background: 'var(--bg-elevated)',
-    color: 'var(--text-secondary)',
-    transition: 'all 0.15s',
-  },
-  typeBtnActive: {
-    background: 'var(--accent-soft)',
-    borderColor: 'var(--accent)',
-    color: 'var(--accent)',
+  fieldError: {
+    fontSize: '12px',
+    color: 'var(--error)',
     fontWeight: 600,
+  },
+  hint: {
+    fontSize: '12px',
+    color: 'var(--text-muted)',
+    margin: 0,
+    lineHeight: 1.5,
   },
   actions: {
     display: 'flex',

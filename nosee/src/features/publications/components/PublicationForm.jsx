@@ -631,8 +631,8 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
   );
 
   const storeDropdownItemsFinal = [
-    ...storeResults,
     ...(!hasExactStoreMatch && storeQuery.trim().length >= 2 ? [{ __isCreate: true }] : []),
+    ...storeResults,
   ];
 
   const handleStoreKeyDown = (e) => {
@@ -705,9 +705,21 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
       <form onSubmit={handleSubmit} style={styles.form}>
         {/* ── Producto ─────────────────────────────────────────────────────── */}
         <div style={styles.formGroup}>
-          <label htmlFor="pub-product" style={styles.label}>
-            {tf.productLabel} <span style={styles.required}>*</span>
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <label htmlFor="pub-product" style={{ ...styles.label, marginBottom: 0 }}>
+              {tf.productLabel} <span style={styles.required}>*</span>
+            </label>
+            {ENABLE_BARCODE_SCAN && (
+              <button
+                type="button"
+                style={styles.scanBtn}
+                onClick={() => setShowBarcodeModal(true)}
+                disabled={isSubmitting}
+              >
+                <span aria-hidden="true">▥ </span>Escanear código
+              </button>
+            )}
+          </div>
           <div ref={productWrapperRef} style={styles.autocompleteContainer}>
             <input
               id="pub-product"
@@ -967,78 +979,18 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                   <div style={styles.dropdownState}>{tf.searching}</div>
                 )}
 
-                {!storeSearching &&
-                  storeResults.map((s, i) => (
-                    <div
-                      key={s.id}
-                      id={`pub-store-option-${i}`}
-                      role="option"
-                      aria-selected={i === activeStoreIndex}
-                      style={{
-                        ...styles.dropdownItem,
-                        ...(i === activeStoreIndex ? styles.dropdownItemActive : {}),
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                      }}
-                      onMouseDown={() => handleStoreSelect(s)}
-                    >
-                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span>{s.name}</span>
-                        {s.address && (
-                          <span style={styles.dropdownSub}>{s.address}</span>
-                        )}
-                        {s.distanceMeters != null && (
-                          <span style={styles.dropdownDistance}>
-                            {s.distanceMeters < 1000
-                              ? `${Math.round(s.distanceMeters)} m`
-                              : `${(s.distanceMeters / 1000).toFixed(1)} km`}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        aria-label={`Reportar ${s.name}`}
-                        title="Reportar tienda"
-                        style={styles.dropdownReportBtn}
-                        onMouseDown={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          setReportTarget({ type: 'store', id: s.id, name: s.name });
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
-                          e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
-                          e.currentTarget.style.color = 'var(--bg-elevated, #fff)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'none';
-                          e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
-                          e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
-                        }}
-                      >
-                        !
-                      </button>
-                    </div>
-                  ))}
-
-                {!storeSearching &&
-                  storeResults.length === 0 &&
-                  storeQuery.trim().length >= 2 && (
-                    <div style={styles.dropdownState}>{tf.noResults}</div>
-                  )}
-
-                {/* Crear tienda — abre modal */}
+                {/* Crear tienda — abre modal (siempre primero) */}
                 {!storeSearching &&
                   storeQuery.trim().length >= 2 &&
                   !hasExactStoreMatch && (
                     <div
-                      id={`pub-store-option-${storeResults.length}`}
+                      id="pub-store-option-0"
                       role="option"
-                      aria-selected={storeResults.length === activeStoreIndex}
+                      aria-selected={0 === activeStoreIndex}
                       style={{
                         ...styles.dropdownItem,
                         ...styles.dropdownCreate,
-                        ...(storeResults.length === activeStoreIndex ? styles.dropdownItemActive : {}),
+                        ...(0 === activeStoreIndex ? styles.dropdownItemActive : {}),
                       }}
                       onMouseDown={() => {
                         setShowStoreDropdown(false);
@@ -1047,6 +999,70 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                     >
                       {tf.createStore(storeQuery.trim())}
                     </div>
+                  )}
+
+                {!storeSearching &&
+                  storeResults.map((s, i) => {
+                    const optionIndex = !hasExactStoreMatch && storeQuery.trim().length >= 2 ? i + 1 : i;
+                    return (
+                      <div
+                        key={s.id}
+                        id={`pub-store-option-${optionIndex}`}
+                        role="option"
+                        aria-selected={optionIndex === activeStoreIndex}
+                        style={{
+                          ...styles.dropdownItem,
+                          ...(optionIndex === activeStoreIndex ? styles.dropdownItemActive : {}),
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                        }}
+                        onMouseDown={() => handleStoreSelect(s)}
+                      >
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span>{s.name}</span>
+                          {s.address && (
+                            <span style={styles.dropdownSub}>{s.address}</span>
+                          )}
+                          {s.distanceMeters != null && (
+                            <span style={styles.dropdownDistance}>
+                              {s.distanceMeters < 1000
+                                ? `${Math.round(s.distanceMeters)} m`
+                                : `${(s.distanceMeters / 1000).toFixed(1)} km`}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={`Reportar ${s.name}`}
+                          title="Reportar tienda"
+                          style={styles.dropdownReportBtn}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setReportTarget({ type: 'store', id: s.id, name: s.name });
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
+                            e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
+                            e.currentTarget.style.color = 'var(--bg-elevated, #fff)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'none';
+                            e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
+                            e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
+                          }}
+                        >
+                          !
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                {!storeSearching &&
+                  storeResults.length === 0 &&
+                  storeQuery.trim().length >= 2 &&
+                  hasExactStoreMatch === false && (
+                    <div style={styles.dropdownState}>{tf.noResults}</div>
                   )}
               </div>
             )}
@@ -1143,30 +1159,11 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
               handleInputChange("photoModeration", uploadMeta?.moderation || null);
             }}
             disabled={isSubmitting}
-            extraActions={
-              ENABLE_BARCODE_SCAN ? (
-                <button
-                  type="button"
-                  style={styles.inlineActionBtn}
-                  onClick={() => setShowBarcodeModal(true)}
-                  disabled={isSubmitting}
-                >
-                  <span aria-hidden="true">▥ </span>Escanear código
-                </button>
-              ) : null
-            }
           />
           {errors.photoUrl && (
             <div id="pub-photo-error" role="alert" style={styles.errorText}>{errors.photoUrl}</div>
           )}
         </div>
-
-        {/* ── Geolocalización ───────────────────────────────────────────────── */}
-        {latitude && longitude && (
-          <div style={styles.geoInfo}>
-            {tf.geoDetected} {latitude.toFixed(4)}, {longitude.toFixed(4)}
-          </div>
-        )}
 
         {/* ── Submit ────────────────────────────────────────────────────────── */}
         <button
@@ -1515,6 +1512,16 @@ const styles = {
     color: "var(--text-secondary)",
     cursor: "pointer",
     transition: "all 0.2s",
+  },
+  scanBtn: {
+    padding: "4px 10px",
+    borderRadius: "var(--radius-sm)",
+    border: "1px solid var(--border-soft)",
+    fontSize: "12px",
+    fontWeight: 600,
+    background: "var(--bg-elevated)",
+    color: "var(--text-secondary)",
+    cursor: "pointer",
   },
 };
 
