@@ -147,6 +147,12 @@ export const useAuthStore = create((set, get) => ({
 
         if (event === 'SIGNED_IN' && session) {
 
+          // Recovery flow (PKCE): el store ya tiene isRecoveryMode=true porque
+          // CallbackPage lo setea ANTES de llamar exchangeCodeForSession.
+          // No autenticamos al usuario — el cliente Supabase tiene la sesión
+          // internamente para que updateUser() funcione en NewPasswordPage.
+          if (get().isRecoveryMode) return;
+
           const currentUser = get().user;
 
           // Si ya tenemos este usuario con rol válido, solo actualizamos la sesión.
@@ -164,7 +170,6 @@ export const useAuthStore = create((set, get) => ({
             session,
             status:  AsyncStateEnum.SUCCESS,
             error:   null,
-            isRecoveryMode: false,
           });
 
           // Diferir todo lo que usa supabase.from() (rompe el deadlock del lock).
@@ -426,6 +431,13 @@ register: async (email, password, metadata = {}) => {
 
     return { success: true };
   },
+
+  // ════════════════════════════════════════════════════════════════
+  // ACCIÓN: setRecoveryMode
+  // Llamada por CallbackPage ANTES de exchangeCodeForSession para que
+  // el evento SIGNED_IN resultante no autentique al usuario todavía.
+  // ════════════════════════════════════════════════════════════════
+  setRecoveryMode: () => set({ isRecoveryMode: true }),
 
   // ════════════════════════════════════════════════════════════════
   // ACCIÓN: clearError

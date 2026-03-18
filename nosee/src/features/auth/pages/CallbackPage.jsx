@@ -81,54 +81,77 @@ export default function CallbackPage() {
   // Verificar si hay tipo almacenado en localStorage (para cuando Supabase limpia el hash)
   const storedCallbackType = localStorage.getItem('auth_callback_type');
 
-  // DEBUG: Log para verificar qué llega en el hash
-  console.log('🔍 CallbackPage Debug:', { hash, urlType, urlError, accessToken, storedCallbackType, allParams: Object.fromEntries(params) });
+  // flow=recovery indica que este code viene de un link de reset de contraseña
+  const flowParam = searchParams.get('flow');
+
+  // DEBUG: Log para verificar qué llega
+  console.log('🔍 CallbackPage Debug:', { hash, code, flowParam, urlType, urlError, accessToken, storedCallbackType, allParams: Object.fromEntries(params) });
 
   // Derive state from URL parameters
-  // Prioridad: urlType (del hash) > storedCallbackType (localStorage) > UNKNOWN
+  // Prioridad: flowParam (PKCE) > urlType (hash) > storedCallbackType (localStorage) > UNKNOWN
   const callbackType = urlError ? CALLBACK_TYPE.UNKNOWN : (
-    urlType === CALLBACK_TYPE.RECOVERY || storedCallbackType === CALLBACK_TYPE.RECOVERY ? CALLBACK_TYPE.RECOVERY :
-    urlType === CALLBACK_TYPE.SIGNUP ? CALLBACK_TYPE.SIGNUP :
-    CALLBACK_TYPE.UNKNOWN
+    flowParam === 'recovery' || urlType === CALLBACK_TYPE.RECOVERY || storedCallbackType === CALLBACK_TYPE.RECOVERY
+      ? CALLBACK_TYPE.RECOVERY
+      : urlType === CALLBACK_TYPE.SIGNUP
+        ? CALLBACK_TYPE.SIGNUP
+        : CALLBACK_TYPE.UNKNOWN
   );
   const errorMessage = urlError ? decodeURIComponent(urlError.replace(/\+/g, ' ')) : '';
-  
+
   // Derive status from URL state (no useState needed)
-  const status = urlError ? 'error' : 'loading'; // 'loading' | 'error' (success set in second effect)
-  
+  const status = urlError ? 'error' : 'loading'; // 'loading' | 'error'
+
   console.log('📍 callbackType:', callbackType);
 
-  // ── Paso 1b: Efecto para manejar redirecciones iniciales ──
+  // ── Efecto 1: Flujo PKCE — intercambiar code por sesión ──────────────────
+  // Usamos _lastAttemptedCode (módulo) en vez de useRef porque StrictMode
+  // hace full remount y resetea cualquier ref/estado del componente.
   useEffect(() => {
-    // Si hay un code en query params → intercambiar por sesión (PKCE)
-    // Usamos _lastAttemptedCode (módulo) en vez de useRef porque StrictMode
-    // hace full remount y resetea cualquier ref/estado del componente.
-    if (code) {
-      if (_lastAttemptedCode === code) return;
-      _lastAttemptedCode = code;
-      supabase.auth.exchangeCodeForSession(code)
-        .then(({ error }) => {
-          if (error) console.error('Error exchanging code:', error);
-        });
+    if (!code) {
+      // Sin code ni hash ni error → acceso directo, redirigir a login
+      if (!hash && !urlError) {
+        navigate('/login', { replace: true });
+      }
       return;
     }
 
-    // Si no hay hash ni code ni error → alguien llegó directo
-    if (!hash && !urlError && !code) {
-      navigate('/login', { replace: true });
+    if (_lastAttemptedCode === code) return;
+    _lastAttemptedCode = code;
+
+    // Recovery PKCE: marcar modo recovery ANTES del exchange para que el evento
+    // SIGNED_IN resultante no autentique al usuario en el store.
+    if (flowParam === 'recovery') {
+      localStorage.setItem('auth_callback_type', 'recovery');
+      useAuthStore.getState().setRecoveryMode();
     }
-  }, [code, hash, urlError, navigate]);
 
-  // ── Paso 2: Redirigir INMEDIATAMENTE basándose SOLO en el hash ──
-  // NO verificamos isAuthenticated para evitar competencia por NavigatorLock
-  // El hash es la verdad, Supabase procesará el token en background
+    supabase.auth.exchangeCodeForSession(code)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Error exchanging code:', error);
+          return;
+        }
+        // Tras exchange exitoso navegar según el tipo de flujo
+        if (flowParam === 'recovery') {
+          navigate('/nueva-contrasena', { replace: true });
+        }
+        // Signup PKCE: el efecto 2 detecta isAuthenticated y navega a /perfil
+      });
+  }, [code, hash, urlError, flowParam, navigate]);
+
+  // ── Efecto 2: Flujo hash — detectar tipo y navegar ───────────────────────
   useEffect(() => {
-    if (!hash) return; // Paso 1b ya maneja esto
+    // Flujo PKCE: signup (sin flow=recovery) → navegar cuando esté autenticado
+    if (!hash) {
+      if (code && flowParam !== 'recovery' && isInitialized && isAuthenticated) {
+        navigate('/perfil', { replace: true });
+      }
+      return;
+    }
 
-    console.log('🎯 Detectado tipo:', callbackType);
+    console.log('🎯 Hash detectado, tipo:', callbackType);
 
-    // Para RECOVERY: navegar SIN verificar autenticación
-    // Guardar en localStorage que es un flujo de recovery
+    // Recovery hash: navegar a nueva contraseña inmediatamente
     if (callbackType === CALLBACK_TYPE.RECOVERY) {
       console.log('✅ Guardando tipo recovery en localStorage y navegando');
       localStorage.setItem('auth_callback_type', 'recovery');
@@ -136,7 +159,7 @@ export default function CallbackPage() {
       return;
     }
 
-    // Para SIGNUP: esperar autenticación (es más seguro)
+    // Signup hash: esperar autenticación
     if (callbackType === CALLBACK_TYPE.SIGNUP) {
       if (isInitialized && isAuthenticated) {
         console.log('✅ Email confirmado. Redirigiendo a /perfil');
@@ -145,13 +168,11 @@ export default function CallbackPage() {
       return;
     }
 
-    // Para estados desconocidos: solo redirigir si autenticado
-    if (callbackType === CALLBACK_TYPE.UNKNOWN) {
-      if (isInitialized && isAuthenticated) {
-        navigate('/perfil', { replace: true });
-      }
+    // Desconocido: redirigir solo si autenticado
+    if (callbackType === CALLBACK_TYPE.UNKNOWN && isInitialized && isAuthenticated) {
+      navigate('/perfil', { replace: true });
     }
-  }, [hash, callbackType, isInitialized, isAuthenticated, navigate]);
+  }, [hash, code, flowParam, callbackType, isInitialized, isAuthenticated, navigate]);
 
   // ───────────────────────────────────────────────────────
   // UI
