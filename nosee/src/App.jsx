@@ -59,6 +59,9 @@ const EditStorePage = lazy(
 const StoresPage = lazy(
   () => import("@/features/stores/pages/StoresPage")
 );
+const NearbyStoresPage = lazy(
+  () => import("@/features/stores/pages/NearbyStoresPage")
+);
 const RankingPage = lazy(() => import("@/pages/RankingPage"));
 const ShoppingListPage = lazy(
   () => import("@/features/shopping-list/pages/ShoppingListPage")
@@ -184,6 +187,14 @@ function AppContent() {
           }
         />
 
+        <Route
+          path="/tiendas/cercanas"
+          element={
+            <ProtectedRoute>
+              <NearbyStoresPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/tiendas/nueva"
           element={

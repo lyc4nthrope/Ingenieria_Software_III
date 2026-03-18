@@ -14,6 +14,13 @@ const SearchIcon = () => (
   </svg>
 );
 
+const MapPinIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px' }}>
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
+  </svg>
+);
+
 const DEBOUNCE_MS = 350;
 
 export default function StoresPage() {
@@ -110,16 +117,26 @@ export default function StoresPage() {
             <h1 id="stores-heading" style={styles.title}>{ts.title}</h1>
             <p style={styles.subtitle}>{ts.subtitle}</p>
           </div>
-          <Link
-            to="/tiendas/nueva"
-            aria-label={ts.createBtnLabel}
-            style={styles.createBtn}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px' }}>
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            {ts.createBtn}
-          </Link>
+          <div style={styles.headerActions}>
+            <Link
+              to="/tiendas/cercanas"
+              aria-label="Ver tiendas cercanas en mapa"
+              style={styles.nearbyBtn}
+            >
+              <MapPinIcon />
+              Cercanas
+            </Link>
+            <Link
+              to="/tiendas/nueva"
+              aria-label={ts.createBtnLabel}
+              style={styles.createBtn}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px' }}>
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              {ts.createBtn}
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -218,6 +235,24 @@ const styles = {
   subtitle: {
     margin: 0,
     color: 'var(--text-secondary)',
+  },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flexShrink: 0,
+  },
+  nearbyBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '7px 14px',
+    background: 'transparent',
+    color: 'var(--accent)',
+    border: '1px solid var(--accent)',
+    borderRadius: 'var(--radius-md)',
+    fontSize: '13px',
+    fontWeight: 600,
+    textDecoration: 'none',
   },
   createBtn: {
     display: 'inline-flex',

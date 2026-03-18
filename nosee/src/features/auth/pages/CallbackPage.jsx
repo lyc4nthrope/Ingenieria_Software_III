@@ -46,6 +46,14 @@ function Spinner({ label = "Loading" }) {
   );
 }
 
+// ── Guardia de nivel módulo contra el doble-exchange de PKCE ──────────────────
+// useRef(false) NO sirve porque React 18 StrictMode hace full remount
+// (mount → unmount → mount) reseteando el ref cada vez.
+// Una variable de módulo sobrevive cualquier remount del componente.
+// Guardamos el code ya intentado (no solo un booleano) para permitir
+// flujos genuinamente nuevos con un code diferente.
+let _lastAttemptedCode = null;
+
 // ── Tipos de callback que puede recibir ──
 const CALLBACK_TYPE = {
   SIGNUP:   'signup',    // Confirmación de email tras registro
@@ -91,19 +99,23 @@ export default function CallbackPage() {
   // ── Paso 1b: Efecto para manejar redirecciones iniciales ──
   useEffect(() => {
     // Si hay un code en query params → intercambiar por sesión (PKCE)
-  if (code) {
-    supabase.auth.exchangeCodeForSession(code)
-      .then(({ error }) => {
-        if (error) console.error('Error exchanging code:', error);
-      });
-    return;
-  }
+    // Usamos _lastAttemptedCode (módulo) en vez de useRef porque StrictMode
+    // hace full remount y resetea cualquier ref/estado del componente.
+    if (code) {
+      if (_lastAttemptedCode === code) return;
+      _lastAttemptedCode = code;
+      supabase.auth.exchangeCodeForSession(code)
+        .then(({ error }) => {
+          if (error) console.error('Error exchanging code:', error);
+        });
+      return;
+    }
 
     // Si no hay hash ni code ni error → alguien llegó directo
-  if (!hash && !urlError && !code) {
-    navigate('/login', { replace: true });
-  }
-}, [code, hash, urlError, navigate]);
+    if (!hash && !urlError && !code) {
+      navigate('/login', { replace: true });
+    }
+  }, [code, hash, urlError, navigate]);
 
   // ── Paso 2: Redirigir INMEDIATAMENTE basándose SOLO en el hash ──
   // NO verificamos isAuthenticated para evitar competencia por NavigatorLock

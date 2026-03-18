@@ -161,12 +161,12 @@ export async function deactivateAccount() {
 }
 
 /**
- * Elimina permanentemente la cuenta y todos los datos del usuario.
- * Llama a la función SQL delete_my_account() con SECURITY DEFINER.
- * Funciona tanto para usuarios email/password como Google OAuth.
+ * Oculta la cuenta y todas las publicaciones del usuario (soft delete profundo).
+ * El usuario no puede volver a entrar y su contenido deja de ser visible.
+ * No se borra ningún dato — se mantiene para auditoría.
  */
 export async function deleteAccountPermanent() {
-  const { error } = await supabase.rpc('delete_my_account');
+  const { error } = await supabase.rpc('hide_my_account');
   if (error) return { success: false, error: error.message };
   return { success: true };
 }

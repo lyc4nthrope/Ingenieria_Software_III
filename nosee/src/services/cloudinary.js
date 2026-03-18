@@ -1,3 +1,5 @@
+import { recordCloudinaryUpload } from '@/services/metrics';
+
 const VALID_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const CLOUDINARY_MODERATION_PROVIDER = String(
   import.meta.env.VITE_CLOUDINARY_MODERATION_PROVIDER || "aws_rek",
@@ -122,12 +124,14 @@ export async function uploadImageToCloudinary(file, options = {}) {
     const body = await response.json();
 
     if (!response.ok) {
+      recordCloudinaryUpload('failure', file.size);
       return {
         success: false,
         error: toFriendlyCloudinaryError(body?.error?.message, response.status),
       };
     }
 
+    recordCloudinaryUpload('success', file.size);
     return {
       success: true,
       url: body.secure_url,
@@ -138,6 +142,7 @@ export async function uploadImageToCloudinary(file, options = {}) {
       }),
     };
   } catch (error) {
+    recordCloudinaryUpload('failure', file.size);
     return { success: false, error: error.message || 'Error subiendo imagen a Cloudinary' };
   }
 }

@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import * as publicationsApi from '@/services/api/publications.api';
 import { useGeoLocation } from './useGeoLocation';
 import { playSuccessSound } from '@/utils/celebrationSound';
+import { useAuthStore } from '@/features/auth/store/authStore';
+import { insertUserActivityLog } from '@/services/api/audit.api';
+import { recordPublicationCreated } from '@/services/metrics';
 
 const initialFormData = {
   productId: '',
@@ -17,6 +20,7 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
   const { latitude, longitude } = useGeoLocation({ autoFetch: true });
 
   const [formData, setFormData] = useState(initialFormData);
+  const currentUserId = useAuthStore(state => state.user?.id);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -112,6 +116,16 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
         setSubmitError(result.error || 'Error al procesar la publicación');
         return result;
       }
+
+      if (mode === 'create') {
+        recordPublicationCreated(!!payload.photoUrl);
+      }
+
+      insertUserActivityLog(currentUserId, mode === 'create' ? 'crear_publicacion' : 'editar_publicacion', {
+        publicationId: result.data?.id,
+        productId: payload.productId,
+        storeId: payload.storeId,
+      });
 
       setSubmitSuccess(
         mode === 'create'

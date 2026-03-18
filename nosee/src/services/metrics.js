@@ -134,3 +134,86 @@ export function recordPublicationReport() {
 export function recordApiLatency(endpoint, durationMs) {
   push('api_latency', { endpoint, duration_ms: durationMs });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLOUDINARY — Subida de imágenes de evidencia (sección 3.4.2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Métrica: Tasa de éxito de subida de imágenes + tamaño promedio
+ * (RNF 4.2.3: >99 % de éxito; RNF 4.2.4: tamaño ≤ 5 MB)
+ *
+ * @param {'success'|'failure'} result
+ * @param {number} [sizeBytes] - Tamaño del archivo en bytes
+ */
+export function recordCloudinaryUpload(result, sizeBytes) {
+  push('cloudinary_upload', { result, size_bytes: sizeBytes ?? 0 });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOKEN REFRESH — Renovación de sesión JWT (sección 3.3.1)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Métrica: Tasa de éxito de refresh de token (RNF 4.1.4, meta: >99.9 %)
+ *
+ * @param {'success'|'failure'} result
+ */
+export function recordTokenRefresh(result) {
+  push('token_refresh', { result });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FORMULARIOS — Inicio y abandono (RNF 4.3.5, 4.1.3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Métrica: Inicio del flujo de publicación (denominador para tasa de abandono)
+ * Llamar cuando se monta PublicationForm en modo 'create'.
+ */
+export function recordPublicationFormStarted() {
+  push('publication_form_started', {});
+}
+
+/**
+ * Métrica: Abandono del formulario de publicación (RNF 4.3.5, meta: <15 %)
+ * Llamar cuando el usuario desmonta el formulario sin completar la publicación.
+ */
+export function recordPublicationFormAbandoned() {
+  push('publication_form_abandoned', {});
+}
+
+/**
+ * Métrica: Inicio del flujo de registro (denominador para conversión)
+ * Llamar cuando se monta RegisterPage.
+ */
+export function recordRegistrationStarted() {
+  push('registration_started', {});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GEOCODIFICACIÓN — Nominatim (RNF 4.2.2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Métrica: Peticiones de geocodificación y su resultado
+ * (RNF 4.2.2: disponibilidad geocoder > 99.5 %)
+ *
+ * @param {'success'|'failure'} result
+ * @param {'reverse'|'forward'} [type] - reverse = coordenadas→dirección, forward = dirección→coordenadas
+ */
+export function recordGeocodingRequest(result, type = 'reverse') {
+  push('geocoding_request', { result, type });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VOTOS — Duplicados rechazados (RNF 4.1.2, integridad)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Métrica: Intentos de voto duplicado bloqueados
+ * (RNF 4.1.2: 0 votos duplicados deben persistir)
+ */
+export function recordVoteDuplicateRejected() {
+  push('vote_duplicate_rejected', {});
+}

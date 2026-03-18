@@ -10,6 +10,7 @@
  */
 
 import { create } from 'zustand';
+import { insertUserActivityLog } from '@/services/api/audit.api';
 
 const STORAGE_PREFIX = 'nosee-shopping-';
 
@@ -20,32 +21,32 @@ function storageKey(userId) {
 function loadFromStorage(userId) {
   try {
     const raw = localStorage.getItem(storageKey(userId));
-    if (!raw) return { items: [], orders: [] };
+    if (!raw) return { items: [], orders: [], savedLists: [] };
     const parsed = JSON.parse(raw);
     return {
-      items:  Array.isArray(parsed.items)  ? parsed.items  : [],
-      orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+      items:      Array.isArray(parsed.items)      ? parsed.items      : [],
+      orders:     Array.isArray(parsed.orders)     ? parsed.orders     : [],
+      savedLists: Array.isArray(parsed.savedLists) ? parsed.savedLists : [],
     };
   } catch {
-    return { items: [], orders: [] };
+    return { items: [], orders: [], savedLists: [] };
   }
 }
 
-function saveToStorage(userId, items, orders) {
+function saveToStorage(userId, items, orders, savedLists) {
   if (!userId) return; // no guardar datos de invitado
   try {
-    localStorage.setItem(storageKey(userId), JSON.stringify({ items, orders }));
+    localStorage.setItem(storageKey(userId), JSON.stringify({ items, orders, savedLists }));
   } catch { /* quota exceeded, ignorar */ }
 }
 
 // ── Middleware de auto-guardado ───────────────────────────────────────────────
-// Envuelve cada set() y persiste el estado actual del usuario activo.
 function withAutosave(storeCreator) {
   return (set, get, api) => {
     const wrappedSet = (partial, replace) => {
       set(partial, replace);
-      const { _userId, items, orders } = get();
-      saveToStorage(_userId, items, orders);
+      const { _userId, items, orders, savedLists } = get();
+      saveToStorage(_userId, items, orders, savedLists);
     };
     return storeCreator(wrappedSet, get, api);
   };
@@ -62,14 +63,13 @@ export const useShoppingListStore = create(
     /** @type {Array<{id: string, result: object, userCoords: object|null, createdAt: string, deliveryMode: boolean, ...}>} */
     orders: [],
 
+    /** @type {Array<{id: string, name: string, items: Array, savedAt: string}>} */
+    savedLists: [],
+
     // ── Gestión de sesión ───────────────────────────────────────────────────
-    /**
-     * Carga los datos del usuario dado desde localStorage.
-     * Llamar al iniciar sesión (userId = string) o al cerrar sesión (userId = null).
-     */
     loadForUser: (userId) => {
-      const { items, orders } = loadFromStorage(userId);
-      set({ _userId: userId, items, orders });
+      const { items, orders, savedLists } = loadFromStorage(userId);
+      set({ _userId: userId, items, orders, savedLists });
     },
 
     // ── Ítems ───────────────────────────────────────────────────────────────
@@ -107,15 +107,43 @@ export const useShoppingListStore = create(
           ],
         });
       }
+      const uid = get()._userId;
+      if (uid) insertUserActivityLog(uid, 'agregar_item_lista', { productName: trimmed, quantity: Number(quantity) });
     },
 
-    removeItem: (id) =>
-      set({ items: get().items.filter((i) => i.id !== id) }),
+    removeItem: (id) => {
+      const item = get().items.find((i) => i.id === id);
+      set({ items: get().items.filter((i) => i.id !== id) });
+      const uid = get()._userId;
+      if (uid && item) insertUserActivityLog(uid, 'eliminar_item_lista', { productName: item.productName });
+    },
 
     updateItem: (id, changes) =>
       set({ items: get().items.map((i) => (i.id === id ? { ...i, ...changes } : i)) }),
 
     clearList: () => set({ items: [] }),
+
+    // ── Listas guardadas ─────────────────────────────────────────────────────
+    saveList: (name) => {
+      const { items, savedLists } = get();
+      if (!name.trim() || items.length === 0) return;
+      const newList = {
+        id: `sl-${Date.now()}`,
+        name: name.trim(),
+        items: [...items],
+        savedAt: new Date().toISOString(),
+      };
+      set({ savedLists: [newList, ...savedLists] });
+    },
+
+    loadSavedList: (id) => {
+      const found = get().savedLists.find((l) => l.id === id);
+      if (!found) return;
+      set({ items: found.items.map((i) => ({ ...i, id: Date.now() + Math.random() })) });
+    },
+
+    deleteSavedList: (id) =>
+      set({ savedLists: get().savedLists.filter((l) => l.id !== id) }),
 
     // ── Pedidos ─────────────────────────────────────────────────────────────
     addOrder: (order) =>

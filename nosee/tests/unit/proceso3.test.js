@@ -14,7 +14,7 @@
  * Ejecutar: npm test -- proceso3.test.js
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 // ─── Importaciones bajo prueba ────────────────────────────────────────────────
 import {

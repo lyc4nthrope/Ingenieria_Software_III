@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# NØSEE — Targets de Blackbox Exporter
+#
+# Este archivo define las URLs que Prometheus verifica sintéticamente
+# a través del Blackbox Exporter (disponibilidad HTTP + latencia).
+#
+# RNF cubiertos:
+#   4.2.1 — Disponibilidad del sistema          (meta: >99.9%)
+#   4.4.1 — Tiempo de respuesta HTTP de la SPA  (meta: <3 000 ms)
+#
+# ── CONFIGURACIÓN REQUERIDA ──────────────────────────────────────────────────
+# Reemplaza la URL de producción con la de tu Azure Static Web App:
+#   https://TU_APP.azurestaticapps.net
+# ─────────────────────────────────────────────────────────────────────────────
+
+- labels:
+    env: production
+    tier: frontend
+  targets:
+    # ⚠ REEMPLAZAR con la URL real de Azure Static Web Apps
+    - https://NOSEE_APP.azurestaticapps.net
+
+- labels:
+    env: local
+    tier: backend
+  targets:
+    # Healthcheck del metrics-server (siempre disponible en docker network)
+    - http://metrics-server:3001/health

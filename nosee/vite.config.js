@@ -34,5 +34,25 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup.js'],
     exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'lcov'],
+      reportsDirectory: './coverage',
+      // Archivos a incluir en la cobertura
+      include: ['src/**/*.{js,jsx}'],
+      exclude: [
+        'src/main.jsx',
+        'src/**/*.test.{js,jsx}',
+        'src/**/__mocks__/**',
+        'node_modules/**',
+      ],
+      // Meta mínima de cobertura (RNF 4.6 — Verificabilidad)
+      thresholds: {
+        lines:       60,
+        functions:   60,
+        branches:    50,
+        statements:  60,
+      },
+    },
   },
 })

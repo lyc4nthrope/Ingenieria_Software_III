@@ -602,6 +602,9 @@ vi.mock("@/contexts/LanguageContext", () => ({
         deleteLabel: (name) => `Eliminar ${name}`,
         photoExpandLabel: (expanded, name) => expanded ? `Colapsar foto de ${name}` : `Expandir foto de ${name}`,
       },
+      shoppingList: {
+        addToList: "Agregar a lista",
+      },
     },
   }),
 }));

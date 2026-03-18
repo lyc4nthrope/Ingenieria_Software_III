@@ -34,6 +34,33 @@ services:
       timeout: 10s
       retries: 3
 
+  # ── Prometheus Pushgateway ────────────────────────────────────────────────
+  # Recibe métricas de CI (GitHub Actions) y las expone para que Prometheus las scrapee.
+  # Para enviar desde GitHub Actions, exponer el puerto 9091 públicamente.
+  # Opción local: ngrok http 9091 → configurar secret PUSHGATEWAY_URL en GitHub.
+  pushgateway:
+    image: prom/pushgateway:v1.6.2
+    container_name: nosee-pushgateway
+    ports:
+      - "9091:9091"
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # ── Blackbox Exporter ─────────────────────────────────────────────────────
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: nosee-blackbox
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+    restart: unless-stopped
+    networks:
+      - monitoring
+
   # ── Prometheus ────────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.47.0
@@ -42,6 +69,7 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/targets:/etc/prometheus/targets:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -55,6 +83,7 @@ services:
       - monitoring
     depends_on:
       - metrics-server
+      - blackbox-exporter
 
   # ── Grafana ───────────────────────────────────────────────────────────────
   grafana:

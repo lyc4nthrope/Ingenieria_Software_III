@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '@/services/supabase.client';
+import { insertUserActivityLog } from '@/services/api/audit.api';
 
 /** Obtener alertas activas del usuario autenticado */
 export const getUserAlerts = async () => {
@@ -41,6 +42,7 @@ export const createAlert = async ({ productId, targetPrice }) => {
       .single();
 
     if (error) return { success: false, error: error.message };
+    insertUserActivityLog(user.id, 'crear_alerta', { productId, targetPrice });
     return { success: true, data };
   } catch (err) {
     return { success: false, error: err.message };
@@ -50,12 +52,14 @@ export const createAlert = async ({ productId, targetPrice }) => {
 /** Desactivar (eliminar) una alerta */
 export const deleteAlert = async (alertId) => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase
       .from('price_alerts')
       .update({ is_active: false })
       .eq('id', alertId);
 
     if (error) return { success: false, error: error.message };
+    if (user) insertUserActivityLog(user.id, 'eliminar_alerta', { alertId });
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };

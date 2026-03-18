@@ -293,6 +293,20 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
             </span>
           </div>
 
+          {isPhysical && Number.isFinite(Number(localStore.latitude)) && Number.isFinite(Number(localStore.longitude)) && (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${localStore.latitude},${localStore.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={styles.mapsBtn}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+              Abrir en Google Maps ↗
+            </a>
+          )}
+
           {!isPhysical && localStore.website_url && (
             <div style={styles.infoRow}>
               <span style={styles.infoLabel}>{td.website}</span>
@@ -570,6 +584,20 @@ const styles = {
     textDecoration: 'none',
     fontWeight: 500,
   },
+  mapsBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    alignSelf: 'flex-start',
+    padding: '7px 14px',
+    background: 'var(--accent-soft)',
+    color: 'var(--accent)',
+    border: '1px solid var(--accent)',
+    borderRadius: 'var(--radius-md)',
+    fontSize: '13px',
+    fontWeight: 600,
+    textDecoration: 'none',
+  },
   section: {
     display: 'flex',
     flexDirection: 'column',
@@ -644,9 +672,6 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   lightboxImg: {
     maxWidth: '90vw',

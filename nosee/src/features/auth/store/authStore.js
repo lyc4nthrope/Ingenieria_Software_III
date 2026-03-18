@@ -29,15 +29,18 @@ import { create } from 'zustand';
 import { authApi, usersApi } from '@/services/api';
 import { supabase }          from '@/services/supabase.client';
 import { AsyncStateEnum }    from '@/types';
+import { insertUserActivityLog } from '@/services/api/audit.api';
+import { recordTokenRefresh } from '@/services/metrics';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const insertAuditLog = async (userId, eventType) => {
+const insertAuditLog = async (userId, eventType, metadata = {}) => {
   try {
     await supabase.from('login_audit_logs').insert({
-      user_id:    userId,
+      user_id:    userId || null,
       event_type: eventType,
       user_agent: navigator.userAgent,
+      metadata,
     });
   } catch (_) {
     // No bloquear el flujo por un log fallido
@@ -168,6 +171,10 @@ export const useAuthStore = create((set, get) => ({
               }
             }
 
+            if (event === 'PASSWORD_RECOVERY') {
+              insertUserActivityLog(session.user.id, 'restablecimiento_contrasena', {});
+            }
+
             const profileResult = await usersApi.getUserProfile(session.user.id);
 
             if (!profileResult.success) {
@@ -192,6 +199,7 @@ export const useAuthStore = create((set, get) => ({
 
         } else if (event === 'TOKEN_REFRESHED' && session) {
           set({ session });
+          recordTokenRefresh('success');
 
         } else if (event === 'SIGNED_OUT') {
           set({
@@ -220,6 +228,7 @@ export const useAuthStore = create((set, get) => ({
 
     if (!result.success) {
       set({ status: AsyncStateEnum.ERROR, error: result.error });
+      insertAuditLog(null, 'login_fallido', { attemptedEmail: email });
       return { success: false, error: result.error };
     }
 
@@ -345,6 +354,8 @@ register: async (email, password, metadata = {}) => {
       error:  null,
     });
 
+    insertUserActivityLog(user.id, 'actualizar_perfil', {});
+
     return { success: true, error: null };
   },
 
@@ -387,6 +398,11 @@ register: async (email, password, metadata = {}) => {
     if (!result.success) {
       set({ status: AsyncStateEnum.ERROR, error: result.error });
       return { success: false, error: result.error };
+    }
+
+    const delUserId = get().user?.id;
+    if (delUserId) {
+      await insertUserActivityLog(delUserId, permanent ? 'eliminar_cuenta' : 'desactivar_cuenta', {});
     }
 
     await authApi.signOut();
