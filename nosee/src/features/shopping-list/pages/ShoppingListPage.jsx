@@ -17,6 +17,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import * as publicationsApi from '@/services/api/publications.api';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import PublicationDetailModal from '@/features/publications/components/PublicationDetailModal';
 import { useGeoLocation } from '@/features/publications/hooks/useGeoLocation';
 
 // ─── Iconos ───────────────────────────────────────────────────────────────────
@@ -163,17 +164,23 @@ function DeliveryCard({ order, onCancel }) {
 const getStoreEmoji = (storeTypeId) => Number(storeTypeId) === 2 ? '🌐' : '🏪';
 
 // ─── Tarjeta de publicación en carrusel ───────────────────────────────────────
-function CarouselCard({ pub, globalIdx, isSelected, onSelect }) {
+function CarouselCard({ pub, globalIdx, isSelected, onSelect, onDetail }) {
   const isBest = globalIdx === 0;
   const storeEmoji = getStoreEmoji(pub.store?.store_type_id);
-  const quantity = pub.quantity ?? pub.unit_quantity ?? null;
-  const unit = pub.unit ?? pub.measurement_unit ?? null;
+  const quantity = pub.product?.base_quantity ?? pub.quantity ?? pub.unit_quantity ?? null;
+  const unit = pub.product?.unit_type?.abbreviation ?? pub.product?.unit_type?.name ?? pub.unit ?? pub.measurement_unit ?? null;
   const hasUnitInfo = quantity !== null || unit !== null;
+
+  const productName = pub.product?.name ?? pub.productName ?? pub.product_name ?? 'producto';
+  const storeName = pub.store?.name ?? 'tienda';
+  const price = (pub.price ?? 0).toLocaleString('es-CO');
 
   return (
     <div
       role="button"
       tabIndex={0}
+      aria-pressed={isSelected}
+      aria-label={`${isSelected ? 'Seleccionado: ' : ''}${productName} en ${storeName} por $${price} COP`}
       onClick={() => onSelect(pub)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect(pub); }}
       style={{ ...carousel.card, ...(isSelected ? carousel.cardSelected : {}), cursor: 'pointer' }}
@@ -185,12 +192,19 @@ function CarouselCard({ pub, globalIdx, isSelected, onSelect }) {
         ${(pub.price ?? 0).toLocaleString('es-CO')}
         <span style={carousel.currency}> COP</span>
       </span>
-      <span style={carousel.prodName}>{pub.productName ?? pub.product_name ?? '—'}</span>
+      <span style={carousel.prodName}>{pub.product?.name ?? pub.productName ?? pub.product_name ?? '—'}</span>
       {hasUnitInfo && (
         <span style={carousel.unitQty}>
           {[quantity, unit].filter(Boolean).join(' ')}
         </span>
       )}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDetail(pub); }}
+        style={carousel.detailBtn}
+      >
+        Ver detalle
+      </button>
     </div>
   );
 }
@@ -198,6 +212,7 @@ function CarouselCard({ pub, globalIdx, isSelected, onSelect }) {
 // ─── Carrusel horizontal con carga infinita ───────────────────────────────────
 function InfiniteHorizontalCarousel({ publications, selectedId, onSelect }) {
   const [visibleCount, setVisibleCount] = useState(10);
+  const [detailPub, setDetailPub] = useState(null);
   const scrollRef = useRef(null);
 
   const total = publications?.length ?? 0;
@@ -226,22 +241,36 @@ function InfiniteHorizontalCarousel({ publications, selectedId, onSelect }) {
   }
 
   return (
-    <div ref={scrollRef} style={carousel.infiniteTrack}>
-      {visible.map((pub, idx) => (
-        <CarouselCard
-          key={pub.id ?? idx}
-          pub={pub}
-          globalIdx={idx}
-          isSelected={(pub.id ?? idx) === selectedId}
-          onSelect={onSelect}
+    <>
+      <style>{`
+        .nosee-hscroll::-webkit-scrollbar { height: 3px; }
+        .nosee-hscroll::-webkit-scrollbar-track { background: var(--border); border-radius: 2px; }
+        .nosee-hscroll::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+      `}</style>
+      <div ref={scrollRef} className="nosee-hscroll" style={carousel.infiniteTrack}>
+        {visible.map((pub, idx) => (
+          <CarouselCard
+            key={pub.id ?? idx}
+            pub={pub}
+            globalIdx={idx}
+            isSelected={(pub.id ?? idx) === selectedId}
+            onSelect={onSelect}
+            onDetail={setDetailPub}
+          />
+        ))}
+        {hasMore && (
+          <div style={carousel.loadMoreSentinel}>
+            <span style={{ fontSize: '20px', color: 'var(--text-muted)', letterSpacing: '4px', lineHeight: 1 }}>···</span>
+          </div>
+        )}
+      </div>
+      {detailPub && (
+        <PublicationDetailModal
+          publication={detailPub}
+          onClose={() => setDetailPub(null)}
         />
-      ))}
-      {hasMore && (
-        <div style={carousel.loadMoreSentinel}>
-          <span style={{ fontSize: '20px', color: 'var(--text-muted)', letterSpacing: '4px', lineHeight: 1 }}>···</span>
-        </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -556,8 +585,13 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
     saveTimerRef.current = setTimeout(() => setSaveStatus(null), 3000);
   };
 
+  const calcRequestRef = useRef(0);
+
   const handleCalculate = useCallback(async () => {
     if (items.length === 0) return;
+
+    const requestId = ++calcRequestRef.current;
+
     setCalculating(true);
     setCalcError(null);
     setCalcResults(null);
@@ -593,6 +627,10 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
           return [item.id, sorted];
         })
       );
+
+      // Descartar resultados de requests obsoletas
+      if (requestId !== calcRequestRef.current) return;
+
       const resultsMap = Object.fromEntries(results);
       setCalcResults(resultsMap);
       // Pre-seleccionar la mejor opción (índice 0) para cada ítem
@@ -602,9 +640,10 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
       }
       setSelectedPubs(defaults);
     } catch {
+      if (requestId !== calcRequestRef.current) return;
       setCalcError('Error al calcular la canasta. Intentá nuevamente.');
     } finally {
-      setCalculating(false);
+      if (requestId === calcRequestRef.current) setCalculating(false);
     }
   }, [items, prefs, hasLocation, latitude, longitude]);
 
@@ -798,6 +837,8 @@ function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, o
                   <div
                     role={isInteractive ? 'button' : undefined}
                     tabIndex={isInteractive ? 0 : undefined}
+                    aria-expanded={isInteractive ? isExpanded : undefined}
+                    aria-label={isInteractive ? `${isExpanded ? 'Ocultar' : 'Ver'} opciones de ${item.productName}` : undefined}
                     onClick={isInteractive ? () => toggleExpand(item.id) : undefined}
                     onKeyDown={isInteractive ? (e) => {
                       if (e.key === 'Enter' || e.key === ' ') toggleExpand(item.id);
@@ -974,6 +1015,10 @@ function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
   const timerRef = useRef(null);
+  const updateOrderDeliveryRef = useRef(updateOrderDelivery);
+
+  // Mantener la ref actualizada sin re-ejecutar el efecto
+  useEffect(() => { updateOrderDeliveryRef.current = updateOrderDelivery; });
 
   const selectedOrder = orders[selectedIdx] ?? null;
 
@@ -989,7 +1034,7 @@ function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
     if (deliveryStatus === 'searching') {
       timerRef.current = setTimeout(() => {
         const center = userCoords ?? { lat: 4.711, lng: -74.0721 };
-        updateOrderDelivery(id, {
+        updateOrderDeliveryRef.current(id, {
           deliveryStatus: 'found',
           driverLocation: {
             lat: center.lat + (Math.random() - 0.5) * 0.04,
@@ -999,19 +1044,23 @@ function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
       }, 5000);
     } else if (deliveryStatus === 'found') {
       timerRef.current = setTimeout(() => {
-        updateOrderDelivery(id, { deliveryStatus: 'en_camino' });
+        updateOrderDeliveryRef.current(id, { deliveryStatus: 'en_camino' });
       }, 3000);
     } else if (deliveryStatus === 'en_camino') {
       timerRef.current = setInterval(() => {
-        const current = useShoppingListStore.getState().orders.find((o) => o.id === id);
-        if (!current?.driverLocation || !current?.userCoords) return;
-        const { driverLocation: dl, userCoords: uc } = current;
-        updateOrderDelivery(id, {
-          driverLocation: {
-            lat: dl.lat + (uc.lat - dl.lat) * 0.12 + (Math.random() - 0.5) * 0.0008,
-            lng: dl.lng + (uc.lng - dl.lng) * 0.12 + (Math.random() - 0.5) * 0.0008,
-          },
-        });
+        try {
+          const current = useShoppingListStore.getState().orders?.find((o) => o.id === id);
+          if (!current?.driverLocation || !current?.userCoords) return;
+          const { driverLocation: dl, userCoords: uc } = current;
+          updateOrderDeliveryRef.current(id, {
+            driverLocation: {
+              lat: dl.lat + (uc.lat - dl.lat) * 0.12 + (Math.random() - 0.5) * 0.0008,
+              lng: dl.lng + (uc.lng - dl.lng) * 0.12 + (Math.random() - 0.5) * 0.0008,
+            },
+          });
+        } catch {
+          clearInterval(timerRef.current);
+        }
       }, 3000);
     }
 
@@ -1019,7 +1068,7 @@ function PedidosTab({ orders, removeOrder, updateOrderDelivery }) {
       clearTimeout(timerRef.current);
       clearInterval(timerRef.current);
     };
-  }, [selectedOrder?.id, selectedOrder?.deliveryStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.id, selectedOrder?.deliveryStatus, selectedOrder?.deliveryMode, selectedOrder?.userCoords]);
 
   const handleRemove = (id) => {
     removeOrder(id);
@@ -1442,7 +1491,7 @@ const page = {
 
 // ── Lista tab styles ───────────────────────────────────────────────────────────
 const lista = {
-  root: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  root: { display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0, overflow: 'hidden' },
 
   inputRow: { display: 'flex', gap: '8px' },
   input: {
@@ -1509,18 +1558,20 @@ const lista = {
     fontSize: '12px', fontWeight: 700, flexShrink: 0,
   },
 
-  list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '4px' },
-  itemWrap: { display: 'flex', flexDirection: 'column' },
+  list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '4px', overflowX: 'hidden' },
+  itemWrap: { display: 'flex', flexDirection: 'column', minWidth: 0 },
   item: {
     display: 'flex', alignItems: 'center', gap: '8px',
-    background: 'var(--bg-surface)', border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-md)', padding: '10px 12px',
+    background: 'var(--bg-surface)',
+    borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border)',
+    borderTopLeftRadius: 'var(--radius-md)', borderTopRightRadius: 'var(--radius-md)',
+    borderBottomLeftRadius: 'var(--radius-md)', borderBottomRightRadius: 'var(--radius-md)',
+    padding: '10px 12px',
     transition: 'border-color 0.15s',
   },
   itemExpanded: {
     borderColor: 'var(--accent)',
     borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
-    borderBottom: 'none',
   },
 
   // Checkbox
@@ -1557,13 +1608,16 @@ const lista = {
   },
 
   carouselWrap: {
-    border: '1px solid var(--accent)',
-    borderTop: 'none',
-    borderBottomLeftRadius: 'var(--radius-md)',
-    borderBottomRightRadius: 'var(--radius-md)',
+    marginTop: '-1px',
+    borderTopWidth: 0,
+    borderRightWidth: '1px', borderBottomWidth: '1px', borderLeftWidth: '1px',
+    borderStyle: 'solid', borderColor: 'var(--accent)',
+    borderTopLeftRadius: 0, borderTopRightRadius: 0,
+    borderBottomLeftRadius: 'var(--radius-md)', borderBottomRightRadius: 'var(--radius-md)',
     background: 'var(--bg-elevated)',
     padding: '10px',
     overflow: 'hidden',
+    maxWidth: '100%',
   },
 
   totalCard: {
@@ -1729,8 +1783,6 @@ const carousel = {
     display: 'flex', gap: '8px',
     overflowX: 'auto', overflowY: 'hidden',
     paddingBottom: '6px', paddingRight: '4px',
-    scrollbarWidth: 'thin',
-    scrollSnapType: 'x mandatory',
   },
   loadMoreSentinel: {
     flexShrink: 0,
@@ -1748,10 +1800,10 @@ const carousel = {
     width: '150px',
     display: 'flex', flexDirection: 'column', gap: '4px',
     padding: '10px 12px',
-    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+    background: 'var(--bg-surface)',
+    borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--border)',
     borderRadius: 'var(--radius-md)', cursor: 'pointer',
     textAlign: 'left', transition: 'border-color 0.15s',
-    scrollSnapAlign: 'start',
     boxSizing: 'border-box',
   },
   cardSelected: {
@@ -1774,6 +1826,13 @@ const carousel = {
   unitQty: {
     fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500,
     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  detailBtn: {
+    marginTop: '6px',
+    background: 'none', border: 'none',
+    color: 'var(--accent)', fontSize: '10px', fontWeight: 600,
+    cursor: 'pointer', padding: 0, textAlign: 'left',
+    textDecoration: 'underline', textUnderlineOffset: '2px',
   },
 };
 
