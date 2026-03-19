@@ -177,17 +177,33 @@ export default function TermsPage() {
           serán notificados dentro de la plataforma. El uso continuo de NØSEE después de publicar cambios
           implica la aceptación de los nuevos términos.
         </p>
+        <p>
+          <strong style={{ color: 'var(--text-primary)' }}>Nota sobre el futuro de la plataforma:</strong>{' '}
+          NØSEE comenzó como un proyecto universitario, pero está orientado a convertirse en un producto
+          real y disponible al público en general. En el momento en que se produzca ese lanzamiento
+          comercial, estos Términos de Uso serán actualizados para reflejar las nuevas condiciones,
+          responsabilidades y el marco legal correspondiente. Los usuarios registrados serán notificados
+          con anticipación y deberán aceptar los términos actualizados para continuar usando la plataforma.
+        </p>
       </Section>
 
       {/* 9. Contacto */}
       <Section title="9. Contacto">
         <p>
-          Para consultas sobre estos términos o sobre el funcionamiento de la plataforma, podés comunicarte
-          con el equipo de desarrollo a través del repositorio del proyecto en GitHub.
+          Para consultas, reportes o cualquier inquietud relacionada con estos términos o con el
+          funcionamiento de la plataforma, podés escribirnos a:
         </p>
         <p>
-          Este documento fue redactado en el contexto del proyecto universitario NØSEE,
-          desarrollado en la materia Ingeniería de Software III.
+          <a
+            href="mailto:noseecorp@gmail.com"
+            style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}
+          >
+            noseecorp@gmail.com
+          </a>
+        </p>
+        <p>
+          Este documento fue redactado en el contexto del proyecto NØSEE, actualmente en etapa
+          universitaria (Ingeniería de Software III), con proyección de lanzamiento comercial.
         </p>
       </Section>
     </main>

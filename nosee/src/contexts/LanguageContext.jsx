@@ -454,7 +454,7 @@ export const TRANSLATIONS = {
       tagline: "Compará precios en tiendas de tu barrio",
       terms: "Términos de uso",
       privacy: "Política de privacidad",
-      copyright: `© ${new Date().getFullYear()} NØSEE. Proyecto universitario — Ingeniería de Software III.`,
+      copyright: `© ${new Date().getFullYear()} NØSEE. Todos los derechos reservados.`,
       legalNote: "Al usar esta plataforma aceptás nuestros Términos de uso y Política de privacidad.",
     },
 
@@ -1784,7 +1784,7 @@ export const TRANSLATIONS = {
       tagline: "Compare prices at stores in your neighborhood",
       terms: "Terms of use",
       privacy: "Privacy policy",
-      copyright: `© ${new Date().getFullYear()} NØSEE. University project — Software Engineering III.`,
+      copyright: `© ${new Date().getFullYear()} NØSEE. All rights reserved.`,
       legalNote: "By using this platform you agree to our Terms of use and Privacy policy.",
     },
 

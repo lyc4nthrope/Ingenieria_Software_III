@@ -306,8 +306,32 @@ export default function PrivacyPage() {
           la aceptación de la nueva política.
         </p>
         <p>
-          Esta política fue redactada en el contexto del proyecto universitario NØSEE,
-          desarrollado en la materia Ingeniería de Software III.
+          <strong style={{ color: 'var(--text-primary)' }}>Nota sobre el futuro de la plataforma:</strong>{' '}
+          NØSEE está en etapa universitaria pero tiene proyección de convertirse en un producto comercial.
+          Cuando se produzca ese lanzamiento, esta Política de Privacidad será revisada y actualizada para
+          cumplir con los marcos legales aplicables (como GDPR, leyes de protección de datos locales u
+          otras regulaciones vigentes en los países donde opere). Los usuarios serán informados con
+          anticipación sobre cualquier cambio relevante en el tratamiento de sus datos.
+        </p>
+        <p>
+          Esta política fue redactada en el contexto del proyecto NØSEE, actualmente en etapa
+          universitaria (Ingeniería de Software III), con proyección de lanzamiento comercial.
+        </p>
+      </Section>
+
+      {/* 11. Contacto */}
+      <Section title="11. Contacto">
+        <p>
+          Para ejercer tus derechos, hacer consultas sobre esta política o reportar cualquier
+          inquietud relacionada con el tratamiento de tus datos, podés contactarnos en:
+        </p>
+        <p>
+          <a
+            href="mailto:noseecorp@gmail.com"
+            style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}
+          >
+            noseecorp@gmail.com
+          </a>
         </p>
       </Section>
     </main>

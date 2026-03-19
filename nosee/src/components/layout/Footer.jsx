@@ -60,6 +60,16 @@ export default function Footer() {
           </Link>
         </nav>
 
+        {/* Contacto */}
+        <a
+          href="mailto:noseecorp@gmail.com"
+          style={{ fontSize: '12px', color: 'var(--text-muted)', textDecoration: 'none' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
+        >
+          noseecorp@gmail.com
+        </a>
+
         {/* Copyright */}
         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
           {tf.copyright}
