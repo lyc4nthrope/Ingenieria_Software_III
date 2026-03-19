@@ -19,12 +19,16 @@ export default defineConfig({
     strictPort: false,
   },
   build: {
+    // ES2020+ genera bundles ~10-15% más pequeños — cubre >96% de navegadores actuales
+    target: 'es2020',
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor-react':   ['react', 'react-dom', 'react-router-dom'],
+          'vendor-react':    ['react', 'react-dom', 'react-router-dom'],
           'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-state':   ['zustand'],
+          'vendor-state':    ['zustand'],
+          // Leaflet (~150 kB) en chunk propio: solo se descarga al abrir una página con mapa
+          'vendor-maps':     ['leaflet', 'react-leaflet'],
         },
       },
     },

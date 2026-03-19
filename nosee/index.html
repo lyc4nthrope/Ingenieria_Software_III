@@ -36,11 +36,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://res.cloudinary.com" />
     <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+    <!-- Leaflet se carga dinámicamente desde unpkg — preconnect reduce latencia en páginas con mapa -->
+    <link rel="preconnect" href="https://unpkg.com" />
+    <link rel="dns-prefetch" href="https://unpkg.com" />
 
-    <!-- Fuente: display=swap evita texto invisible durante la carga (FOIT) -->
+    <!-- Fuente: wght@400;500;600;700;800 — se eliminó 300 (light) que no se usa -->
+    <!-- display=swap evita texto invisible durante la carga (FOIT) -->
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
     />
   </head>
   <body>
