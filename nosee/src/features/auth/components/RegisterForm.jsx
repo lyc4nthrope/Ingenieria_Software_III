@@ -231,9 +231,9 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
         />
         <span style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
           {tf.terms}{' '}
-          <Link to="/terminos" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>{tf.termsLink}</Link>
+          <Link to="/terminos" target="_blank" rel="noopener noreferrer" state={{ from: '/registro', label: 'Registrarse' }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>{tf.termsLink}</Link>
           {' '}{tf.and}{' '}
-          <Link to="/privacidad" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>{tf.privacyLink}</Link>.
+          <Link to="/privacidad" target="_blank" rel="noopener noreferrer" state={{ from: '/registro', label: 'Registrarse' }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>{tf.privacyLink}</Link>.
         </span>
       </label>
 

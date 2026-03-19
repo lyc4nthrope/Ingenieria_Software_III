@@ -44,6 +44,7 @@ export default function Footer() {
         <nav aria-label="Links legales" style={{ display: 'flex', gap: '20px' }}>
           <Link
             to="/terminos"
+            state={{ from: '/', label: 'Inicio' }}
             style={{ fontSize: '12px', color: 'var(--text-muted)', textDecoration: 'none' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}
@@ -52,6 +53,7 @@ export default function Footer() {
           </Link>
           <Link
             to="/privacidad"
+            state={{ from: '/', label: 'Inicio' }}
             style={{ fontSize: '12px', color: 'var(--text-muted)', textDecoration: 'none' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; }}

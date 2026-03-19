@@ -5,6 +5,13 @@
  * Detalla con precisión qué datos se recopilan, cómo se almacenan
  * y qué servicios de terceros utiliza la plataforma.
  */
+import { useLocation, Link } from 'react-router-dom';
+
+const ChevronIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
 
 const Section = ({ title, children }) => (
   <section style={{ marginBottom: '32px' }}>
@@ -41,6 +48,9 @@ const Tag = ({ children }) => (
 
 export default function PrivacyPage() {
   const lastUpdated = '18 de marzo de 2026';
+  const { state } = useLocation();
+  const backTo    = state?.from  ?? '/';
+  const backLabel = state?.label ?? 'Inicio';
 
   return (
     <main
@@ -52,6 +62,15 @@ export default function PrivacyPage() {
         flex: 1,
       }}
     >
+      {/* Miga de pan */}
+      <nav aria-label="Miga de pan" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '28px', fontSize: '13px', color: 'var(--text-muted)' }}>
+        <Link to={backTo} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>
+          {backLabel}
+        </Link>
+        <ChevronIcon />
+        <span style={{ color: 'var(--text-secondary)' }}>Política de privacidad</span>
+      </nav>
+
       {/* Encabezado */}
       <header style={{ marginBottom: '40px' }}>
         <h1 style={{
