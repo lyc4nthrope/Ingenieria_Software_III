@@ -23,19 +23,28 @@ export default class ErrorBoundary extends Component {
     window.location.reload();
   };
 
+  handleGoHome = () => {
+    window.location.href = '/';
+  };
+
   render() {
     if (!this.state.hasError) {
       return this.props.children;
     }
 
     return (
-      <section style={styles.wrapper}>
+      <section style={styles.wrapper} role="alert" aria-live="assertive">
         <h2 style={styles.title}>Algo salió mal</h2>
         <p style={styles.text}>{this.state.message}</p>
-        <p style={styles.text}>Intenta recargar la página para continuar.</p>
-        <button type="button" style={styles.button} onClick={this.handleReload}>
-          Recargar
-        </button>
+        <p style={styles.text}>Podés recargar la página o volver al inicio.</p>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
+          <button type="button" style={styles.button} onClick={this.handleReload}>
+            Recargar página
+          </button>
+          <button type="button" style={styles.buttonSecondary} onClick={this.handleGoHome}>
+            Ir al inicio
+          </button>
+        </div>
       </section>
     );
   }
@@ -59,12 +68,23 @@ const styles = {
     fontSize: "0.875rem",
   },
   button: {
-    marginTop: "12px",
     border: "none",
     borderRadius: "8px",
     background: "var(--error)",
     color: "var(--text-primary)",
     padding: "10px 14px",
     cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "0.875rem",
+  },
+  buttonSecondary: {
+    border: "1px solid var(--error)",
+    borderRadius: "8px",
+    background: "transparent",
+    color: "var(--error)",
+    padding: "10px 14px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "0.875rem",
   },
 };

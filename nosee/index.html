@@ -2,13 +2,42 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NØSEE</title>
-    <!-- Google Fonts: preconnect primero para eliminar latencia de DNS/TLS -->
+
+    <!-- Descripción base (usePageView la sobreescribe por ruta) -->
+    <title>NØSEE — Compará precios en tu barrio</title>
+    <meta name="description" content="Compará precios de productos en tiendas locales cerca tuyo. Encontrá las mejores ofertas, armá tu lista de compras y optimizá cuánto gastás." />
+    <meta name="theme-color" content="#38BDF8" />
+    <meta name="application-name" content="NØSEE" />
+
+    <!-- Canonical y robots -->
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:site_name"   content="NØSEE" />
+    <meta property="og:title"       content="NØSEE — Compará precios en tu barrio" />
+    <meta property="og:description" content="Compará precios de productos en tiendas locales cerca tuyo. Encontrá las mejores ofertas, armá tu lista de compras y optimizá cuánto gastás." />
+    <meta property="og:locale"      content="es_AR" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card"        content="summary" />
+    <meta name="twitter:title"       content="NØSEE — Compará precios en tu barrio" />
+    <meta name="twitter:description" content="Compará precios de productos en tiendas locales cerca tuyo. Encontrá las mejores ofertas y optimizá cuánto gastás." />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Preconnect: elimina latencia de DNS/TLS para recursos externos críticos -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- display=swap evita texto invisible durante la carga (FOIT) -->
+    <link rel="preconnect" href="https://res.cloudinary.com" />
+    <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+
+    <!-- Fuente: display=swap evita texto invisible durante la carga (FOIT) -->
     <link
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
