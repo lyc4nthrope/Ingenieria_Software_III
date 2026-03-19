@@ -251,14 +251,14 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
               onClick={() => setReportOpen(true)}
               style={styles.reportBtn}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
-                e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
-                e.currentTarget.style.color = 'var(--bg-surface, #fff)';
+                e.currentTarget.style.background = 'rgba(220, 38, 38, 0.65)';
+                e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.7)';
+                e.currentTarget.style.color = 'var(--bg-base)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--bg-elevated)';
-                e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
-                e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
+                e.currentTarget.style.background = 'rgba(220, 38, 38, 0.15)';
+                e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.35)';
+                e.currentTarget.style.color = 'rgba(220, 38, 38, 0.9)';
               }}
             >
               !
@@ -512,19 +512,21 @@ const styles = {
     color: 'var(--info)',
   },
   reportBtn: {
-    background: 'var(--bg-elevated)',
-    border: '1.5px solid rgba(180, 40, 40, 0.25)',
+    background: 'rgba(220, 38, 38, 0.15)',
+    border: '1.5px solid rgba(220, 38, 38, 0.35)',
     borderRadius: '50%',
     width: '28px',
     height: '28px',
     cursor: 'pointer',
     fontSize: '13px',
-    fontWeight: 700,
+    fontWeight: 800,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: 'rgba(180, 40, 40, 0.55)',
+    color: 'rgba(220, 38, 38, 0.9)',
     flexShrink: 0,
+    backdropFilter: 'blur(4px)',
+    transition: 'background 0.15s, border-color 0.15s',
   },
   closeBtn: {
     background: 'var(--bg-muted, rgba(0,0,0,0.06))',

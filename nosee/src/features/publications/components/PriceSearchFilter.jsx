@@ -353,14 +353,14 @@ function StoreCombobox({ value, onStoreChange, placeholder, inputStyle }) {
                   setIsOpen(false);
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
-                  e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
-                  e.currentTarget.style.color = 'var(--bg-surface, #fff)';
+                  e.currentTarget.style.background = 'rgba(220, 38, 38, 0.65)';
+                  e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.7)';
+                  e.currentTarget.style.color = 'var(--bg-base)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'none';
-                  e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
-                  e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
+                  e.currentTarget.style.background = 'rgba(220, 38, 38, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.35)';
+                  e.currentTarget.style.color = 'rgba(220, 38, 38, 0.9)';
                 }}
               >
                 !
@@ -433,15 +433,15 @@ const comboStyles = {
   },
   reportBtn: {
     flexShrink: 0,
-    background: 'none',
-    border: '1.5px solid rgba(180, 40, 40, 0.25)',
+    background: 'rgba(220, 38, 38, 0.15)',
+    border: '1.5px solid rgba(220, 38, 38, 0.35)',
     borderRadius: '50%',
     width: '22px',
     height: '22px',
     cursor: 'pointer',
     fontSize: '11px',
-    fontWeight: 700,
-    color: 'rgba(180, 40, 40, 0.55)',
+    fontWeight: 800,
+    color: 'rgba(220, 38, 38, 0.9)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

@@ -118,7 +118,7 @@ export default function Input({
         />
 
         {iconRight && (
-          <span style={{ ...iconStyle, right: '14px' }}>
+          <span style={{ ...iconStyle, right: '14px', pointerEvents: 'auto' }}>
             {iconRight}
           </span>
         )}
