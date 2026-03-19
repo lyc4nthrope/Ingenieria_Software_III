@@ -13,8 +13,6 @@
  * - getPublicationDetail()   : Obtener detalles de una publicación
  * - validatePublication()    : Votar (upvote/downvote) una publicación
  * - reportPublication()      : Reportar una publicación
- * - searchProducts()         : Autocomplete de productos
- * - searchStores()           : Autocomplete de tiendas + distancia
  * - updatePublication()      : Editar propia publicación
  * - deletePublication()      : Eliminar publicación (soft-delete por defecto, hard-delete admin opcional)
  */
@@ -27,6 +25,20 @@ import {
   detectIndecentImageByModeration,
 } from "@/services/moderation";
 import { recordVote, recordPublicationReport, recordVoteDuplicateRejected } from "@/services/metrics";
+
+import { clamp, normalizeSearchText } from "@/services/utils/normalization";
+import { hasCoordinates, parseStoreLocation, calculateDistance } from "@/services/utils/geoUtils";
+import {
+  REQUEST_TIMEOUT_MS, EXTENDED_RETRY_TIMEOUT_MS,
+  HYDRATION_TIMEOUT_MS, getRuntimeNetworkState,
+  getAdaptiveRequestTimeout, withTimeout, isTimeoutMessage, runWithSessionRetry
+} from "@/services/utils/requestUtils";
+import { createAutoModerationReport } from "@/services/utils/moderationReports";
+import {
+  searchProductsAndBrands, searchProducts, findProductByBarcode, getProducts, getStores,
+  searchStores, createProduct, updateProduct, createBrand, getProductCategories, getUnitTypes, searchBrands
+} from "@/services/api/products.api";
+import { getComments, addComment, deleteComment } from "@/services/api/comments.api";
 
 // ─── TIPOS / INTERFACES ───────────────────────────────────────────────────────
 
@@ -57,167 +69,8 @@ const SEARCH_SORT_FIELDS = new Set([
   SORT_OPTIONS.BEST_MATCH,
 ]);
 
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-const normalizeSearchText = (value = "") =>
-  String(value)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-const normalizeBarcodeValue = (value = "") =>
-  String(value || "")
-    .trim()
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .toUpperCase();
-
-const isMissingBarcodeColumnError = (error) =>
-  error?.code === "42703" && String(error?.message || "").toLowerCase().includes("barcode");
-
-let hasProductsBarcodeColumnCache = null;
-
-const supportsProductsBarcodeColumn = async () => {
-  if (hasProductsBarcodeColumnCache !== null) return hasProductsBarcodeColumnCache;
-
-  const { error } = await supabase.from("products").select("barcode").limit(1);
-
-  if (!error) {
-    hasProductsBarcodeColumnCache = true;
-    return true;
-  }
-
-  if (isMissingBarcodeColumnError(error)) {
-    hasProductsBarcodeColumnCache = false;
-    return false;
-  }
-
-  // Falla segura: no bloquear creación/edición si hay un error temporal.
-  // No cacheamos para poder reintentar más adelante.
-  return false;
-};
-
-const REQUEST_TIMEOUT_MS = 12000;
-const BACKGROUND_REQUEST_TIMEOUT_MS = 20000;
-const EXTENDED_RETRY_TIMEOUT_MS = 30000;
-const HYDRATION_TIMEOUT_MS = 3500;
-const FOREGROUND_GRACE_PERIOD_MS = 4000;
 const REQUIRE_IMAGE_MODERATION =
   String(import.meta.env.VITE_REQUIRE_IMAGE_MODERATION || "false").toLowerCase() === "true";
-
-const canUseBrowserApis = () => typeof window !== "undefined" && typeof document !== "undefined";
-
-const getRuntimeNetworkState = () => {
-  if (!canUseBrowserApis()) {
-    return { visibilityState: "server", online: null };
-  }
-
-  return {
-    visibilityState: document.visibilityState,
-    online: typeof navigator !== "undefined" ? navigator.onLine : null,
-  };
-};
-
-const getAdaptiveRequestTimeout = () => {
-  if (!canUseBrowserApis()) return REQUEST_TIMEOUT_MS;
-
-  const isHidden = document.visibilityState === "hidden";
-  const resumedRecently = Number(window.__NOSEE_LAST_TAB_VISIBLE_AT__ || 0);
-  const elapsedSinceResume = Date.now() - resumedRecently;
-  const isInResumeGracePeriod = elapsedSinceResume >= 0 && elapsedSinceResume < FOREGROUND_GRACE_PERIOD_MS;
-
-  return isHidden || isInResumeGracePeriod ? BACKGROUND_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
-};
-
-const withTimeout = async (promise, timeoutMs = REQUEST_TIMEOUT_MS, timeoutMessage = "Tiempo de espera agotado") => {
-  let timeoutId;
-
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => {
-      reject(new Error(timeoutMessage));
-    }, timeoutMs);
-  });
-
-  try {
-    return await Promise.race([promise, timeoutPromise]);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-};
-
-const isTimeoutMessage = (message = "") => {
-  const normalizedMessage = String(message || "").toLowerCase();
-  return normalizedMessage.includes("tardó demasiado") || normalizedMessage.includes("tiempo de espera agotado");
-};
-
-const hasCoordinates = (lat, lng) =>
-  Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
-
-const parseWKBPoint = (hexString) => {
-  try {
-    if (typeof hexString !== "string" || hexString.length < 42) return null;
-    const bytes = new Uint8Array(hexString.length / 2);
-    for (let i = 0; i < hexString.length; i += 2) {
-      bytes[i / 2] = parseInt(hexString.substr(i, 2), 16);
-    }
-    const view = new DataView(bytes.buffer);
-    const littleEndian = bytes[0] === 1;
-    const longitude = view.getFloat64(9, littleEndian);
-    const latitude = view.getFloat64(17, littleEndian);
-
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-    return { latitude, longitude };
-  } catch {
-    return null;
-  }
-};
-
-const parseStoreLocation = (locationValue) => {
-  if (!locationValue) return { latitude: null, longitude: null };
-
-  if (
-    typeof locationValue === "object" &&
-    Array.isArray(locationValue.coordinates) &&
-    locationValue.coordinates.length >= 2
-  ) {
-    const [longitude, latitude] = locationValue.coordinates;
-    if (Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))) {
-      return { latitude: Number(latitude), longitude: Number(longitude) };
-    }
-  }
-
-  if (
-    typeof locationValue === "object" &&
-    hasCoordinates(locationValue.latitude, locationValue.longitude)
-  ) {
-    return {
-      latitude: Number(locationValue.latitude),
-      longitude: Number(locationValue.longitude),
-    };
-  }
-
-  if (typeof locationValue !== "string") {
-    return { latitude: null, longitude: null };
-  }
-
-  if (/^[0-9a-fA-F]+$/.test(locationValue)) {
-    const wkbPoint = parseWKBPoint(locationValue);
-    return wkbPoint || { latitude: null, longitude: null };
-  }
-
-  const pointMatch = locationValue.match(
-    /POINT\s*\(\s*([-+]?\d*\.?\d+)\s+([-+]?\d*\.?\d+)\s*\)/i,
-  );
-
-  if (!pointMatch) return { latitude: null, longitude: null };
-
-  const longitude = Number(pointMatch[1]);
-  const latitude = Number(pointMatch[2]);
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return { latitude: null, longitude: null };
-  }
-
-  return { latitude, longitude };
-};
 
 const hasUserIdentity = (candidate) =>
   !!candidate && typeof candidate === "object" && !!(candidate.id || candidate.full_name);
@@ -252,7 +105,7 @@ const hydrateRelatedPublicationData = async (publications = []) => {
   const storesById = {};
 
    const hydrationTasks = [];
-  
+
   if (missingUserIds.length > 0) {
        hydrationTasks.push(
       withTimeout(
@@ -306,7 +159,7 @@ const hydrateRelatedPublicationData = async (publications = []) => {
     }
     if (hydrationTasks.length > 0) {
       await Promise.allSettled(hydrationTasks);
-    } 
+    }
 
   return publications.map((publication) => {
     const embeddedUser = publication?.user || publication?.users || null;
@@ -527,68 +380,6 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
       }
       return 0;
     });
-};
-
-const isAuthSessionError = (error) => {
-  const msg = String(error?.message || error || "").toLowerCase();
-  return (
-    msg.includes("jwt") ||
-    msg.includes("token") ||
-    msg.includes("session") ||
-    msg.includes("refresh") ||
-    msg.includes("expired") ||
-    msg.includes("invalid claim")
-  );
-};
-
-const runWithSessionRetry = async (operation, timeoutMs = getAdaptiveRequestTimeout()) => {
-  const firstAttempt = await withTimeout(
-    operation(),
-    timeoutMs,
-    "La sesión tardó demasiado en responder",
-  );
-
-  if (!firstAttempt?.error || !isAuthSessionError(firstAttempt.error)) {
-    return firstAttempt;
-  }
-
-  const { data: refreshData, error: refreshError } = await withTimeout(
-    supabase.auth.refreshSession(),
-    timeoutMs,
-    "No se pudo refrescar la sesión a tiempo",
-  );
-  if (refreshError || !refreshData?.session) {
-    return firstAttempt;
-  }
-
-  return withTimeout(
-    operation(),
-    timeoutMs,
-    "La sesión no se recuperó a tiempo",
-  );
-};
-
-const createAutoModerationReport = async ({
-  reportedType,
-  reportedId,
-  reporterUserId,
-  reportedUserId = null,
-  reason = "offensive",
-  description = null,
-}) => {
-  if (!reportedType || !reportedId || !reporterUserId) return;
-
-  await supabase.from("reports").insert({
-    reported_type: String(reportedType),
-    reported_id: String(reportedId),
-    reporter_user_id: reporterUserId,
-    reported_user_id: reportedUserId || reporterUserId,
-    reason,
-    description,
-    status: "PENDING",
-    created_at: new Date().toISOString(),
-    action_taken: "AUTO_FLAGGED_BY_MODERATION",
-  });
 };
 
 // ─── 1️⃣ CREAR PUBLICACIÓN ────────────────────────────────────────────────────
@@ -1219,7 +1010,7 @@ export const getPublications = async (filters = {}) => {
         if (nearbyStoreIds.length > 0) {
           break;
         }
-      } 
+      }
     }
 
     if (shouldApplyDistanceFilter && nearbyStoreIds.length === 0) {
@@ -1463,12 +1254,10 @@ export const getPublicationDetail = async (publicationId) => {
     }
 
     let comments = [];
-    const { data: commentsData, error: commentsError } = await loadCommentsRows(publicationId);
+    const commentsResult = await getComments(publicationId);
 
-    if (!commentsError && commentsData?.length) {
-      comments = await hydrateCommentUsers(
-        commentsData.filter((comment) => comment.is_deleted !== true),
-      );
+    if (commentsResult.success && commentsResult.data?.length) {
+      comments = commentsResult.data;
     }
 
     return { success: true, data: { ...data, comments } };
@@ -1651,8 +1440,8 @@ export const unvotePublication = async (publicationId) => {
  * @returns {Promise} { success, data, error, message }
  *
  * @example
- * const result = await reportPublication(123, { 
- *   reason: 'fake_price', 
+ * const result = await reportPublication(123, {
+ *   reason: 'fake_price',
  *   description: 'El precio es imposible',
  *   evidenceFile: fileObject
  * });
@@ -1670,21 +1459,21 @@ export const unvotePublication = async (publicationId) => {
  */
 export const checkUserReportStatus = async (publicationId) => {
   const logPrefix = '[📋 CHECK-REPORT]';
-  
+
   try {
     console.log(`${logPrefix} Verificando si usuario ya reportó publicación #${publicationId}`);
-    
+
     // Obtener usuario actual
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    
+
     if (!user) {
       console.log(`${logPrefix} Usuario no autenticado`);
-      return { 
-        success: true, 
-        hasReported: false, 
-        existingReport: null 
+      return {
+        success: true,
+        hasReported: false,
+        existingReport: null
       };
     }
 
@@ -1699,29 +1488,29 @@ export const checkUserReportStatus = async (publicationId) => {
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
       console.error(`${logPrefix} Error buscando reporte:`, error.message);
-      return { 
-        success: false, 
-        error: error.message 
+      return {
+        success: false,
+        error: error.message
       };
     }
 
     const hasReported = !!existingReport;
-    console.log(`${logPrefix} Resultado:`, { 
-      hasReported, 
-      reportId: existingReport?.id 
+    console.log(`${logPrefix} Resultado:`, {
+      hasReported,
+      reportId: existingReport?.id
     });
 
-    return { 
-      success: true, 
-      hasReported, 
-      existingReport: existingReport || null 
+    return {
+      success: true,
+      hasReported,
+      existingReport: existingReport || null
     };
 
   } catch (err) {
     console.error(`${logPrefix} Error crítico:`, err.message);
-    return { 
-      success: false, 
-      error: err.message 
+    return {
+      success: false,
+      error: err.message
     };
   }
 };
@@ -1732,16 +1521,16 @@ export const reportPublication = async (
   _deprecatedDescription,
 ) => {
   const logPrefix = '[📋 REPORTE]';
-  
+
   try {
     console.log(`${logPrefix} Iniciando reporte de publicación #${publicationId}`);
     console.log(`${logPrefix} Payload recibido:`, payload);
 
     // ─── VALIDACIONES ───────────────────────────────────────────────────
-    
+
     // Manejar tanto payload object como parámetros antiguos
     const isLegacyCall = typeof payload === 'string';
-    const reportData = isLegacyCall 
+    const reportData = isLegacyCall
       ? { reason: payload, description: _deprecatedDescription }
       : payload;
 
@@ -1754,8 +1543,8 @@ export const reportPublication = async (
     if (!publicationId || !reportData.reason) {
       const errorMsg = "Datos incompletos: falta publicationId o reason";
       console.error(`${logPrefix} ❌ ${errorMsg}`);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: errorMsg,
         message: "Por favor completa la razón del reporte"
       };
@@ -1765,8 +1554,8 @@ export const reportPublication = async (
     if (!validReasons.includes(reportData.reason)) {
       const errorMsg = `Razón de reporte inválida: ${reportData.reason}`;
       console.error(`${logPrefix} ❌ ${errorMsg}`);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: errorMsg,
         message: "Razón de reporte no válida"
       };
@@ -1778,12 +1567,12 @@ export const reportPublication = async (
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    
+
     if (!user) {
       const errorMsg = "Usuario no autenticado";
       console.error(`${logPrefix} ❌ ${errorMsg}`);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: errorMsg,
         message: "Debes iniciar sesión para reportar"
       };
@@ -1804,8 +1593,8 @@ export const reportPublication = async (
 
     if (checkError && checkError.code !== 'PGRST116') {
       console.error(`${logPrefix} ❌ Error verificando reporte:`, checkError.message);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: checkError.message,
         message: "Error verificando reportes anteriores"
       };
@@ -1814,8 +1603,8 @@ export const reportPublication = async (
     if (existingReport) {
       const errorMsg = `Ya reportaste esta publicación el ${new Date(existingReport.created_at).toLocaleString()}`;
       console.warn(`${logPrefix} ⚠️ ${errorMsg}`);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: "Duplicate report",
         message: errorMsg,
         existingReport
@@ -1830,7 +1619,7 @@ export const reportPublication = async (
     if (reportData.evidenceFile) {
       try {
         console.log(`${logPrefix} Subiendo archivo de evidencia a Cloudinary...`);
-        
+
         const cloudinaryResult = await uploadImageToCloudinary(reportData.evidenceFile, {
           folder: 'nosee/reports-evidence'
         });
@@ -1873,8 +1662,8 @@ export const reportPublication = async (
 
     if (error) {
       console.error(`${logPrefix} ❌ Error en BD:`, error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error.message,
         message: "Hubo un error al guardar el reporte"
       };
@@ -1900,329 +1689,11 @@ export const reportPublication = async (
       stack: err.stack,
       publicationId,
     });
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: err.message,
       message: "Error al procesar el reporte. Intenta de nuevo."
     };
-  }
-};
-
-// ─── 6️⃣ BUSCAR PRODUCTOS (AUTOCOMPLETE) ───────────────────────────────────────
-
-/**
- * Buscar productos por nombre (autocomplete)
- *
- * @param {string} query - Texto de búsqueda (min 2 caracteres)
- * @param {number} limit - Máximo de resultados (default 10)
- *
- * @returns {Promise} { success, data, error }
- *
- * @example
- * const result = await searchProducts('ace');
- * // Retorna: [{ id: 1, name: 'Aceite de oliva' }, ...]
- */
-
-export const searchProductsAndBrands = async (query, limit = 8) => {
-  try {
-    if (!query || query.trim().length < 2) {
-      return { success: true, data: [] };
-    }
-
-    const safeLimit = Math.max(3, Math.min(Number(limit) || 8, 20));
-    const term = query.trim();
-    const normalizedTerm = normalizeSearchText(term);
-    const seedTerm = term.length >= 3 ? term.slice(0, 3) : term;
-
-    const [{ data: productsData, error: productsError }, { data: brandsData, error: brandsError }] = await Promise.all([
-      supabase
-        .from("products")
-        .select("id, name, brand:brands(id, name)")
-        .ilike("name", `%${seedTerm}%`)
-        .limit(safeLimit * 5),
-      supabase
-        .from("brands")
-        .select("id, name")
-        .ilike("name", `%${seedTerm}%`)
-        .limit(safeLimit * 3),
-    ]);
-
-    if (productsError) return { success: false, error: productsError.message };
-    if (brandsError) return { success: false, error: brandsError.message };
-
-    const seen = new Set();
-    const suggestions = [];
-
-    let normalizedProducts = (productsData || []).filter((product) => {
-      const productName = normalizeSearchText(product.name);
-      const brandName = normalizeSearchText(product?.brand?.name || "");
-      return productName.includes(normalizedTerm) || brandName.includes(normalizedTerm);
-    });
-
-    for (const product of normalizedProducts) {
-      const key = `product-${product.id}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      suggestions.push({
-        id: product.id,
-        label: product.brand?.name ? `${product.name} · ${product.brand.name}` : product.name,
-        type: "product",
-        value: product.name,
-      });
-    }
-
-    let normalizedBrands = (brandsData || []).filter((brand) =>
-      normalizeSearchText(brand.name).includes(normalizedTerm),
-    );
-
-    // Fallback acento-insensible/mayúsculas cuando ILIKE no devuelve candidatos.
-    if (normalizedProducts.length === 0 && normalizedBrands.length === 0) {
-      const [{ data: broadProducts }, { data: broadBrands }] = await Promise.all([
-        supabase
-          .from("products")
-          .select("id, name, brand:brands(id, name)")
-          .limit(safeLimit * 40),
-        supabase
-          .from("brands")
-          .select("id, name")
-          .limit(safeLimit * 20),
-      ]);
-
-      normalizedProducts = (broadProducts || []).filter((product) => {
-        const productName = normalizeSearchText(product.name);
-        const brandName = normalizeSearchText(product?.brand?.name || "");
-        return productName.includes(normalizedTerm) || brandName.includes(normalizedTerm);
-      });
-
-      normalizedBrands = (broadBrands || []).filter((brand) =>
-        normalizeSearchText(brand.name).includes(normalizedTerm),
-      );
-    }
-
-    for (const brand of normalizedBrands) {
-      const key = `brand-${brand.id}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      suggestions.push({
-        id: brand.id,
-        label: `${brand.name} (marca)`,
-        type: "brand",
-        value: brand.name,
-      });
-    }
-
-    return { success: true, data: suggestions.slice(0, safeLimit) };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-};
-
-export const searchProducts = async (query, limit = 10, brandQuery = "") => {
-  try {
-    if (!query || query.length < 2) {
-      return { success: true, data: [] };
-    }
-
-    let brandIds = null;
-    if (brandQuery && brandQuery.trim().length >= 1) {
-      const { data: brands } = await supabase
-        .from("brands")
-        .select("id")
-        .ilike("name", `%${brandQuery.trim()}%`)
-        .limit(50);
-      if (brands && brands.length > 0) {
-        brandIds = brands.map((b) => b.id);
-      } else {
-        return { success: true, data: [] };
-      }
-    }
-
-    const executeSearch = () => {
-      let q = supabase
-        .from("products")
-        .select("id, name, category_id, base_quantity, brand:brands(id, name), unit:unit_types(name)")
-        .ilike("name", `%${query}%`);
-      if (brandIds) q = q.in("brand_id", brandIds);
-      return q.limit(limit);
-    };
-
-    const { data, error } = await runWithSessionRetry(executeSearch, getAdaptiveRequestTimeout());
-
-    if (error) {
-      console.error("Error buscando productos:", error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data };
-  } catch (err) {
-    if (err?.code === "QUERY_TIMEOUT") {
-      console.error("Timeout en searchProducts", {
-        operation: err.operation,
-        timeoutMs: err.timeoutMs,
-        supabaseHost: err.supabaseHost,
-        online: err.online,
-      });
-      return {
-        success: false,
-        error: `Timeout en ${err.operation}. Revisa conectividad y configuración de Supabase (${err.supabaseHost}).`,
-      };
-    }
-    console.error("Error en searchProducts:", err);
-    return { success: false, error: err.message };
-  }
-};
-
-export const findProductByBarcode = async (barcode) => {
-  const normalizedBarcode = normalizeBarcodeValue(barcode);
-  if (!normalizedBarcode || normalizedBarcode.length < 4) {
-    return { success: true, data: null };
-  }
-
-  try {
-    const supportsBarcode = await supportsProductsBarcodeColumn();
-    if (!supportsBarcode) return { success: true, data: null };
-
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, category_id, base_quantity, barcode, brand:brands(name), unit:unit_types(name)")
-      .eq("barcode", normalizedBarcode)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      if (isMissingBarcodeColumnError(error)) {
-        hasProductsBarcodeColumnCache = false;
-        return { success: true, data: null };
-      }
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data: data || null };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * Obtener listado base de productos para el formulario de publicación
- */
-export const getProducts = async (limit = 100) => {
-  try {
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
-      .order("name", { ascending: true })
-      .limit(limit);
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data: data || [] };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * Obtener listado base de tiendas para el formulario de publicación
- */
-export const getStores = async (limit = 100) => {
-  try {
-    const { data, error } = await supabase
-      .from("stores")
-      .select("id, name")
-      .order("name", { ascending: true })
-      .limit(limit);
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data: data || [] };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-};
-
-// ─── 7️⃣ BUSCAR TIENDAS (AUTOCOMPLETE + DISTANCIA) ─────────────────────────────
-
-/**
- * Buscar tiendas por nombre y opcionalmente por distancia
- *
- * @param {string} query - Nombre de la tienda (min 2 caracteres)
- * @param {number} maxDistance - Distancia máxima en km (opcional)
- * @param {number} latitude - Latitud del usuario (necesario si maxDistance)
- * @param {number} longitude - Longitud del usuario (necesario si maxDistance)
- * @param {number} limit - Máximo de resultados (default 10)
- *
- * @returns {Promise} { success, data, error }
- *
- * @example
- * const result = await searchStores('carrefour', 5, 4.7110, -74.0721);
- */
-export const searchStores = async (
-  query,
-  maxDistance = null,
-  latitude = null,
-  longitude = null,
-  limit = 10,
-) => {
-  try {
-    if (!query || query.length < 2) {
-      return { success: true, data: [] };
-    }
-
-    const executeSearch = () =>
-      supabase
-        .from("stores")
-        .select("id, name, address, location")
-        .ilike("name", `%${query}%`)
-        .limit(limit);
-
-    const { data, error } = await runWithSessionRetry(executeSearch, getAdaptiveRequestTimeout());
-
-    if (error) {
-      console.error("Error buscando tiendas:", error);
-      return { success: false, error: error.message };
-    }
-
-    // Filtro por distancia (client-side)
-    const storesWithCoordinates = (data || []).map((store) => ({
-      ...store,
-      ...parseStoreLocation(store.location),
-    }));
-
-    let filtered = storesWithCoordinates;
-    if (maxDistance && hasCoordinates(latitude, longitude)) {
-      filtered = storesWithCoordinates.filter((store) => {
-        const distance = calculateDistance(
-          Number(latitude),
-          Number(longitude),
-          store.latitude,
-          store.longitude,
-        );
-        return distance <= maxDistance;
-      });
-    }
-
-    return { success: true, data: filtered };
-  } catch (err) {
-    if (err?.code === "QUERY_TIMEOUT") {
-      console.error("Timeout en searchStores", {
-        operation: err.operation,
-        timeoutMs: err.timeoutMs,
-        supabaseHost: err.supabaseHost,
-        online: err.online,
-      });
-      return {
-        success: false,
-        error: `Timeout en ${err.operation}. Revisa conectividad y configuración de Supabase (${err.supabaseHost}).`,
-      };
-    }
-
-    console.error("Error en searchStores:", err);
-    return { success: false, error: err.message };
   }
 };
 
@@ -2413,518 +1884,11 @@ export const deletePublication = async (publicationId, options = {}) => {
   }
 };
 
-// ─── UTILIDADES ───────────────────────────────────────────────────────────────
-
-/**
- * Calcular distancia entre dos puntos geográficos (Haversine formula)
- * Resultado en kilómetros
- *
- * @private
- */
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Radio de la Tierra en km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
-
-/**
- * Exportar función de distancia para testing
- */
-export const _calculateDistance = calculateDistance;
-
-// ─── CREAR PRODUCTO ───────────────────────────────────────────────────────────
-
-/**
- * Crear un producto nuevo si no existe en el catálogo.
- * @param {string} name - Nombre del producto
- */
-export async function createProduct(name) {
-  const isLegacyNameOnlyMode = typeof name === "string";
-  const normalizedName = String(name?.name || name || "").trim();
-  const categoryId = Number(name?.categoryId);
-  const unitTypeId = Number(name?.unitTypeId);
-  const brandId = Number(name?.brandId);
-  const brandName = String(name?.brandName || "").trim();
-  const baseQuantity = Number(name?.baseQuantity);
-  const normalizedBarcode = normalizeBarcodeValue(name?.barcode);
-  let supportsBarcode = false;
-  if (!normalizedName || normalizedName.length < 2) {
-    return {
-      success: false,
-      error: "El nombre del producto debe tener al menos 2 caracteres",
-    };
-  }
-
-  const restrictedProductName = detectRestrictedContentText(normalizedName);
-  if (restrictedProductName.flagged) {
-    return {
-      success: false,
-      error:
-        "El nombre del producto contiene términos restringidos (adulto/gore). Solo se permiten productos aptos para todo público.",
-    };
-  }
-
-  // Compatibilidad legacy: cuando llega solo el nombre, intenta reutilizar un producto existente.
-  if (isLegacyNameOnlyMode) {
-    const { data: existingByName, error: existingByNameError } = await supabase
-      .from("products")
-      .select("id, name, category_id")
-      .ilike("name", normalizedName)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingByNameError) {
-      return { success: false, error: existingByNameError.message };
-    }
-
-    if (existingByName) {
-      return { success: true, data: existingByName };
-    }
-
-    return {
-      success: false,
-      error: "Debes indicar categoría, unidad de medida y cantidad base válida",
-    };
-  }
-
-  if (!categoryId || !unitTypeId || !baseQuantity || baseQuantity <= 0) {
-    return {
-      success: false,
-      error:
-        "Debes indicar categoría, unidad de medida y cantidad base válida",
-    };
-  }
-
-  if (normalizedBarcode && normalizedBarcode.length < 4) {
-    return {
-      success: false,
-      error: "El código de barras debe tener al menos 4 caracteres",
-    };
-  }
-
-  if (normalizedBarcode) {
-    supportsBarcode = await supportsProductsBarcodeColumn();
-  }
-
-  if (supportsBarcode && normalizedBarcode) {
-    const { data: existingByBarcode, error: barcodeLookupError } = await supabase
-      .from("products")
-      .select("id, name, category_id, brand_id, unit_type_id, base_quantity, barcode")
-      .eq("barcode", normalizedBarcode)
-      .limit(1)
-      .maybeSingle();
-
-    if (barcodeLookupError) {
-      if (isMissingBarcodeColumnError(barcodeLookupError)) {
-        hasProductsBarcodeColumnCache = false;
-      } else {
-        return { success: false, error: barcodeLookupError.message };
-      }
-    } else if (existingByBarcode) {
-      return { success: true, data: existingByBarcode };
-    }
-  }
-
-  const existingProductsSelect = supportsBarcode
-    ? "id, name, category_id, brand_id, unit_type_id, base_quantity, barcode"
-    : "id, name, category_id, brand_id, unit_type_id, base_quantity";
-
-  const { data: existingProducts, error: existingError } = await supabase
-    .from("products")
-    .select(existingProductsSelect)
-    .ilike("name", normalizedName);
-
-  if (existingError) {
-    return { success: false, error: existingError.message };
-  }
-
-  if (existingProducts && existingProducts.length > 0) {
-    const exactDuplicate = existingProducts.find((p) =>
-      Number(p.brand_id) === brandId &&
-      Number(p.unit_type_id) === unitTypeId &&
-      Number(p.base_quantity) === baseQuantity
-    );
-    if (exactDuplicate) {
-      return { success: false, error: "Este producto ya está registrado con la misma marca, unidad y cantidad.", alreadyExists: true, data: exactDuplicate };
-    }
-  }
-
-  let resolvedBrandId = brandId;
-  if (!resolvedBrandId && brandName) {
-    const { data: existingBrand, error: existingBrandError } = await supabase
-      .from("brands")
-      .select("id")
-      .ilike("name", brandName)
-      .limit(1)
-      .maybeSingle();
-
-    if (existingBrandError) {
-      return { success: false, error: existingBrandError.message };
-    }
-
-    if (existingBrand) {
-      resolvedBrandId = existingBrand.id;
-    }
-  }
-
-  if (!resolvedBrandId) {
-    return {
-      success: false,
-      error: "Selecciona o registra una marca antes de crear el producto",
-    };
-  }
-
-  const insertPayload = {
-      name: normalizedName,
-      category_id: categoryId,
-      unit_type_id: unitTypeId,
-      brand_id: resolvedBrandId,
-      base_quantity: baseQuantity,
-    };
-
-  if (supportsBarcode && normalizedBarcode) {
-    insertPayload.barcode = normalizedBarcode;
-  }
-
-  const productSelect = supportsBarcode
-    ? "id, name, category_id, brand_id, unit_type_id, base_quantity, barcode"
-    : "id, name, category_id, brand_id, unit_type_id, base_quantity";
-
-  const { data, error } = await supabase
-    .from("products")
-    .insert(insertPayload)
-    .select(productSelect)
-    .single();
-
-  if (error) {
-    if (error.code === "23505") {
-      let duplicateProduct = null;
-
-      if (supportsBarcode && normalizedBarcode) {
-        const { data: duplicateByBarcode } = await supabase
-          .from("products")
-          .select(productSelect)
-          .eq("barcode", normalizedBarcode)
-          .limit(1)
-          .maybeSingle();
-        duplicateProduct = duplicateByBarcode || null;
-      }
-
-      if (!duplicateProduct) {
-        const { data: duplicateByName } = await supabase
-          .from("products")
-          .select(productSelect)
-          .ilike("name", normalizedName)
-          .limit(1)
-          .maybeSingle();
-        duplicateProduct = duplicateByName || null;
-      }
-
-      if (duplicateProduct) {
-        return { success: true, data: duplicateProduct };
-      }
-    }
-
-    return { success: false, error: error.message };
-  }
-
-  // Sumar reputación al creador del producto (best-effort)
-  const { data: { user: authUser } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-  if (authUser?.id) {
-    void (async () => {
-      await supabase.rpc("increment_user_reputation", {
-        target_user_id: authUser.id,
-        reputation_delta: 2,
-      });
-    })();
-  }
-
-  return { success: true, data };
-}
-
-export async function updateProduct(productId, updates = {}) {
-  if (!productId) return { success: false, error: "ID de producto requerido" };
-
-  const safeUpdates = {};
-  if (typeof updates.name === "string") safeUpdates.name = updates.name.trim();
-  if (updates.categoryId !== undefined) safeUpdates.category_id = Number(updates.categoryId);
-  if (updates.unitTypeId !== undefined) safeUpdates.unit_type_id = Number(updates.unitTypeId);
-  if (updates.brandId !== undefined) safeUpdates.brand_id = Number(updates.brandId);
-  if (updates.baseQuantity !== undefined) safeUpdates.base_quantity = Number(updates.baseQuantity);
-
-  if (Object.keys(safeUpdates).length === 0) {
-    return { success: false, error: "No hay campos para actualizar" };
-  }
-
-  const { data, error } = await supabase
-    .from("products")
-    .update(safeUpdates)
-    .eq("id", productId)
-    .select("id, name, category_id, brand_id, unit_type_id, base_quantity")
-    .single();
-
-  if (error) return { success: false, error: error.message };
-  return { success: true, data };
-}
-
-export const createBrand = async (name) => {
-  const normalizedName = String(name || "").trim();
-  if (!normalizedName || normalizedName.length < 2) {
-    return {
-      success: false,
-      error: "El nombre de la marca debe tener al menos 2 caracteres",
-    };
-  }
-
-  const restrictedBrandName = detectRestrictedContentText(normalizedName);
-  if (restrictedBrandName.flagged) {
-    return {
-      success: false,
-      error:
-        "El nombre de la marca contiene términos restringidos (adulto/gore).",
-    };
-  }
-
-  const { data: existing, error: existingError } = await supabase
-    .from("brands")
-    .select("id, name")
-    .ilike("name", normalizedName)
-    .limit(1)
-    .maybeSingle();
-
-  if (existingError) {
-    return { success: false, error: existingError.message };
-  }
-
-  if (existing) {
-    return { success: false, error: "Esta marca ya está registrada.", alreadyExists: true, data: existing };
-  }
-
-  const { data, error } = await supabase
-    .from("brands")
-    .insert({ name: normalizedName })
-    .select("id, name")
-    .single();
-
-  if (error) {
-    if (error.code === "42501") {
-      return {
-        success: false,
-        error:
-          "No tienes permiso para registrar marcas. Solicita habilitar la política RLS de inserción en brands.",
-      };
-    }
-    return { success: false, error: error.message };
-  }
-
-  // Sumar reputación al creador de la marca (best-effort)
-  const { data: { user: authUserBrand } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-  if (authUserBrand?.id) {
-    void (async () => {
-      await supabase.rpc("increment_user_reputation", {
-        target_user_id: authUserBrand.id,
-        reputation_delta: 1,
-      });
-    })();
-  }
-
-  return { success: true, data };
-};
-
-export const getProductCategories = async () => {
-  try {
-    const executeQuery = () =>
-      supabase
-        .from("product_categories")
-        .select("id, name")
-        .order("name", { ascending: true });
-
-    const { data, error } = await runWithSessionRetry(
-      executeQuery,
-      getAdaptiveRequestTimeout(),
-    );
-
-    if (error) return { success: false, error: error.message };
-    return { success: true, data: data || [] };
-  } catch (err) {
-    return { success: false, error: err?.message || "Error cargando categorías" };
-  }
-};
-
-export const getUnitTypes = async () => {
-  const { data, error } = await supabase
-    .from("unit_types")
-    .select("id, name, abbreviation, category")
-    .order("category", { ascending: true })
-    .order("name", { ascending: true });
-
-  if (error) return { success: false, error: error.message };
-  return { success: true, data: data || [] };
-};
-
-export const searchBrands = async (query, limit = 10) => {
-  if (!query || query.length < 1) return { success: true, data: [] };
-
-  const { data, error } = await supabase
-    .from("brands")
-    .select("id, name")
-    .ilike("name", `%${query}%`)
-    .order("name", { ascending: true })
-    .limit(limit);
-
-  if (error) return { success: false, error: error.message };
-  return { success: true, data: data || [] };
-};
-
-
-// ─── COMENTARIOS ─────────────────────────────────────────────────────────────
-
-/**
- * Obtener todos los comentarios de una publicación (flat, sin borrados)
- */
-const hydrateCommentUsers = async (comments) => {
-  if (!comments.length) return comments;
-  const userIds = [...new Set(comments.map((c) => c.user_id).filter(Boolean))];
-  const { data: usersData } = await supabase
-    .from("users")
-    .select("id, full_name")
-    .in("id", userIds);
-  const usersMap = {};
-  for (const u of usersData || []) usersMap[u.id] = u;
-  return comments.map((c) => ({ ...c, user: usersMap[c.user_id] || null }));
-};
-
-const loadCommentsRows = async (publicationId) => {
-  const baseQuery = supabase
-    .from("comments")
-    .select("id, content, created_at, user_id, parent_id, is_deleted")
-    .eq("publication_id", publicationId)
-    .order("created_at", { ascending: true });
-
-    const withSoftDeleteFilter = await baseQuery.eq("is_deleted", false);
-  if (!withSoftDeleteFilter.error) return withSoftDeleteFilter;
-
-  // Compatibilidad: algunos entornos siguen sin la columna is_deleted.
-  if (withSoftDeleteFilter.error.code === "42703") {
-    const withoutSoftDeleteFilter = await supabase
-      .from("comments")
-      .select("id, content, created_at, user_id, parent_id")
-      .eq("publication_id", publicationId)
-      .order("created_at", { ascending: true });
-    return withoutSoftDeleteFilter;
-  }
-
-  return withSoftDeleteFilter;
-};
-
-export const getComments = async (publicationId) => {
-  try {
-    if (!publicationId) return { success: false, error: "ID requerido" };
-
-    const { data, error } = await loadCommentsRows(publicationId);
-    if (error) return { success: false, error: error.message };
-    const rows = (data || []).filter((comment) => comment.is_deleted !== true);
-    return { success: true, data: await hydrateCommentUsers(rows) };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * Agregar un comentario (o respuesta) a una publicación
- * @param {number} publicationId
- * @param {string} content
- * @param {string|null} parentId - UUID del comentario padre (null = top-level)
- */
-export const addComment = async (publicationId, content, parentId = null) => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Usuario no autenticado" };
-
-    const trimmed = String(content || "").trim();
-    if (!trimmed) return { success: false, error: "El comentario no puede estar vacío" };
-
-    const commentModeration = detectInappropriateText(trimmed);
-    const restrictedCommentModeration = detectRestrictedContentText(trimmed);
-    if (commentModeration.flagged || restrictedCommentModeration.flagged) {
-      await createAutoModerationReport({
-        reportedType: "user",
-        reportedId: user.id,
-        reporterUserId: user.id,
-        reportedUserId: user.id,
-        reason: "offensive",
-        description: `AUTO-MODERATION BLOCK (comment): insultos=[${commentModeration.matches.map((m) => m.term).join(", ")}] restringido=[${restrictedCommentModeration.matches.join(", ")}]`,
-      });
-      return {
-        success: false,
-        error:
-          "Tu comentario fue bloqueado automáticamente por posible contenido ofensivo o adulto/gore.",
-        autoModerated: true,
-      };
-    }
-
-    const { data, error } = await supabase
-      .from("comments")
-      .insert({
-        publication_id: publicationId,
-        user_id: user.id,
-        content: trimmed,
-        parent_id: parentId || null,
-      })
-      .select("id, content, created_at, user_id, parent_id")
-      .single();
-
-    if (error) return { success: false, error: error.message };
-
-    // Obtener nombre del usuario desde public.users
-    const { data: userData } = await supabase
-      .from("users")
-      .select("id, full_name")
-      .eq("id", user.id)
-      .single();
-
-    // Sumar reputación por comentar (best-effort)
-    void (async () => {
-      await supabase.rpc("increment_user_reputation", {
-        target_user_id: user.id,
-        reputation_delta: 1,
-      });
-    })();
-
-    return { success: true, data: { ...data, user: userData || null } };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-};
-
-/**
- * Eliminar (soft delete) un comentario propio
- * @param {string} commentId - UUID del comentario
- */
-export const deleteComment = async (commentId) => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Usuario no autenticado" };
-
-    const { error } = await supabase
-      .from("comments")
-      .update({ is_deleted: true })
-      .eq("id", commentId)
-      .eq("user_id", user.id);
-
-    if (error) return { success: false, error: error.message };
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+// ─── RE-EXPORTAR APIs auxiliares (backward compatibility) ────────────────────
+export {
+  searchProductsAndBrands, searchProducts, findProductByBarcode, getProducts, getStores,
+  searchStores, createProduct, updateProduct, createBrand, getProductCategories, getUnitTypes, searchBrands,
+  getComments, addComment, deleteComment,
 };
 
 // ─── EXPORTAR TODO ────────────────────────────────────────────────────────────

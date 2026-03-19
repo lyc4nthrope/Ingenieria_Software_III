@@ -81,6 +81,7 @@ export default function Input({
     fontSize: '12px',
     color: error ? 'var(--error)' : 'var(--text-muted)',
     marginTop: '2px',
+    whiteSpace: 'pre-line',
   };
 
   return (
@@ -118,7 +119,7 @@ export default function Input({
         />
 
         {iconRight && (
-          <span style={{ ...iconStyle, right: '14px' }}>
+          <span style={{ ...iconStyle, right: '14px', pointerEvents: 'auto' }}>
             {iconRight}
           </span>
         )}

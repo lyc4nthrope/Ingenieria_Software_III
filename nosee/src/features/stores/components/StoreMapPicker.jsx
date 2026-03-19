@@ -6,8 +6,8 @@ import { recordGeocodingRequest } from "@/services/metrics";
 const MAP_HEIGHT = 340;
 const DEFAULT_ZOOM = 16;
 const DEFAULT_CENTER = { latitude: 4.711, longitude: -74.0721 };
-const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-const LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+import { ensureLeafletLoaded } from "@/services/utils/leafletLoader";
+
 
 const TILE_LAYERS = {
   dark: {
@@ -46,61 +46,6 @@ function createMarkerIcon(L) {
   });
 }
 
-function getLeaflet() {
-  return window.L;
-}
-function ensureLeafletLoaded() {
-  if (getLeaflet()) return Promise.resolve(getLeaflet());
-
-  if (window.__leafletLoaderPromise) {
-    return window.__leafletLoaderPromise;
-  }
-
-  window.__leafletLoaderPromise = new Promise((resolve, reject) => {
-    if (
-      !document.querySelector(`link[data-leaflet-css="${LEAFLET_CSS_URL}"]`)
-    ) {
-      const cssLink = document.createElement("link");
-      cssLink.rel = "stylesheet";
-      cssLink.href = LEAFLET_CSS_URL;
-      cssLink.dataset.leafletCss = LEAFLET_CSS_URL;
-      document.head.appendChild(cssLink);
-    }
-
-    const existingScript = document.querySelector(
-      `script[data-leaflet-js="${LEAFLET_JS_URL}"]`,
-    );
-    if (existingScript) {
-      existingScript.addEventListener("load", () => resolve(getLeaflet()));
-      existingScript.addEventListener("error", () =>
-        reject(new Error("No se pudo cargar Leaflet desde CDN.")),
-      );
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = LEAFLET_JS_URL;
-    script.async = true;
-    script.dataset.leafletJs = LEAFLET_JS_URL;
-    script.onload = () => {
-      if (!getLeaflet()) {
-        reject(
-          new Error("Leaflet se cargó, pero no está disponible en window.L."),
-        );
-        return;
-      }
-      resolve(getLeaflet());
-    };
-    script.onerror = () =>
-      reject(new Error("No se pudo cargar Leaflet desde CDN."));
-    document.body.appendChild(script);
-  }).catch((error) => {
-    window.__leafletLoaderPromise = null;
-    throw error;
-  });
-
-  return window.__leafletLoaderPromise;
-}
 
 // Nominatim requiere identificar la aplicación. En entornos browser el header
 // User-Agent está restringido por el navegador, pero el Referer se envía
@@ -126,7 +71,7 @@ async function reverseGeocode(latitude, longitude) {
 
   if (!response.ok) {
     recordGeocodingRequest('failure', 'reverse');
-    throw new Error("No se pudo resolver la dirección para este punto.");
+    throw new Error("No se pudo resolver la dirección para este punto.\nCould not resolve the address for this point.");
   }
 
   const data = await response.json();
@@ -150,14 +95,14 @@ async function geocodeAddress(address) {
 
   if (!response.ok) {
     recordGeocodingRequest('failure', 'forward');
-    throw new Error("No se pudo ubicar la dirección escrita.");
+    throw new Error("No se pudo ubicar la dirección escrita.\nCould not locate the typed address.");
   }
 
   const data = await response.json();
   const result = data?.[0];
   if (!result) {
     recordGeocodingRequest('failure', 'forward');
-    throw new Error("No encontramos resultados para esa dirección.");
+    throw new Error("No encontramos resultados para esa dirección.\nNo results found for that address.");
   }
 
   recordGeocodingRequest('success', 'forward');
@@ -318,7 +263,7 @@ export default function StoreMapPicker({
         markerRef.current = marker;
       } catch (loadError) {
         if (!mounted) return;
-        setLeafletError(loadError.message || "No se pudo inicializar Leaflet.");
+        setLeafletError(loadError.message || "No se pudo inicializar Leaflet.\nCould not initialize Leaflet.");
       }
     };
 

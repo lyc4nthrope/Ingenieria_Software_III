@@ -89,6 +89,7 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
             color: 'var(--error)',
             fontSize: '13px',
             lineHeight: '1.5',
+            whiteSpace: 'pre-line',
           }}
         >
           {error}

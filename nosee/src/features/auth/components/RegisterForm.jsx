@@ -29,6 +29,19 @@ const UserIcon = () => (
   </svg>
 );
 
+const EyeIcon = ({ open }) => open ? (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+) : (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+    <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+    <line x1="1" y1="1" x2="23" y2="23"/>
+  </svg>
+);
+
 const CheckIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12"/>
@@ -54,6 +67,7 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
   const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '' });
   const [fieldErrors, setFieldErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleChange = (e) => {
@@ -84,6 +98,8 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
   };
 
   const pwdStrength = passwordRules.filter(r => r.test(form.password)).length;
+  const passwordsMismatch = form.confirmPassword.length > 0 && form.password !== form.confirmPassword;
+  const mismatchStyle = passwordsMismatch ? { background: 'rgba(248, 113, 113, 0.08)', border: '1px solid var(--error)' } : undefined;
 
   return (
     <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
@@ -149,7 +165,7 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div style={{ position: 'relative' }}>
+        <div>
           <Input
             label={tf.passwordLabel}
             id="reg-password"
@@ -157,22 +173,26 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
             type={showPassword ? 'text' : 'password'}
             value={form.password}
             onChange={handleChange}
+            onCopy={!showPassword ? (e) => e.preventDefault() : undefined}
             placeholder={tf.passwordPlaceholder}
             error={fieldErrors.password}
             iconLeft={<LockIcon />}
+            iconRight={
+              <button
+                type="button"
+                onClick={toggleShowPassword}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', alignItems: 'center' }}
+                aria-label={showPassword ? tf.hidePassword : tf.showPassword}
+                disabled={loading}
+              >
+                <EyeIcon open={showPassword} />
+              </button>
+            }
+            style={mismatchStyle}
             autoComplete="new-password"
             required
             disabled={loading}
           />
-          <button
-            type="button"
-            onClick={toggleShowPassword}
-            aria-label={showPassword ? tf.hidePassword : tf.showPassword}
-            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-muted)' }}
-            disabled={loading}
-          >
-            <span aria-hidden="true">{showPassword ? '👁️' : '👁️‍🗨️'}</span>
-          </button>
         </div>
 
         {form.password.length > 0 && (
@@ -208,12 +228,25 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
         label={tf.confirmPasswordLabel}
         id="reg-confirm"
         name="confirmPassword"
-        type="password"
+        type={showConfirmPassword ? 'text' : 'password'}
         value={form.confirmPassword}
         onChange={handleChange}
+        onCopy={!showConfirmPassword ? (e) => e.preventDefault() : undefined}
         placeholder={tf.confirmPasswordPlaceholder}
         error={fieldErrors.confirmPassword}
         iconLeft={<LockIcon />}
+        iconRight={
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(v => !v)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', alignItems: 'center' }}
+            aria-label={showConfirmPassword ? tf.hidePassword : tf.showPassword}
+            disabled={loading}
+          >
+            <EyeIcon open={showConfirmPassword} />
+          </button>
+        }
+        style={mismatchStyle}
         autoComplete="new-password"
         required
         disabled={loading}

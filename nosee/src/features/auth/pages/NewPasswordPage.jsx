@@ -109,12 +109,11 @@ export default function NewPasswordPage() {
   // Si el usuario llegó directo a esta URL SIN venir del callback,
   // esperará 3 segundos y redirigirá (asumiendo token expirado)
   useEffect(() => {
-    const storedType = localStorage.getItem('auth_callback_type');
-    
+    const storedType = sessionStorage.getItem('auth_callback_type');
+
     // Si vinimos del flujo de recovery, estamos bien
     if (storedType === 'recovery') {
-      console.log('✅ Flujo de recovery confirmado. Nueva contraseña lista.');
-      localStorage.removeItem('auth_callback_type');
+      sessionStorage.removeItem('auth_callback_type');
       setHasValidSession(true);
       return;
     }

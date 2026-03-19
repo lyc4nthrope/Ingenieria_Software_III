@@ -341,7 +341,7 @@ export default function ModeratorDashboard() {
           .eq("id", report.reportedUserId)
           .single();
         if (targetUser?.role_id >= 2) {
-          showToast("No puedes banear a un moderador o administrador. Solo el administrador puede realizar esta acción.", "error");
+          showToast("No puedes banear a un moderador o administrador. Solo el administrador puede realizar esta acción.\nYou cannot ban a moderator or admin. Only the administrator can perform this action.", "error");
           return;
         }
         const { error: banUserError } = await supabase
@@ -349,7 +349,7 @@ export default function ModeratorDashboard() {
           .update({ is_active: false })
           .eq("id", report.reportedUserId);
         if (banUserError) {
-          showToast("Error al banear el usuario reportado.", "error");
+          showToast("Error al banear el usuario reportado.\nError banning the reported user.", "error");
           return;
         }
 
@@ -359,7 +359,7 @@ export default function ModeratorDashboard() {
           .eq("user_id", report.reportedUserId)
           .eq("is_active", true);
         if (hidePublicationsError) {
-          showToast("Usuario baneado, pero falló ocultar sus publicaciones.", "error");
+          showToast("Usuario baneado, pero falló ocultar sus publicaciones.\nUser banned, but failed to hide their publications.", "error");
         }
       }
       if (action === "eliminar_publicacion" && report.reportedId) {
@@ -373,7 +373,7 @@ export default function ModeratorDashboard() {
             .eq("id", report.reportedId)
             .eq("is_active", true);
           if (fallbackError) {
-            showToast("Error al desactivar la publicación", "error");
+            showToast("Error al desactivar la publicación\nError deactivating the publication", "error");
             return;
           }
         }
@@ -392,15 +392,15 @@ export default function ModeratorDashboard() {
         insertActionLog(actorId, resourceType, resourceId, action, notes || null, { reportId: report.id });
         setHistorialLoaded(false); // Fuerza recarga del historial en la próxima visita
         const messages = {
-          baneado: "Usuario baneado y reporte resuelto.",
-          eliminar_publicacion: "Publicación desactivada y reporte resuelto.",
-          descartado: "Reporte descartado.",
+          baneado: "Usuario baneado y reporte resuelto.\nUser banned and report resolved.",
+          eliminar_publicacion: "Publicación desactivada y reporte resuelto.\nPublication deactivated and report resolved.",
+          descartado: "Reporte descartado.\nReport discarded.",
         };
-        showToast(messages[action] || "Acción realizada correctamente.");
+        showToast(messages[action] || "Acción realizada correctamente.\nAction completed successfully.");
       }
     } catch (err) {
       console.error("Error resolving report:", err);
-      showToast("Ocurrió un error al procesar la acción.", "error");
+      showToast("Ocurrió un error al procesar la acción.\nAn error occurred while processing the action.", "error");
     }
   };
 
@@ -590,6 +590,7 @@ export default function ModeratorDashboard() {
             alignItems: "center",
             gap: 10,
             maxWidth: 360,
+            whiteSpace: "pre-line",
           }}
         >
           <span>{toast.type === "error" ? "✕" : "✓"}</span>

@@ -30,20 +30,20 @@ export const mapSupabaseUserToUI = (supabaseUser) => {
  * @returns {string}
  */
 export const mapAuthErrorToUI = (error) => {
-  if (!error) return 'Error desconocido';
+  if (!error) return 'Error desconocido\nUnknown error';
 
   const errorCode = error.code || error.message || '';
 
   const errorMap = {
-    'invalid_credentials':            'Email o contraseña incorrectos',
-    'user_already_exists':            'Este email ya está registrado',
-    'invalid_email':                  'Email inválido',
-    'weak_password':                  'La contraseña es muy débil',
-    'email_not_confirmed':            'Por favor confirma tu email antes de iniciar sesión',
-    'over_email_send_rate_limit':     'Demasiados intentos. Intenta más tarde',
-    'Invalid login credentials':      'Email o contraseña incorrectos',
-    'Email not confirmed':            'Por favor confirma tu email antes de iniciar sesión',
-    'User already registered':        'Este email ya está registrado',
+    'invalid_credentials':            'Email o contraseña incorrectos\nIncorrect email or password',
+    'user_already_exists':            'Este email ya está registrado\nThis email is already registered',
+    'invalid_email':                  'Email inválido\nInvalid email',
+    'weak_password':                  'La contraseña es muy débil\nPassword is too weak',
+    'email_not_confirmed':            'Por favor confirma tu email antes de iniciar sesión\nPlease confirm your email before logging in',
+    'over_email_send_rate_limit':     'Demasiados intentos. Intenta más tarde\nToo many attempts. Try again later',
+    'Invalid login credentials':      'Email o contraseña incorrectos\nIncorrect email or password',
+    'Email not confirmed':            'Por favor confirma tu email antes de iniciar sesión\nPlease confirm your email before logging in',
+    'User already registered':        'Este email ya está registrado\nThis email is already registered',
   };
 
   if (errorMap[errorCode]) return errorMap[errorCode];
@@ -52,7 +52,7 @@ export const mapAuthErrorToUI = (error) => {
     if (errorCode.includes(key)) return msg;
   }
 
-  return error.message || 'Ocurrió un error';
+  return error.message || 'Ocurrió un error\nAn error occurred';
 };
 
 export default {

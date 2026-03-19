@@ -20,7 +20,7 @@ const normalizeNameForSignature = (value = '') =>
 
 const formatDistanceLabel = (distanceMeters) => {
   const distance = Number(distanceMeters);
-  if (!Number.isFinite(distance) || distance < 0) return 'distancia no disponible';
+  if (!Number.isFinite(distance) || distance < 0) return 'distancia no disponible / distance unavailable';
   if (distance < 1000) return `${Math.round(distance)} m`;
   return `${(distance / 1000).toFixed(1)} km`;
 };
@@ -65,7 +65,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
             evidenceFiles: [],
           });
         } else {
-          setSubmitError(result.error || 'No se pudo cargar la tienda');
+          setSubmitError(result.error || 'No se pudo cargar la tienda\nCould not load the store');
         }
         setIsLoading(false);
       };
@@ -159,7 +159,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
     );
 
     if (!result.success) {
-      return { success: false, error: result.error || 'No se pudo validar duplicados cercanos' };
+      return { success: false, error: result.error || 'No se pudo validar duplicados cercanos\nCould not validate nearby duplicates' };
     }
 
     const candidates = (result.data || []).filter(
@@ -170,7 +170,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
       const nearest = candidates[0];
       return {
         success: false,
-        error: `Posible duplicado: ya existe "${nearest.name}" cerca de esta ubicación.`,
+        error: `Posible duplicado: ya existe "${nearest.name}" cerca de esta ubicación.\nPossible duplicate: "${nearest.name}" already exists near this location.`,
       };
     }
 
@@ -192,7 +192,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
     }
 
     let cancelled = false;
-    setNearbyStoreMessage('Detectando tienda cercana...');
+    setNearbyStoreMessage('Detectando tienda cercana...\nDetecting nearby store...');
 
     const timer = setTimeout(async () => {
       const mapPlaceResult = await storesApi.detectMapPlaceAtLocation(lat, lon);
@@ -231,7 +231,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
             }
 
             const distance = formatDistanceLabel(mapMatch.distanceMeters);
-            setNearbyStoreMessage(`Tienda detectada por mapa, distancia de la ubicación actual: "${mapMatch.name}" a ${distance}. Nombre, dirección y ubicación autocompletados.`);
+            setNearbyStoreMessage(`Tienda detectada por mapa, distancia de la ubicación actual: "${mapMatch.name}" a ${distance}. Nombre, dirección y ubicación autocompletados.\nStore detected by map, distance from current location: "${mapMatch.name}" at ${distance}. Name, address and location auto-filled.`);
             return;
           }
         }
@@ -245,7 +245,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
           }));
           lastAutoFillSignatureRef.current = fallbackSignature;
         }
-        setNearbyStoreMessage(`Lugar detectado en mapa: ${mapName}. Nombre y dirección autocompletados.`);
+        setNearbyStoreMessage(`Lugar detectado en mapa: ${mapName}. Nombre y dirección autocompletados.\nPlace detected on map: ${mapName}. Name and address auto-filled.`);
         return;
       }
 
@@ -256,13 +256,13 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
       if (cancelled) return;
 
       if (!nearestResult.success) {
-        setNearbyStoreMessage('No se pudo detectar tienda cercana automáticamente.');
+        setNearbyStoreMessage('No se pudo detectar tienda cercana automáticamente.\nCould not automatically detect a nearby store.');
         return;
       }
 
       const nearest = nearestResult.data;
       if (!nearest) {
-        setNearbyStoreMessage('No encontramos tiendas físicas cercanas.');
+        setNearbyStoreMessage('No encontramos tiendas físicas cercanas.\nNo nearby physical stores found.');
         return;
       }
 
@@ -290,7 +290,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
         lastAutoFillSignatureRef.current = signature;
       }
 
-      setNearbyStoreMessage(`Tienda detectada por base de datos, distancia de la ubicación actual: "${nearest.name}" a ${distance}. Nombre, dirección y ubicación autocompletados.`);
+      setNearbyStoreMessage(`Tienda detectada por base de datos, distancia de la ubicación actual: "${nearest.name}" a ${distance}. Nombre, dirección y ubicación autocompletados.\nStore detected in database, distance from current location: "${nearest.name}" at ${distance}. Name, address and location auto-filled.`);
     }, 250);
 
     return () => {
@@ -306,7 +306,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
     const { isValid, errors: validationErrors } = validateStoreForm(formData);
     if (!isValid) {
       setErrors(validationErrors);
-      return { success: false, error: 'Corrige los errores del formulario' };
+      return { success: false, error: 'Corrige los errores del formulario\nFix the form errors' };
     }
 
     setIsSubmitting(true);
@@ -330,7 +330,8 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
 
       if (!result.success) {
         const action = mode === 'create' ? 'crear' : 'actualizar';
-        setSubmitError(result.error || `No se pudo ${action} la tienda`);
+        const actionEn = mode === 'create' ? 'create' : 'update';
+        setSubmitError(result.error || `No se pudo ${action} la tienda\nCould not ${actionEn} the store`);
         return result;
       }
 
@@ -350,7 +351,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
           });
 
           if (!uploadResult.success) {
-            evidenceUploadErrors.push(uploadResult.error || 'No se pudo subir una evidencia');
+            evidenceUploadErrors.push(uploadResult.error || 'No se pudo subir una evidencia\nCould not upload evidence');
             continue;
           }
 
@@ -359,18 +360,18 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
             uploadResult.optimizedUrl || uploadResult.url
           );
           if (!evidenceResult.success) {
-            evidenceUploadErrors.push(evidenceResult.error || 'No se pudo guardar una evidencia');
+            evidenceUploadErrors.push(evidenceResult.error || 'No se pudo guardar una evidencia\nCould not save evidence');
           }
         }
       }
 
       if (evidenceUploadErrors.length > 0) {
         const action = mode === 'create' ? 'creada' : 'actualizada';
-        setSubmitSuccess(`Tienda ${action}, pero algunas evidencias no se pudieron registrar`);
+        setSubmitSuccess(`Tienda ${action}, pero algunas evidencias no se pudieron registrar.\nStore ${action === 'creada' ? 'created' : 'updated'}, but some evidence could not be saved.`);
         setSubmitError(evidenceUploadErrors[0]);
       } else {
         const action = mode === 'create' ? 'creada' : 'actualizada';
-        setSubmitSuccess(`Tienda ${action} exitosamente`);
+        setSubmitSuccess(`Tienda ${action} exitosamente\nStore ${action === 'creada' ? 'created' : 'updated'} successfully`);
       }
 
       // Solo resetear en modo create — revocar previews antes de limpiar
@@ -386,7 +387,7 @@ export function useStoreCreation({ storeId = null, mode = 'create' } = {}) {
       setErrors({});
       return result;
     } catch (error) {
-      const fallbackMessage = `Error inesperado ${mode === 'create' ? 'creando' : 'actualizando'} tienda`;
+      const fallbackMessage = `Error inesperado ${mode === 'create' ? 'creando' : 'actualizando'} tienda\nUnexpected error ${mode === 'create' ? 'creating' : 'updating'} store`;
       setSubmitError(error?.message || fallbackMessage);
       return { success: false, error: error?.message || fallbackMessage };
     } finally {

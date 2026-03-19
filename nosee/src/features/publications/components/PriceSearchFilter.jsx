@@ -3,44 +3,9 @@ import { useLanguage, translateDbValue } from '@/contexts/LanguageContext';
 import { listStores } from '@/services/api/stores.api';
 import { ReportModal } from '@/components/ReportModal';
 
+import { ensureLeafletLoaded } from '@/services/utils/leafletLoader';
+
 const EMPTY_FILTERS = {};
-const LEAFLET_CSS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-const LEAFLET_JS_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-
-function ensureLeafletLoaded() {
-  if (window.L) return Promise.resolve(window.L);
-  if (window.__leafletLoaderPromise) return window.__leafletLoaderPromise;
-
-  window.__leafletLoaderPromise = new Promise((resolve, reject) => {
-    if (!document.querySelector(`link[data-leaflet-css="${LEAFLET_CSS_URL}"]`)) {
-      const css = document.createElement('link');
-      css.rel = 'stylesheet';
-      css.href = LEAFLET_CSS_URL;
-      css.dataset.leafletCss = LEAFLET_CSS_URL;
-      document.head.appendChild(css);
-    }
-
-    const existing = document.querySelector(`script[data-leaflet-js="${LEAFLET_JS_URL}"]`);
-    if (existing) {
-      existing.addEventListener('load', () => resolve(window.L));
-      existing.addEventListener('error', () => reject(new Error('No se pudo cargar Leaflet')));
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = LEAFLET_JS_URL;
-    script.async = true;
-    script.dataset.leafletJs = LEAFLET_JS_URL;
-    script.onload = () => resolve(window.L);
-    script.onerror = () => reject(new Error('No se pudo cargar Leaflet'));
-    document.body.appendChild(script);
-  }).catch((err) => {
-    window.__leafletLoaderPromise = null;
-    throw err;
-  });
-
-  return window.__leafletLoaderPromise;
-}
 
 function StoreMapModal({ store, onClose }) {
   const containerRef = useRef(null);
@@ -353,14 +318,14 @@ function StoreCombobox({ value, onStoreChange, placeholder, inputStyle }) {
                   setIsOpen(false);
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(180, 40, 40, 0.75)';
-                  e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.75)';
-                  e.currentTarget.style.color = 'var(--bg-surface, #fff)';
+                  e.currentTarget.style.background = 'rgba(220, 38, 38, 0.65)';
+                  e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.7)';
+                  e.currentTarget.style.color = 'var(--bg-base)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'none';
-                  e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.25)';
-                  e.currentTarget.style.color = 'rgba(180, 40, 40, 0.55)';
+                  e.currentTarget.style.background = 'rgba(220, 38, 38, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.35)';
+                  e.currentTarget.style.color = 'rgba(220, 38, 38, 0.9)';
                 }}
               >
                 !
@@ -433,15 +398,15 @@ const comboStyles = {
   },
   reportBtn: {
     flexShrink: 0,
-    background: 'none',
-    border: '1.5px solid rgba(180, 40, 40, 0.25)',
+    background: 'rgba(220, 38, 38, 0.15)',
+    border: '1.5px solid rgba(220, 38, 38, 0.35)',
     borderRadius: '50%',
     width: '22px',
     height: '22px',
     cursor: 'pointer',
     fontSize: '11px',
-    fontWeight: 700,
-    color: 'rgba(180, 40, 40, 0.55)',
+    fontWeight: 800,
+    color: 'rgba(220, 38, 38, 0.9)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

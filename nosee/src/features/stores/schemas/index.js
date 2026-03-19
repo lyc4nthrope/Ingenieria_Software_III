@@ -66,31 +66,31 @@ export function validateStoreForm(formData) {
   const errors = {};
 
   if (!StoreValidation.storeName(formData.name)) {
-    errors.name = 'El nombre de la tienda debe tener al menos 3 caracteres';
+    errors.name = 'El nombre de la tienda debe tener al menos 3 caracteres\nStore name must be at least 3 characters';
   }
 
   if (!StoreValidation.type(formData.type)) {
-    errors.type = 'Selecciona un tipo de tienda válido';
+    errors.type = 'Selecciona un tipo de tienda válido\nSelect a valid store type';
   }
 
   if (formData.type === StoreTypeEnum.PHYSICAL) {
     if (!StoreValidation.coordinates(formData.latitude, formData.longitude)) {
-      errors.location = 'Debes seleccionar una ubicación válida en el mapa';
+      errors.location = 'Debes seleccionar una ubicación válida en el mapa\nYou must select a valid location on the map';
     }
 
     if (!StoreValidation.evidence(formData.evidenceFiles || [])) {
       errors.evidenceUrls =
-        'Máximo 3 evidencias y solo formatos .jpg/.jpeg/.png/.webp (URL https://)';
+        'Máximo 3 evidencias y solo formatos .jpg/.jpeg/.png/.webp (URL https://)\nMax 3 pieces of evidence, only .jpg/.jpeg/.png/.webp formats (https:// URL)';
     }
   }
 
   if (formData.type === StoreTypeEnum.VIRTUAL) {
     if (!StoreValidation.websiteUrl(formData.websiteUrl)) {
-      errors.websiteUrl = 'La URL de tienda virtual debe ser https:// válida';
+      errors.websiteUrl = 'La URL de tienda virtual debe ser https:// válida\nVirtual store URL must be a valid https://';
     }
 
     if ((formData.evidenceFiles || []).length > 0) {
-      errors.evidenceUrls = 'Las evidencias solo están permitidas para tiendas físicas';
+      errors.evidenceUrls = 'Las evidencias solo están permitidas para tiendas físicas\nEvidence is only allowed for physical stores';
     }
   }
 

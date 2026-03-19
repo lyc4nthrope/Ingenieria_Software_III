@@ -213,14 +213,14 @@ export function PublicationCard({
         style={styles.reportBtn}
         onClick={() => setShowReportModal(true)}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(180, 40, 40, 0.8)';
-          e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.8)';
-          e.currentTarget.style.color = '#fff';
+          e.currentTarget.style.background = 'rgba(220, 38, 38, 0.65)';
+          e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.7)';
+          e.currentTarget.style.color = 'var(--bg-base)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'var(--bg-elevated)';
-          e.currentTarget.style.borderColor = 'rgba(180, 40, 40, 0.35)';
-          e.currentTarget.style.color = 'rgba(180, 40, 40, 0.65)';
+          e.currentTarget.style.background = 'rgba(220, 38, 38, 0.15)';
+          e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.35)';
+          e.currentTarget.style.color = 'rgba(220, 38, 38, 0.9)';
         }}
       >
         !
@@ -654,15 +654,15 @@ const styles = {
     top: '10px',
     right: '10px',
     zIndex: 1,
-    background: 'var(--bg-elevated)',
-    border: '1.5px solid rgba(180, 40, 40, 0.35)',
+    background: 'rgba(220, 38, 38, 0.15)',
+    border: '1.5px solid rgba(220, 38, 38, 0.35)',
     borderRadius: '50%',
-    width: '28px',
-    height: '28px',
+    width: '22px',
+    height: '22px',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: '11px',
     fontWeight: 800,
-    color: 'rgba(180, 40, 40, 0.65)',
+    color: 'rgba(220, 38, 38, 0.9)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

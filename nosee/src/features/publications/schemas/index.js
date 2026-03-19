@@ -18,10 +18,10 @@ export const PublicationValidation = {
  * Mensajes de validación
  */
 export const PublicationValidationMessages = {
-  productName: 'El nombre del producto debe tener al menos 2 caracteres',
-  price: 'El precio debe ser un número mayor a 0',
-  photoUrl: 'La URL de la foto debe ser https',
-  description: 'La descripción no puede superar 500 caracteres',
+  productName: 'El nombre del producto debe tener al menos 2 caracteres\nProduct name must be at least 2 characters',
+  price: 'El precio debe ser un número mayor a 0\nPrice must be a number greater than 0',
+  photoUrl: 'La URL de la foto debe ser https\nPhoto URL must be https',
+  description: 'La descripción no puede superar 500 caracteres\nDescription cannot exceed 500 characters',
 };
 
 /**

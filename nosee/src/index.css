@@ -465,10 +465,10 @@ img {
   width: 28px;
   height: 28px;
   padding: 0;
-  background: var(--bg-elevated);
-  border: 1.5px solid rgba(180, 40, 40, 0.35);
+  background: rgba(220, 38, 38, 0.15);
+  border: 1.5px solid rgba(220, 38, 38, 0.35);
   border-radius: 50%;
-  color: rgba(180, 40, 40, 0.65);
+  color: rgba(220, 38, 38, 0.9);
   font-weight: 800;
   font-size: 13px;
   line-height: 1;
@@ -480,9 +480,9 @@ img {
   backdrop-filter: blur(4px);
 }
 .card-report-button:hover {
-  background: rgba(180, 40, 40, 0.8);
-  border-color: rgba(180, 40, 40, 0.8);
-  color: #fff;
+  background: rgba(220, 38, 38, 0.65);
+  border-color: rgba(220, 38, 38, 0.7);
+  color: var(--bg-base);
 }
 .card-report-button:disabled {
   opacity: 0.5;
