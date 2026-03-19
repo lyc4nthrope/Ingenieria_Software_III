@@ -75,21 +75,21 @@ export const mapDBPublicationsToUI = (dbPublications) => {
  * @returns {string} Mensaje amigable
  */
 export const mapPublicationErrorToUI = (error) => {
-  if (!error) return 'Error desconocido';
+  if (!error) return 'Error desconocido\nUnknown error';
 
   const message = error.message || '';
 
   if (message.includes('violates row-level security')) {
-    return 'No tienes permisos para realizar esta acción';
+    return 'No tienes permisos para realizar esta acción\nYou do not have permission to perform this action';
   }
   if (message.includes('duplicate key')) {
-    return 'Ya existe una publicación similar reciente';
+    return 'Ya existe una publicación similar reciente\nA similar publication already exists recently';
   }
   if (message.includes('not found')) {
-    return 'Publicación no encontrada';
+    return 'Publicación no encontrada\nPublication not found';
   }
 
-  return error.message || 'Error al procesar la publicación';
+  return error.message || 'Error al procesar la publicación\nError processing the publication';
 };
 
 export default {

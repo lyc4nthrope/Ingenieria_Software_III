@@ -120,7 +120,7 @@ export const useGeoLocation = (options = {}) => {
   useEffect(() => {
     if (!navigator.geolocation) {
       setSupported(false);
-      setError('Tu navegador no soporta geolocalización');
+      setError('Tu navegador no soporta geolocalización\nYour browser does not support geolocation');
       setLoading(false);
     }
   }, []);
@@ -132,7 +132,7 @@ export const useGeoLocation = (options = {}) => {
    */
   const fetchLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setError('Geolocalización no soportada');
+      setError('Geolocalización no soportada\nGeolocation not supported');
       setLoading(false);
       return;
     }
@@ -162,18 +162,18 @@ export const useGeoLocation = (options = {}) => {
 
       // Error
       (err) => {
-        let errorMessage = 'Error desconocido al obtener ubicación';
+        let errorMessage = 'Error desconocido al obtener ubicación\nUnknown error getting location';
 
         switch (err.code) {
           case err.PERMISSION_DENIED:
             errorMessage =
-              'Permiso denegado. Habilita ubicación en los ajustes del navegador.';
+              'Permiso denegado. Habilita ubicación en los ajustes del navegador.\nPermission denied. Enable location in your browser settings.';
             break;
           case err.POSITION_UNAVAILABLE:
-            errorMessage = 'Ubicación no disponible. Intenta en otro lugar.';
+            errorMessage = 'Ubicación no disponible. Intenta en otro lugar.\nLocation unavailable. Try from a different place.';
             break;
           case err.TIMEOUT:
-            errorMessage = 'Tiempo agotado obteniendo ubicación.';
+            errorMessage = 'Tiempo agotado obteniendo ubicación.\nTimed out getting location.';
             break;
           default:
             errorMessage = err.message || errorMessage;
@@ -227,16 +227,16 @@ export const useGeoLocation = (options = {}) => {
           resolve({ latitude: lat, longitude: lon, accuracy: acc });
         },
         (err) => {
-          let errorMessage = 'Error desconocido al obtener ubicación';
+          let errorMessage = 'Error desconocido al obtener ubicación\nUnknown error getting location';
           switch (err.code) {
             case err.PERMISSION_DENIED:
-              errorMessage = 'Permiso denegado. Habilita ubicación en los ajustes del navegador.';
+              errorMessage = 'Permiso denegado. Habilita ubicación en los ajustes del navegador.\nPermission denied. Enable location in your browser settings.';
               break;
             case err.POSITION_UNAVAILABLE:
-              errorMessage = 'Ubicación no disponible. Intenta en otro lugar.';
+              errorMessage = 'Ubicación no disponible. Intenta en otro lugar.\nLocation unavailable. Try from a different place.';
               break;
             case err.TIMEOUT:
-              errorMessage = 'Tiempo agotado obteniendo ubicación.';
+              errorMessage = 'Tiempo agotado obteniendo ubicación.\nTimed out getting location.';
               break;
             default:
               errorMessage = err.message || errorMessage;

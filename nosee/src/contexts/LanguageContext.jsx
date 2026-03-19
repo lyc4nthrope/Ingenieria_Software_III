@@ -2705,8 +2705,20 @@ export function LanguageProvider({ children }) {
 
   const t = TRANSLATIONS[lang];
 
+  /**
+   * tbi — Devuelve la versión bilingüe (ES + EN) de cualquier string de traducción.
+   * @param {function} getFn - Función que recibe el objeto de traducciones y devuelve el string.
+   * @returns {string} "Mensaje ES\nMessage EN"
+   * @example tbi(t => t.publications.errorDetail)
+   */
+  const tbi = (getFn) => {
+    const es = getFn(TRANSLATIONS['es-MX']) ?? '';
+    const en = getFn(TRANSLATIONS['en-US']) ?? '';
+    return es === en ? es : `${es}\n${en}`;
+  };
+
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
+    <LanguageContext.Provider value={{ lang, setLang, t, tbi }}>
       {children}
     </LanguageContext.Provider>
   );

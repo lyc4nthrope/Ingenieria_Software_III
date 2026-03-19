@@ -73,7 +73,7 @@ function ensureLeafletLoaded() {
     if (existingScript) {
       existingScript.addEventListener("load", () => resolve(getLeaflet()));
       existingScript.addEventListener("error", () =>
-        reject(new Error("No se pudo cargar Leaflet desde CDN.")),
+        reject(new Error("No se pudo cargar Leaflet desde CDN.\nCould not load Leaflet from CDN.")),
       );
       return;
     }
@@ -92,7 +92,7 @@ function ensureLeafletLoaded() {
       resolve(getLeaflet());
     };
     script.onerror = () =>
-      reject(new Error("No se pudo cargar Leaflet desde CDN."));
+      reject(new Error("No se pudo cargar Leaflet desde CDN.\nCould not load Leaflet from CDN."));
     document.body.appendChild(script);
   }).catch((error) => {
     window.__leafletLoaderPromise = null;
@@ -126,7 +126,7 @@ async function reverseGeocode(latitude, longitude) {
 
   if (!response.ok) {
     recordGeocodingRequest('failure', 'reverse');
-    throw new Error("No se pudo resolver la dirección para este punto.");
+    throw new Error("No se pudo resolver la dirección para este punto.\nCould not resolve the address for this point.");
   }
 
   const data = await response.json();
@@ -150,14 +150,14 @@ async function geocodeAddress(address) {
 
   if (!response.ok) {
     recordGeocodingRequest('failure', 'forward');
-    throw new Error("No se pudo ubicar la dirección escrita.");
+    throw new Error("No se pudo ubicar la dirección escrita.\nCould not locate the typed address.");
   }
 
   const data = await response.json();
   const result = data?.[0];
   if (!result) {
     recordGeocodingRequest('failure', 'forward');
-    throw new Error("No encontramos resultados para esa dirección.");
+    throw new Error("No encontramos resultados para esa dirección.\nNo results found for that address.");
   }
 
   recordGeocodingRequest('success', 'forward');
@@ -318,7 +318,7 @@ export default function StoreMapPicker({
         markerRef.current = marker;
       } catch (loadError) {
         if (!mounted) return;
-        setLeafletError(loadError.message || "No se pudo inicializar Leaflet.");
+        setLeafletError(loadError.message || "No se pudo inicializar Leaflet.\nCould not initialize Leaflet.");
       }
     };
 

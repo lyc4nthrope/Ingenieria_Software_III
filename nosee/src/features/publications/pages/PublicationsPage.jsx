@@ -79,7 +79,7 @@ export default function PublicationsPage() {
   // PASO 1: Estado del usuario desde store
   // ─────────────────────────────────────────────────────────────
   const user = useAuthStore(selectAuthUser);
-  const { t } = useLanguage();
+  const { t, tbi } = useLanguage();
   const tp = t.publications;
 
   // ─────────────────────────────────────────────────────────────
@@ -157,7 +157,7 @@ export default function PublicationsPage() {
    */
   const handlePublish = () => {
     if (!user?.isVerified) {
-      setError(tp.verifyEmailError);
+      setError(tbi(tr => tr.publications.verifyEmailError));
       return;
     }
     navigate("/publicaciones/nueva");
@@ -191,7 +191,7 @@ export default function PublicationsPage() {
 
     const requestGeolocationAndApply = () => {
       if (!navigator.geolocation) {
-        setError("Tu navegador no soporta geolocalización. No se puede aplicar el filtro de distancia.");
+        setError("Tu navegador no soporta geolocalización. No se puede aplicar el filtro de distancia.\nYour browser does not support geolocation. Distance filter cannot be applied.");
         setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
         return;
       }
@@ -209,7 +209,7 @@ export default function PublicationsPage() {
         },
         () => {
           setGeolocationLoading(false);
-          setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.");
+          setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.\nCould not get your location. The distance filter requires location permission in the browser.");
           setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
         },
         { timeout: 10000 },
@@ -259,11 +259,11 @@ export default function PublicationsPage() {
     const pub = publications.find((p) => p.id === publicationId);
     if (pub?.user_vote === 1) {
       const result = await unvotePublication(publicationId);
-      if (!result.success) setError(result.error || tp.errorValidate);
+      if (!result.success) setError(result.error || tbi(tr => tr.publications.errorValidate));
     } else {
       if (pub?.user_vote === -1) await unvotePublication(publicationId);
       const result = await validatePublication(publicationId);
-      if (!result.success) setError(result.error || tp.errorValidate);
+      if (!result.success) setError(result.error || tbi(tr => tr.publications.errorValidate));
     }
   };
 
@@ -274,11 +274,11 @@ export default function PublicationsPage() {
     const pub = publications.find((p) => p.id === publicationId);
     if (pub?.user_vote === -1) {
       const result = await unvotePublication(publicationId);
-      if (!result.success) setError(result.error || tp.errorValidate);
+      if (!result.success) setError(result.error || tbi(tr => tr.publications.errorValidate));
     } else {
       if (pub?.user_vote === 1) await unvotePublication(publicationId);
       const result = await downvotePublication(publicationId);
-      if (!result.success) setError(result.error || tp.errorValidate);
+      if (!result.success) setError(result.error || tbi(tr => tr.publications.errorValidate));
     }
   };
 
@@ -295,7 +295,7 @@ export default function PublicationsPage() {
         message: result.message || 'Reporte enviado correctamente.',
       });
     } else {
-      const errorMessage = result.error || tp.errorReport;
+      const errorMessage = result.error || tbi(tr => tr.publications.errorReport);
       setError(errorMessage);
       setFeedback({
         type: 'error',
@@ -319,7 +319,7 @@ export default function PublicationsPage() {
       return;
     }
 
-    setError(result.error || tp.errorDelete);
+    setError(result.error || tbi(tr => tr.publications.errorDelete));
   };
 
   const handleViewMore = useCallback(async (publicationId) => {
@@ -329,14 +329,14 @@ export default function PublicationsPage() {
 
     const result = await publicationsApi.getPublicationDetail(publicationId);
     if (!result.success) {
-      setError(result.error || tp.errorDetail);
+      setError(result.error || tbi(tr => tr.publications.errorDetail));
       setDetailLoading(false);
       return;
     }
 
     setSelectedPublication(result.data);
     setDetailLoading(false);
-  }, [detailLoading, tp.errorDetail]);
+  }, [detailLoading, tbi]);
 
   // Abre el modal de detalle si la URL tiene ?pub=<id>
   useEffect(() => {
@@ -533,6 +533,7 @@ export default function PublicationsPage() {
               color: "var(--error)",
               fontSize: "13px",
               marginBottom: "16px",
+              whiteSpace: "pre-line",
             }}
           >
             {error}

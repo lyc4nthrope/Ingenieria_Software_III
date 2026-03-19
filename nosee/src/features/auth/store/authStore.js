@@ -97,7 +97,7 @@ export const useAuthStore = create((set, get) => ({
     try {
       const sessionResult = await authApi.getSession();
       if (!sessionResult?.success) {
-        throw new Error(sessionResult?.error || 'No se pudo obtener la sesión actual');
+        throw new Error(sessionResult?.error || 'No se pudo obtener la sesión actual\nCould not retrieve the current session');
       }
       const sessionData = sessionResult.data;
 
@@ -127,7 +127,7 @@ export const useAuthStore = create((set, get) => ({
         user:          null,
         session:       null,
         status:        AsyncStateEnum.ERROR,
-        error:         error?.message || 'Error al inicializar la sesión',
+        error:         error?.message || 'Error al inicializar la sesión\nError initializing session',
         isInitialized: true,
       });
     }
@@ -260,11 +260,11 @@ export const useAuthStore = create((set, get) => ({
         user: null,
         session: null,
         status: AsyncStateEnum.ERROR,
-        error: 'Tu cuenta está desactivada. Contacta a soporte.',
+        error: 'Tu cuenta está desactivada. Contacta a soporte.\nYour account is deactivated. Contact support.',
       });
       return {
         success: false,
-        error: 'Tu cuenta está desactivada. Contacta a soporte.',
+        error: 'Tu cuenta está desactivada. Contacta a soporte.\nYour account is deactivated. Contact support.',
       };
     }
 

@@ -44,7 +44,7 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
             photoModeration: null,
           });
         } else {
-          setSubmitError(result.error || 'No se pudo cargar la publicación');
+          setSubmitError(result.error || 'No se pudo cargar la publicación\nCould not load the publication');
         }
         setIsLoading(false);
       };
@@ -69,19 +69,19 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
     const newErrors = {};
 
     if (!formData.productId) {
-      newErrors.productId = 'Selecciona o crea un producto';
+      newErrors.productId = 'Selecciona o crea un producto\nSelect or create a product';
     }
     if (!formData.storeId) {
-      newErrors.storeId = 'Selecciona o crea una tienda';
+      newErrors.storeId = 'Selecciona o crea una tienda\nSelect or create a store';
     }
     if (!formData.price || Number(formData.price) <= 0) {
-      newErrors.price = 'El precio debe ser mayor a 0';
+      newErrors.price = 'El precio debe ser mayor a 0\nPrice must be greater than 0';
     }
     if (!formData.photoUrl && mode === 'create') {
-      newErrors.photoUrl = 'La foto es obligatoria';
+      newErrors.photoUrl = 'La foto es obligatoria\nPhoto is required';
     }
     if (formData.description?.length > 500) {
-      newErrors.description = 'Máximo 500 caracteres';
+      newErrors.description = 'Máximo 500 caracteres\nMaximum 500 characters';
     }
 
     setErrors(newErrors);
@@ -93,7 +93,7 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
     setSubmitSuccess('');
 
     if (!validateForm()) {
-      return { success: false, error: 'Corrige los errores del formulario' };
+      return { success: false, error: 'Corrige los errores del formulario\nFix the form errors' };
     }
 
     setIsSubmitting(true);
@@ -113,7 +113,7 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
         : await publicationsApi.updatePublication(publicationId, payload);
 
       if (!result.success) {
-        setSubmitError(result.error || 'Error al procesar la publicación');
+        setSubmitError(result.error || 'Error al procesar la publicación\nError processing the publication');
         return result;
       }
 
@@ -129,8 +129,8 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
 
       setSubmitSuccess(
         mode === 'create'
-          ? 'Publicación creada exitosamente'
-          : 'Publicación actualizada exitosamente'
+          ? 'Publicación creada exitosamente\nPublication created successfully'
+          : 'Publicación actualizada exitosamente\nPublication updated successfully'
       );
 
       // Solo resetear en modo create
@@ -142,7 +142,7 @@ export function usePublicationCreation({ publicationId = null, mode = 'create' }
 
       return result;
     } catch (error) {
-      const errorMsg = error?.message || 'Error inesperado procesando publicación';
+      const errorMsg = error?.message || 'Error inesperado procesando publicación\nUnexpected error processing publication';
       setSubmitError(errorMsg);
       return { success: false, error: errorMsg };
     } finally {

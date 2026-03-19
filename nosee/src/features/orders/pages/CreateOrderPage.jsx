@@ -113,8 +113,8 @@ export default function CreateOrderPage() {
     } catch (err) {
       const isNetwork = !navigator.onLine || err?.message?.includes('fetch');
       setCalcError(isNetwork
-        ? 'Sin conexión. Verificá tu internet e intentá nuevamente.'
-        : 'Error al calcular la cesta. Intentá nuevamente.');
+        ? 'Sin conexión. Verificá tu internet e intentá nuevamente.\nNo connection. Check your internet and try again.'
+        : 'Error al calcular la cesta. Intentá nuevamente.\nError calculating the basket. Try again.');
     } finally {
       setCalculating(false);
     }
@@ -632,6 +632,7 @@ const styles = {
     padding: '10px 14px',
     borderRadius: 'var(--radius-sm)',
     margin: 0,
+    whiteSpace: 'pre-line',
   },
   savingsCard: {
     display: 'flex',
