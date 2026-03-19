@@ -110,8 +110,11 @@ export default function CreateOrderPage() {
       const optimized = optimizeFn(itemResults);
       setResult(optimized);
       setPhase('result');
-    } catch {
-      setCalcError('Error al calcular la cesta. Intentá nuevamente.');
+    } catch (err) {
+      const isNetwork = !navigator.onLine || err?.message?.includes('fetch');
+      setCalcError(isNetwork
+        ? 'Sin conexión. Verificá tu internet e intentá nuevamente.'
+        : 'Error al calcular la cesta. Intentá nuevamente.');
     } finally {
       setCalculating(false);
     }

@@ -323,6 +323,7 @@ export default function PublicationsPage() {
   };
 
   const handleViewMore = useCallback(async (publicationId) => {
+    if (detailLoading) return;
     setDetailLoading(true);
     setError(null);
 
@@ -335,7 +336,7 @@ export default function PublicationsPage() {
 
     setSelectedPublication(result.data);
     setDetailLoading(false);
-  }, [tp.errorDetail]);
+  }, [detailLoading, tp.errorDetail]);
 
   // Abre el modal de detalle si la URL tiene ?pub=<id>
   useEffect(() => {

@@ -78,14 +78,11 @@ export default function CallbackPage() {
   const urlError = params.get('error_description');
   const accessToken = params.get('access_token');
 
-  // Verificar si hay tipo almacenado en localStorage (para cuando Supabase limpia el hash)
-  const storedCallbackType = localStorage.getItem('auth_callback_type');
+  // Verificar si hay tipo almacenado en sessionStorage (para cuando Supabase limpia el hash)
+  const storedCallbackType = sessionStorage.getItem('auth_callback_type');
 
   // flow=recovery indica que este code viene de un link de reset de contraseña
   const flowParam = searchParams.get('flow');
-
-  // DEBUG: Log para verificar qué llega
-  console.log('🔍 CallbackPage Debug:', { hash, code, flowParam, urlType, urlError, accessToken, storedCallbackType, allParams: Object.fromEntries(params) });
 
   // Derive state from URL parameters
   // Prioridad: flowParam (PKCE) > urlType (hash) > storedCallbackType (localStorage) > UNKNOWN
@@ -100,8 +97,6 @@ export default function CallbackPage() {
 
   // Derive status from URL state (no useState needed)
   const status = urlError ? 'error' : 'loading'; // 'loading' | 'error'
-
-  console.log('📍 callbackType:', callbackType);
 
   // ── Efecto 1: Flujo PKCE — intercambiar code por sesión ──────────────────
   // Usamos _lastAttemptedCode (módulo) en vez de useRef porque StrictMode
@@ -121,7 +116,7 @@ export default function CallbackPage() {
     // Recovery PKCE: marcar modo recovery ANTES del exchange para que el evento
     // SIGNED_IN resultante no autentique al usuario en el store.
     if (flowParam === 'recovery') {
-      localStorage.setItem('auth_callback_type', 'recovery');
+      sessionStorage.setItem('auth_callback_type', 'recovery');
       useAuthStore.getState().setRecoveryMode();
     }
 
@@ -168,12 +163,9 @@ export default function CallbackPage() {
       return;
     }
 
-    console.log('🎯 Hash detectado, tipo:', callbackType);
-
     // Recovery hash: navegar a nueva contraseña inmediatamente
     if (callbackType === CALLBACK_TYPE.RECOVERY) {
-      console.log('✅ Guardando tipo recovery en localStorage y navegando');
-      localStorage.setItem('auth_callback_type', 'recovery');
+      sessionStorage.setItem('auth_callback_type', 'recovery');
       navigate('/nueva-contrasena', { replace: true });
       return;
     }
@@ -181,7 +173,6 @@ export default function CallbackPage() {
     // Signup hash: esperar autenticación
     if (callbackType === CALLBACK_TYPE.SIGNUP) {
       if (isInitialized && isAuthenticated) {
-        console.log('✅ Email confirmado. Redirigiendo a /perfil');
         navigate('/perfil', { replace: true });
       }
       return;

@@ -269,10 +269,11 @@ export const useAuthStore = create((set, get) => ({
     }
 
     set({
-      user:    mappedUser,
-      session: result.data.session,
-      status:  AsyncStateEnum.SUCCESS,
-      error:   null,
+      user:             mappedUser,
+      session:          result.data.session,
+      status:           AsyncStateEnum.SUCCESS,
+      error:            null,
+      isRecoveryMode:   false,
     });
 
     await insertAuditLog(result.data.user.id, 'login');
