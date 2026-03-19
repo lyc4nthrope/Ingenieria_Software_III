@@ -216,9 +216,9 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
 
       <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
         {tf.terms}{' '}
-        <button type="button" style={{ color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' }}>{tf.termsLink}</button>
+        <Link to="/terminos" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>{tf.termsLink}</Link>
         {' '}{tf.and}{' '}
-        <button type="button" style={{ color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit' }}>{tf.privacyLink}</button>.
+        <Link to="/privacidad" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>{tf.privacyLink}</Link>.
       </p>
 
       <Button type="submit" fullWidth loading={loading} disabled={loading} size="lg">

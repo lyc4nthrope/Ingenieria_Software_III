@@ -448,6 +448,15 @@ export const TRANSLATIONS = {
       connectionErrorHint: "Verifica tu conexión e intenta nuevamente.",
     },
 
+    // ── Footer ────────────────────────────────────────────────────────────────
+    footer: {
+      tagline: "Compará precios en tiendas de tu barrio",
+      terms: "Términos de uso",
+      privacy: "Política de privacidad",
+      copyright: `© ${new Date().getFullYear()} NØSEE. Proyecto universitario — Ingeniería de Software III.`,
+      legalNote: "Al usar esta plataforma aceptás nuestros Términos de uso y Política de privacidad.",
+    },
+
     // ── Subida de fotos ───────────────────────────────────────────────────────
     photoUploader: {
       groupLabel: "Opciones para agregar foto",
@@ -1766,6 +1775,15 @@ export const TRANSLATIONS = {
       connectionErrorTitle: "No internet connection",
       connectionErrorMessage: "We could not connect to the server.",
       connectionErrorHint: "Check your connection and try again.",
+    },
+
+    // ── Footer ────────────────────────────────────────────────────────────────
+    footer: {
+      tagline: "Compare prices at stores in your neighborhood",
+      terms: "Terms of use",
+      privacy: "Privacy policy",
+      copyright: `© ${new Date().getFullYear()} NØSEE. University project — Software Engineering III.`,
+      legalNote: "By using this platform you agree to our Terms of use and Privacy policy.",
     },
 
     // ── Photo uploader ────────────────────────────────────────────────────────
