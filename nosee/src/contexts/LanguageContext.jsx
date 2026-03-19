@@ -314,6 +314,7 @@ export const TRANSLATIONS = {
       strongPassword: "Contraseña segura",
       mediumPassword: "Contraseña media",
       weakPassword: "Contraseña débil",
+      termsRequired: "Debés aceptar los términos para continuar",
     },
 
     // ── Recuperar contraseña ──────────────────────────────────────────────────
@@ -446,6 +447,15 @@ export const TRANSLATIONS = {
       connectionErrorTitle: "Sin conexión a internet",
       connectionErrorMessage: "No pudimos conectarnos al servidor.",
       connectionErrorHint: "Verifica tu conexión e intenta nuevamente.",
+    },
+
+    // ── Footer ────────────────────────────────────────────────────────────────
+    footer: {
+      tagline: "Compará precios en tiendas de tu barrio",
+      terms: "Términos de uso",
+      privacy: "Política de privacidad",
+      copyright: `© ${new Date().getFullYear()} NØSEE. Todos los derechos reservados.`,
+      legalNote: "Al usar esta plataforma aceptás nuestros Términos de uso y Política de privacidad.",
     },
 
     // ── Subida de fotos ───────────────────────────────────────────────────────
@@ -1634,6 +1644,7 @@ export const TRANSLATIONS = {
       strongPassword: "Strong password",
       mediumPassword: "Medium password",
       weakPassword: "Weak password",
+      termsRequired: "You must accept the terms to continue",
     },
 
     // ── Recuperar contraseña ──────────────────────────────────────────────────
@@ -1766,6 +1777,15 @@ export const TRANSLATIONS = {
       connectionErrorTitle: "No internet connection",
       connectionErrorMessage: "We could not connect to the server.",
       connectionErrorHint: "Check your connection and try again.",
+    },
+
+    // ── Footer ────────────────────────────────────────────────────────────────
+    footer: {
+      tagline: "Compare prices at stores in your neighborhood",
+      terms: "Terms of use",
+      privacy: "Privacy policy",
+      copyright: `© ${new Date().getFullYear()} NØSEE. All rights reserved.`,
+      legalNote: "By using this platform you agree to our Terms of use and Privacy policy.",
     },
 
     // ── Photo uploader ────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import {
 } from "@/features/auth/store/authStore";
 import { useShoppingListStore } from "@/features/shopping-list/store/shoppingListStore";
 import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { PageLoader } from "@/components/ui/Spinner";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -63,6 +64,8 @@ const NearbyStoresPage = lazy(
   () => import("@/features/stores/pages/NearbyStoresPage")
 );
 const RankingPage = lazy(() => import("@/pages/RankingPage"));
+const TermsPage = lazy(() => import("@/pages/TermsPage"));
+const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const ShoppingListPage = lazy(
   () => import("@/features/shopping-list/pages/ShoppingListPage")
 );
@@ -142,6 +145,8 @@ function AppContent() {
 
         <Route path="/" element={<HomePage />} />
         <Route path="/ranking" element={<RankingPage />} />
+        <Route path="/terminos" element={<TermsPage />} />
+        <Route path="/privacidad" element={<PrivacyPage />} />
 
         <Route
           path="/dashboard"
@@ -446,6 +451,7 @@ function AppShell() {
         </ErrorBoundary>
       </main>
 
+      <Footer />
       <AccessibilityMenu />
       <RoleChangeToast />
     </div>

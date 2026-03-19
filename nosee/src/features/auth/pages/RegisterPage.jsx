@@ -2,7 +2,7 @@
  * RegisterPage - Página de registro de nuevo usuario
  */
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   useAuthStore,
   selectIsInitialized,
@@ -127,6 +127,8 @@ function VerificationView({ email, onResend }) {
 export default function RegisterPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const showTermsNotice = searchParams.get('motivo') === 'terminos';
   const register = useAuthStore((s) => s.register);
   const clearError = useAuthStore((s) => s.clearError);
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
@@ -197,6 +199,29 @@ export default function RegisterPage() {
           animation: "fadeIn 0.35s ease",
         }}
       >
+        {/* Banner: redirigido por no aceptar términos en Google OAuth */}
+        {showTermsNotice && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: '20px',
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--accent-soft)',
+              border: '1px solid var(--accent)',
+              color: 'var(--accent)',
+              fontSize: '13px',
+              lineHeight: '1.55',
+            }}
+          >
+            <strong style={{ display: 'block', marginBottom: '4px' }}>
+              Necesitás aceptar los Términos de uso
+            </strong>
+            Para crear tu cuenta con Google debés leer y aceptar los Términos de uso
+            y la Política de privacidad. Tildá el casillero antes de continuar.
+          </div>
+        )}
+
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "28px" }}>
           <div

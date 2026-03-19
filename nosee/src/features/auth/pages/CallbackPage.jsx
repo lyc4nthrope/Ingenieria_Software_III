@@ -144,6 +144,25 @@ export default function CallbackPage() {
     // Flujo PKCE: signup (sin flow=recovery) → navegar cuando esté autenticado
     if (!hash) {
       if (code && flowParam !== 'recovery' && isInitialized && isAuthenticated) {
+        // ── Guardia de términos para nuevos usuarios Google ───────────────
+        // Si la cuenta fue creada hace menos de 5 minutos es un usuario nuevo.
+        // Si además vino del flujo de LOGIN (no de REGISTRO), nunca aceptó
+        // los términos → cerrar sesión y redirigir al registro con aviso.
+        const session = useAuthStore.getState().session;
+        const createdAt = session?.user?.created_at;
+        const isNewUser = createdAt
+          ? Date.now() - new Date(createdAt).getTime() < 5 * 60 * 1000
+          : false;
+        const intent = localStorage.getItem('nosee_google_intent');
+        localStorage.removeItem('nosee_google_intent');
+
+        if (isNewUser && intent !== 'register') {
+          useAuthStore.getState().logout().then(() => {
+            navigate('/registro?motivo=terminos', { replace: true });
+          });
+          return;
+        }
+
         navigate('/perfil', { replace: true });
       }
       return;

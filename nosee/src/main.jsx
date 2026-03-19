@@ -18,13 +18,20 @@ createRoot(document.getElementById('root')).render(
 )
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.map((registration) => registration.unregister()));
-
-    if ('caches' in window) {
-      const cacheNames = await caches.keys();
-      await Promise.all(cacheNames.map((name) => caches.delete(name)));
+  window.addEventListener('load', () => {
+    if (import.meta.env.PROD) {
+      // Producción: registrar SW para cache-first en assets y offline fallback
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // SW no disponible (navegador restringido) — funciona sin caché offline
+      });
+    } else {
+      // Desarrollo: limpiar SWs y caché para evitar problemas de caché obsoleta
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((r) => r.unregister());
+      });
+      if ('caches' in window) {
+        caches.keys().then((names) => names.forEach((name) => caches.delete(name)));
+      }
     }
   });
 }

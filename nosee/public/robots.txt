@@ -1,0 +1,27 @@
+User-agent: *
+
+# Páginas públicas — indexables
+Allow: /
+Allow: /publicaciones
+Allow: /tiendas
+Allow: /ranking
+Allow: /terminos
+Allow: /privacidad
+Allow: /login
+Allow: /registro
+
+# Rutas privadas — no indexar
+Disallow: /perfil
+Disallow: /lista
+Disallow: /pedido
+Disallow: /pedido/
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /recuperar-contrasena
+Disallow: /nueva-contrasena
+Disallow: /publicaciones/nueva
+Disallow: /publicaciones/editar/
+Disallow: /tiendas/nueva
+Disallow: /tiendas/editar/
+Disallow: /tiendas/cercanas
