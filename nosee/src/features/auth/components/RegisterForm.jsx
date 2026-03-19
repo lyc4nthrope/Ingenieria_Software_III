@@ -54,6 +54,7 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
   const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '' });
   const [fieldErrors, setFieldErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -102,7 +103,8 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
         size="lg"
         variant="secondary"
         onClick={onGoogleRegister}
-        disabled={loading}
+        disabled={loading || !termsAccepted}
+        title={!termsAccepted ? tf.termsRequired : undefined}
       >
         {tf.googleRegister}
       </Button>
@@ -214,14 +216,25 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
         disabled={loading}
       />
 
-      <p style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        {tf.terms}{' '}
-        <Link to="/terminos" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>{tf.termsLink}</Link>
-        {' '}{tf.and}{' '}
-        <Link to="/privacidad" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>{tf.privacyLink}</Link>.
-      </p>
+      {/* Checkbox de aceptación de términos */}
+      <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={termsAccepted}
+          onChange={(e) => setTermsAccepted(e.target.checked)}
+          disabled={loading}
+          style={{ marginTop: '2px', accentColor: 'var(--accent)', width: '15px', height: '15px', flexShrink: 0, cursor: 'pointer' }}
+          aria-label={`${tf.terms} ${tf.termsLink} ${tf.and} ${tf.privacyLink}`}
+        />
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+          {tf.terms}{' '}
+          <Link to="/terminos" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>{tf.termsLink}</Link>
+          {' '}{tf.and}{' '}
+          <Link to="/privacidad" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: '500' }}>{tf.privacyLink}</Link>.
+        </span>
+      </label>
 
-      <Button type="submit" fullWidth loading={loading} disabled={loading} size="lg">
+      <Button type="submit" fullWidth loading={loading} disabled={loading || !termsAccepted} size="lg">
         {loading ? tf.creatingAccount : tf.createAccount}
       </Button>
 

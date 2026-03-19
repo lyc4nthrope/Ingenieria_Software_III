@@ -314,6 +314,7 @@ export const TRANSLATIONS = {
       strongPassword: "Contraseña segura",
       mediumPassword: "Contraseña media",
       weakPassword: "Contraseña débil",
+      termsRequired: "Debés aceptar los términos para continuar",
     },
 
     // ── Recuperar contraseña ──────────────────────────────────────────────────
@@ -1643,6 +1644,7 @@ export const TRANSLATIONS = {
       strongPassword: "Strong password",
       mediumPassword: "Medium password",
       weakPassword: "Weak password",
+      termsRequired: "You must accept the terms to continue",
     },
 
     // ── Recuperar contraseña ──────────────────────────────────────────────────
