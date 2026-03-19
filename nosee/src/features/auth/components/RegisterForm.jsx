@@ -102,7 +102,10 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
         fullWidth
         size="lg"
         variant="secondary"
-        onClick={onGoogleRegister}
+        onClick={() => {
+          localStorage.setItem('nosee_google_intent', 'register');
+          onGoogleRegister();
+        }}
         disabled={loading || !termsAccepted}
         title={!termsAccepted ? tf.termsRequired : undefined}
       >

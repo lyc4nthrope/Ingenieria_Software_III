@@ -100,7 +100,10 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
         fullWidth
         size="lg"
         variant="secondary"
-        onClick={onGoogleLogin}
+        onClick={() => {
+          localStorage.setItem('nosee_google_intent', 'login');
+          onGoogleLogin();
+        }}
         disabled={loading}
       >
         {tf.googleLogin}
