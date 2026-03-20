@@ -20,25 +20,25 @@ import qrNequi from '@/assets/qr-nequi.png';
 
 // Logo Nu: fondo morado + wordmark "nu" recreado con paths SVG (arco n + arco u)
 function NuLogo({ size = 22 }) {
-  // viewBox 84×40 → la 'n' ocupa x:0-38, la 'u' ocupa x:46-84
-  // Cada letra se traza con stroke (sin fill) para obtener el grosor uniforme
-  // y las uniones suaves arco-trazo propias del logo real.
+  // viewBox 80×34. Las patas se extienden fuera del viewBox (±4px) y el SVG
+  // las recorta limpiamente, dando la ilusión de que emergen del borde del badge.
+  // Arcos cúbicos de Bézier → curvas más suaves y fieles al wordmark real.
   return (
     <svg
-      width={Math.round(size * 2.1)}
+      width={Math.round(size * 2.35)}
       height={size}
-      viewBox="0 0 84 40"
+      viewBox="0 0 80 34"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-label="Nu"
     >
-      <rect width="84" height="40" rx="7" fill="#820AD1"/>
-      {/* 'n': dos patas + arco superior. Centro arco (19,21) radio 14 */}
-      <path d="M5 40 L5 21 A14 14 0 0 0 33 21 L33 40"
-        stroke="white" strokeWidth="10" strokeLinecap="butt"/>
-      {/* 'u': dos patas + arco inferior. Centro arco (65,26) radio 14 */}
-      <path d="M51 0 L51 26 A14 14 0 0 1 79 26 L79 0"
-        stroke="white" strokeWidth="10" strokeLinecap="butt"/>
+      <rect width="80" height="34" rx="6" fill="#820AD1"/>
+      {/* 'n': patas bajan hasta fuera del viewBox; arco cúbico en la cima */}
+      <path d="M7 38 L7 15 C7 0 33 0 33 15 L33 38"
+        stroke="white" strokeWidth="7" strokeLinecap="butt" fill="none"/>
+      {/* 'u': patas suben hasta fuera del viewBox; arco cúbico en la base */}
+      <path d="M47 -4 L47 19 C47 34 73 34 73 19 L73 -4"
+        stroke="white" strokeWidth="7" strokeLinecap="butt" fill="none"/>
     </svg>
   );
 }
