@@ -143,27 +143,38 @@ export default function DealerDashboard() {
   }, [activeOrders.length, dealer?.id]);
 
   // ── Supabase Realtime ────────────────────────────────────────────────────
-  // Suscripción 1: nuevos pedidos disponibles → actualiza tab "disponibles" en vivo
-  // Suscripción 2: cambios en pedidos asignados (ej: usuario cancela) → recarga activos
+  // Suscripción 1: INSERT de nuevos pedidos → si status es pendiente_repartidor,
+  //   actualiza la lista de disponibles. Se usa INSERT (no '*') para máxima fiabilidad.
+  // Suscripción 2: UPDATE de pedidos → detecta los asignados a este repartidor
+  //   y cambios de estado (entregado, cancelado).
+  // Nota: REPLICA IDENTITY FULL está habilitado en orders para que los filtros
+  //   de columna en postgres_changes funcionen correctamente.
   useEffect(() => {
     if (!dealer?.id) return;
 
     const channel = supabase
-      .channel('dealer-orders-watch')
-      // Pedidos que se vuelven disponibles (INSERT o UPDATE a pendiente_repartidor)
+      .channel(`dealer-orders-watch-${dealer.id}`)
+      // Nuevos pedidos creados por usuarios
       .on('postgres_changes', {
-        event:  '*',
+        event:  'INSERT',
+        schema: 'public',
+        table:  'orders',
+      }, (payload) => {
+        if (payload.new?.status !== 'pendiente_repartidor') return;
+        loadAvailable();
+        if (initializedRef.current) {
+          setNewOrderAlert(true);
+          setActiveTab((prev) => prev === 'activos' ? prev : 'disponibles');
+        }
+      })
+      // Pedidos que cambian a pendiente_repartidor (ej: cancelación y re-apertura)
+      .on('postgres_changes', {
+        event:  'UPDATE',
         schema: 'public',
         table:  'orders',
         filter: `status=eq.pendiente_repartidor`,
       }, () => {
         loadAvailable();
-        // Solo mostrar alerta después de la carga inicial
-        if (initializedRef.current) {
-          setNewOrderAlert(true);
-          // Auto-ir a disponibles si el repartidor no tiene pedido activo
-          setActiveTab((prev) => prev === 'activos' ? prev : 'disponibles');
-        }
       })
       // Cambios en los pedidos asignados a este repartidor
       .on('postgres_changes', {
@@ -172,18 +183,19 @@ export default function DealerDashboard() {
         table:  'orders',
         filter: `dealer_id=eq.${dealer.id}`,
       }, (payload) => {
-        // Actualizar el pedido en el estado local sin recargar todo
-        setActiveOrders((prev) =>
-          prev.map((o) => o.id === payload.new.id ? { ...o, ...payload.new } : o)
-        );
-        // Si pasó a entregado, moverlo al historial
-        if (payload.new.status === 'entregado') {
-          setActiveOrders((prev) => prev.filter((o) => o.id !== payload.new.id));
-          setHistory((prev) => [payload.new, ...prev]);
-        }
-        // Si fue cancelado, sacarlo de activos
-        if (payload.new.status === 'cancelado') {
-          setActiveOrders((prev) => prev.filter((o) => o.id !== payload.new.id));
+        const updated = payload.new;
+        if (!updated) return;
+
+        if (updated.status === 'entregado') {
+          setActiveOrders((prev) => prev.filter((o) => o.id !== updated.id));
+          setHistory((prev) => [updated, ...prev]);
+        } else if (updated.status === 'cancelado') {
+          setActiveOrders((prev) => prev.filter((o) => o.id !== updated.id));
+          loadAvailable(); // puede volver a estar disponible
+        } else {
+          setActiveOrders((prev) =>
+            prev.map((o) => o.id === updated.id ? { ...o, ...updated } : o)
+          );
         }
       })
       .subscribe();
