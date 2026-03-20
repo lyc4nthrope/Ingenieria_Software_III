@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nosee-cache-v2';
+const CACHE_NAME = 'nosee-cache-v3';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -21,6 +21,11 @@ self.addEventListener('fetch', (event) => {
   if (!event.request.url.startsWith('http')) return;
 
   const url = new URL(event.request.url);
+
+  // Solo interceptar peticiones same-origin.
+  // CDNs externos (unpkg, Supabase, GTM) los maneja el browser directamente —
+  // interceptarlos puede devolver `undefined` desde el cache y romper Realtime.
+  if (url.origin !== self.location.origin) return;
 
   // Navegación (index.html): Network-first, cache solo como fallback offline
   if (event.request.mode === 'navigate') {
