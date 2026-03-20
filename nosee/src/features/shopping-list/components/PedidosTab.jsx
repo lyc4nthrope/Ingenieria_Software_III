@@ -1,69 +1,114 @@
 import { useState, useEffect, useRef } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
-import { useShoppingListStore } from '../store/shoppingListStore';
 import { DeliveryCard } from './DeliveryCard';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { pedidos } from '../styles/shoppingListStyles';
+import { supabase } from '@/services/supabase.client';
+
+// Mapa de estado de Supabase (tabla orders) → estado de UI local
+// El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
+const STATUS_MAP = {
+  pendiente_repartidor: 'searching',
+  aceptado:             'found',
+  comprando:            'comprando',
+  en_camino:            'en_camino',
+  llegando:             'llegando',
+  entregado:            'entregado',
+  cancelado:            'cancelled',
+};
 
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
 export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
-  const timerRef = useRef(null);
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
 
-  // Mantener la ref actualizada sin re-ejecutar el efecto
+  // Mantener la ref actualizada sin re-ejecutar los efectos
   useEffect(() => { updateOrderDeliveryRef.current = updateOrderDelivery; });
 
   const selectedOrder = orders[selectedIdx] ?? null;
 
-  // ── Simulación de estado de domicilio en tiempo real ──────────────────
+  // ── REALTIME: estado del pedido (vía Supabase) ────────────────────────────
+  // Escucha UPDATE en orders para este pedido → actualiza deliveryStatus y dealerId.
+  // Solo corre para pedidos de domicilio con supabaseId (guardados en Supabase).
+  // La carga inicial sincroniza el estado en caso de que la app estuviera cerrada
+  // mientras el repartidor avanzaba el estado.
   useEffect(() => {
-    clearTimeout(timerRef.current);
-    clearInterval(timerRef.current);
+    if (!selectedOrder?.deliveryMode || !selectedOrder?.supabaseId) return;
 
-    if (!selectedOrder?.deliveryMode) return;
-    const { deliveryStatus, id, userCoords } = selectedOrder;
-    if (deliveryStatus === 'cancelled' || deliveryStatus === null) return;
-
-    if (deliveryStatus === 'searching') {
-      timerRef.current = setTimeout(() => {
-        const center = userCoords ?? { lat: 4.711, lng: -74.0721 };
-        updateOrderDeliveryRef.current(id, {
-          deliveryStatus: 'found',
-          driverLocation: {
-            lat: center.lat + (Math.random() - 0.5) * 0.04,
-            lng: center.lng + (Math.random() - 0.5) * 0.04,
-          },
-        });
-      }, 5000);
-    } else if (deliveryStatus === 'found') {
-      timerRef.current = setTimeout(() => {
-        updateOrderDeliveryRef.current(id, { deliveryStatus: 'en_camino' });
-      }, 3000);
-    } else if (deliveryStatus === 'en_camino') {
-      timerRef.current = setInterval(() => {
-        try {
-          const current = useShoppingListStore.getState().orders?.find((o) => o.id === id);
-          if (!current?.driverLocation || !current?.userCoords) return;
-          const { driverLocation: dl, userCoords: uc } = current;
-          updateOrderDeliveryRef.current(id, {
-            driverLocation: {
-              lat: dl.lat + (uc.lat - dl.lat) * 0.12 + (Math.random() - 0.5) * 0.0008,
-              lng: dl.lng + (uc.lng - dl.lng) * 0.12 + (Math.random() - 0.5) * 0.0008,
-            },
+    supabase
+      .from('orders')
+      .select('status, dealer_id')
+      .eq('id', selectedOrder.supabaseId)
+      .single()
+      .then(({ data }) => {
+        if (!data) return;
+        const uiStatus = STATUS_MAP[data.status];
+        if (uiStatus && uiStatus !== selectedOrder.deliveryStatus) {
+          updateOrderDeliveryRef.current(selectedOrder.id, {
+            deliveryStatus: uiStatus,
+            ...(data.dealer_id ? { dealerId: data.dealer_id } : {}),
           });
-        } catch {
-          clearInterval(timerRef.current);
         }
-      }, 3000);
-    }
+      });
 
-    return () => {
-      clearTimeout(timerRef.current);
-      clearInterval(timerRef.current);
-    };
-  }, [selectedOrder?.id, selectedOrder?.deliveryStatus, selectedOrder?.deliveryMode, selectedOrder?.userCoords]);
+    const channel = supabase
+      .channel(`order-status-${selectedOrder.supabaseId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${selectedOrder.supabaseId}` },
+        (payload) => {
+          const uiStatus = STATUS_MAP[payload.new?.status];
+          if (!uiStatus) return;
+          updateOrderDeliveryRef.current(selectedOrder.id, {
+            deliveryStatus: uiStatus,
+            ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : {}),
+          });
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.supabaseId, selectedOrder?.id]);
+
+  // ── REALTIME: ubicación GPS del repartidor ─────────────────────────────────
+  // Se activa cuando el repartidor es asignado (dealerId en el pedido).
+  // Escucha dealer_locations → actualiza driverLocation en el mapa (~cada 15s).
+  useEffect(() => {
+    const dealerId = selectedOrder?.dealerId;
+    if (!dealerId) return;
+
+    supabase
+      .from('dealer_locations')
+      .select('lat, lng')
+      .eq('dealer_id', dealerId)
+      .single()
+      .then(({ data }) => {
+        if (data?.lat && data?.lng) {
+          updateOrderDeliveryRef.current(selectedOrder.id, {
+            driverLocation: { lat: data.lat, lng: data.lng },
+          });
+        }
+      });
+
+    const channel = supabase
+      .channel(`dealer-loc-${dealerId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'dealer_locations', filter: `dealer_id=eq.${dealerId}` },
+        (payload) => {
+          if (!payload.new?.lat || !payload.new?.lng) return;
+          updateOrderDeliveryRef.current(selectedOrder.id, {
+            driverLocation: { lat: payload.new.lat, lng: payload.new.lng },
+          });
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.dealerId, selectedOrder?.id]);
 
   const handleRemove = (id) => {
     removeOrder(id);
@@ -76,6 +121,15 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     updateOrderDelivery(selectedOrder.id, {
       deliveryStatus: 'cancelled',
       cancellationCharged: charged,
+    });
+  };
+
+  // Cuando el usuario sube el comprobante de pago
+  const handlePaymentSubmitted = ({ receiptUrl, method }) => {
+    updateOrderDelivery(selectedOrder.id, {
+      deliveryStatus: 'comprobante_subido',
+      receiptUrl,
+      paymentMethod: method,
     });
   };
 
@@ -152,7 +206,11 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
           {/* ── Tarjeta de domicilio ── */}
           {selectedOrder.deliveryMode && (
-            <DeliveryCard order={selectedOrder} onCancel={handleCancelDelivery} />
+            <DeliveryCard
+              order={selectedOrder}
+              onCancel={handleCancelDelivery}
+              onPaymentSubmitted={handlePaymentSubmitted}
+            />
           )}
 
           {/* ── Totales rápidos ── */}
