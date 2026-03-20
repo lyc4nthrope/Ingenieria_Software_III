@@ -18,22 +18,27 @@ import qrNequi from '@/assets/qr-nequi.png';
 
 // ─── Logos SVG de las pasarelas ───────────────────────────────────────────────
 
-// Logo Nu: cuadrado redondeado morado con "nu" en minúscula — idéntico al app icon
+// Logo Nu: fondo morado + wordmark "nu" recreado con paths SVG (arco n + arco u)
 function NuLogo({ size = 22 }) {
+  // viewBox 84×40 → la 'n' ocupa x:0-38, la 'u' ocupa x:46-84
+  // Cada letra se traza con stroke (sin fill) para obtener el grosor uniforme
+  // y las uniones suaves arco-trazo propias del logo real.
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Nu">
-      <rect width="40" height="40" rx="10" fill="#820AD1"/>
-      <text
-        x="20" y="27"
-        textAnchor="middle"
-        fill="#ffffff"
-        fontFamily="'Arial', sans-serif"
-        fontSize="17"
-        fontWeight="bold"
-        letterSpacing="-0.5"
-      >
-        nu
-      </text>
+    <svg
+      width={Math.round(size * 2.1)}
+      height={size}
+      viewBox="0 0 84 40"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Nu"
+    >
+      <rect width="84" height="40" rx="7" fill="#820AD1"/>
+      {/* 'n': dos patas + arco superior. Centro arco (19,21) radio 14 */}
+      <path d="M5 40 L5 21 A14 14 0 0 0 33 21 L33 40"
+        stroke="white" strokeWidth="10" strokeLinecap="butt"/>
+      {/* 'u': dos patas + arco inferior. Centro arco (65,26) radio 14 */}
+      <path d="M51 0 L51 26 A14 14 0 0 1 79 26 L79 0"
+        stroke="white" strokeWidth="10" strokeLinecap="butt"/>
     </svg>
   );
 }
