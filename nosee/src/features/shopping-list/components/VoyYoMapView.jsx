@@ -5,7 +5,7 @@ import { resv } from '../styles/shoppingListStyles';
 
 const PAGE_SIZE = 3;
 
-// ─── Lista de productos paginada (3 por página) ───────────────────────────────
+// ─── Lista de productos paginada por tienda ───────────────────────────────────
 function ProdPagedList({ products }) {
   const [page, setPage] = useState(0);
   const total   = products.length;
@@ -17,14 +17,9 @@ function ProdPagedList({ products }) {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setPage((p) => Math.max(0, p - 1))}
-        disabled={!canUp}
-        style={{ ...vv.arrow, opacity: canUp ? 1 : 0.3, cursor: canUp ? 'pointer' : 'default' }}
-        aria-label="Productos anteriores"
-      >▲</button>
-
+      {canUp && (
+        <button type="button" onClick={() => setPage((p) => p - 1)} style={vv.arrow}>▲</button>
+      )}
       <ul style={resv.prodList}>
         {visible.map((p, i) => (
           <li key={start + i} style={resv.prodItem}>
@@ -38,15 +33,9 @@ function ProdPagedList({ products }) {
           </li>
         ))}
       </ul>
-
-      <button
-        type="button"
-        onClick={() => setPage((p) => Math.min(maxPage, p + 1))}
-        disabled={!canDown}
-        style={{ ...vv.arrow, opacity: canDown ? 1 : 0.3, cursor: canDown ? 'pointer' : 'default' }}
-        aria-label="Más productos"
-      >▼</button>
-
+      {canDown && (
+        <button type="button" onClick={() => setPage((p) => p + 1)} style={vv.arrow}>▼</button>
+      )}
       {total > PAGE_SIZE && (
         <p style={vv.pageInfo}>{start + 1}–{Math.min(start + PAGE_SIZE, total)} de {total} productos</p>
       )}
@@ -137,8 +126,7 @@ const vv = {
     width: '100%', padding: '4px', margin: '2px 0',
     background: 'var(--bg-elevated)', border: '1px solid var(--border)',
     borderRadius: 'var(--radius-sm)', color: 'var(--accent)',
-    fontSize: '12px', fontWeight: 800, lineHeight: 1,
-    transition: 'opacity 0.15s',
+    fontSize: '12px', fontWeight: 800, cursor: 'pointer', lineHeight: 1,
   },
   pageInfo: {
     margin: '4px 0 0', fontSize: '11px', color: 'var(--text-muted)',
