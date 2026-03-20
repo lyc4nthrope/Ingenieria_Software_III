@@ -22,6 +22,8 @@ import {
 } from '@/features/orders/utils/optimizationAlgorithms';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { insertUserActivityLog } from '@/services/api/audit.api';
+import { createOrder } from '@/services/api/orders.api';
+import { DELIVERY_FEE } from '@/features/shopping-list/utils/shoppingListUtils';
 
 // ─── Radios disponibles ───────────────────────────────────────────────────────
 const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
@@ -60,6 +62,10 @@ export default function CreateOrderPage() {
 
   // ── Confirmación ──────────────────────────────────────────────────────────
   const [orderId] = useState(() => `NSE-${Date.now().toString(36).toUpperCase()}`);
+  // saving: bloquea el botón para evitar doble-submit
+  // saveError: mensaje de error si Supabase falla (solo bloquea si es domicilio)
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   // ── GPS ───────────────────────────────────────────────────────────────────
   const handleGPS = () => {
@@ -121,28 +127,69 @@ export default function CreateOrderPage() {
   }, [selectedItems, coords, radius, storeType, strategy]);
 
   // ── Confirmar ─────────────────────────────────────────────────────────────
-  const handleConfirm = () => {
-    addOrder({
-      id: orderId,
-      result,
-      userCoords: coords,
-      createdAt: new Date().toISOString(),
-      deliveryMode: wantsDelivery,
-      deliveryStatus: wantsDelivery ? 'searching' : null,
-      driverLocation: null,
-      cancellationCharged: false,
+  // Por qué async: necesitamos esperar la respuesta de Supabase antes de
+  // decidir si el pedido se confirma o si mostramos un error.
+  // Si el usuario pidió domicilio y Supabase falla, el repartidor nunca verá
+  // el pedido — en ese caso bloqueamos y pedimos que reintente.
+  // Si eligió "voy yo", degradamos a localStorage (no afecta el Proceso 4).
+  const handleConfirm = async () => {
+    setSaving(true);
+    setSaveError(null);
+
+    const fee = wantsDelivery ? DELIVERY_FEE : 0;
+
+    const { data: savedOrder, error } = await createOrder({
+      userId:          currentUserId,
+      localId:         orderId,
+      deliveryMode:    wantsDelivery,
+      deliveryAddress: manualAddress || null,
+      deliveryCoords:  coords        || null,
+      stores:          result.stores,
+      items:           selectedItems,
+      totalCost:       result.totalCost,
+      deliveryFee:     fee,
+      savings:         result.savings ?? 0,
+      strategy,
     });
+
+    if (error) {
+      if (wantsDelivery) {
+        // Con domicilio el pedido DEBE estar en Supabase para que el repartidor lo vea.
+        // Mostramos el error y dejamos que el usuario reintente — no confirmamos.
+        setSaveError('No se pudo guardar el pedido. Revisá tu conexión e intentá de nuevo.');
+        setSaving(false);
+        return;
+      }
+      // "Voy yo": guardar localmente de todas formas. El Proceso 4 no aplica aquí.
+      console.warn('[orders] Supabase save failed, usando localStorage como fallback:', error.message);
+    }
+
+    // Agregar al store local (funciona como caché de UI).
+    // supabaseId queda null si el guardado falló (solo en modo "voy yo").
+    addOrder({
+      id:                   orderId,
+      supabaseId:           savedOrder?.id ?? null,
+      result,
+      userCoords:           coords,
+      createdAt:            new Date().toISOString(),
+      deliveryMode:         wantsDelivery,
+      deliveryStatus:       wantsDelivery ? 'searching' : null,
+      driverLocation:       null,
+      cancellationCharged:  false,
+    });
+
     insertUserActivityLog(currentUserId, 'crear_pedido', {
       orderId,
+      supabaseId:  savedOrder?.id ?? null,
       strategy,
-      itemCount: selectedItems.length,
-      totalCost: result?.totalCost,
+      itemCount:   selectedItems.length,
+      totalCost:   result?.totalCost,
       deliveryMode: wantsDelivery,
     });
+
+    setSaving(false);
     setPhase('confirmed');
-    setTimeout(() => {
-      navigate('/lista');
-    }, 1500);
+    setTimeout(() => navigate('/lista'), 1500);
   };
 
   // ── Etiquetas según modo de entrega ───────────────────────────────────────
@@ -454,12 +501,18 @@ export default function CreateOrderPage() {
             })
           )}
 
+          {/* Error de guardado: solo se muestra si Supabase falla */}
+          {saveError && (
+            <p style={styles.errorMsg}>{saveError}</p>
+          )}
+
           <button
             type="button"
             onClick={handleConfirm}
-            style={styles.primaryBtn}
+            disabled={saving}
+            style={{ ...styles.primaryBtn, opacity: saving ? 0.7 : 1 }}
           >
-            {confirmLabel}
+            {saving ? 'Guardando pedido...' : confirmLabel}
           </button>
         </div>
 
