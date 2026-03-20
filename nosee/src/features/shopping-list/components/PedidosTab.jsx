@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { DeliveryCard } from './DeliveryCard';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
-import { pedidos } from '../styles/shoppingListStyles';
+import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
 import { updateProductPrice } from '@/services/api/orders.api';
@@ -19,96 +19,122 @@ const STATUS_MAP = {
   cancelado:            'cancelled',
 };
 
-const PROD_PAGE_SIZE = 3;
+const STORE_PAGE_SIZE = 3;
 
-// ─── Sub-componente: lista paginada de productos por tienda ───────────────────
-function StoreProdList({ store, si, orderId, checklist, toggleCheck, onPriceReport }) {
+// ─── Paginador de tarjetas de tienda (máximo 3 a la vez) ──────────────────────
+// Flechas ▲/▼ afuera del bloque de tarjetas, igual al estilo de VoyYoMapView.
+function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport }) {
   const [page, setPage] = useState(0);
-  const products  = store.products ?? [];
-  const total     = products.length;
-  const maxPage   = Math.max(0, Math.ceil(total / PROD_PAGE_SIZE) - 1);
-  const start     = page * PROD_PAGE_SIZE;
-  const visible   = products.slice(start, start + PROD_PAGE_SIZE);
-  const canUp     = page > 0;
-  const canDown   = page < maxPage;
+  const total   = stores.length;
+  const maxPage = Math.max(0, Math.ceil(total / STORE_PAGE_SIZE) - 1);
+  const start   = page * STORE_PAGE_SIZE;
+  const visible = stores.slice(start, start + STORE_PAGE_SIZE);
+  const canUp   = page > 0;
+  const canDown = page < maxPage;
 
   return (
-    <div>
-      {/* Flecha arriba */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      {/* ── Flecha arriba ── */}
       {canUp && (
-        <button type="button" onClick={() => setPage((p) => p - 1)} style={pp.arrow} aria-label="Productos anteriores">▲</button>
+        <button type="button" onClick={() => setPage((p) => p - 1)} style={sc.arrow}>▲</button>
       )}
 
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {visible.map((p, relIdx) => {
-          const pi  = start + relIdx;
-          const key = `${orderId}-${si}-${pi}`;
-          const done = !!checklist[key];
-          return (
-            <li key={pi} style={{ ...pp.prodItem, ...(done ? { opacity: 0.5 } : {}) }}>
-              <div
-                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, cursor: 'pointer' }}
-                onClick={() => toggleCheck(key)}
-              >
-                <span style={{
-                  width: 16, height: 16, borderRadius: 4, flexShrink: 0, marginTop: 2,
-                  border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
-                  background: done ? 'var(--accent)' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 10, fontWeight: 700, color: '#fff',
-                }}>
-                  {done ? '✓' : ''}
-                </span>
-                <div style={done ? { textDecoration: 'line-through' } : {}}>
-                  <div style={pp.prodName}>{p.item.productName}</div>
-                  <div style={pp.prodMeta}>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
-                <span style={{ ...pp.prodTotal, ...(done ? { textDecoration: 'line-through' } : {}) }}>
-                  ${(p.price * p.item.quantity).toLocaleString('es-CO')}
-                </span>
-                {onPriceReport && (
-                  <PriceReportInline
-                    currentPrice={p.price}
-                    onConfirm={(newPrice) => onPriceReport(si, pi, newPrice)}
-                  />
+      {/* ── Tarjetas de tienda ── */}
+      {visible.map((s, relIdx) => {
+        const si       = start + relIdx;
+        const emoji    = getStoreEmoji(s.store?.store_type_id);
+        const subtotal = s.products.reduce((a, p) => a + (p.price || 0) * (p.item?.quantity || 1), 0);
+        const checked  = s.products.filter((_, pi) => checklist[`${orderId}-${si}-${pi}`]).length;
+        return (
+          <div key={si} style={resv.storeCard}>
+            {/* Header tienda */}
+            <div style={resv.storeHeader}>
+              <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {checked > 0 && (
+                  <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
+                    {checked}/{s.products.length} ✓
+                  </span>
                 )}
+                <span style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                  ${subtotal.toLocaleString('es-CO')}
+                </span>
               </div>
-            </li>
-          );
-        })}
-      </ul>
+            </div>
 
-      {/* Flecha abajo */}
+            {/* Productos */}
+            <ul style={resv.prodList}>
+              {s.products.map((p, pi) => {
+                const key  = `${orderId}-${si}-${pi}`;
+                const done = !!checklist[key];
+                return (
+                  <li
+                    key={pi}
+                    style={{ ...resv.prodItem, ...(done ? { opacity: 0.55 } : {}) }}
+                    onClick={() => toggleCheck(key)}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flex: 1, cursor: 'pointer' }}>
+                      {/* Checkbox */}
+                      <span style={{
+                        width: 15, height: 15, borderRadius: 3, flexShrink: 0, marginTop: 2,
+                        border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
+                        background: done ? 'var(--accent)' : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 9, fontWeight: 800, color: '#fff',
+                      }}>
+                        {done ? '✓' : ''}
+                      </span>
+                      <div style={done ? { textDecoration: 'line-through' } : {}}>
+                        <div style={resv.prodName}>{p.item?.productName ?? p.productName ?? 'Producto'}</div>
+                        <div style={resv.prodMeta}>×{p.item?.quantity || 1} · ${(p.price || 0).toLocaleString('es-CO')} c/u</div>
+                      </div>
+                    </div>
+                    <div
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span style={{ ...resv.prodTotal, ...(done ? { textDecoration: 'line-through' } : {}) }}>
+                        ${((p.price || 0) * (p.item?.quantity || 1)).toLocaleString('es-CO')}
+                      </span>
+                      {onPriceReport && (
+                        <PriceReportInline
+                          currentPrice={p.price}
+                          onConfirm={(newPrice) => onPriceReport(si, pi, newPrice)}
+                        />
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        );
+      })}
+
+      {/* ── Flecha abajo ── */}
       {canDown && (
-        <button type="button" onClick={() => setPage((p) => p + 1)} style={pp.arrow} aria-label="Más productos">▼</button>
+        <button type="button" onClick={() => setPage((p) => p + 1)} style={sc.arrow}>▼</button>
       )}
 
-      {/* Indicador */}
-      {total > PROD_PAGE_SIZE && (
-        <p style={pp.pageInfo}>{start + 1}–{Math.min(start + PROD_PAGE_SIZE, total)} de {total} productos</p>
+      {/* Indicador de página */}
+      {total > STORE_PAGE_SIZE && (
+        <p style={sc.pageInfo}>
+          {start + 1}–{Math.min(start + STORE_PAGE_SIZE, total)} de {total} tiendas
+        </p>
       )}
     </div>
   );
 }
 
-const pp = {
-  prodItem: {
-    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-    padding: '9px 0', borderBottom: '1px solid var(--border)',
-  },
-  prodName: { fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' },
-  prodMeta: { fontSize: '11px', color: 'var(--text-muted)', marginTop: 2 },
-  prodTotal: { fontSize: '13px', fontWeight: 700, color: 'var(--accent)' },
+const sc = {
   arrow: {
-    width: '100%', padding: '4px', margin: '2px 0',
+    width: '100%', padding: '5px',
     background: 'var(--bg-elevated)', border: '1px solid var(--border)',
     borderRadius: 'var(--radius-sm)', color: 'var(--accent)',
-    fontSize: '12px', fontWeight: 800, cursor: 'pointer', lineHeight: 1,
+    fontSize: '13px', fontWeight: 800, cursor: 'pointer', lineHeight: 1,
   },
   pageInfo: {
-    margin: '4px 0 0', fontSize: '11px', color: 'var(--text-muted)',
+    margin: 0, fontSize: '11px', color: 'var(--text-muted)',
     textAlign: 'center', fontWeight: 600,
   },
 };
@@ -377,41 +403,16 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             </div>
           </div>
 
-          {/* ── Productos agrupados por tienda ── */}
-          <div style={pedidos.productsWrap}>
-            {result.stores.map((s, si) => {
-              const emoji    = getStoreEmoji(s.store?.store_type_id);
-              const subtotal = s.products.reduce((a, p) => a + (p.price || 0) * p.item.quantity, 0);
-              const checked  = s.products.filter((_, pi) => checklist[`${selectedOrder.id}-${si}-${pi}`]).length;
-              return (
-                <div key={si} style={pedidos.storeBlock}>
-                  <div style={pedidos.storeBlockHeader}>
-                    <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {checked > 0 && (
-                        <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
-                          {checked}/{s.products.length} ✓
-                        </span>
-                      )}
-                      <span style={{ color: 'var(--accent)', fontSize: '12px' }}>
-                        ${subtotal.toLocaleString('es-CO')}
-                      </span>
-                    </div>
-                  </div>
-                  <StoreProdList
-                    store={s}
-                    si={si}
-                    orderId={selectedOrder.id}
-                    checklist={checklist}
-                    toggleCheck={toggleCheck}
-                    onPriceReport={selectedOrder.supabaseId
-                      ? (storeIdx, pi, newPrice) => handlePriceReport(selectedOrder, storeIdx, pi, newPrice)
-                      : null}
-                  />
-                </div>
-              );
-            })}
-          </div>
+          {/* ── Productos agrupados por tienda (máx 3 tarjetas + flechas) ── */}
+          <StoreCardPager
+            stores={result.stores}
+            orderId={selectedOrder.id}
+            checklist={checklist}
+            toggleCheck={toggleCheck}
+            onPriceReport={selectedOrder.supabaseId
+              ? (storeIdx, pi, newPrice) => handlePriceReport(selectedOrder, storeIdx, pi, newPrice)
+              : null}
+          />
         </div>
 
         {/* Columna derecha: mapa rectangular */}
