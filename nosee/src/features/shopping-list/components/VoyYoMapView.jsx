@@ -1,6 +1,58 @@
+import { useState } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { getStoreEmoji } from '../utils/shoppingListUtils';
 import { resv } from '../styles/shoppingListStyles';
+
+const PAGE_SIZE = 3;
+
+// ─── Lista de productos paginada (3 por página) ───────────────────────────────
+function ProdPagedList({ products }) {
+  const [page, setPage] = useState(0);
+  const total   = products.length;
+  const maxPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+  const start   = page * PAGE_SIZE;
+  const visible = products.slice(start, start + PAGE_SIZE);
+  const canUp   = page > 0;
+  const canDown = page < maxPage;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setPage((p) => Math.max(0, p - 1))}
+        disabled={!canUp}
+        style={{ ...vv.arrow, opacity: canUp ? 1 : 0.3, cursor: canUp ? 'pointer' : 'default' }}
+        aria-label="Productos anteriores"
+      >▲</button>
+
+      <ul style={resv.prodList}>
+        {visible.map((p, i) => (
+          <li key={start + i} style={resv.prodItem}>
+            <div>
+              <div style={resv.prodName}>{p.item.productName}</div>
+              <div style={resv.prodMeta}>×{p.item.quantity || 1} · ${p.price.toLocaleString('es-CO')} c/u</div>
+            </div>
+            <span style={resv.prodTotal}>
+              ${(p.price * (p.item.quantity || 1)).toLocaleString('es-CO')}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <button
+        type="button"
+        onClick={() => setPage((p) => Math.min(maxPage, p + 1))}
+        disabled={!canDown}
+        style={{ ...vv.arrow, opacity: canDown ? 1 : 0.3, cursor: canDown ? 'pointer' : 'default' }}
+        aria-label="Más productos"
+      >▼</button>
+
+      {total > PAGE_SIZE && (
+        <p style={vv.pageInfo}>{start + 1}–{Math.min(start + PAGE_SIZE, total)} de {total} productos</p>
+      )}
+    </div>
+  );
+}
 
 // ─── Vista "Voy yo" — lista + mapa ───────────────────────────────────────────
 export function VoyYoMapView({ result, userCoords, onDone }) {
@@ -42,7 +94,7 @@ export function VoyYoMapView({ result, userCoords, onDone }) {
               </span>
             </div>
             {stores.map((s, si) => {
-              const emoji = getStoreEmoji(s.store?.store_type_id);
+              const emoji    = getStoreEmoji(s.store?.store_type_id);
               const subtotal = s.products.reduce((a, p) => a + p.price * (p.item.quantity || 1), 0);
               return (
                 <div key={si} style={resv.storeCard}>
@@ -52,19 +104,7 @@ export function VoyYoMapView({ result, userCoords, onDone }) {
                       ${subtotal.toLocaleString('es-CO')}
                     </span>
                   </div>
-                  <ul style={resv.prodList}>
-                    {s.products.map((p, pi) => (
-                      <li key={pi} style={resv.prodItem}>
-                        <div>
-                          <div style={resv.prodName}>{p.item.productName}</div>
-                          <div style={resv.prodMeta}>×{p.item.quantity || 1} · ${p.price.toLocaleString('es-CO')} c/u</div>
-                        </div>
-                        <span style={resv.prodTotal}>
-                          ${(p.price * (p.item.quantity || 1)).toLocaleString('es-CO')}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <ProdPagedList products={s.products} />
                 </div>
               );
             })}
@@ -90,3 +130,18 @@ export function VoyYoMapView({ result, userCoords, onDone }) {
     </>
   );
 }
+
+// ─── Estilos adicionales ──────────────────────────────────────────────────────
+const vv = {
+  arrow: {
+    width: '100%', padding: '4px', margin: '2px 0',
+    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)', color: 'var(--accent)',
+    fontSize: '12px', fontWeight: 800, lineHeight: 1,
+    transition: 'opacity 0.15s',
+  },
+  pageInfo: {
+    margin: '4px 0 0', fontSize: '11px', color: 'var(--text-muted)',
+    textAlign: 'center', fontWeight: 600,
+  },
+};

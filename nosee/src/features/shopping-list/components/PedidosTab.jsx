@@ -35,9 +35,13 @@ function StoreProdList({ store, si, orderId, checklist, toggleCheck, onPriceRepo
   return (
     <div>
       {/* Flecha arriba */}
-      {canUp && (
-        <button type="button" onClick={() => setPage((p) => p - 1)} style={pp.arrow}>▲</button>
-      )}
+      <button
+        type="button"
+        onClick={() => setPage((p) => Math.max(0, p - 1))}
+        disabled={!canUp}
+        style={{ ...pp.arrow, opacity: canUp ? 1 : 0.3, cursor: canUp ? 'pointer' : 'default' }}
+        aria-label="Productos anteriores"
+      >▲</button>
 
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {visible.map((p, relIdx) => {
@@ -81,14 +85,18 @@ function StoreProdList({ store, si, orderId, checklist, toggleCheck, onPriceRepo
       </ul>
 
       {/* Flecha abajo */}
-      {canDown && (
-        <button type="button" onClick={() => setPage((p) => p + 1)} style={pp.arrow}>▼</button>
-      )}
+      <button
+        type="button"
+        onClick={() => setPage((p) => Math.min(maxPage, p + 1))}
+        disabled={!canDown}
+        style={{ ...pp.arrow, opacity: canDown ? 1 : 0.3, cursor: canDown ? 'pointer' : 'default' }}
+        aria-label="Más productos"
+      >▼</button>
 
       {/* Indicador */}
-      {total > PROD_PAGE_SIZE && (
-        <p style={pp.pageInfo}>{start + 1}–{Math.min(start + PROD_PAGE_SIZE, total)} de {total} productos</p>
-      )}
+      <p style={pp.pageInfo}>
+        {start + 1}–{Math.min(start + PROD_PAGE_SIZE, total)} de {total} {total === 1 ? 'producto' : 'productos'}
+      </p>
     </div>
   );
 }
