@@ -20,25 +20,24 @@ import qrNequi from '@/assets/qr-nequi.png';
 
 // Logo Nu: fondo morado + wordmark "nu" recreado con paths SVG (arco n + arco u)
 function NuLogo({ size = 22 }) {
-  // viewBox 80×34. Las patas se extienden fuera del viewBox (±4px) y el SVG
-  // las recorta limpiamente, dando la ilusión de que emergen del borde del badge.
-  // Arcos cúbicos de Bézier → curvas más suaves y fieles al wordmark real.
+  // Las letras flotan dentro del badge con caps redondeados visibles,
+  // trazos finos y arcos cúbicos — fiel al wordmark real de Nu Bank.
   return (
     <svg
-      width={Math.round(size * 2.35)}
+      width={Math.round(size * 1.6)}
       height={size}
-      viewBox="0 0 80 34"
+      viewBox="0 0 58 36"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-label="Nu"
     >
-      <rect width="80" height="34" rx="6" fill="#820AD1"/>
-      {/* 'n': patas bajan hasta fuera del viewBox; arco cúbico en la cima */}
-      <path d="M7 38 L7 15 C7 0 33 0 33 15 L33 38"
-        stroke="white" strokeWidth="7" strokeLinecap="butt" fill="none"/>
-      {/* 'u': patas suben hasta fuera del viewBox; arco cúbico en la base */}
-      <path d="M47 -4 L47 19 C47 34 73 34 73 19 L73 -4"
-        stroke="white" strokeWidth="7" strokeLinecap="butt" fill="none"/>
+      <rect width="58" height="36" rx="7" fill="#820AD1"/>
+      {/* 'n': patas con cap redondeado, arco cúbico arriba */}
+      <path d="M8 30 L8 16 C8 3 26 3 26 16 L26 30"
+        stroke="white" strokeWidth="5" strokeLinecap="round" fill="none"/>
+      {/* 'u': patas con cap redondeado, arco cúbico abajo */}
+      <path d="M32 6 L32 20 C32 33 50 33 50 20 L50 6"
+        stroke="white" strokeWidth="5" strokeLinecap="round" fill="none"/>
     </svg>
   );
 }
