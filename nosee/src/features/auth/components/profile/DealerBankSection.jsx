@@ -241,7 +241,7 @@ export function DealerBankSection({ dealerId }) {
               type="text"
               value={form.accountNumber}
               onChange={(e) => setForm((p) => ({ ...p, accountNumber: e.target.value }))}
-              placeholder="Ej: 3143808044 o 5288921865355829"
+              placeholder="Ej: 3001234567 o 4532000011112222"
               style={s.input}
             />
           </div>
@@ -253,7 +253,7 @@ export function DealerBankSection({ dealerId }) {
               type="text"
               value={form.alias}
               onChange={(e) => setForm((p) => ({ ...p, alias: e.target.value }))}
-              placeholder="Ej: @3143808044"
+              placeholder="Ej: @mialiasaqui"
               style={s.input}
             />
           </div>
