@@ -38,19 +38,21 @@ function NuLogo({ size = 22 }) {
   );
 }
 
-// Logo Nequi: círculo magenta con la "N" estilizada de su marca
+// Logo Nequi: punto magenta arriba-izquierda + "N" en morado oscuro sobre fondo transparente
 function NequiLogo({ size = 22 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Nequi">
-      <circle cx="20" cy="20" r="20" fill="#C0069B"/>
-      {/* N estilizada de Nequi */}
+      {/* Punto magenta */}
+      <rect x="2" y="4" width="9" height="9" rx="2" fill="#FF0080"/>
+      {/* N en morado oscuro */}
       <text
-        x="20" y="27"
+        x="22" y="36"
         textAnchor="middle"
-        fill="#ffffff"
-        fontFamily="'Arial Black', 'Arial', sans-serif"
-        fontSize="20"
+        fill="#1a002e"
+        fontFamily="'Arial Black', 'Arial Bold', sans-serif"
+        fontSize="34"
         fontWeight="900"
+        fontStyle="italic"
       >
         N
       </text>
@@ -62,8 +64,8 @@ function NequiLogo({ size = 22 }) {
 const ACCOUNTS = {
   nequi: {
     label: 'Nequi',
-    color: '#C0069B',
-    colorSoft: '#fce7f9',
+    color: '#1a002e',
+    colorSoft: '#f5e6ff',
     Logo: NequiLogo,
     fields: [
       { label: 'Número de celular', value: '314 380 8044' },
