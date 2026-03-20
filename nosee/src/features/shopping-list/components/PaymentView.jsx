@@ -20,24 +20,23 @@ import qrNequi from '@/assets/qr-nequi.png';
 
 // Logo Nu: fondo morado + wordmark "nu" recreado con paths SVG (arco n + arco u)
 function NuLogo({ size = 22 }) {
-  // Las letras flotan dentro del badge con caps redondeados visibles,
-  // trazos finos y arcos cúbicos — fiel al wordmark real de Nu Bank.
+  // Trazo grueso + patas clipeadas en los bordes del badge, igual al wordmark real.
   return (
     <svg
-      width={Math.round(size * 1.6)}
+      width={Math.round(size * 1.45)}
       height={size}
-      viewBox="0 0 58 36"
+      viewBox="0 0 52 36"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-label="Nu"
     >
-      <rect width="58" height="36" rx="7" fill="#820AD1"/>
-      {/* 'n': patas con cap redondeado, arco cúbico arriba */}
-      <path d="M8 30 L8 16 C8 3 26 3 26 16 L26 30"
-        stroke="white" strokeWidth="5" strokeLinecap="round" fill="none"/>
-      {/* 'u': patas con cap redondeado, arco cúbico abajo */}
-      <path d="M32 6 L32 20 C32 33 50 33 50 20 L50 6"
-        stroke="white" strokeWidth="5" strokeLinecap="round" fill="none"/>
+      <rect width="52" height="36" rx="6" fill="#820AD1"/>
+      {/* 'n': patas bajan y se clipean en el borde inferior */}
+      <path d="M7 39 L7 15 C7 2 23 2 23 15 L23 39"
+        stroke="white" strokeWidth="8" strokeLinecap="butt" fill="none"/>
+      {/* 'u': patas suben y se clipean en el borde superior */}
+      <path d="M29 -3 L29 21 C29 34 45 34 45 21 L45 -3"
+        stroke="white" strokeWidth="8" strokeLinecap="butt" fill="none"/>
     </svg>
   );
 }
