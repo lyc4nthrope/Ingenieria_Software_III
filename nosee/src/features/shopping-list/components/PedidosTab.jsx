@@ -4,6 +4,8 @@ import { DeliveryCard } from './DeliveryCard';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { pedidos } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
+import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
+import { updateProductPrice } from '@/services/api/orders.api';
 
 // Mapa de estado de Supabase (tabla orders) → estado de UI local
 // El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
@@ -23,6 +25,20 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   const [showTotalSum, setShowTotalSum] = useState(false);
   const [checklist, setChecklist] = useState({});
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
+
+  // Actualiza el precio de un producto en Supabase y en el estado local
+  const handlePriceReport = async (order, storeIdx, productIdx, newPrice) => {
+    if (!order.supabaseId) return { error: new Error('Sin supabaseId') };
+    const { error, newStores, newTotal } = await updateProductPrice(
+      order.supabaseId, storeIdx, productIdx, newPrice
+    );
+    if (!error) {
+      updateOrderDelivery(order.id, {
+        result: { ...order.result, stores: newStores, totalCost: newTotal },
+      });
+    }
+    return { error };
+  };
 
   // Mantener la ref actualizada sin re-ejecutar los efectos
   useEffect(() => { updateOrderDeliveryRef.current = updateOrderDelivery; });
@@ -295,12 +311,14 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
                       return (
                         <li
                           key={pi}
-                          style={{ ...pedidos.prodItem, cursor: 'pointer', ...(done ? { opacity: 0.5 } : {}) }}
-                          onClick={() => toggleCheck(key)}
+                          style={{ ...pedidos.prodItem, ...(done ? { opacity: 0.5 } : {}) }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, cursor: 'pointer' }}
+                            onClick={() => toggleCheck(key)}
+                          >
                             <span style={{
-                              width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                              width: 16, height: 16, borderRadius: 4, flexShrink: 0, marginTop: 2,
                               border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
                               background: done ? 'var(--accent)' : 'transparent',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -310,12 +328,20 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
                             </span>
                             <div style={done ? { textDecoration: 'line-through' } : {}}>
                               <div style={pedidos.prodName}>{p.item.productName}</div>
-                              <div style={pedidos.prodMeta}>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</div>
+                              <div style={{ ...pedidos.prodMeta, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                                <span>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</span>
+                              </div>
                             </div>
                           </div>
-                          <span style={{ ...pedidos.prodTotal, ...(done ? { textDecoration: 'line-through' } : {}) }}>
-                            ${(p.price * p.item.quantity).toLocaleString('es-CO')}
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                            <span style={{ ...pedidos.prodTotal, ...(done ? { textDecoration: 'line-through' } : {}) }}>
+                              ${(p.price * p.item.quantity).toLocaleString('es-CO')}
+                            </span>
+                            <PriceReportInline
+                              currentPrice={p.price}
+                              onConfirm={(newPrice) => handlePriceReport(selectedOrder, si, pi, newPrice)}
+                            />
+                          </div>
                         </li>
                       );
                     })}

@@ -16,6 +16,8 @@ import ProfileActivitySection from '@/features/auth/components/profile/ProfileAc
 import EyeIcon from '@/features/auth/components/profile/EyeIcon';
 import CheckIcon from '@/features/auth/components/profile/CheckIcon';
 import { PASSWORD_RULES } from '@/features/auth/components/profile/profileUtils';
+import { DealerBankSection } from '@/features/auth/components/profile/DealerBankSection';
+import { UserRoleEnum } from '@/types';
 
 // ─── ProfilePage ──────────────────────────────────────────────────────────────
 export default function ProfilePage() {
@@ -205,6 +207,11 @@ export default function ProfilePage() {
           </Button>
         </div>
       </div>
+
+      {/* Métodos de cobro — solo repartidores */}
+      {user?.role === UserRoleEnum.REPARTIDOR && (
+        <DealerBankSection dealerId={user.id} />
+      )}
 
       {/* Alertas de precios */}
       <PriceAlertsSection />

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { PaymentView } from './PaymentView';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { getDealerBankAccounts } from '@/services/api/bankAccounts.api';
 
 // ─── Configuración visual de cada estado ─────────────────────────────────────
 const STATUS_CONFIGS = {
@@ -58,15 +59,17 @@ const STATUS_CONFIGS = {
     icon: '✗', bg: 'var(--error-soft, #fee2e2)', border: 'var(--error, #dc2626)',
     color: 'var(--error, #dc2626)',
     title: 'Envío cancelado',
-    desc: null, // se calcula dinámicamente según cancellationCharged
+    desc: null,
     showCancel: false,
   },
 };
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
-  const { deliveryStatus, cancellationCharged } = order;
-  const [showPayment, setShowPayment] = useState(false);
+  const { deliveryStatus, cancellationCharged, dealerId } = order;
+  const [showPayment,  setShowPayment]  = useState(false);
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [loadingBank,  setLoadingBank]  = useState(false);
   const userId = useAuthStore((s) => s.user?.id);
 
   if (!deliveryStatus) return null;
@@ -74,7 +77,18 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
   const cfg = STATUS_CONFIGS[deliveryStatus];
   if (!cfg) return null;
 
-  // La descripción de "cancelado" depende de si se cobró o no
+  // ── Cargar cuentas bancarias del repartidor cuando llega ──────────────────
+  // Solo cuando el estado es 'llegando' y hay dealerId
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (deliveryStatus !== 'llegando' || !dealerId) return;
+    setLoadingBank(true);
+    getDealerBankAccounts(dealerId).then(({ data }) => {
+      setBankAccounts(data ?? []);
+      setLoadingBank(false);
+    });
+  }, [deliveryStatus, dealerId]);
+
   const desc = deliveryStatus === 'cancelled'
     ? (cancellationCharged
         ? 'Se cobrará el costo del domicilio — el pedido no fue comprado.'
@@ -83,13 +97,12 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
 
   const handlePaymentSubmitted = (result) => {
     setShowPayment(false);
-    // Propagar al padre (PedidosTab) para actualizar el deliveryStatus local
     onPaymentSubmitted?.(result);
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {/* ── Badge de estado ─────────────────────────────────────── */}
+      {/* ── Badge de estado ── */}
       <div style={{
         display: 'flex', flexDirection: 'column', gap: '4px',
         padding: '10px 14px',
@@ -125,15 +138,17 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
             <button
               type="button"
               onClick={() => setShowPayment((v) => !v)}
+              disabled={loadingBank}
               style={{
                 flexShrink: 0, padding: '5px 12px',
                 borderRadius: 'var(--radius-sm)',
                 border: 'none',
                 background: 'var(--accent)', color: '#fff',
                 fontSize: '12px', fontWeight: 800, cursor: 'pointer',
+                opacity: loadingBank ? 0.6 : 1,
               }}
             >
-              {showPayment ? 'Cerrar' : '💳 Pagar ahora'}
+              {loadingBank ? '...' : showPayment ? 'Cerrar' : '💳 Pagar ahora'}
             </button>
           )}
         </div>
@@ -155,6 +170,7 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
         <PaymentView
           order={order}
           userId={userId}
+          bankAccounts={bankAccounts}
           onPaymentSubmitted={handlePaymentSubmitted}
         />
       )}

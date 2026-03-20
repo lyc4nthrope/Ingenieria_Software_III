@@ -26,8 +26,11 @@ import {
   cancelAvailableOrder,
   advanceOrderStatus,
   upsertDealerLocation,
+  updateProductPrice,
 } from '@/services/api/orders.api';
+import { getDealerBankAccounts } from '@/services/api/bankAccounts.api';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
+import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
 
 // Etiquetas y próximo estado para cada transición
 const NEXT_LABEL = {
@@ -73,6 +76,7 @@ export default function DealerDashboard() {
   const [acceptingId,     setAcceptingId]     = useState(null);  // id del pedido que se está aceptando
   const [acceptError,     setAcceptError]     = useState(null);
   const [cancelingId,     setCancelingId]     = useState(null);  // id del pedido que se está cancelando
+  const [noBankWarning,   setNoBankWarning]   = useState(false); // aviso sin cuentas bancarias
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
   const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
   const [loadAvailError,  setLoadAvailError]  = useState(null);  // error al cargar disponibles
@@ -215,6 +219,17 @@ export default function DealerDashboard() {
   const handleAccept = async (orderId) => {
     setAcceptingId(orderId);
     setAcceptError(null);
+    setNoBankWarning(false);
+
+    // Guard: verificar que el repartidor tenga al menos una cuenta bancaria
+    if (dealer?.id) {
+      const { data: accounts } = await getDealerBankAccounts(dealer.id);
+      if (!accounts || accounts.length === 0) {
+        setNoBankWarning(true);
+        setAcceptingId(null);
+        return;
+      }
+    }
 
     const { error } = await acceptOrder(orderId);
 
@@ -244,6 +259,23 @@ export default function DealerDashboard() {
       setAvailable((prev) => prev.filter((o) => o.id !== orderId));
     }
     setCancelingId(null);
+  };
+
+  // ── Actualizar precio de producto ────────────────────────────────────────
+  const handlePriceReport = async (order, storeIdx, productIdx, newPrice) => {
+    const { error, newStores, newTotal } = await updateProductPrice(
+      order.id, storeIdx, productIdx, newPrice
+    );
+    if (!error) {
+      setActiveOrders((prev) =>
+        prev.map((o) =>
+          o.id === order.id
+            ? { ...o, stores: newStores, total_estimated: newTotal }
+            : o
+        )
+      );
+    }
+    return { error };
   };
 
   // ── Avanzar estado del pedido ────────────────────────────────────────────
@@ -381,6 +413,13 @@ export default function DealerDashboard() {
               <div style={r.errorBanner}>{loadAvailError}</div>
             )}
 
+            {noBankWarning && (
+              <div style={{ ...r.errorBanner, background: 'var(--warning-soft, #fef9c3)', borderColor: 'var(--warning, #ca8a04)', color: '#92400e' }}>
+                <strong>⚠️ Configurá tus datos de cobro antes de aceptar pedidos.</strong>{' '}
+                Andá a tu <a href="/perfil" style={{ color: 'inherit', fontWeight: 700 }}>perfil</a> → sección "Métodos de cobro" y agregá al menos una cuenta bancaria.
+              </div>
+            )}
+
             {loadingAvail ? (
               <div style={r.empty}><span style={{ fontSize: 32 }}>⏳</span><p>Cargando pedidos...</p></div>
             ) : available.length === 0 ? (
@@ -439,6 +478,7 @@ export default function DealerDashboard() {
                     onToggleCheck={(key) => toggleCheck(order.id, key)}
                     advancing={advancingId === order.id}
                     onAdvance={() => handleAdvance(order)}
+                    onPriceReport={(si, pi, newPrice) => handlePriceReport(order, si, pi, newPrice)}
                   />
                 ))}
               </div>
@@ -600,7 +640,7 @@ function AvailableOrderCard({ order, accepting, canceling, onAccept, onCancel })
 // ─── ActiveOrderCard ──────────────────────────────────────────────────────────
 // Tarjeta del pedido asignado al repartidor. Muestra checklist de productos
 // cuando está "comprando" y el botón para avanzar al siguiente estado.
-function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance }) {
+function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onPriceReport }) {
   const si     = statusInfo[order.status] ?? statusInfo.aceptado;
   const stores = extractStores(order);
   const [expanded, setExpanded] = useState(true);
@@ -651,20 +691,28 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
                         ...r.checkItem,
                         ...(done ? r.checkItemDone : {}),
                       }}
-                      onClick={() => onToggleCheck(key)}
                     >
-                      <span style={{ ...r.checkbox, ...(done ? r.checkboxDone : {}) }}>
+                      <span
+                        style={{ ...r.checkbox, ...(done ? r.checkboxDone : {}), cursor: 'pointer', flexShrink: 0 }}
+                        onClick={() => onToggleCheck(key)}
+                      >
                         {done ? '✓' : ''}
                       </span>
-                      <span style={{ flex: 1 }}>
+                      <span style={{ flex: 1 }} onClick={() => onToggleCheck(key)}>
                         {p.item?.productName ?? '?'}
                         <span style={{ color: MUTED, fontSize: 12 }}>
                           {' '}×{p.item?.quantity ?? 1}
                         </span>
                       </span>
-                      <span style={{ fontSize: 12, color: MUTED }}>
-                        ${Number(p.price ?? 0).toLocaleString('es-CO')}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                        <span style={{ fontSize: 12, color: MUTED }}>
+                          ${Number(p.price ?? 0).toLocaleString('es-CO')}
+                        </span>
+                        <PriceReportInline
+                          currentPrice={p.price ?? 0}
+                          onConfirm={(newPrice) => onPriceReport(si, pi, newPrice)}
+                        />
+                      </div>
                     </li>
                   );
                 })}
