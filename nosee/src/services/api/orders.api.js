@@ -144,6 +144,21 @@ export async function acceptOrder(orderId) {
 }
 
 /**
+ * Cancela un pedido disponible (status='pendiente_repartidor').
+ * Solo un repartidor puede llamarlo y solo si el pedido aún no fue aceptado.
+ *
+ * @param {number} orderId
+ */
+export async function cancelAvailableOrder(orderId) {
+  const { error } = await supabase
+    .from('orders')
+    .update({ status: 'cancelado' })
+    .eq('id', orderId)
+    .eq('status', 'pendiente_repartidor'); // guard: solo cancela si aún está disponible
+  return { error };
+}
+
+/**
  * Avanza el estado del pedido al siguiente paso del flujo de entrega.
  * Solo el repartidor asignado puede llamarlo.
  *

@@ -23,6 +23,7 @@ import {
   getAvailableOrders,
   getDealerActiveOrders,
   acceptOrder,
+  cancelAvailableOrder,
   advanceOrderStatus,
   upsertDealerLocation,
 } from '@/services/api/orders.api';
@@ -71,6 +72,7 @@ export default function DealerDashboard() {
   const [loadingActive,   setLoadingActive]   = useState(true);
   const [acceptingId,     setAcceptingId]     = useState(null);  // id del pedido que se está aceptando
   const [acceptError,     setAcceptError]     = useState(null);
+  const [cancelingId,     setCancelingId]     = useState(null);  // id del pedido que se está cancelando
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
   const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
   // Checklist local por pedido: { [orderId]: { [productKey]: boolean } }
@@ -228,6 +230,16 @@ export default function DealerDashboard() {
     setAcceptingId(null);
   };
 
+  // ── Cancelar pedido disponible ───────────────────────────────────────────
+  const handleCancel = async (orderId) => {
+    setCancelingId(orderId);
+    const { error } = await cancelAvailableOrder(orderId);
+    if (!error) {
+      setAvailable((prev) => prev.filter((o) => o.id !== orderId));
+    }
+    setCancelingId(null);
+  };
+
   // ── Avanzar estado del pedido ────────────────────────────────────────────
   const handleAdvance = async (order) => {
     const newStatus = NEXT_STATUS[order.status];
@@ -369,7 +381,9 @@ export default function DealerDashboard() {
                     key={order.id}
                     order={order}
                     accepting={acceptingId === order.id}
+                    canceling={cancelingId === order.id}
                     onAccept={() => handleAccept(order.id)}
+                    onCancel={() => handleCancel(order.id)}
                   />
                 ))}
               </div>
@@ -488,7 +502,7 @@ export default function DealerDashboard() {
 // ─── AvailableOrderCard ───────────────────────────────────────────────────────
 // Tarjeta de pedido disponible para aceptar. El repartidor ve qué tiene que
 // comprar, en qué tiendas y a dónde entregar antes de comprometerse.
-function AvailableOrderCard({ order, accepting, onAccept }) {
+function AvailableOrderCard({ order, accepting, canceling, onAccept, onCancel }) {
   const items  = extractItems(order);
   const stores = extractStores(order);
   const total  = Number(order.total_estimated ?? 0) + Number(order.delivery_fee ?? 0);
@@ -540,7 +554,7 @@ function AvailableOrderCard({ order, accepting, onAccept }) {
         </div>
       )}
 
-      {/* Footer: total y botón aceptar */}
+      {/* Footer: total, botón cancelar y botón aceptar */}
       <div style={r.orderFooter}>
         <div>
           <div style={r.orderTotal}>${total.toLocaleString('es-CO')} COP</div>
@@ -548,13 +562,22 @@ function AvailableOrderCard({ order, accepting, onAccept }) {
             compras + ${Number(order.delivery_fee ?? 0).toLocaleString('es-CO')} domicilio
           </div>
         </div>
-        <button
-          style={{ ...r.advanceBtn, ...(accepting ? { opacity: 0.7 } : {}) }}
-          onClick={onAccept}
-          disabled={accepting}
-        >
-          {accepting ? 'Aceptando...' : '✓ Aceptar pedido'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            style={{ ...r.cancelBtn, ...(canceling ? { opacity: 0.7 } : {}) }}
+            onClick={onCancel}
+            disabled={canceling || accepting}
+          >
+            {canceling ? '...' : '✕ Cancelar'}
+          </button>
+          <button
+            style={{ ...r.advanceBtn, ...(accepting ? { opacity: 0.7 } : {}) }}
+            onClick={onAccept}
+            disabled={accepting || canceling}
+          >
+            {accepting ? 'Aceptando...' : '✓ Aceptar pedido'}
+          </button>
+        </div>
       </div>
     </article>
   );
@@ -740,6 +763,12 @@ const r = {
     background: ACCENT, color: '#fff', border: 'none',
     borderRadius: 8, padding: '9px 18px',
     fontWeight: 700, fontSize: 13, cursor: 'pointer',
+  },
+  cancelBtn: {
+    background: 'transparent', color: 'var(--error, #dc2626)',
+    border: '1px solid var(--error, #dc2626)',
+    borderRadius: 8, padding: '9px 14px',
+    fontWeight: 600, fontSize: 13, cursor: 'pointer',
   },
   refreshBtn: {
     background: 'transparent', border: `1px solid ${BORDER}`,
