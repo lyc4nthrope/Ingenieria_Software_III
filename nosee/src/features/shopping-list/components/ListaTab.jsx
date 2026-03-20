@@ -7,6 +7,8 @@ import { InfiniteHorizontalCarousel } from './InfiniteHorizontalCarousel';
 import { VoyYoMapView } from './VoyYoMapView';
 import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, DELIVERY_FEE, buildResultFromSelections } from '../utils/shoppingListUtils';
 import { lista } from '../styles/shoppingListStyles';
+import { useAuthStore } from '@/features/auth/store/authStore';
+import { createOrder } from '@/services/api/orders.api';
 
 // ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
 export function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, onSaved, onConfirmedDelivery, onConfirmedPickup }) {
@@ -42,6 +44,13 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   // Fase: 'list' | 'result'
   const [phase, setPhase] = useState('list');
   const [orderResult, setOrderResult] = useState(null);
+
+  // Dirección de domicilio (solo para deliveryMode === 'delivery')
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+
+  const currentUserId = useAuthStore((s) => s.user?.id);
 
   // Ítem expandido (muestra carrusel)
   const [expandedId, setExpandedId] = useState(null);
@@ -161,23 +170,62 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
     ? Object.values(selectedPubs).reduce((sum, pub) => sum + (pub?.price ?? 0), 0)
     : 0;
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
+    const isDelivery = deliveryMode === 'delivery';
     const result = buildResultFromSelections(items, selectedPubs);
+    const localId = `NSE-${Date.now().toString(36).toUpperCase()}`;
+    const userCoords = hasLocation ? { lat: latitude, lng: longitude } : null;
+
+    setSaving(true);
+    setSaveError(null);
+
+    // Guardar en Supabase si es domicilio (el repartidor necesita verlo)
+    let supabaseId = null;
+    if (isDelivery) {
+      const { data: saved, error } = await createOrder({
+        userId:          currentUserId,
+        localId,
+        deliveryMode:    true,
+        deliveryAddress: deliveryAddress.trim() || '',
+        deliveryCoords:  userCoords,
+        stores:          result.stores,
+        items:           items,
+        totalCost:       result.totalCost,
+        savings:         result.savings     ?? 0,
+        savingsPct:      result.savingsPct  ?? 0,
+        deliveryFee:     DELIVERY_FEE,
+        strategy:        'balanced',
+      });
+
+      if (error) {
+        console.error('[ListaTab] createOrder error:', error.message, error);
+        setSaveError(`No se pudo guardar el pedido: ${error.message}. Revisá tu conexión e intentá de nuevo.`);
+        setSaving(false);
+        return;
+      }
+      supabaseId = saved?.id ?? null;
+    }
+
     addOrder({
-      id: `NSE-${Date.now().toString(36).toUpperCase()}`,
+      id:                   localId,
+      supabaseId,
       result,
-      userCoords: hasLocation ? { lat: latitude, lng: longitude } : null,
-      createdAt: new Date().toISOString(),
-      deliveryMode: deliveryMode === 'delivery',
-      deliveryStatus: deliveryMode === 'delivery' ? 'searching' : null,
-      driverLocation: null,
-      cancellationCharged: false,
+      userCoords,
+      createdAt:            new Date().toISOString(),
+      deliveryMode:         isDelivery,
+      deliveryStatus:       isDelivery ? 'searching' : null,
+      driverLocation:       null,
+      cancellationCharged:  false,
     });
-    if (deliveryMode === 'delivery') {
+
+    setSaving(false);
+
+    if (isDelivery) {
       setPhase('list');
       setCalcResults(null);
       setSelectedPubs({});
       setDeliveryMode(null);
+      setDeliveryAddress('');
       setOrderResult(null);
       onConfirmedDelivery?.();
     } else {
@@ -444,12 +492,52 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
             </div>
           )}
 
+          {/* ── Dirección de entrega (solo domicilio) ────────────── */}
+          {isCalculated && hasSelections && deliveryMode === 'delivery' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Dirección de entrega
+              </label>
+              <input
+                type="text"
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                placeholder="Ej: Calle 10 # 5-30, Quibdó"
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border)',
+                  fontSize: 14,
+                  background: 'var(--bg-base)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          )}
+
+          {/* ── Error al guardar ─────────────────────────────────── */}
+          {saveError && (
+            <p style={{ ...lista.errorMsg, background: 'var(--error-soft)', color: 'var(--error)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', margin: 0, fontSize: 13 }}>
+              {saveError}
+            </p>
+          )}
+
           {/* ── Botón de confirmación único ──────────────────────── */}
           {isCalculated && hasSelections && deliveryMode && (
-            <button type="button" onClick={handleConfirmOrder} style={lista.confirmBtn}>
-              {deliveryMode === 'delivery'
-                ? `🛵 Confirmar pedido — $${total.toLocaleString('es-CO')} COP`
-                : `🚶 Ver ruta de compra — $${total.toLocaleString('es-CO')} COP`}
+            <button
+              type="button"
+              onClick={handleConfirmOrder}
+              disabled={saving}
+              style={{ ...lista.confirmBtn, opacity: saving ? 0.7 : 1 }}
+            >
+              {saving
+                ? 'Guardando pedido...'
+                : deliveryMode === 'delivery'
+                  ? `🛵 Confirmar pedido — $${total.toLocaleString('es-CO')} COP`
+                  : `🚶 Ver ruta de compra — $${total.toLocaleString('es-CO')} COP`}
             </button>
           )}
 
