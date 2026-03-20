@@ -72,10 +72,12 @@ export default function DealerDashboard() {
   const [acceptingId,     setAcceptingId]     = useState(null);  // id del pedido que se está aceptando
   const [acceptError,     setAcceptError]     = useState(null);
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
+  const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
   // Checklist local por pedido: { [orderId]: { [productKey]: boolean } }
   const [checklist,       setChecklist]       = useState({});
 
-  const gpsIntervalRef = useRef(null);
+  const gpsIntervalRef    = useRef(null);
+  const initializedRef    = useRef(false); // para no mostrar alerta en la carga inicial
 
   // ── Carga inicial ────────────────────────────────────────────────────────
   const loadAvailable = useCallback(async () => {
@@ -104,9 +106,9 @@ export default function DealerDashboard() {
   }, []);
 
   useEffect(() => {
-    loadAvailable();
-    loadActive();
-    loadHistory();
+    Promise.all([loadAvailable(), loadActive(), loadHistory()]).then(() => {
+      initializedRef.current = true;
+    });
   }, [loadAvailable, loadActive, loadHistory]);
 
   // ── GPS tracking ─────────────────────────────────────────────────────────
@@ -156,6 +158,12 @@ export default function DealerDashboard() {
         filter: `status=eq.pendiente_repartidor`,
       }, () => {
         loadAvailable();
+        // Solo mostrar alerta después de la carga inicial
+        if (initializedRef.current) {
+          setNewOrderAlert(true);
+          // Auto-ir a disponibles si el repartidor no tiene pedido activo
+          setActiveTab((prev) => prev === 'activos' ? prev : 'disponibles');
+        }
       })
       // Cambios en los pedidos asignados a este repartidor
       .on('postgres_changes', {
@@ -302,6 +310,21 @@ export default function DealerDashboard() {
 
       {/* ── Main ────────────────────────────────────────────────── */}
       <main style={r.main} className="dash-main">
+
+        {/* ── Alerta de nuevo pedido ──────────────────────────────── */}
+        {newOrderAlert && (
+          <div style={r.newOrderBanner}>
+            <span style={{ fontSize: 20 }}>🔔</span>
+            <span style={{ flex: 1, fontWeight: 700 }}>¡Nuevo pedido disponible!</span>
+            <button
+              type="button"
+              style={r.newOrderDismiss}
+              onClick={() => setNewOrderAlert(false)}
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* ── Tab: Disponibles ───────────────────────────────────── */}
         {activeTab === 'disponibles' && (
@@ -743,5 +766,16 @@ const r = {
   empty: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
     justifyContent: 'center', minHeight: 300, gap: 12, color: MUTED, fontSize: 14,
+  },
+  newOrderBanner: {
+    display: 'flex', alignItems: 'center', gap: 12,
+    padding: '12px 16px', marginBottom: 20,
+    background: `${ACCENT}18`, border: `2px solid ${ACCENT}`,
+    borderRadius: 10, color: ACCENT, fontSize: 14,
+    animation: 'pulse-border 1s ease-in-out 3',
+  },
+  newOrderDismiss: {
+    background: 'none', border: 'none', color: ACCENT,
+    fontSize: 16, cursor: 'pointer', padding: '0 4px', fontWeight: 700,
   },
 };

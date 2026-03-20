@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
-import { useShoppingListStore } from '../store/shoppingListStore';
 import { DeliveryCard } from './DeliveryCard';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { pedidos } from '../styles/shoppingListStyles';
@@ -22,7 +21,6 @@ const STATUS_MAP = {
 export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
-  const timerRef = useRef(null);
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
 
   // Mantener la ref actualizada sin re-ejecutar los efectos
@@ -31,13 +29,13 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   const selectedOrder = orders[selectedIdx] ?? null;
 
   // ── REALTIME: estado del pedido (vía Supabase) ────────────────────────────
-  // Se activa cuando el pedido tiene supabaseId (pedido guardado en Supabase).
-  // Escucha UPDATE en la tabla orders → actualiza deliveryStatus y dealerId local.
+  // Escucha UPDATE en orders para este pedido → actualiza deliveryStatus y dealerId.
+  // Solo corre para pedidos de domicilio con supabaseId (guardados en Supabase).
+  // La carga inicial sincroniza el estado en caso de que la app estuviera cerrada
+  // mientras el repartidor avanzaba el estado.
   useEffect(() => {
-    if (!selectedOrder?.supabaseId) return;
+    if (!selectedOrder?.deliveryMode || !selectedOrder?.supabaseId) return;
 
-    // Carga inicial para sincronizar estado stale (ej: tab cerrada mientras el
-    // repartidor avanzaba el estado).
     supabase
       .from('orders')
       .select('status, dealer_id')
@@ -54,7 +52,6 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         }
       });
 
-    // Suscripción Realtime para cambios en tiempo real
     const channel = supabase
       .channel(`order-status-${selectedOrder.supabaseId}`)
       .on(
@@ -76,13 +73,12 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   }, [selectedOrder?.supabaseId, selectedOrder?.id]);
 
   // ── REALTIME: ubicación GPS del repartidor ─────────────────────────────────
-  // Se activa cuando el pedido tiene un dealer asignado (dealerId).
-  // Escucha cambios en dealer_locations → actualiza driverLocation para el mapa.
+  // Se activa cuando el repartidor es asignado (dealerId en el pedido).
+  // Escucha dealer_locations → actualiza driverLocation en el mapa (~cada 15s).
   useEffect(() => {
     const dealerId = selectedOrder?.dealerId;
     if (!dealerId) return;
 
-    // Leer ubicación inicial
     supabase
       .from('dealer_locations')
       .select('lat, lng')
@@ -96,7 +92,6 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         }
       });
 
-    // Suscripción Realtime para actualizaciones de GPS (~cada 15s)
     const channel = supabase
       .channel(`dealer-loc-${dealerId}`)
       .on(
@@ -114,59 +109,6 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     return () => supabase.removeChannel(channel);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.dealerId, selectedOrder?.id]);
-
-  // ── SIMULACIÓN: fallback para pedidos sin supabaseId ──────────────────────
-  // Pedidos creados antes de implementar Supabase (solo localStorage) siguen
-  // usando la simulación de tiempos para demostrar el flujo.
-  useEffect(() => {
-    // Si hay supabaseId, el Realtime se encarga — no simular
-    if (selectedOrder?.supabaseId) return;
-
-    clearTimeout(timerRef.current);
-    clearInterval(timerRef.current);
-
-    if (!selectedOrder?.deliveryMode) return;
-    const { deliveryStatus, id, userCoords } = selectedOrder;
-    if (deliveryStatus === 'cancelled' || deliveryStatus === null) return;
-
-    if (deliveryStatus === 'searching') {
-      timerRef.current = setTimeout(() => {
-        const center = userCoords ?? { lat: 4.711, lng: -74.0721 };
-        updateOrderDeliveryRef.current(id, {
-          deliveryStatus: 'found',
-          driverLocation: {
-            lat: center.lat + (Math.random() - 0.5) * 0.04,
-            lng: center.lng + (Math.random() - 0.5) * 0.04,
-          },
-        });
-      }, 5000);
-    } else if (deliveryStatus === 'found') {
-      timerRef.current = setTimeout(() => {
-        updateOrderDeliveryRef.current(id, { deliveryStatus: 'en_camino' });
-      }, 3000);
-    } else if (deliveryStatus === 'en_camino') {
-      timerRef.current = setInterval(() => {
-        try {
-          const current = useShoppingListStore.getState().orders?.find((o) => o.id === id);
-          if (!current?.driverLocation || !current?.userCoords) return;
-          const { driverLocation: dl, userCoords: uc } = current;
-          updateOrderDeliveryRef.current(id, {
-            driverLocation: {
-              lat: dl.lat + (uc.lat - dl.lat) * 0.12 + (Math.random() - 0.5) * 0.0008,
-              lng: dl.lng + (uc.lng - dl.lng) * 0.12 + (Math.random() - 0.5) * 0.0008,
-            },
-          });
-        } catch {
-          clearInterval(timerRef.current);
-        }
-      }, 3000);
-    }
-
-    return () => {
-      clearTimeout(timerRef.current);
-      clearInterval(timerRef.current);
-    };
-  }, [selectedOrder?.id, selectedOrder?.deliveryStatus, selectedOrder?.deliveryMode, selectedOrder?.userCoords, selectedOrder?.supabaseId]);
 
   const handleRemove = (id) => {
     removeOrder(id);
