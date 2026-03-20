@@ -79,6 +79,15 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     });
   };
 
+  // Cuando el usuario sube el comprobante de pago
+  const handlePaymentSubmitted = ({ receiptUrl, method }) => {
+    updateOrderDelivery(selectedOrder.id, {
+      deliveryStatus: 'comprobante_subido',
+      receiptUrl,
+      paymentMethod: method,
+    });
+  };
+
   if (orders.length === 0) {
     return (
       <div style={pedidos.empty}>
@@ -152,7 +161,11 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
           {/* ── Tarjeta de domicilio ── */}
           {selectedOrder.deliveryMode && (
-            <DeliveryCard order={selectedOrder} onCancel={handleCancelDelivery} />
+            <DeliveryCard
+              order={selectedOrder}
+              onCancel={handleCancelDelivery}
+              onPaymentSubmitted={handlePaymentSubmitted}
+            />
           )}
 
           {/* ── Totales rápidos ── */}
