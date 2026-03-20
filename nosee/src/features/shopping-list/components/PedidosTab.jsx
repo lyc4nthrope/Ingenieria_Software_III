@@ -5,7 +5,7 @@ import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUti
 import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
-import { updateProductPrice } from '@/services/api/orders.api';
+import { updateProductPrice, logPriceCorrection } from '@/services/api/orders.api';
 
 // Mapa de estado de Supabase (tabla orders) → estado de UI local
 // El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
@@ -146,16 +146,44 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   const [checklist, setChecklist] = useState({});
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
 
-  // Actualiza el precio de un producto en Supabase y en el estado local
+  // Actualiza el precio de un producto y registra la corrección en el log.
+  // Funciona para pedidos en Supabase (Mis Pedidos) y locales (Mis Recogidas).
   const handlePriceReport = async (order, storeIdx, productIdx, newPrice) => {
-    if (!order.supabaseId) return { error: new Error('Sin supabaseId') };
-    const { error, newStores, newTotal } = await updateProductPrice(
+    const productName = order.result.stores[storeIdx]?.products[productIdx]?.item?.productName;
+
+    if (!order.supabaseId) {
+      // Pedido local (Mis Recogidas sin Supabase) → solo actualizar localStorage
+      const newStores = JSON.parse(JSON.stringify(order.result.stores));
+      const oldPrice  = newStores[storeIdx]?.products?.[productIdx]?.price ?? 0;
+      newStores[storeIdx].products[productIdx].price = newPrice;
+      const newTotal = newStores.reduce(
+        (sum, s) => sum + (s.products ?? []).reduce((ps, p) => ps + (p.price ?? 0) * (p.item?.quantity ?? 1), 0), 0
+      );
+      updateOrderDelivery(order.id, {
+        result: { ...order.result, stores: newStores, totalCost: newTotal },
+        priceCorrections: [
+          ...(order.priceCorrections ?? []),
+          { storeIdx, productIdx, productName, oldPrice, newPrice, ts: new Date().toISOString() },
+        ],
+      });
+      console.info(`[PrecioCorregido] ${productName}: $${oldPrice} → $${newPrice}`);
+      return { error: null };
+    }
+
+    // Pedido en Supabase → actualizar BD y loguear en price_corrections
+    const { error, newStores, newTotal, oldPrice } = await updateProductPrice(
       order.supabaseId, storeIdx, productIdx, newPrice
     );
     if (!error) {
       updateOrderDelivery(order.id, {
         result: { ...order.result, stores: newStores, totalCost: newTotal },
+        priceCorrections: [
+          ...(order.priceCorrections ?? []),
+          { storeIdx, productIdx, productName, oldPrice, newPrice, ts: new Date().toISOString() },
+        ],
       });
+      logPriceCorrection({ orderId: order.supabaseId, storeIdx, productIdx, productName, oldPrice, newPrice, role: 'user' });
+      console.info(`[PrecioCorregido] ${productName}: $${oldPrice} → $${newPrice}`);
     }
     return { error };
   };
@@ -409,9 +437,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             orderId={selectedOrder.id}
             checklist={checklist}
             toggleCheck={toggleCheck}
-            onPriceReport={selectedOrder.supabaseId
-              ? (storeIdx, pi, newPrice) => handlePriceReport(selectedOrder, storeIdx, pi, newPrice)
-              : null}
+            onPriceReport={(storeIdx, pi, newPrice) => handlePriceReport(selectedOrder, storeIdx, pi, newPrice)}
           />
         </div>
 

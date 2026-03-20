@@ -27,6 +27,7 @@ import {
   advanceOrderStatus,
   upsertDealerLocation,
   updateProductPrice,
+  logPriceCorrection,
 } from '@/services/api/orders.api';
 import { getDealerBankAccounts } from '@/services/api/bankAccounts.api';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
@@ -263,7 +264,8 @@ export default function DealerDashboard() {
 
   // ── Actualizar precio de producto ────────────────────────────────────────
   const handlePriceReport = async (order, storeIdx, productIdx, newPrice) => {
-    const { error, newStores, newTotal } = await updateProductPrice(
+    const productName = order.stores?.[storeIdx]?.products?.[productIdx]?.item?.productName;
+    const { error, newStores, newTotal, oldPrice } = await updateProductPrice(
       order.id, storeIdx, productIdx, newPrice
     );
     if (!error) {
@@ -274,6 +276,8 @@ export default function DealerDashboard() {
             : o
         )
       );
+      logPriceCorrection({ orderId: order.id, storeIdx, productIdx, productName, oldPrice, newPrice, role: 'dealer' });
+      console.info(`[PrecioCorregido-dealer] ${productName}: $${oldPrice} → $${newPrice}`);
     }
     return { error };
   };

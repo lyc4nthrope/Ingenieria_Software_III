@@ -241,7 +241,27 @@ export async function updateProductPrice(orderId, storeIdx, productIdx, newPrice
     .update({ stores, total_estimated: newTotal })
     .eq('id', orderId);
 
-  return { error, newStores: stores, newTotal };
+  return { error, newStores: stores, newTotal, oldPrice: order.stores[storeIdx]?.products?.[productIdx]?.price ?? 0 };
+}
+
+/**
+ * Registra una corrección de precio en la tabla price_corrections (auditoría).
+ * Se llama después de updateProductPrice tanto desde el usuario como del repartidor.
+ */
+export async function logPriceCorrection({ orderId, storeIdx, productIdx, productName, oldPrice, newPrice, role }) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from('price_corrections').insert({
+    order_id:        orderId,
+    store_idx:       storeIdx,
+    product_idx:     productIdx,
+    product_name:    productName,
+    old_price:       oldPrice,
+    new_price:       newPrice,
+    changed_by:      user?.id ?? null,
+    changed_by_role: role ?? 'user',
+  });
+  if (error) console.warn('[logPriceCorrection] error al guardar log:', error.message);
+  return { error };
 }
 
 /**
