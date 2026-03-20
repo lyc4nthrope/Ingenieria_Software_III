@@ -20,23 +20,28 @@ import qrNequi from '@/assets/qr-nequi.png';
 
 // Logo Nu: fondo morado + wordmark "nu" recreado con paths SVG (arco n + arco u)
 function NuLogo({ size = 22 }) {
-  // Trazo grueso + patas clipeadas en los bordes del badge, igual al wordmark real.
+  // Texto "nu" con Nunito (redondeada, bold — estilo Exprofeso) centrado en el badge.
+  const w = Math.round(size * 1.9);
   return (
     <svg
-      width={Math.round(size * 1.45)}
+      width={w}
       height={size}
-      viewBox="0 0 52 36"
+      viewBox={`0 0 ${w} ${size}`}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-label="Nu"
     >
-      <rect width="52" height="36" rx="6" fill="#820AD1"/>
-      {/* 'n': patas bajan y se clipean en el borde inferior */}
-      <path d="M7 39 L7 15 C7 2 23 2 23 15 L23 39"
-        stroke="white" strokeWidth="8" strokeLinecap="butt" fill="none"/>
-      {/* 'u': patas suben y se clipean en el borde superior */}
-      <path d="M29 -3 L29 21 C29 34 45 34 45 21 L45 -3"
-        stroke="white" strokeWidth="8" strokeLinecap="butt" fill="none"/>
+      <rect width={w} height={size} rx={Math.round(size * 0.22)} fill="#820AD1"/>
+      <text
+        x={w / 2}
+        y={size * 0.74}
+        textAnchor="middle"
+        fill="white"
+        fontFamily="'Nunito', 'Varela Round', 'Trebuchet MS', sans-serif"
+        fontSize={size * 0.62}
+        fontWeight="900"
+        letterSpacing="0.5"
+      >nu</text>
     </svg>
   );
 }
