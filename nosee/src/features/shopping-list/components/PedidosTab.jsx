@@ -19,6 +19,100 @@ const STATUS_MAP = {
   cancelado:            'cancelled',
 };
 
+const PROD_PAGE_SIZE = 3;
+
+// ─── Sub-componente: lista paginada de productos por tienda ───────────────────
+function StoreProdList({ store, si, orderId, checklist, toggleCheck, onPriceReport }) {
+  const [page, setPage] = useState(0);
+  const products  = store.products ?? [];
+  const total     = products.length;
+  const maxPage   = Math.max(0, Math.ceil(total / PROD_PAGE_SIZE) - 1);
+  const start     = page * PROD_PAGE_SIZE;
+  const visible   = products.slice(start, start + PROD_PAGE_SIZE);
+  const canUp     = page > 0;
+  const canDown   = page < maxPage;
+
+  return (
+    <div>
+      {/* Flecha arriba */}
+      {canUp && (
+        <button type="button" onClick={() => setPage((p) => p - 1)} style={pp.arrow}>▲</button>
+      )}
+
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {visible.map((p, relIdx) => {
+          const pi  = start + relIdx;
+          const key = `${orderId}-${si}-${pi}`;
+          const done = !!checklist[key];
+          return (
+            <li key={pi} style={{ ...pp.prodItem, ...(done ? { opacity: 0.5 } : {}) }}>
+              <div
+                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, cursor: 'pointer' }}
+                onClick={() => toggleCheck(key)}
+              >
+                <span style={{
+                  width: 16, height: 16, borderRadius: 4, flexShrink: 0, marginTop: 2,
+                  border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
+                  background: done ? 'var(--accent)' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 10, fontWeight: 700, color: '#fff',
+                }}>
+                  {done ? '✓' : ''}
+                </span>
+                <div style={done ? { textDecoration: 'line-through' } : {}}>
+                  <div style={pp.prodName}>{p.item.productName}</div>
+                  <div style={pp.prodMeta}>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
+                <span style={{ ...pp.prodTotal, ...(done ? { textDecoration: 'line-through' } : {}) }}>
+                  ${(p.price * p.item.quantity).toLocaleString('es-CO')}
+                </span>
+                {onPriceReport && (
+                  <PriceReportInline
+                    currentPrice={p.price}
+                    onConfirm={(newPrice) => onPriceReport(si, pi, newPrice)}
+                  />
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Flecha abajo */}
+      {canDown && (
+        <button type="button" onClick={() => setPage((p) => p + 1)} style={pp.arrow}>▼</button>
+      )}
+
+      {/* Indicador */}
+      {total > PROD_PAGE_SIZE && (
+        <p style={pp.pageInfo}>{start + 1}–{Math.min(start + PROD_PAGE_SIZE, total)} de {total} productos</p>
+      )}
+    </div>
+  );
+}
+
+const pp = {
+  prodItem: {
+    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+    padding: '9px 0', borderBottom: '1px solid var(--border)',
+  },
+  prodName: { fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' },
+  prodMeta: { fontSize: '11px', color: 'var(--text-muted)', marginTop: 2 },
+  prodTotal: { fontSize: '13px', fontWeight: 700, color: 'var(--accent)' },
+  arrow: {
+    width: '100%', padding: '4px', margin: '2px 0',
+    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)', color: 'var(--accent)',
+    fontSize: '12px', fontWeight: 800, cursor: 'pointer', lineHeight: 1,
+  },
+  pageInfo: {
+    margin: '4px 0 0', fontSize: '11px', color: 'var(--text-muted)',
+    textAlign: 'center', fontWeight: 600,
+  },
+};
+
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
 export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -286,17 +380,17 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           {/* ── Productos agrupados por tienda ── */}
           <div style={pedidos.productsWrap}>
             {result.stores.map((s, si) => {
-              const emoji = getStoreEmoji(s.store?.store_type_id);
+              const emoji    = getStoreEmoji(s.store?.store_type_id);
               const subtotal = s.products.reduce((a, p) => a + (p.price || 0) * p.item.quantity, 0);
-              const checkedCount = s.products.filter((_, pi) => checklist[`${selectedOrder.id}-${si}-${pi}`]).length;
+              const checked  = s.products.filter((_, pi) => checklist[`${selectedOrder.id}-${si}-${pi}`]).length;
               return (
                 <div key={si} style={pedidos.storeBlock}>
                   <div style={pedidos.storeBlockHeader}>
                     <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {checkedCount > 0 && (
+                      {checked > 0 && (
                         <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
-                          {checkedCount}/{s.products.length} ✓
+                          {checked}/{s.products.length} ✓
                         </span>
                       )}
                       <span style={{ color: 'var(--accent)', fontSize: '12px' }}>
@@ -304,48 +398,16 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
                       </span>
                     </div>
                   </div>
-                  <ul style={pedidos.prodList}>
-                    {s.products.map((p, pi) => {
-                      const key = `${selectedOrder.id}-${si}-${pi}`;
-                      const done = !!checklist[key];
-                      return (
-                        <li
-                          key={pi}
-                          style={{ ...pedidos.prodItem, ...(done ? { opacity: 0.5 } : {}) }}
-                        >
-                          <div
-                            style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, cursor: 'pointer' }}
-                            onClick={() => toggleCheck(key)}
-                          >
-                            <span style={{
-                              width: 16, height: 16, borderRadius: 4, flexShrink: 0, marginTop: 2,
-                              border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
-                              background: done ? 'var(--accent)' : 'transparent',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 10, fontWeight: 700, color: '#fff',
-                            }}>
-                              {done ? '✓' : ''}
-                            </span>
-                            <div style={done ? { textDecoration: 'line-through' } : {}}>
-                              <div style={pedidos.prodName}>{p.item.productName}</div>
-                              <div style={{ ...pedidos.prodMeta, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                                <span>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-                            <span style={{ ...pedidos.prodTotal, ...(done ? { textDecoration: 'line-through' } : {}) }}>
-                              ${(p.price * p.item.quantity).toLocaleString('es-CO')}
-                            </span>
-                            <PriceReportInline
-                              currentPrice={p.price}
-                              onConfirm={(newPrice) => handlePriceReport(selectedOrder, si, pi, newPrice)}
-                            />
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  <StoreProdList
+                    store={s}
+                    si={si}
+                    orderId={selectedOrder.id}
+                    checklist={checklist}
+                    toggleCheck={toggleCheck}
+                    onPriceReport={selectedOrder.supabaseId
+                      ? (storeIdx, pi, newPrice) => handlePriceReport(selectedOrder, storeIdx, pi, newPrice)
+                      : null}
+                  />
                 </div>
               );
             })}
