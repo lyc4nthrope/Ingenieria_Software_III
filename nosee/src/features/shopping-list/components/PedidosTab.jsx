@@ -21,6 +21,7 @@ const STATUS_MAP = {
 export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
+  const [checklist, setChecklist] = useState({});
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
 
   // Mantener la ref actualizada sin re-ejecutar los efectos
@@ -113,6 +114,10 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   const handleRemove = (id) => {
     removeOrder(id);
     setSelectedIdx((prev) => Math.max(0, prev - 1));
+  };
+
+  const toggleCheck = (key) => {
+    setChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleCancelDelivery = () => {
@@ -267,26 +272,53 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             {result.stores.map((s, si) => {
               const emoji = getStoreEmoji(s.store?.store_type_id);
               const subtotal = s.products.reduce((a, p) => a + (p.price || 0) * p.item.quantity, 0);
+              const checkedCount = s.products.filter((_, pi) => checklist[`${selectedOrder.id}-${si}-${pi}`]).length;
               return (
                 <div key={si} style={pedidos.storeBlock}>
                   <div style={pedidos.storeBlockHeader}>
                     <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
-                    <span style={{ color: 'var(--accent)', fontSize: '12px' }}>
-                      ${subtotal.toLocaleString('es-CO')}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {checkedCount > 0 && (
+                        <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
+                          {checkedCount}/{s.products.length} ✓
+                        </span>
+                      )}
+                      <span style={{ color: 'var(--accent)', fontSize: '12px' }}>
+                        ${subtotal.toLocaleString('es-CO')}
+                      </span>
+                    </div>
                   </div>
                   <ul style={pedidos.prodList}>
-                    {s.products.map((p, pi) => (
-                      <li key={pi} style={pedidos.prodItem}>
-                        <div>
-                          <div style={pedidos.prodName}>{p.item.productName}</div>
-                          <div style={pedidos.prodMeta}>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</div>
-                        </div>
-                        <span style={pedidos.prodTotal}>
-                          ${(p.price * p.item.quantity).toLocaleString('es-CO')}
-                        </span>
-                      </li>
-                    ))}
+                    {s.products.map((p, pi) => {
+                      const key = `${selectedOrder.id}-${si}-${pi}`;
+                      const done = !!checklist[key];
+                      return (
+                        <li
+                          key={pi}
+                          style={{ ...pedidos.prodItem, cursor: 'pointer', ...(done ? { opacity: 0.5 } : {}) }}
+                          onClick={() => toggleCheck(key)}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{
+                              width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                              border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
+                              background: done ? 'var(--accent)' : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 10, fontWeight: 700, color: '#fff',
+                            }}>
+                              {done ? '✓' : ''}
+                            </span>
+                            <div style={done ? { textDecoration: 'line-through' } : {}}>
+                              <div style={pedidos.prodName}>{p.item.productName}</div>
+                              <div style={pedidos.prodMeta}>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</div>
+                            </div>
+                          </div>
+                          <span style={{ ...pedidos.prodTotal, ...(done ? { textDecoration: 'line-through' } : {}) }}>
+                            ${(p.price * p.item.quantity).toLocaleString('es-CO')}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               );
