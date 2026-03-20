@@ -51,7 +51,8 @@ export async function createOrder({
       local_id:                   localId,
       status:                     deliveryMode ? 'pendiente_repartidor' : 'usuario_se_encarga',
       delivery_mode:              deliveryMode,
-      delivery_address:           deliveryAddress || null,
+      // delivery_address es NOT NULL sin default — usar '' si el usuario no escribió dirección
+      delivery_address:           deliveryAddress || '',
       delivery_coords:            deliveryCoords  || null,
       stores:                     stores          ?? [],
       items:                      items           ?? [],
@@ -61,7 +62,7 @@ export async function createOrder({
       savings_percentage:         savingsPct      ?? 0,
       // Nueva columna agregada en la migración de Proceso 4
       delivery_fee:               deliveryFee     ?? 0,
-      strategy:                   strategy        ?? null,
+      strategy:                   strategy        ?? 'balanced',
       confirmed_at:               new Date().toISOString(),
     })
     .select('id')   // solo necesitamos el id INTEGER generado
