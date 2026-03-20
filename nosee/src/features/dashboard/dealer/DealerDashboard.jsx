@@ -1,67 +1,276 @@
 /**
- * RepartidorDashboard.jsx
+ * DealerDashboard.jsx — Dashboard del repartidor (Proceso 4)
  *
- * Dashboard operacional del repartidor de NØSEE.
- * Pedidos asignados, estado de entregas, historial, ruta.
+ * Conectado a Supabase real. Tabs:
+ *   disponibles — pedidos pendientes que el repartidor puede aceptar
+ *   activos     — pedido asignado al repartidor, checklist y avance de estado
+ *   ruta        — mapa con tiendas del pedido activo y dirección de entrega
+ *   historial   — pedidos entregados por este repartidor
  *
- * UBICACIÓN: src/features/dashboard/repartidor/RepartidorDashboard.jsx
+ * GPS: cuando hay un pedido activo, envía la ubicación a dealer_locations
+ *      cada 15 segundos via Supabase upsert.
+ *
+ * Realtime: suscripción a cambios en orders para:
+ *   - Nuevos pedidos disponibles (tab "disponibles" se actualiza en vivo)
+ *   - Cambios en el pedido activo (el usuario puede cancelar)
  */
-import { useState } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
 
-export default function RepartidorDashboard() {
-  const { t } = useLanguage();
-  const td = t.dealerDashboard;
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuthStore } from '@/features/auth/store/authStore';
+import { supabase } from '@/services/supabase.client';
+import {
+  getAvailableOrders,
+  getDealerActiveOrders,
+  acceptOrder,
+  advanceOrderStatus,
+  upsertDealerLocation,
+} from '@/services/api/orders.api';
+import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
+
+// Etiquetas y próximo estado para cada transición
+const NEXT_LABEL = {
+  aceptado:  '🛒 Llegué a la tienda',
+  comprando: '🛵 Terminé las compras',
+  en_camino: '🔔 Llegué a la puerta',
+  llegando:  '✅ Entrega completada',
+};
+const NEXT_STATUS = {
+  aceptado:  'comprando',
+  comprando: 'en_camino',
+  en_camino: 'llegando',
+  llegando:  'entregado',
+};
+
+// ─── Helpers para leer el JSONB guardado por CreateOrderPage ─────────────────
+function extractItems(order) {
+  // order.stores es un array [{store, products:[{item:{productName,quantity},price}]}]
+  if (!Array.isArray(order.stores) || order.stores.length === 0) return [];
+  return order.stores.flatMap((s) =>
+    (s.products ?? []).map((p) => p.item?.productName ?? '?')
+  );
+}
+
+function extractStores(order) {
+  if (!Array.isArray(order.stores)) return [];
+  return order.stores;
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+export default function DealerDashboard() {
+  const { t }  = useLanguage();
+  const td     = t.dealerDashboard;
+  const dealer = useAuthStore((s) => s.user);
+
+  // ── Estado ──────────────────────────────────────────────────────────────
+  const [activeTab,       setActiveTab]       = useState('disponibles');
+  const [available,       setAvailable]       = useState([]);
+  const [activeOrders,    setActiveOrders]    = useState([]);
+  const [history,         setHistory]         = useState([]);
+  const [loadingAvail,    setLoadingAvail]    = useState(true);
+  const [loadingActive,   setLoadingActive]   = useState(true);
+  const [acceptingId,     setAcceptingId]     = useState(null);  // id del pedido que se está aceptando
+  const [acceptError,     setAcceptError]     = useState(null);
+  const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
+  // Checklist local por pedido: { [orderId]: { [productKey]: boolean } }
+  const [checklist,       setChecklist]       = useState({});
+
+  const gpsIntervalRef = useRef(null);
+
+  // ── Carga inicial ────────────────────────────────────────────────────────
+  const loadAvailable = useCallback(async () => {
+    setLoadingAvail(true);
+    const { data } = await getAvailableOrders({ limit: 30 });
+    setAvailable(data);
+    setLoadingAvail(false);
+  }, []);
+
+  const loadActive = useCallback(async () => {
+    setLoadingActive(true);
+    const { data } = await getDealerActiveOrders();
+    setActiveOrders(data);
+    setLoadingActive(false);
+  }, []);
+
+  const loadHistory = useCallback(async () => {
+    // Pedidos entregados por este repartidor — RLS filtra dealer_id = auth.uid()
+    const { data } = await supabase
+      .from('orders')
+      .select('id, local_id, status, total_estimated, delivery_fee, created_at, delivery_address')
+      .eq('status', 'entregado')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    setHistory(data ?? []);
+  }, []);
+
+  useEffect(() => {
+    loadAvailable();
+    loadActive();
+    loadHistory();
+  }, [loadAvailable, loadActive, loadHistory]);
+
+  // ── GPS tracking ─────────────────────────────────────────────────────────
+  // Solo envía ubicación mientras haya un pedido activo (respeta batería y privacidad).
+  // Se detiene automáticamente cuando no hay pedidos activos.
+  useEffect(() => {
+    const hasActive = activeOrders.length > 0;
+
+    if (hasActive && dealer?.id) {
+      // Enviar ubicación inmediatamente y luego cada 15 segundos
+      const sendLocation = () => {
+        if (!navigator.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+          (pos) => upsertDealerLocation(dealer.id, pos.coords.latitude, pos.coords.longitude, true),
+          () => {} // fallo silencioso — GPS puede no estar disponible en desktop
+        );
+      };
+      sendLocation();
+      gpsIntervalRef.current = setInterval(sendLocation, 15_000);
+    } else {
+      // Sin pedido activo: marcar como no disponible si hay fila en dealer_locations
+      clearInterval(gpsIntervalRef.current);
+      if (dealer?.id) {
+        navigator.geolocation?.getCurrentPosition(
+          (pos) => upsertDealerLocation(dealer.id, pos.coords.latitude, pos.coords.longitude, false),
+          () => {}
+        );
+      }
+    }
+
+    return () => clearInterval(gpsIntervalRef.current);
+  }, [activeOrders.length, dealer?.id]);
+
+  // ── Supabase Realtime ────────────────────────────────────────────────────
+  // Suscripción 1: nuevos pedidos disponibles → actualiza tab "disponibles" en vivo
+  // Suscripción 2: cambios en pedidos asignados (ej: usuario cancela) → recarga activos
+  useEffect(() => {
+    if (!dealer?.id) return;
+
+    const channel = supabase
+      .channel('dealer-orders-watch')
+      // Pedidos que se vuelven disponibles (INSERT o UPDATE a pendiente_repartidor)
+      .on('postgres_changes', {
+        event:  '*',
+        schema: 'public',
+        table:  'orders',
+        filter: `status=eq.pendiente_repartidor`,
+      }, () => {
+        loadAvailable();
+      })
+      // Cambios en los pedidos asignados a este repartidor
+      .on('postgres_changes', {
+        event:  'UPDATE',
+        schema: 'public',
+        table:  'orders',
+        filter: `dealer_id=eq.${dealer.id}`,
+      }, (payload) => {
+        // Actualizar el pedido en el estado local sin recargar todo
+        setActiveOrders((prev) =>
+          prev.map((o) => o.id === payload.new.id ? { ...o, ...payload.new } : o)
+        );
+        // Si pasó a entregado, moverlo al historial
+        if (payload.new.status === 'entregado') {
+          setActiveOrders((prev) => prev.filter((o) => o.id !== payload.new.id));
+          setHistory((prev) => [payload.new, ...prev]);
+        }
+        // Si fue cancelado, sacarlo de activos
+        if (payload.new.status === 'cancelado') {
+          setActiveOrders((prev) => prev.filter((o) => o.id !== payload.new.id));
+        }
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, [dealer?.id, loadAvailable]);
+
+  // ── Aceptar pedido ───────────────────────────────────────────────────────
+  const handleAccept = async (orderId) => {
+    setAcceptingId(orderId);
+    setAcceptError(null);
+
+    const { error } = await acceptOrder(orderId);
+
+    if (error) {
+      // 'order_not_available': otro repartidor llegó primero
+      const msg = error.message?.includes('order_not_available')
+        ? 'Este pedido ya fue tomado por otro repartidor.'
+        : 'Error al aceptar el pedido. Intentá de nuevo.';
+      setAcceptError(msg);
+      // Refrescar disponibles para que el pedido desaparezca de la lista
+      loadAvailable();
+    } else {
+      // Mover de "disponibles" a "activos"
+      setAvailable((prev) => prev.filter((o) => o.id !== orderId));
+      loadActive();
+      setActiveTab('activos');
+    }
+
+    setAcceptingId(null);
+  };
+
+  // ── Avanzar estado del pedido ────────────────────────────────────────────
+  const handleAdvance = async (order) => {
+    const newStatus = NEXT_STATUS[order.status];
+    if (!newStatus) return;
+
+    setAdvancingId(order.id);
+    const { error } = await advanceOrderStatus(order.id, newStatus);
+
+    if (!error) {
+      if (newStatus === 'entregado') {
+        setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
+        setHistory((prev) => [{ ...order, status: 'entregado' }, ...prev]);
+      } else {
+        setActiveOrders((prev) =>
+          prev.map((o) => o.id === order.id ? { ...o, status: newStatus } : o)
+        );
+      }
+    }
+
+    setAdvancingId(null);
+  };
+
+  // ── Toggle checklist ────────────────────────────────────────────────────
+  const toggleCheck = (orderId, key) => {
+    setChecklist((prev) => ({
+      ...prev,
+      [orderId]: { ...(prev[orderId] ?? {}), [key]: !(prev[orderId]?.[key]) },
+    }));
+  };
+
+  // ── Stats sidebar ────────────────────────────────────────────────────────
+  const totalEarned = history.reduce((s, h) => s + Number(h.delivery_fee ?? 0), 0);
 
   const STATUS_INFO = {
-    pendiente: { label: td.statusPendiente, color: 'var(--info)', bg: 'var(--info-soft)' },
-    comprando: { label: td.statusComprando, color: 'var(--warning)', bg: 'var(--warning-soft)' },
-    en_camino: { label: td.statusEnCamino,  color: 'var(--success)', bg: 'var(--success-soft)' },
-    llegando:  { label: td.statusLlegando,  color: 'var(--accent)', bg: 'var(--accent-soft)' },
-    entregado: { label: td.statusEntregado, color: 'var(--success)', bg: 'var(--success-soft)' },
-    cancelado: { label: td.statusCancelado, color: 'var(--error)', bg: 'var(--error-soft)' },
+    pendiente_repartidor: { label: 'Disponible',     color: 'var(--warning)',       bg: 'var(--warning-soft)' },
+    aceptado:             { label: 'Aceptado',        color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+    comprando:            { label: 'Comprando',       color: 'var(--warning)',       bg: 'var(--warning-soft)' },
+    en_camino:            { label: 'En camino',       color: 'var(--success)',       bg: 'var(--success-soft)' },
+    llegando:             { label: 'En la puerta',    color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+    entregado:            { label: 'Entregado',       color: 'var(--success)',       bg: 'var(--success-soft)' },
+    cancelado:            { label: 'Cancelado',       color: 'var(--error)',         bg: 'var(--error-soft)' },
   };
 
-  const [orders, setOrders] = useState([]);
-  const history = [];
-  const [activeTab, setActiveTab] = useState('activos');
-  const [selectedOrder, setSelectedOrder] = useState(null);
-
-  const STATUS_FLOW = ['pendiente', 'comprando', 'en_camino', 'llegando'];
-
-  const advanceStatus = (orderId) => {
-    setOrders((prev) =>
-      prev.map((o) => {
-        if (o.id !== orderId) return o;
-        const currentIdx = STATUS_FLOW.indexOf(o.status);
-        const nextStatus = currentIdx < STATUS_FLOW.length - 1
-          ? STATUS_FLOW[currentIdx + 1]
-          : 'entregado';
-        return { ...o, status: nextStatus };
-      })
-    );
-  };
-
-  const activeOrders = orders.filter((o) => o.status !== 'entregado');
-  const earnings = history.filter(h => h.status === 'entregado')
-    .reduce((acc, h) => acc + h.total, 0);
+  // Pedido activo para la tab "ruta"
+  const routeOrder = activeOrders[0] ?? null;
 
   return (
     <div style={r.root} className="dash-root">
-      {/* ── Sidebar ───────────────────────────────────────────────── */}
+      {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside style={r.sidebar} className="dash-sidebar">
-        {/* Estado online */}
         <div style={r.onlineBox} className="dash-online-box">
           <span style={r.onlineDot} />
-          <span style={r.onlineLabel}>{td.onlineLabel}</span>
+          <span style={r.onlineLabel}>
+            {activeOrders.length > 0 ? 'En servicio' : td.onlineLabel}
+          </span>
         </div>
 
         <nav style={r.nav}>
           {[
-            { key: 'activos',   icon: '◉', label: td.navActive,   badge: activeOrders.length },
-            { key: 'ruta',      icon: '▸', label: td.navRoute },
-            { key: 'historial', icon: '◎', label: td.navHistory },
-            { key: 'ganancias', icon: '$', label: td.navEarnings },
+            { key: 'disponibles', icon: '📋', label: 'Disponibles', badge: available.length },
+            { key: 'activos',     icon: '◉',  label: td.navActive,  badge: activeOrders.length },
+            { key: 'ruta',        icon: '🗺',  label: td.navRoute },
+            { key: 'historial',   icon: '◎',  label: td.navHistory },
           ].map((item) => (
             <button
               key={item.key}
@@ -75,51 +284,57 @@ export default function RepartidorDashboard() {
           ))}
         </nav>
 
-        {/* Stats rápidas */}
         <div style={r.quickStats} className="dash-quick-stats">
           <div style={r.quickStat}>
             <div style={r.qValue}>{activeOrders.length}</div>
             <div style={r.qLabel}>{td.statActive}</div>
           </div>
           <div style={r.quickStat}>
-            <div style={r.qValue}>{history.filter(h => h.status === 'entregado').length}</div>
+            <div style={r.qValue}>{history.length}</div>
             <div style={r.qLabel}>{td.statToday}</div>
           </div>
           <div style={r.quickStat}>
-            <div style={r.qValue}>${(earnings / 1000).toFixed(0)}k</div>
+            <div style={r.qValue}>${(totalEarned / 1000).toFixed(0)}k</div>
             <div style={r.qLabel}>{td.statEarned}</div>
           </div>
         </div>
-
       </aside>
 
-      {/* ── Main ─────────────────────────────────────────────────── */}
+      {/* ── Main ────────────────────────────────────────────────── */}
       <main style={r.main} className="dash-main">
 
-        {/* Pedidos activos */}
-        {activeTab === 'activos' && (
+        {/* ── Tab: Disponibles ───────────────────────────────────── */}
+        {activeTab === 'disponibles' && (
           <>
             <header style={r.header}>
-              <h1 style={r.headerTitle}>{td.activeTitle}</h1>
-              <p style={r.headerSub}>{td.activeSub(activeOrders.length)}</p>
+              <h1 style={r.headerTitle}>Pedidos disponibles</h1>
+              <p style={r.headerSub}>
+                {loadingAvail
+                  ? 'Cargando...'
+                  : `${available.length} pedido${available.length !== 1 ? 's' : ''} esperando repartidor`}
+              </p>
             </header>
 
-            {activeOrders.length === 0 ? (
+            {acceptError && (
+              <div style={r.errorBanner}>{acceptError}</div>
+            )}
+
+            {loadingAvail ? (
+              <div style={r.empty}><span style={{ fontSize: 32 }}>⏳</span><p>Cargando pedidos...</p></div>
+            ) : available.length === 0 ? (
               <div style={r.empty}>
                 <span style={{ fontSize: 40 }}>◎</span>
-                <p>{td.noOrders}</p>
+                <p>No hay pedidos disponibles en este momento.</p>
+                <button style={r.refreshBtn} onClick={loadAvailable}>↻ Actualizar</button>
               </div>
             ) : (
               <div style={r.orderList}>
-                {activeOrders.map((order) => (
-                  <OrderCard
+                {available.map((order) => (
+                  <AvailableOrderCard
                     key={order.id}
                     order={order}
-                    statusInfo={STATUS_INFO}
-                    td={td}
-                    onAdvance={advanceStatus}
-                    onSelect={setSelectedOrder}
-                    selected={selectedOrder === order.id}
+                    accepting={acceptingId === order.id}
+                    onAccept={() => handleAccept(order.id)}
                   />
                 ))}
               </div>
@@ -127,98 +342,281 @@ export default function RepartidorDashboard() {
           </>
         )}
 
-        {/* Historial */}
+        {/* ── Tab: Activos ────────────────────────────────────────── */}
+        {activeTab === 'activos' && (
+          <>
+            <header style={r.header}>
+              <h1 style={r.headerTitle}>{td.activeTitle}</h1>
+              <p style={r.headerSub}>
+                {loadingActive ? 'Cargando...' : td.activeSub(activeOrders.length)}
+              </p>
+            </header>
+
+            {loadingActive ? (
+              <div style={r.empty}><span style={{ fontSize: 32 }}>⏳</span><p>Cargando...</p></div>
+            ) : activeOrders.length === 0 ? (
+              <div style={r.empty}>
+                <span style={{ fontSize: 40 }}>◎</span>
+                <p>{td.noOrders}</p>
+                <button
+                  style={r.refreshBtn}
+                  onClick={() => setActiveTab('disponibles')}
+                >
+                  Ver pedidos disponibles →
+                </button>
+              </div>
+            ) : (
+              <div style={r.orderList}>
+                {activeOrders.map((order) => (
+                  <ActiveOrderCard
+                    key={order.id}
+                    order={order}
+                    statusInfo={STATUS_INFO}
+                    checklist={checklist[order.id] ?? {}}
+                    onToggleCheck={(key) => toggleCheck(order.id, key)}
+                    advancing={advancingId === order.id}
+                    onAdvance={() => handleAdvance(order)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Tab: Ruta ───────────────────────────────────────────── */}
+        {activeTab === 'ruta' && (
+          <>
+            <header style={r.header}>
+              <h1 style={r.headerTitle}>{td.routeTitle}</h1>
+              <p style={r.headerSub}>
+                {routeOrder
+                  ? `Ruta activa: ${routeOrder.local_id ?? `#${routeOrder.id}`}`
+                  : 'Sin pedido activo'}
+              </p>
+            </header>
+
+            {routeOrder ? (
+              <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+                <OrderRouteMap
+                  stores={extractStores(routeOrder)}
+                  userCoords={routeOrder.delivery_coords ?? null}
+                  driverLocation={null}
+                  mapHeight="520px"
+                />
+              </div>
+            ) : (
+              <div style={r.empty}>
+                <span style={{ fontSize: 44 }}>🗺</span>
+                <p>Acepta un pedido para ver la ruta aquí.</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Tab: Historial ──────────────────────────────────────── */}
         {activeTab === 'historial' && (
           <>
             <header style={r.header}>
               <h1 style={r.headerTitle}>{td.historyTitle}</h1>
-              <p style={r.headerSub}>{td.historySub}</p>
+              <p style={r.headerSub}>{history.length} entregas completadas</p>
             </header>
-            <div style={r.historyList}>
-              {history.map((h) => {
-                const si = STATUS_INFO[h.status];
-                return (
-                  <div key={h.id} style={r.historyRow}>
-                    <div style={r.histId}>{h.id}</div>
-                    <div style={r.histClient}>{h.client}</div>
-                    <div style={r.histTotal}>${h.total.toLocaleString('es-CO')}</div>
-                    <span style={{ ...r.statusBadge, background: si.bg, color: si.color }}>
-                      {si.label}
-                    </span>
-                    <div style={r.histDate}>{h.date}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
 
-        {['ruta', 'ganancias'].includes(activeTab) && (
-          <div style={r.placeholder}>
-            <span style={{ fontSize: 44 }}>{activeTab === 'ruta' ? '▸' : '$'}</span>
-            <h2 style={r.phTitle}>
-              {activeTab === 'ruta' ? td.routeTitle : td.earningsTitle}
-            </h2>
-            <p style={r.phSub}>
-              {activeTab === 'ruta' ? td.routeSub : td.earningsSub}
-            </p>
-            <div style={r.tag}>{td.comingSoon}</div>
-          </div>
+            {history.length === 0 ? (
+              <div style={r.empty}>
+                <span style={{ fontSize: 40 }}>◎</span>
+                <p>Aún no tenés entregas completadas.</p>
+              </div>
+            ) : (
+              <div style={r.historyList}>
+                {history.map((h) => (
+                  <div key={h.id} style={r.historyRow}>
+                    <div style={r.histId}>{h.local_id ?? `#${h.id}`}</div>
+                    <div style={r.histClient}>{h.delivery_address ?? '—'}</div>
+                    <div style={r.histTotal}>+${Number(h.delivery_fee ?? 0).toLocaleString('es-CO')}</div>
+                    <span style={{ ...r.statusBadge, background: 'var(--success-soft)', color: 'var(--success)' }}>
+                      Entregado
+                    </span>
+                    <div style={r.histDate}>
+                      {new Date(h.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>
   );
 }
 
-// ─── OrderCard ────────────────────────────────────────────────────────────────
-function OrderCard({ order, statusInfo, td, onAdvance, onSelect, selected }) {
-  const si = statusInfo[order.status] || statusInfo.pendiente;
-  const isDelivered = order.status === 'entregado';
-
-  const NEXT_LABEL = {
-    pendiente: td.nextPendiente,
-    comprando: td.nextComprando,
-    en_camino: td.nextEnCamino,
-    llegando:  td.nextLlegando,
-  };
+// ─── AvailableOrderCard ───────────────────────────────────────────────────────
+// Tarjeta de pedido disponible para aceptar. El repartidor ve qué tiene que
+// comprar, en qué tiendas y a dónde entregar antes de comprometerse.
+function AvailableOrderCard({ order, accepting, onAccept }) {
+  const items  = extractItems(order);
+  const stores = extractStores(order);
+  const total  = Number(order.total_estimated ?? 0) + Number(order.delivery_fee ?? 0);
 
   return (
-    <article
-      role="button"
-      tabIndex={0}
-      style={{
-        ...r.orderCard,
-        ...(selected ? r.orderCardSelected : {}),
-      }}
-      onClick={() => onSelect(selected ? null : order.id)}
-      onKeyDown={(e) => { if (e.key === 'Enter') onSelect(selected ? null : order.id); }}
-    >
+    <article style={r.orderCard}>
+      {/* Encabezado */}
       <div style={r.orderTop}>
-        <div style={r.orderId}>{order.id}</div>
+        <div style={r.orderId}>{order.local_id ?? `#${order.id}`}</div>
+        <span style={{ ...r.statusBadge, background: 'var(--warning-soft)', color: '#92400e' }}>
+          Disponible
+        </span>
+        <div style={{ marginLeft: 'auto', fontSize: 12, color: MUTED }}>
+          {new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </div>
+
+      {/* Dirección de entrega */}
+      <div style={r.orderAddress}>
+        📍 {order.delivery_address ?? 'Dirección no especificada'}
+      </div>
+
+      {/* Tiendas a visitar */}
+      {stores.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <p style={r.sectionMini}>Tiendas a visitar ({stores.length})</p>
+          <div style={r.orderItems}>
+            {stores.map((s, i) => (
+              <span key={i} style={r.itemChip}>
+                {Number(s.store?.store_type_id) === 2 ? '🌐' : '🏪'} {s.store?.name ?? 'Tienda'}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Productos */}
+      {items.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <p style={r.sectionMini}>Productos ({items.length})</p>
+          <div style={r.orderItems}>
+            {items.slice(0, 6).map((item, i) => (
+              <span key={i} style={r.itemChip}>{item}</span>
+            ))}
+            {items.length > 6 && (
+              <span style={{ ...r.itemChip, color: MUTED }}>+{items.length - 6} más</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Footer: total y botón aceptar */}
+      <div style={r.orderFooter}>
+        <div>
+          <div style={r.orderTotal}>${total.toLocaleString('es-CO')} COP</div>
+          <div style={{ fontSize: 11, color: MUTED }}>
+            compras + ${Number(order.delivery_fee ?? 0).toLocaleString('es-CO')} domicilio
+          </div>
+        </div>
+        <button
+          style={{ ...r.advanceBtn, ...(accepting ? { opacity: 0.7 } : {}) }}
+          onClick={onAccept}
+          disabled={accepting}
+        >
+          {accepting ? 'Aceptando...' : '✓ Aceptar pedido'}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+// ─── ActiveOrderCard ──────────────────────────────────────────────────────────
+// Tarjeta del pedido asignado al repartidor. Muestra checklist de productos
+// cuando está "comprando" y el botón para avanzar al siguiente estado.
+function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance }) {
+  const si     = statusInfo[order.status] ?? statusInfo.aceptado;
+  const stores = extractStores(order);
+  const [expanded, setExpanded] = useState(true);
+
+  // Contar productos completados del checklist
+  const allProducts = stores.flatMap((s, si) =>
+    (s.products ?? []).map((p, pi) => ({ key: `${si}-${pi}`, name: p.item?.productName ?? '?', qty: p.item?.quantity ?? 1 }))
+  );
+  const checked = allProducts.filter((p) => checklist[p.key]).length;
+
+  return (
+    <article style={{ ...r.orderCard, ...r.orderCardSelected }}>
+      {/* Encabezado */}
+      <div style={{ ...r.orderTop, cursor: 'pointer' }} onClick={() => setExpanded((v) => !v)}>
+        <div style={r.orderId}>{order.local_id ?? `#${order.id}`}</div>
         <span style={{ ...r.statusBadge, background: si.bg, color: si.color }}>
           {si.label}
         </span>
-        <div style={r.orderDist}>📍 {order.distance}</div>
-        <div style={r.orderTime}>{order.time}</div>
+        {allProducts.length > 0 && (
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: MUTED }}>
+            {checked}/{allProducts.length} ✓
+          </span>
+        )}
+        <span style={{ fontSize: 12, color: MUTED }}>{expanded ? '▲' : '▼'}</span>
       </div>
 
-      <div style={r.orderClient}>{order.client}</div>
-      <div style={r.orderAddress}>{order.address}</div>
-
-      <div style={r.orderItems}>
-        {order.items.map((item) => (
-          <span key={item} style={r.itemChip}>{item}</span>
-        ))}
+      {/* Dirección de entrega */}
+      <div style={r.orderAddress}>
+        📍 {order.delivery_address ?? 'Dirección no especificada'}
       </div>
 
+      {/* Checklist por tienda (solo cuando expanded) */}
+      {expanded && stores.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+          {stores.map((s, si) => (
+            <div key={si} style={r.storeBlock}>
+              <div style={r.storeBlockTitle}>
+                {Number(s.store?.store_type_id) === 2 ? '🌐' : '🏪'} {s.store?.name ?? 'Tienda'}
+              </div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {(s.products ?? []).map((p, pi) => {
+                  const key = `${si}-${pi}`;
+                  const done = !!checklist[key];
+                  return (
+                    <li
+                      key={pi}
+                      style={{
+                        ...r.checkItem,
+                        ...(done ? r.checkItemDone : {}),
+                      }}
+                      onClick={() => onToggleCheck(key)}
+                    >
+                      <span style={{ ...r.checkbox, ...(done ? r.checkboxDone : {}) }}>
+                        {done ? '✓' : ''}
+                      </span>
+                      <span style={{ flex: 1 }}>
+                        {p.item?.productName ?? '?'}
+                        <span style={{ color: MUTED, fontSize: 12 }}>
+                          {' '}×{p.item?.quantity ?? 1}
+                        </span>
+                      </span>
+                      <span style={{ fontSize: 12, color: MUTED }}>
+                        ${Number(p.price ?? 0).toLocaleString('es-CO')}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Footer: total + botón avanzar */}
       <div style={r.orderFooter}>
-        <div style={r.orderTotal}>${order.total.toLocaleString('es-CO')}</div>
-        {!isDelivered && (
+        <div>
+          <div style={r.orderTotal}>
+            ${(Number(order.total_estimated ?? 0) + Number(order.delivery_fee ?? 0)).toLocaleString('es-CO')}
+          </div>
+          <div style={{ fontSize: 11, color: MUTED }}>total a cobrar</div>
+        </div>
+        {NEXT_LABEL[order.status] && (
           <button
-            style={r.advanceBtn}
-            onClick={(e) => { e.stopPropagation(); onAdvance(order.id); }}
+            style={{ ...r.advanceBtn, ...(advancing ? { opacity: 0.7 } : {}) }}
+            onClick={onAdvance}
+            disabled={advancing}
           >
-            {NEXT_LABEL[order.status] || td.advance}
+            {advancing ? 'Actualizando...' : NEXT_LABEL[order.status]}
           </button>
         )}
       </div>
@@ -236,192 +634,114 @@ const MUTED   = 'var(--text-secondary)';
 
 const r = {
   root: {
-    display: 'flex',
-    height: '100vh',
-    overflow: 'hidden',
-    background: BG,
-    color: TEXT,
-    fontFamily: "'DM Sans', 'Inter', sans-serif",
+    display: 'flex', height: '100vh', overflow: 'hidden',
+    background: BG, color: TEXT, fontFamily: "'DM Sans', 'Inter', sans-serif",
   },
   sidebar: {
-    width: 228,
-    background: SURFACE,
-    borderRight: `1px solid ${BORDER}`,
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '24px 16px',
-    height: '100%',
-    flexShrink: 0,
+    width: 228, background: SURFACE, borderRight: `1px solid ${BORDER}`,
+    display: 'flex', flexDirection: 'column', padding: '24px 16px',
+    height: '100%', flexShrink: 0,
   },
   onlineBox: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 7,
-    padding: '7px 12px',
-    background: `${ACCENT}12`,
-    borderRadius: 8,
-    marginBottom: 24,
+    display: 'flex', alignItems: 'center', gap: 7,
+    padding: '7px 12px', background: `${ACCENT}12`,
+    borderRadius: 8, marginBottom: 24,
   },
   onlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: '50%',
-    background: ACCENT,
-    boxShadow: `0 0 0 3px ${ACCENT}30`,
+    width: 8, height: 8, borderRadius: '50%',
+    background: ACCENT, boxShadow: `0 0 0 3px ${ACCENT}30`,
   },
   onlineLabel: { fontSize: 13, fontWeight: 600, color: ACCENT },
   nav: { display: 'flex', flexDirection: 'column', gap: 4 },
   navItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '10px 12px',
-    borderRadius: 8,
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: MUTED,
-    fontSize: 14,
-    fontWeight: 500,
-    textAlign: 'left',
-    transition: 'all 0.15s',
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '10px 12px', borderRadius: 8,
+    background: 'none', border: 'none', cursor: 'pointer',
+    color: MUTED, fontSize: 14, fontWeight: 500, textAlign: 'left',
   },
-  navActive: { background: `${ACCENT}18`, color: ACCENT },
+  navActive: { background: `${ACCENT}18`, color: ACCENT, fontWeight: 700 },
   navIcon: { fontSize: 16, width: 20, textAlign: 'center' },
   navBadge: {
-    marginLeft: 'auto',
-    background: ACCENT,
-    color: 'var(--text-primary)',
-    borderRadius: 10,
-    padding: '1px 7px',
-    fontSize: 11,
-    fontWeight: 700,
+    marginLeft: 'auto', background: ACCENT, color: '#fff',
+    borderRadius: 10, padding: '1px 7px', fontSize: 11, fontWeight: 700,
   },
   quickStats: {
-    display: 'flex',
-    gap: 8,
-    padding: '16px 8px',
-    borderTop: `1px solid ${BORDER}`,
-    marginTop: 16,
+    display: 'flex', gap: 8, padding: '16px 8px',
+    borderTop: `1px solid ${BORDER}`, marginTop: 16,
   },
   quickStat: { flex: 1, textAlign: 'center' },
   qValue: { fontSize: 18, fontWeight: 800, color: ACCENT },
   qLabel: { fontSize: 10, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px' },
-
-  userBlock: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '12px 8px',
-    borderTop: `1px solid ${BORDER}`,
-    marginTop: 'auto',
-    marginBottom: 12,
-  },
-  userAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: '50%',
-    background: `${ACCENT}20`,
-    color: ACCENT,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 700,
-    fontSize: 14,
-  },
-  userName: { fontSize: 13, fontWeight: 600, color: TEXT },
-  userRole: { fontSize: 11, color: MUTED },
 
   main: { flex: 1, padding: '32px 40px', maxWidth: 720, overflowY: 'auto', height: '100%' },
   header: { marginBottom: 28 },
   headerTitle: { fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.5px' },
   headerSub: { color: MUTED, fontSize: 14, margin: '4px 0 0' },
 
+  errorBanner: {
+    marginBottom: 16, padding: '10px 14px',
+    background: 'var(--error-soft, #fee2e2)', border: '1px solid var(--error, #dc2626)',
+    borderRadius: 8, color: 'var(--error, #dc2626)', fontSize: 13,
+  },
   orderList: { display: 'flex', flexDirection: 'column', gap: 14 },
   orderCard: {
-    background: SURFACE,
-    border: `1px solid ${BORDER}`,
-    borderRadius: 12,
-    padding: '18px 20px',
-    cursor: 'pointer',
-    transition: 'border-color 0.15s',
+    background: SURFACE, border: `1px solid ${BORDER}`,
+    borderRadius: 12, padding: '18px 20px',
   },
-  orderCardSelected: { borderColor: ACCENT },
+  orderCardSelected: { borderColor: ACCENT, borderWidth: 2 },
   orderTop: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 },
   orderId: { fontSize: 13, fontWeight: 700, color: MUTED, fontFamily: 'monospace' },
   statusBadge: { fontSize: 12, fontWeight: 600, borderRadius: 6, padding: '3px 10px' },
-  orderDist: { marginLeft: 'auto', fontSize: 12, color: MUTED },
-  orderTime: { fontSize: 12, color: MUTED },
-
-  orderClient: { fontSize: 16, fontWeight: 600, marginBottom: 4 },
   orderAddress: { fontSize: 13, color: MUTED, marginBottom: 12 },
-
-  orderItems: { display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
+  sectionMini: { fontSize: 11, color: MUTED, fontWeight: 600, textTransform: 'uppercase', margin: '0 0 5px' },
+  orderItems: { display: 'flex', flexWrap: 'wrap', gap: 6 },
   itemChip: {
-    background: 'var(--bg-elevated)',
-    border: `1px solid ${BORDER}`,
-    borderRadius: 5,
-    padding: '3px 10px',
-    fontSize: 12,
-    color: MUTED,
+    background: 'var(--bg-elevated)', border: `1px solid ${BORDER}`,
+    borderRadius: 5, padding: '3px 10px', fontSize: 12, color: MUTED,
   },
-
-  orderFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  orderFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 4 },
   orderTotal: { fontSize: 20, fontWeight: 800, color: ACCENT, letterSpacing: '-0.5px' },
   advanceBtn: {
-    background: ACCENT,
-    color: 'var(--text-primary)',
-    border: 'none',
-    borderRadius: 8,
-    padding: '9px 18px',
-    fontWeight: 700,
-    fontSize: 13,
-    cursor: 'pointer',
+    background: ACCENT, color: '#fff', border: 'none',
+    borderRadius: 8, padding: '9px 18px',
+    fontWeight: 700, fontSize: 13, cursor: 'pointer',
   },
-
+  refreshBtn: {
+    background: 'transparent', border: `1px solid ${BORDER}`,
+    borderRadius: 8, padding: '8px 16px',
+    color: MUTED, fontSize: 13, cursor: 'pointer', marginTop: 4,
+  },
+  storeBlock: {
+    background: 'var(--bg-elevated)', borderRadius: 8,
+    padding: '10px 14px', border: `1px solid ${BORDER}`,
+  },
+  storeBlockTitle: { fontSize: 13, fontWeight: 700, marginBottom: 8 },
+  checkItem: {
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '7px 0', borderBottom: `1px solid ${BORDER}`,
+    cursor: 'pointer', fontSize: 13,
+  },
+  checkItemDone: { opacity: 0.5, textDecoration: 'line-through' },
+  checkbox: {
+    width: 18, height: 18, borderRadius: 4,
+    border: `2px solid ${BORDER}`, flexShrink: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 11, fontWeight: 700,
+  },
+  checkboxDone: {
+    background: ACCENT, borderColor: ACCENT, color: '#fff',
+  },
   historyList: { display: 'flex', flexDirection: 'column', gap: 0 },
   historyRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-    padding: '14px 0',
-    borderBottom: `1px solid ${BORDER}`,
-    fontSize: 14,
+    display: 'flex', alignItems: 'center', gap: 16,
+    padding: '14px 0', borderBottom: `1px solid ${BORDER}`, fontSize: 14,
   },
-  histId: { fontFamily: 'monospace', color: MUTED, width: 80 },
-  histClient: { flex: 1 },
+  histId: { fontFamily: 'monospace', color: MUTED, minWidth: 100 },
+  histClient: { flex: 1, fontSize: 12, color: MUTED },
   histTotal: { fontWeight: 700, color: ACCENT },
   histDate: { fontSize: 12, color: MUTED },
-
   empty: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 300,
-    gap: 12,
-    color: MUTED,
-    fontSize: 14,
-  },
-
-  placeholder: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 400,
-    gap: 12,
-    color: MUTED,
-  },
-  phTitle: { fontSize: 20, fontWeight: 700, color: TEXT, margin: 0 },
-  phSub: { fontSize: 14, margin: 0, textAlign: 'center', maxWidth: 360 },
-  tag: {
-    background: `${ACCENT}15`,
-    color: ACCENT,
-    borderRadius: 6,
-    padding: '4px 12px',
-    fontSize: 12,
-    fontWeight: 600,
-    marginTop: 8,
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    justifyContent: 'center', minHeight: 300, gap: 12, color: MUTED, fontSize: 14,
   },
 };
