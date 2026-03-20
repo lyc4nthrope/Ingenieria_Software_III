@@ -177,6 +177,57 @@ export async function upsertDealerLocation(dealerId, lat, lng, isAvailable = tru
   return { error };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// PRECIO DE PRODUCTO — corrección inline
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Actualiza el precio de un producto específico dentro del JSONB stores
+ * de un pedido. Recalcula total_estimated automáticamente.
+ *
+ * @param {number} orderId     - id INTEGER del pedido en Supabase
+ * @param {number} storeIdx    - índice del store en el array stores[]
+ * @param {number} productIdx  - índice del producto en store.products[]
+ * @param {number} newPrice    - nuevo precio unitario
+ * @returns {{ error, newStores, newTotal }}
+ */
+export async function updateProductPrice(orderId, storeIdx, productIdx, newPrice) {
+  // 1. Traer el stores JSONB actual
+  const { data: order, error: fetchErr } = await supabase
+    .from('orders')
+    .select('stores')
+    .eq('id', orderId)
+    .single();
+
+  if (fetchErr || !order?.stores) return { error: fetchErr ?? new Error('Pedido no encontrado') };
+
+  // 2. Clonar y actualizar el precio puntual
+  const stores = JSON.parse(JSON.stringify(order.stores));
+  if (!stores[storeIdx]?.products?.[productIdx]) {
+    return { error: new Error('Índice de producto fuera de rango') };
+  }
+  stores[storeIdx].products[productIdx].price = newPrice;
+
+  // 3. Recalcular total estimado
+  const newTotal = stores.reduce(
+    (sum, s) =>
+      sum +
+      (s.products ?? []).reduce(
+        (psum, p) => psum + (p.price ?? 0) * (p.item?.quantity ?? 1),
+        0
+      ),
+    0
+  );
+
+  // 4. Persistir
+  const { error } = await supabase
+    .from('orders')
+    .update({ stores, total_estimated: newTotal })
+    .eq('id', orderId);
+
+  return { error, newStores: stores, newTotal };
+}
+
 /**
  * Lee la ubicación actual de un repartidor.
  * RLS permite verla solo si el usuario tiene un pedido activo con ese repartidor.

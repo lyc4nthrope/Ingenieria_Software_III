@@ -4,6 +4,8 @@ import { DeliveryCard } from './DeliveryCard';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { pedidos } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
+import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
+import { updateProductPrice } from '@/services/api/orders.api';
 
 // Mapa de estado de Supabase (tabla orders) → estado de UI local
 // El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
@@ -22,6 +24,20 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
+
+  // Actualiza el precio de un producto en Supabase y en el estado local
+  const handlePriceReport = async (order, storeIdx, productIdx, newPrice) => {
+    if (!order.supabaseId) return { error: new Error('Sin supabaseId') };
+    const { error, newStores, newTotal } = await updateProductPrice(
+      order.supabaseId, storeIdx, productIdx, newPrice
+    );
+    if (!error) {
+      updateOrderDelivery(order.id, {
+        result: { ...order.result, stores: newStores, totalCost: newTotal },
+      });
+    }
+    return { error };
+  };
 
   // Mantener la ref actualizada sin re-ejecutar los efectos
   useEffect(() => { updateOrderDeliveryRef.current = updateOrderDelivery; });
@@ -280,7 +296,13 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
                       <li key={pi} style={pedidos.prodItem}>
                         <div>
                           <div style={pedidos.prodName}>{p.item.productName}</div>
-                          <div style={pedidos.prodMeta}>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</div>
+                          <div style={{ ...pedidos.prodMeta, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                            <span>×{p.item.quantity} · ${p.price.toLocaleString('es-CO')} c/u</span>
+                            <PriceReportInline
+                              currentPrice={p.price}
+                              onConfirm={(newPrice) => handlePriceReport(selectedOrder, si, pi, newPrice)}
+                            />
+                          </div>
                         </div>
                         <span style={pedidos.prodTotal}>
                           ${(p.price * p.item.quantity).toLocaleString('es-CO')}
