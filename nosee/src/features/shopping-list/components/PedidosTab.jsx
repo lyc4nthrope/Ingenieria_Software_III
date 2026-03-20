@@ -4,6 +4,19 @@ import { useShoppingListStore } from '../store/shoppingListStore';
 import { DeliveryCard } from './DeliveryCard';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { pedidos } from '../styles/shoppingListStyles';
+import { supabase } from '@/services/supabase.client';
+
+// Mapa de estado de Supabase (tabla orders) → estado de UI local
+// El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
+const STATUS_MAP = {
+  pendiente_repartidor: 'searching',
+  aceptado:             'found',
+  comprando:            'comprando',
+  en_camino:            'en_camino',
+  llegando:             'llegando',
+  entregado:            'entregado',
+  cancelado:            'cancelled',
+};
 
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
 export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint }) {
@@ -12,13 +25,103 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   const timerRef = useRef(null);
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
 
-  // Mantener la ref actualizada sin re-ejecutar el efecto
+  // Mantener la ref actualizada sin re-ejecutar los efectos
   useEffect(() => { updateOrderDeliveryRef.current = updateOrderDelivery; });
 
   const selectedOrder = orders[selectedIdx] ?? null;
 
-  // ── Simulación de estado de domicilio en tiempo real ──────────────────
+  // ── REALTIME: estado del pedido (vía Supabase) ────────────────────────────
+  // Se activa cuando el pedido tiene supabaseId (pedido guardado en Supabase).
+  // Escucha UPDATE en la tabla orders → actualiza deliveryStatus y dealerId local.
   useEffect(() => {
+    if (!selectedOrder?.supabaseId) return;
+
+    // Carga inicial para sincronizar estado stale (ej: tab cerrada mientras el
+    // repartidor avanzaba el estado).
+    supabase
+      .from('orders')
+      .select('status, dealer_id')
+      .eq('id', selectedOrder.supabaseId)
+      .single()
+      .then(({ data }) => {
+        if (!data) return;
+        const uiStatus = STATUS_MAP[data.status];
+        if (uiStatus && uiStatus !== selectedOrder.deliveryStatus) {
+          updateOrderDeliveryRef.current(selectedOrder.id, {
+            deliveryStatus: uiStatus,
+            ...(data.dealer_id ? { dealerId: data.dealer_id } : {}),
+          });
+        }
+      });
+
+    // Suscripción Realtime para cambios en tiempo real
+    const channel = supabase
+      .channel(`order-status-${selectedOrder.supabaseId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${selectedOrder.supabaseId}` },
+        (payload) => {
+          const uiStatus = STATUS_MAP[payload.new?.status];
+          if (!uiStatus) return;
+          updateOrderDeliveryRef.current(selectedOrder.id, {
+            deliveryStatus: uiStatus,
+            ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : {}),
+          });
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.supabaseId, selectedOrder?.id]);
+
+  // ── REALTIME: ubicación GPS del repartidor ─────────────────────────────────
+  // Se activa cuando el pedido tiene un dealer asignado (dealerId).
+  // Escucha cambios en dealer_locations → actualiza driverLocation para el mapa.
+  useEffect(() => {
+    const dealerId = selectedOrder?.dealerId;
+    if (!dealerId) return;
+
+    // Leer ubicación inicial
+    supabase
+      .from('dealer_locations')
+      .select('lat, lng')
+      .eq('dealer_id', dealerId)
+      .single()
+      .then(({ data }) => {
+        if (data?.lat && data?.lng) {
+          updateOrderDeliveryRef.current(selectedOrder.id, {
+            driverLocation: { lat: data.lat, lng: data.lng },
+          });
+        }
+      });
+
+    // Suscripción Realtime para actualizaciones de GPS (~cada 15s)
+    const channel = supabase
+      .channel(`dealer-loc-${dealerId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'dealer_locations', filter: `dealer_id=eq.${dealerId}` },
+        (payload) => {
+          if (!payload.new?.lat || !payload.new?.lng) return;
+          updateOrderDeliveryRef.current(selectedOrder.id, {
+            driverLocation: { lat: payload.new.lat, lng: payload.new.lng },
+          });
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.dealerId, selectedOrder?.id]);
+
+  // ── SIMULACIÓN: fallback para pedidos sin supabaseId ──────────────────────
+  // Pedidos creados antes de implementar Supabase (solo localStorage) siguen
+  // usando la simulación de tiempos para demostrar el flujo.
+  useEffect(() => {
+    // Si hay supabaseId, el Realtime se encarga — no simular
+    if (selectedOrder?.supabaseId) return;
+
     clearTimeout(timerRef.current);
     clearInterval(timerRef.current);
 
@@ -63,7 +166,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
       clearTimeout(timerRef.current);
       clearInterval(timerRef.current);
     };
-  }, [selectedOrder?.id, selectedOrder?.deliveryStatus, selectedOrder?.deliveryMode, selectedOrder?.userCoords]);
+  }, [selectedOrder?.id, selectedOrder?.deliveryStatus, selectedOrder?.deliveryMode, selectedOrder?.userCoords, selectedOrder?.supabaseId]);
 
   const handleRemove = (id) => {
     removeOrder(id);
