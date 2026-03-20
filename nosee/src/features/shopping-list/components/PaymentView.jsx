@@ -16,13 +16,55 @@ import { useState, useRef } from 'react';
 import { uploadReceipt, createPayment } from '@/services/api/payments.api';
 import qrNequi from '@/assets/qr-nequi.png';
 
+// ─── Logos SVG de las pasarelas ───────────────────────────────────────────────
+
+// Logo Nu: cuadrado redondeado morado con "nu" en minúscula — idéntico al app icon
+function NuLogo({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Nu">
+      <rect width="40" height="40" rx="10" fill="#820AD1"/>
+      <text
+        x="20" y="27"
+        textAnchor="middle"
+        fill="#ffffff"
+        fontFamily="'Arial', sans-serif"
+        fontSize="17"
+        fontWeight="bold"
+        letterSpacing="-0.5"
+      >
+        nu
+      </text>
+    </svg>
+  );
+}
+
+// Logo Nequi: círculo magenta con la "N" estilizada de su marca
+function NequiLogo({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Nequi">
+      <circle cx="20" cy="20" r="20" fill="#C0069B"/>
+      {/* N estilizada de Nequi */}
+      <text
+        x="20" y="27"
+        textAnchor="middle"
+        fill="#ffffff"
+        fontFamily="'Arial Black', 'Arial', sans-serif"
+        fontSize="20"
+        fontWeight="900"
+      >
+        N
+      </text>
+    </svg>
+  );
+}
+
 // ─── Datos de las cuentas ─────────────────────────────────────────────────────
 const ACCOUNTS = {
   nequi: {
     label: 'Nequi',
-    color: '#6b21a8',
-    colorSoft: '#f3e8ff',
-    emoji: '💜',
+    color: '#C0069B',
+    colorSoft: '#fce7f9',
+    Logo: NequiLogo,
     fields: [
       { label: 'Número de celular', value: '314 380 8044' },
       { label: 'Llave Bre (alias)', value: '@3143808044' },
@@ -31,9 +73,9 @@ const ACCOUNTS = {
   },
   nu: {
     label: 'Nu',
-    color: '#7c3aed',
-    colorSoft: '#ede9fe',
-    emoji: '🟣',
+    color: '#820AD1',
+    colorSoft: '#f3e8ff',
+    Logo: NuLogo,
     fields: [
       { label: 'Número de cuenta', value: '5288 9218 6535 5829' },
       { label: 'Llave Bre (alias)', value: '@OSO782' },
@@ -145,7 +187,8 @@ export function PaymentView({ order, userId, onPaymentSubmitted }) {
               ...(tab === key ? { ...s.tabActive, borderColor: acc.color, color: acc.color, background: acc.colorSoft } : {}),
             }}
           >
-            {acc.emoji} {acc.label}
+            <acc.Logo size={20} />
+            {acc.label}
           </button>
         ))}
       </div>
@@ -292,6 +335,10 @@ const s = {
     fontSize: '13px',
     fontWeight: 600,
     cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '7px',
   },
   tabActive: {
     fontWeight: 800,
