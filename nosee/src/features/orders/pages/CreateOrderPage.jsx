@@ -147,8 +147,9 @@ export default function CreateOrderPage() {
       stores:          result.stores,
       items:           selectedItems,
       totalCost:       result.totalCost,
+      savings:         result.savings     ?? 0,
+      savingsPct:      result.savingsPct  ?? 0,
       deliveryFee:     fee,
-      savings:         result.savings ?? 0,
       strategy,
     });
 
