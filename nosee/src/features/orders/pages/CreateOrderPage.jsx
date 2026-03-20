@@ -154,10 +154,11 @@ export default function CreateOrderPage() {
     });
 
     if (error) {
+      console.error('[CreateOrderPage] createOrder error:', error.message, error);
       if (wantsDelivery) {
         // Con domicilio el pedido DEBE estar en Supabase para que el repartidor lo vea.
         // Mostramos el error y dejamos que el usuario reintente — no confirmamos.
-        setSaveError('No se pudo guardar el pedido. Revisá tu conexión e intentá de nuevo.');
+        setSaveError(`No se pudo guardar el pedido: ${error.message}. Revisá tu conexión e intentá de nuevo.`);
         setSaving(false);
         return;
       }

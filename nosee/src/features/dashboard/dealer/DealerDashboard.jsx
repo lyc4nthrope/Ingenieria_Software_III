@@ -75,6 +75,7 @@ export default function DealerDashboard() {
   const [cancelingId,     setCancelingId]     = useState(null);  // id del pedido que se está cancelando
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
   const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
+  const [loadAvailError,  setLoadAvailError]  = useState(null);  // error al cargar disponibles
   // Checklist local por pedido: { [orderId]: { [productKey]: boolean } }
   const [checklist,       setChecklist]       = useState({});
 
@@ -84,7 +85,12 @@ export default function DealerDashboard() {
   // ── Carga inicial ────────────────────────────────────────────────────────
   const loadAvailable = useCallback(async () => {
     setLoadingAvail(true);
-    const { data } = await getAvailableOrders({ limit: 30 });
+    setLoadAvailError(null);
+    const { data, error } = await getAvailableOrders({ limit: 30 });
+    if (error) {
+      console.error('[DealerDashboard] getAvailableOrders error:', error);
+      setLoadAvailError(`Error al cargar pedidos: ${error.message}`);
+    }
     setAvailable(data);
     setLoadingAvail(false);
   }, []);
@@ -354,7 +360,12 @@ export default function DealerDashboard() {
         {activeTab === 'disponibles' && (
           <>
             <header style={r.header}>
-              <h1 style={r.headerTitle}>Pedidos disponibles</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <h1 style={{ ...r.headerTitle, flex: 1 }}>Pedidos disponibles</h1>
+                <button style={r.refreshBtn} onClick={loadAvailable} disabled={loadingAvail}>
+                  ↻ Actualizar
+                </button>
+              </div>
               <p style={r.headerSub}>
                 {loadingAvail
                   ? 'Cargando...'
@@ -366,13 +377,16 @@ export default function DealerDashboard() {
               <div style={r.errorBanner}>{acceptError}</div>
             )}
 
+            {loadAvailError && (
+              <div style={r.errorBanner}>{loadAvailError}</div>
+            )}
+
             {loadingAvail ? (
               <div style={r.empty}><span style={{ fontSize: 32 }}>⏳</span><p>Cargando pedidos...</p></div>
             ) : available.length === 0 ? (
               <div style={r.empty}>
                 <span style={{ fontSize: 40 }}>◎</span>
                 <p>No hay pedidos disponibles en este momento.</p>
-                <button style={r.refreshBtn} onClick={loadAvailable}>↻ Actualizar</button>
               </div>
             ) : (
               <div style={r.orderList}>
