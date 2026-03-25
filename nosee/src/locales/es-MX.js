@@ -1164,10 +1164,16 @@ const esMX = {
 
     // ── Barcode ───────────────────────────────────────────────────────────────
     barcode: {
-      noCameraPermission: "Tu navegador no permite cámara. Ingresa el código manualmente.",
+      noCameraPermission: "Tu navegador no soporta acceso a cámara. Ingresa el código manualmente.",
       noScanSupport: "Tu navegador no soporta escaneo automático. Ingresa el código manualmente.",
       errorDetector: "No se pudo iniciar el detector de códigos. Usa ingreso manual.",
       errorCamera: "No se pudo acceder a la cámara.",
+      errorPermissionDenied: "No se dio permiso de cámara. Acepta el permiso cuando el navegador lo solicite.",
+      errorCameraNotFound: "No se encontró ninguna cámara en este dispositivo.",
+      errorCameraInUse: "La cámara está siendo usada por otra aplicación.",
+      errorHttpsRequired: "Se requiere conexión segura (HTTPS) para acceder a la cámara.",
+      permissionBrowserHint: "Si bloqueaste el permiso, habilita la cámara en la configuración de tu navegador.",
+      retry: "Reintentar",
       invalidCode: "Ingresa un código válido (mínimo 4 caracteres).",
       title: "Escanear código de barras",
       close: "Cerrar",

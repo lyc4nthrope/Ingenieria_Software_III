@@ -1164,10 +1164,16 @@ const enUS = {
 
     // ── Barcode ───────────────────────────────────────────────────────────────
     barcode: {
-      noCameraPermission: "Your browser does not allow camera access. Enter the code manually.",
+      noCameraPermission: "Your browser does not support camera access. Enter the code manually.",
       noScanSupport: "Your browser does not support automatic scanning. Enter the code manually.",
       errorDetector: "Could not start the code detector. Use manual entry.",
       errorCamera: "Could not access the camera.",
+      errorPermissionDenied: "Camera permission was denied. Accept the permission when the browser asks.",
+      errorCameraNotFound: "No camera was found on this device.",
+      errorCameraInUse: "The camera is being used by another application.",
+      errorHttpsRequired: "A secure connection (HTTPS) is required to access the camera.",
+      permissionBrowserHint: "If you blocked the permission, enable the camera in your browser settings.",
+      retry: "Retry",
       invalidCode: "Enter a valid code (minimum 4 characters).",
       title: "Scan barcode",
       close: "Close",

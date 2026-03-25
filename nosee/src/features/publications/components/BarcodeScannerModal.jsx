@@ -13,7 +13,9 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
   const [isStarting, setIsStarting] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [error, setError] = useState("");
+  const [errorType, setErrorType] = useState(null);
   const [supported, setSupported] = useState(true);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -39,17 +41,24 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
     const startScanner = async () => {
       setIsStarting(true);
       setError("");
+      setErrorType(null);
       setSupported(true);
 
       if (!navigator?.mediaDevices?.getUserMedia) {
+        const isInsecure =
+          typeof location !== "undefined" &&
+          location.protocol === "http:" &&
+          location.hostname !== "localhost";
         setSupported(false);
-        setError(tb.noCameraPermission);
+        setErrorType("noApi");
+        setError(isInsecure ? tb.errorHttpsRequired : tb.noCameraPermission);
         setIsStarting(false);
         return;
       }
 
       if (typeof window?.BarcodeDetector !== "function") {
         setSupported(false);
+        setErrorType("noSupport");
         setError(tb.noScanSupport);
         setIsStarting(false);
         return;
@@ -61,6 +70,7 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
         });
       } catch {
         setSupported(false);
+        setErrorType("detector");
         setError(tb.errorDetector);
         setIsStarting(false);
         return;
@@ -101,7 +111,20 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
         }, 450);
       } catch (cameraError) {
         setSupported(false);
-        setError(cameraError?.message || tb.errorCamera);
+        const name = cameraError?.name;
+        if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+          setErrorType("permission");
+          setError(tb.errorPermissionDenied);
+        } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+          setErrorType("notFound");
+          setError(tb.errorCameraNotFound);
+        } else if (name === "NotReadableError" || name === "TrackStartError") {
+          setErrorType("inUse");
+          setError(tb.errorCameraInUse);
+        } else {
+          setErrorType("hardware");
+          setError(tb.errorCamera);
+        }
       } finally {
         setIsStarting(false);
       }
@@ -113,7 +136,10 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
       cancelled = true;
       stopScanner();
     };
-  }, [onClose, onDetected, open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, retryKey]);
+
+  const handleRetry = () => setRetryKey((k) => k + 1);
 
   const handleManualSubmit = async (event) => {
     event.preventDefault();
@@ -129,6 +155,8 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
   };
 
   if (!open) return null;
+
+  const canRetry = errorType === "permission" || errorType === "inUse";
 
   return (
     <div style={styles.overlay} onMouseDown={(event) => event.target === event.currentTarget && onClose?.()}>
@@ -152,7 +180,20 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
         )}
 
         {isStarting && <p style={styles.helper}>{tb.startingCamera}</p>}
-        {error && <p style={styles.error}>{error}</p>}
+
+        {error && (
+          <div style={styles.errorBox}>
+            <p style={styles.errorText}>{error}</p>
+            {errorType === "permission" && (
+              <p style={styles.hintText}>{tb.permissionBrowserHint}</p>
+            )}
+            {canRetry && (
+              <button type="button" onClick={handleRetry} style={styles.retryBtn}>
+                {tb.retry}
+              </button>
+            )}
+          </div>
+        )}
 
         <form style={styles.manualForm} onSubmit={handleManualSubmit}>
           <label htmlFor="manual-barcode" style={styles.label}>
@@ -189,6 +230,8 @@ const styles = {
   },
   modal: {
     width: "min(560px, 100%)",
+    maxHeight: "calc(100dvh - 32px)",
+    overflowY: "auto",
     background: "var(--bg-surface)",
     border: "1px solid var(--border)",
     borderRadius: "var(--radius-md)",
@@ -215,10 +258,11 @@ const styles = {
     color: "var(--text-secondary)",
     padding: "6px 10px",
     cursor: "pointer",
+    flexShrink: 0,
   },
   video: {
     width: "100%",
-    maxHeight: "290px",
+    maxHeight: "min(290px, 40vh)",
     borderRadius: "var(--radius-sm)",
     border: "1px solid var(--border)",
     background: "#0c111c",
@@ -228,10 +272,37 @@ const styles = {
     fontSize: "12px",
     color: "var(--text-secondary)",
   },
-  error: {
+  errorBox: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    padding: "10px 12px",
+    background: "color-mix(in srgb, var(--error) 10%, transparent)",
+    border: "1px solid color-mix(in srgb, var(--error) 35%, transparent)",
+    borderRadius: "var(--radius-sm)",
+  },
+  errorText: {
     margin: 0,
     color: "var(--error)",
+    fontSize: "13px",
+    fontWeight: 600,
+  },
+  hintText: {
+    margin: 0,
+    color: "var(--text-secondary)",
     fontSize: "12px",
+  },
+  retryBtn: {
+    alignSelf: "flex-start",
+    marginTop: "2px",
+    border: "1px solid var(--border)",
+    borderRadius: "var(--radius-sm)",
+    background: "var(--bg-elevated)",
+    color: "var(--text-primary)",
+    padding: "6px 14px",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: 600,
   },
   manualForm: {
     display: "flex",
