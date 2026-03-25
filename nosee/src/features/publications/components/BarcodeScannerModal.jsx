@@ -11,6 +11,7 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
   const detectionLockRef = useRef(false);
 
   const [isStarting, setIsStarting] = useState(false);
+  const [isActive, setIsActive] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [error, setError] = useState("");
   const [errorType, setErrorType] = useState(null);
@@ -34,6 +35,7 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
       if (videoRef.current) {
         videoRef.current.srcObject = null;
       }
+      setIsActive(false);
       detectorRef.current = null;
       detectionLockRef.current = false;
     };
@@ -92,6 +94,7 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
+          setIsActive(true);
         }
 
         scanTimerRef.current = setInterval(async () => {
@@ -156,7 +159,7 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
 
   if (!open) return null;
 
-  const canRetry = errorType === "inUse" || errorType === "hardware";
+  const canRetry = errorType === "inUse" || errorType === "hardware" || errorType === "permission";
 
   return (
     <div style={styles.overlay} onMouseDown={(event) => event.target === event.currentTarget && onClose?.()}>
@@ -168,16 +171,14 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
           </button>
         </div>
 
-        {supported && (
-          <video
-            ref={videoRef}
-            style={styles.video}
-            muted
-            autoPlay
-            playsInline
-            aria-label={tb.cameraAria}
-          />
-        )}
+        <video
+          ref={videoRef}
+          style={{ ...styles.video, display: isActive ? "block" : "none" }}
+          muted
+          autoPlay
+          playsInline
+          aria-label={tb.cameraAria}
+        />
 
         {isStarting && <p style={styles.helper}>{tb.startingCamera}</p>}
 
