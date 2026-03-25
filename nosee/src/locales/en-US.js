@@ -1169,6 +1169,7 @@ const enUS = {
       errorDetector: "Could not start the code detector. Use manual entry.",
       errorCamera: "Could not access the camera.",
       errorPermissionDenied: "Camera permission was denied. Accept the permission when the browser asks.",
+      errorPermissionBlocked: "Camera access is blocked in your browser settings.",
       errorCameraNotFound: "No camera was found on this device.",
       errorCameraInUse: "The camera is being used by another application.",
       errorHttpsRequired: "A secure connection (HTTPS) is required to access the camera.",

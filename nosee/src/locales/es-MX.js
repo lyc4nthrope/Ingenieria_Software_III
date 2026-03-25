@@ -1169,6 +1169,7 @@ const esMX = {
       errorDetector: "No se pudo iniciar el detector de códigos. Usa ingreso manual.",
       errorCamera: "No se pudo acceder a la cámara.",
       errorPermissionDenied: "No se dio permiso de cámara. Acepta el permiso cuando el navegador lo solicite.",
+      errorPermissionBlocked: "El acceso a la cámara está bloqueado en la configuración de tu navegador.",
       errorCameraNotFound: "No se encontró ninguna cámara en este dispositivo.",
       errorCameraInUse: "La cámara está siendo usada por otra aplicación.",
       errorHttpsRequired: "Se requiere conexión segura (HTTPS) para acceder a la cámara.",
