@@ -77,19 +77,6 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
       }
 
       try {
-        const permStatus = await navigator.permissions.query({ name: "camera" });
-        if (permStatus.state === "denied") {
-          setSupported(false);
-          setErrorType("permissionBlocked");
-          setError(tb.errorPermissionBlocked);
-          setIsStarting(false);
-          return;
-        }
-      } catch {
-        // permissions.query no soportado — continuar y dejar que getUserMedia maneje el error
-      }
-
-      try {
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: { facingMode: { ideal: "environment" } },
@@ -169,7 +156,7 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
 
   if (!open) return null;
 
-  const canRetry = errorType === "permission" || errorType === "inUse" || errorType === "hardware";
+  const canRetry = errorType === "inUse" || errorType === "hardware";
 
   return (
     <div style={styles.overlay} onMouseDown={(event) => event.target === event.currentTarget && onClose?.()}>
@@ -197,7 +184,7 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
         {error && (
           <div style={styles.errorBox}>
             <p style={styles.errorText}>{error}</p>
-            {(errorType === "permission" || errorType === "permissionBlocked") && (
+            {errorType === "permission" && (
               <p style={styles.hintText}>{tb.permissionBrowserHint}</p>
             )}
             {canRetry && (
