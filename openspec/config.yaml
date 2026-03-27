@@ -1,0 +1,31 @@
+schema: spec-driven
+
+context: |
+  Tech stack: React 19 + Vite 7 (JSX), Zustand 5, Supabase JS 2, React Router 7, Leaflet/React-Leaflet 5
+  Architecture: feature-based screaming architecture with API services in src/services/api/*.api.js
+  Testing: Vitest 4 + Testing Library, Playwright E2E
+  Style: ESLint 9, inline JS style objects in co-located *Styles.js files, i18n es-MX/en-US
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected features, routes, services, and Supabase tables
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group tasks by phase (infra, implementation, verification)
+    - Use hierarchical numbering and keep tasks small enough for one session
+  apply:
+    - Follow existing feature-based patterns and keep Supabase access inside src/services/api/*.api.js
+    tdd: false
+    test_command: "cd nosee && npm run test:ci"
+  verify:
+    test_command: "cd nosee && npm run test:ci"
+    build_command: ""
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas or schema removals
