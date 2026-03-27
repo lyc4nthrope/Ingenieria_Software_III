@@ -81,7 +81,9 @@ export default function DealerDashboard() {
   const [acceptError,     setAcceptError]     = useState(null);
   const [noBankWarning,   setNoBankWarning]   = useState(false); // aviso sin cuentas bancarias
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
+  const [advanceError,    setAdvanceError]    = useState(null);  // { id, msg } del pedido que falló al avanzar
   const [confirmingId,    setConfirmingId]    = useState(null);  // id del pedido con pago pendiente de confirmación
+  const [confirmError,    setConfirmError]    = useState(null);  // { id, msg } del pedido que falló al confirmar
   const [abandoningId,    setAbandoningId]    = useState(null);  // id del pedido que se está abandonando
   const [abandonError,    setAbandonError]    = useState(null);  // { id, msg } del pedido que falló al abandonar
   const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
@@ -290,6 +292,7 @@ export default function DealerDashboard() {
     if (!newStatus) return;
 
     setAdvancingId(order.id);
+    setAdvanceError(null);
     const { error } = await advanceOrderStatus(order.id, newStatus);
 
     if (!error) {
@@ -301,6 +304,8 @@ export default function DealerDashboard() {
           prev.map((o) => o.id === order.id ? { ...o, status: newStatus } : o)
         );
       }
+    } else {
+      setAdvanceError({ id: order.id, msg: 'No se pudo actualizar el estado. Revisá tu conexión e intentá de nuevo.' });
     }
 
     setAdvancingId(null);
@@ -311,10 +316,13 @@ export default function DealerDashboard() {
   // marca el pedido como entregado llamando al RPC confirm_payment() en Supabase.
   const handleConfirmPayment = async (order) => {
     setConfirmingId(order.id);
+    setConfirmError(null);
     const { error } = await confirmPayment(order.id);
     if (!error) {
       setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
       setHistory((prev) => [{ ...order, status: 'entregado' }, ...prev]);
+    } else {
+      setConfirmError({ id: order.id, msg: 'No se pudo confirmar el pago. Revisá tu conexión e intentá de nuevo.' });
     }
     setConfirmingId(null);
   };
@@ -509,10 +517,12 @@ export default function DealerDashboard() {
                     checklist={checklist[order.id] ?? {}}
                     onToggleCheck={(key) => toggleCheck(order.id, key)}
                     advancing={advancingId === order.id}
-                    onAdvance={() => handleAdvance(order)}
+                    advanceError={advanceError?.id === order.id ? advanceError.msg : null}
+                    onAdvance={() => { setAdvanceError(null); handleAdvance(order); }}
                     onPriceReport={(si, pi, newPrice) => handlePriceReport(order, si, pi, newPrice)}
                     confirmingPayment={confirmingId === order.id}
-                    onConfirmPayment={() => handleConfirmPayment(order)}
+                    confirmError={confirmError?.id === order.id ? confirmError.msg : null}
+                    onConfirmPayment={() => { setConfirmError(null); handleConfirmPayment(order); }}
                     abandoning={abandoningId === order.id}
                     abandonError={abandonError?.id === order.id ? abandonError.msg : null}
                     onAbandon={() => { setAbandonError(null); handleAbandon(order); }}
@@ -770,7 +780,7 @@ const st = {
 // cuando está "comprando" y el botón para avanzar al siguiente estado.
 // Cuando status = 'pendiente_pago' muestra el comprobante del usuario (si existe)
 // y el botón para confirmar la recepción del pago.
-function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onPriceReport, confirmingPayment, onConfirmPayment, abandoning, abandonError, onAbandon }) {
+function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, advanceError, onAdvance, onPriceReport, confirmingPayment, confirmError, onConfirmPayment, abandoning, abandonError, onAbandon }) {
   const si     = statusInfo[order.status] ?? statusInfo.aceptado;
   const stores = extractStores(order);
   const [expanded,       setExpanded]       = useState(true);
@@ -952,6 +962,13 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
           </button>
         )}
       </div>
+
+      {/* Errores de avance / confirmación de pago */}
+      {(advanceError || confirmError) && (
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#dc2626', background: '#fee2e2', padding: '6px 10px', borderRadius: 6 }}>
+          {advanceError || confirmError}
+        </p>
+      )}
 
       {/* Botón de abandono — con confirmación inline */}
       <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 10, marginTop: 4 }}>

@@ -285,23 +285,34 @@ export async function getDealerLocation(dealerId) {
 
 /**
  * El usuario registra su método de pago y sube el comprobante (si aplica).
- * Solo funciona cuando el pedido está en 'pendiente_pago'.
+ * Avanza el pedido de 'llegando' → 'pendiente_pago' y guarda método/comprobante.
  *
- * RLS: el usuario solo puede actualizar su propio pedido en estado 'pendiente_pago'.
+ * Usa RPC submit_payment (SECURITY DEFINER) porque la RLS de orders solo permite
+ * al usuario escribir cuando status = 'pendiente_pago', pero el status real en
+ * este momento es 'llegando'. El RPC hace la validación y la transición atómica.
  *
- * @param {string} orderId
+ * @param {number} orderId
  * @param {'transferencia'|'efectivo'} method
- * @param {string|null} receiptUrl - URL de Cloudinary (solo para transferencia)
+ * @param {string|null} receiptUrl - path en Supabase Storage (solo para transferencia)
  */
 export async function submitPaymentReceipt(orderId, method, receiptUrl = null) {
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      payment_method:      method,
-      payment_receipt_url: receiptUrl,
-    })
-    .eq('id', Number(orderId));
+  const { error } = await supabase.rpc('submit_payment', {
+    p_order_id:    Number(orderId),
+    p_method:      method,
+    p_receipt_url: receiptUrl,
+  });
+  return { error };
+}
 
+/**
+ * El usuario cancela su pedido de domicilio.
+ * Solo disponible cuando el pedido está en 'pendiente_repartidor' o 'aceptado'.
+ * Pone el pedido en 'cancelado' y limpia dealer_id.
+ *
+ * @param {number} orderId
+ */
+export async function cancelOrder(orderId) {
+  const { error } = await supabase.rpc('cancel_order', { p_order_id: Number(orderId) });
   return { error };
 }
 

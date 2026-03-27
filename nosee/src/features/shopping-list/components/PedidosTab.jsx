@@ -6,7 +6,7 @@ import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUti
 import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
-import { updateProductPrice, logPriceCorrection } from '@/services/api/orders.api';
+import { updateProductPrice, logPriceCorrection, cancelOrder } from '@/services/api/orders.api';
 import { hasRated } from '@/services/api/dealerRatings.api';
 
 // Mapa de estado de Supabase (tabla orders) → estado de UI local
@@ -329,8 +329,14 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.deliveryStatus, selectedOrder?.supabaseId]);
 
-  const handleRemove = (id) => {
-    removeOrder(id);
+  const handleRemove = (order) => {
+    // Guard: no permitir borrar un pedido de domicilio con repartidor activo
+    const activeStatuses = ['found', 'comprando', 'en_camino', 'llegando', 'comprobante_subido'];
+    if (order.deliveryMode && activeStatuses.includes(order.deliveryStatus)) {
+      alert('No podés eliminar un pedido mientras el repartidor está activo. Primero cancelá el domicilio.');
+      return;
+    }
+    removeOrder(order.id);
     setSelectedIdx((prev) => Math.max(0, prev - 1));
   };
 
@@ -338,9 +344,26 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     setChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleCancelDelivery = () => {
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState(null);
+
+  const handleCancelDelivery = async () => {
     if (!selectedOrder) return;
     const charged = selectedOrder.deliveryStatus !== 'searching';
+
+    // Si el pedido está en Supabase, cancelarlo también en BD
+    if (selectedOrder.supabaseId) {
+      setCancelling(true);
+      setCancelError(null);
+      const { error } = await cancelOrder(selectedOrder.supabaseId);
+      if (error) {
+        setCancelError('No se pudo cancelar el pedido. Intentá de nuevo.');
+        setCancelling(false);
+        return;
+      }
+      setCancelling(false);
+    }
+
     updateOrderDelivery(selectedOrder.id, {
       deliveryStatus: 'cancelled',
       cancellationCharged: charged,
@@ -445,7 +468,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             </div>
             <button
               type="button"
-              onClick={() => handleRemove(selectedOrder.id)}
+              onClick={() => handleRemove(selectedOrder)}
               style={pedidos.deleteBtn}
               title="Eliminar pedido"
             >
@@ -459,6 +482,8 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
               order={selectedOrder}
               onCancel={handleCancelDelivery}
               onPaymentSubmitted={handlePaymentSubmitted}
+              cancelling={cancelling}
+              cancelError={cancelError}
             />
           )}
 

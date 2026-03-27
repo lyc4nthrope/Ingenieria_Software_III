@@ -65,7 +65,7 @@ const STATUS_CONFIGS = {
 };
 
 // ─── Componente ───────────────────────────────────────────────────────────────
-export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
+export function DeliveryCard({ order, onCancel, onPaymentSubmitted, cancelling, cancelError }) {
   const { deliveryStatus, cancellationCharged, dealerId } = order;
   const [showPayment,  setShowPayment]  = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -121,15 +121,17 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
             <button
               type="button"
               onClick={onCancel}
+              disabled={cancelling}
               style={{
                 flexShrink: 0, padding: '4px 10px',
                 borderRadius: 'var(--radius-sm)',
                 border: `1px solid ${cfg.border}`,
                 background: 'transparent', color: cfg.color,
                 fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+                opacity: cancelling ? 0.6 : 1,
               }}
             >
-              {cfg.cancelFree ? 'Cancelar envío' : 'Cancelar (se cobra domicilio)'}
+              {cancelling ? 'Cancelando...' : cfg.cancelFree ? 'Cancelar envío' : 'Cancelar (se cobra domicilio)'}
             </button>
           )}
 
@@ -164,6 +166,13 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
           </span>
         )}
       </div>
+
+      {/* Error al cancelar */}
+      {cancelError && (
+        <p style={{ margin: 0, fontSize: 12, color: '#dc2626', background: '#fee2e2', padding: '6px 10px', borderRadius: 6 }}>
+          {cancelError}
+        </p>
+      )}
 
       {/* ── Vista de pago (expandible al pulsar "Pagar ahora") ── */}
       {showPayment && deliveryStatus === 'llegando' && (
