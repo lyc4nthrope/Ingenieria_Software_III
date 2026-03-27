@@ -124,7 +124,7 @@ export async function getDealerActiveOrders() {
   const { data, error } = await supabase
     .from('orders')
     .select('*')
-    .in('status', ['aceptado', 'comprando', 'en_camino', 'llegando'])
+    .in('status', ['aceptado', 'comprando', 'en_camino', 'llegando', 'pendiente_pago'])
     .order('created_at', { ascending: false });
 
   return { data: data ?? [], error };

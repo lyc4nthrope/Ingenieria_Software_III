@@ -25,26 +25,29 @@ import {
   acceptOrder,
   cancelAvailableOrder,
   advanceOrderStatus,
+  confirmPayment,
   upsertDealerLocation,
   updateProductPrice,
   logPriceCorrection,
 } from '@/services/api/orders.api';
+import { getPaymentByOrderId } from '@/services/api/payments.api';
 import { getDealerBankAccounts } from '@/services/api/bankAccounts.api';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
 
-// Etiquetas y próximo estado para cada transición
+// Etiquetas y próximo estado para cada transición.
+// 'llegando' y 'pendiente_pago' no tienen avance directo desde el repartidor:
+//   llegando       → el usuario paga → orders.status = pendiente_pago
+//   pendiente_pago → repartidor confirma pago → confirmPayment() → entregado
 const NEXT_LABEL = {
   aceptado:  '🛒 Llegué a la tienda',
   comprando: '🛵 Terminé las compras',
   en_camino: '🔔 Llegué a la puerta',
-  llegando:  '✅ Entrega completada',
 };
 const NEXT_STATUS = {
   aceptado:  'comprando',
   comprando: 'en_camino',
   en_camino: 'llegando',
-  llegando:  'entregado',
 };
 
 // ─── Helpers para leer el JSONB guardado por CreateOrderPage ─────────────────
@@ -79,6 +82,7 @@ export default function DealerDashboard() {
   const [cancelingId,     setCancelingId]     = useState(null);  // id del pedido que se está cancelando
   const [noBankWarning,   setNoBankWarning]   = useState(false); // aviso sin cuentas bancarias
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
+  const [confirmingId,    setConfirmingId]    = useState(null);  // id del pedido con pago pendiente de confirmación
   const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
   const [loadAvailError,  setLoadAvailError]  = useState(null);  // error al cargar disponibles
   // Checklist local por pedido: { [orderId]: { [productKey]: boolean } }
@@ -304,6 +308,19 @@ export default function DealerDashboard() {
     setAdvancingId(null);
   };
 
+  // ── Confirmar pago del usuario ───────────────────────────────────────────
+  // Se llama cuando el repartidor verifica el comprobante (o el efectivo) y
+  // marca el pedido como entregado llamando al RPC confirm_payment() en Supabase.
+  const handleConfirmPayment = async (order) => {
+    setConfirmingId(order.id);
+    const { error } = await confirmPayment(order.id);
+    if (!error) {
+      setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
+      setHistory((prev) => [{ ...order, status: 'entregado' }, ...prev]);
+    }
+    setConfirmingId(null);
+  };
+
   // ── Toggle checklist ────────────────────────────────────────────────────
   const toggleCheck = (orderId, key) => {
     setChecklist((prev) => ({
@@ -321,6 +338,7 @@ export default function DealerDashboard() {
     comprando:            { label: 'Comprando',       color: 'var(--warning)',       bg: 'var(--warning-soft)' },
     en_camino:            { label: 'En camino',       color: 'var(--success)',       bg: 'var(--success-soft)' },
     llegando:             { label: 'En la puerta',    color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+    pendiente_pago:       { label: 'Esperando pago', color: '#92400e',              bg: '#fef3c7' },
     entregado:            { label: 'Entregado',       color: 'var(--success)',       bg: 'var(--success-soft)' },
     cancelado:            { label: 'Cancelado',       color: 'var(--error)',         bg: 'var(--error-soft)' },
   };
@@ -483,6 +501,8 @@ export default function DealerDashboard() {
                     advancing={advancingId === order.id}
                     onAdvance={() => handleAdvance(order)}
                     onPriceReport={(si, pi, newPrice) => handlePriceReport(order, si, pi, newPrice)}
+                    confirmingPayment={confirmingId === order.id}
+                    onConfirmPayment={() => handleConfirmPayment(order)}
                   />
                 ))}
               </div>
@@ -644,10 +664,25 @@ function AvailableOrderCard({ order, accepting, canceling, onAccept, onCancel })
 // ─── ActiveOrderCard ──────────────────────────────────────────────────────────
 // Tarjeta del pedido asignado al repartidor. Muestra checklist de productos
 // cuando está "comprando" y el botón para avanzar al siguiente estado.
-function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onPriceReport }) {
+// Cuando status = 'pendiente_pago' muestra el comprobante del usuario (si existe)
+// y el botón para confirmar la recepción del pago.
+function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onPriceReport, confirmingPayment, onConfirmPayment }) {
   const si     = statusInfo[order.status] ?? statusInfo.aceptado;
   const stores = extractStores(order);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded,    setExpanded]    = useState(true);
+  const [payment,     setPayment]     = useState(null);   // { receipt_url, payment_method }
+  const [loadingPay,  setLoadingPay]  = useState(false);
+
+  // Cargar el comprobante cuando el pedido pasa a pendiente_pago
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (order.status !== 'pendiente_pago') return;
+    setLoadingPay(true);
+    getPaymentByOrderId(order.id).then(({ data }) => {
+      setPayment(data);
+      setLoadingPay(false);
+    });
+  }, [order.status, order.id]);
 
   // Contar productos completados del checklist
   const allProducts = stores.flatMap((s, si) =>
@@ -726,7 +761,61 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
         </div>
       )}
 
-      {/* Footer: total + botón avanzar */}
+      {/* Panel de pago — solo cuando status = pendiente_pago */}
+      {order.status === 'pendiente_pago' && (
+        <div style={{
+          padding: '12px 14px', borderRadius: 8,
+          background: '#fef3c7', border: '1px solid #fde68a',
+          display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          {loadingPay ? (
+            <p style={{ margin: 0, fontSize: 13, color: '#92400e' }}>Cargando comprobante...</p>
+          ) : payment ? (
+            <>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#92400e' }}>
+                💳 Pago enviado por el usuario
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: '#92400e' }}>
+                Método: <strong>{payment.payment_method}</strong>
+              </p>
+              {payment.receipt_url && (
+                <a
+                  href={payment.receipt_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: 12, color: '#1d4ed8', fontWeight: 600 }}
+                >
+                  📎 Ver comprobante de pago
+                </a>
+              )}
+            </>
+          ) : (
+            <>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#92400e' }}>
+                💵 Pago en efectivo
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: '#92400e' }}>
+                El usuario indicó que pagará en efectivo al recibir el pedido.
+              </p>
+            </>
+          )}
+          <button
+            style={{
+              marginTop: 4, padding: '9px 16px',
+              borderRadius: 6, border: 'none',
+              background: '#065f46', color: '#fff',
+              fontSize: 13, fontWeight: 700, cursor: confirmingPayment ? 'not-allowed' : 'pointer',
+              opacity: confirmingPayment ? 0.6 : 1,
+            }}
+            onClick={onConfirmPayment}
+            disabled={confirmingPayment}
+          >
+            {confirmingPayment ? 'Confirmando...' : '✅ Confirmar pago recibido'}
+          </button>
+        </div>
+      )}
+
+      {/* Footer: total + botón avanzar (solo estados con transición directa) */}
       <div style={r.orderFooter}>
         <div>
           <div style={r.orderTotal}>
@@ -734,6 +823,11 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
           </div>
           <div style={{ fontSize: 11, color: MUTED }}>total a cobrar</div>
         </div>
+        {order.status === 'llegando' && (
+          <div style={{ fontSize: 12, color: MUTED, fontStyle: 'italic', maxWidth: 200, textAlign: 'right' }}>
+            Esperando que el usuario realice el pago...
+          </div>
+        )}
         {NEXT_LABEL[order.status] && (
           <button
             style={{ ...r.advanceBtn, ...(advancing ? { opacity: 0.7 } : {}) }}

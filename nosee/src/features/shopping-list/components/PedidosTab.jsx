@@ -15,6 +15,7 @@ const STATUS_MAP = {
   comprando:            'comprando',
   en_camino:            'en_camino',
   llegando:             'llegando',
+  pendiente_pago:       'comprobante_subido',
   entregado:            'entregado',
   cancelado:            'cancelled',
 };
