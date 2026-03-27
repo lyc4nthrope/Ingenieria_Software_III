@@ -26,6 +26,7 @@ import {
   cancelAvailableOrder,
   advanceOrderStatus,
   confirmPayment,
+  abandonOrder,
   upsertDealerLocation,
   updateProductPrice,
   logPriceCorrection,
@@ -83,6 +84,7 @@ export default function DealerDashboard() {
   const [noBankWarning,   setNoBankWarning]   = useState(false); // aviso sin cuentas bancarias
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
   const [confirmingId,    setConfirmingId]    = useState(null);  // id del pedido con pago pendiente de confirmación
+  const [abandoningId,    setAbandoningId]    = useState(null);  // id del pedido que se está abandonando
   const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
   const [loadAvailError,  setLoadAvailError]  = useState(null);  // error al cargar disponibles
   // Checklist local por pedido: { [orderId]: { [productKey]: boolean } }
@@ -321,6 +323,16 @@ export default function DealerDashboard() {
     setConfirmingId(null);
   };
 
+  // ── Abandonar pedido activo (vuelve al pool) ─────────────────────────────
+  const handleAbandon = async (order) => {
+    setAbandoningId(order.id);
+    const { error } = await abandonOrder(order.id);
+    if (!error) {
+      setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
+    }
+    setAbandoningId(null);
+  };
+
   // ── Toggle checklist ────────────────────────────────────────────────────
   const toggleCheck = (orderId, key) => {
     setChecklist((prev) => ({
@@ -503,6 +515,8 @@ export default function DealerDashboard() {
                     onPriceReport={(si, pi, newPrice) => handlePriceReport(order, si, pi, newPrice)}
                     confirmingPayment={confirmingId === order.id}
                     onConfirmPayment={() => handleConfirmPayment(order)}
+                    abandoning={abandoningId === order.id}
+                    onAbandon={() => handleAbandon(order)}
                   />
                 ))}
               </div>
@@ -757,12 +771,13 @@ const st = {
 // cuando está "comprando" y el botón para avanzar al siguiente estado.
 // Cuando status = 'pendiente_pago' muestra el comprobante del usuario (si existe)
 // y el botón para confirmar la recepción del pago.
-function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onPriceReport, confirmingPayment, onConfirmPayment }) {
+function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onPriceReport, confirmingPayment, onConfirmPayment, abandoning, onAbandon }) {
   const si     = statusInfo[order.status] ?? statusInfo.aceptado;
   const stores = extractStores(order);
-  const [expanded,    setExpanded]    = useState(true);
-  const [payment,     setPayment]     = useState(null);   // { receipt_url, payment_method }
-  const [loadingPay,  setLoadingPay]  = useState(false);
+  const [expanded,       setExpanded]       = useState(true);
+  const [payment,        setPayment]        = useState(null);   // { receipt_url, payment_method }
+  const [loadingPay,     setLoadingPay]     = useState(false);
+  const [abandonConfirm, setAbandonConfirm] = useState(false);
 
   // Cargar el comprobante cuando el pedido pasa a pendiente_pago
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -936,6 +951,59 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
           >
             {advancing ? 'Actualizando...' : NEXT_LABEL[order.status]}
           </button>
+        )}
+      </div>
+
+      {/* Botón de abandono — con confirmación inline */}
+      <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 10, marginTop: 4 }}>
+        {!abandonConfirm ? (
+          <button
+            type="button"
+            onClick={() => setAbandonConfirm(true)}
+            disabled={abandoning}
+            style={{
+              width: '100%', padding: '7px 12px',
+              borderRadius: 6, border: `1px solid ${BORDER}`,
+              background: 'transparent', color: MUTED,
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            {abandoning ? 'Abandonando...' : '↩ Abandonar pedido'}
+          </button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p style={{ margin: 0, fontSize: 12, color: '#92400e', fontWeight: 600 }}>
+              ¿Seguro? El pedido volverá al pool para otro repartidor.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setAbandonConfirm(false)}
+                style={{
+                  flex: 1, padding: '7px 0',
+                  borderRadius: 6, border: `1px solid ${BORDER}`,
+                  background: 'transparent', color: MUTED,
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAbandonConfirm(false); onAbandon(); }}
+                disabled={abandoning}
+                style={{
+                  flex: 1, padding: '7px 0',
+                  borderRadius: 6, border: 'none',
+                  background: '#dc2626', color: '#fff',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  opacity: abandoning ? 0.6 : 1,
+                }}
+              >
+                {abandoning ? '...' : 'Sí, abandonar'}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </article>

@@ -172,6 +172,7 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
           userId={userId}
           bankAccounts={bankAccounts}
           onPaymentSubmitted={handlePaymentSubmitted}
+          initialMode={order.paymentMethod ?? undefined}
         />
       )}
     </div>

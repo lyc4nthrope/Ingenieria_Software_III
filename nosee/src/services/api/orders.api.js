@@ -41,6 +41,7 @@ export async function createOrder({
   savingsPct,     // → savings_percentage
   deliveryFee,
   strategy,
+  paymentMethod,  // método pre-elegido en el checkout ('transferencia' | 'efectivo')
 }) {
   const totalSingleStore = Math.round((totalCost ?? 0) + (savings ?? 0));
 
@@ -63,6 +64,7 @@ export async function createOrder({
       // Nueva columna agregada en la migración de Proceso 4
       delivery_fee:               deliveryFee     ?? 0,
       strategy:                   strategy        ?? 'balanced',
+      payment_method:             paymentMethod   ?? null,
       confirmed_at:               new Date().toISOString(),
     })
     .select('id')   // solo necesitamos el id INTEGER generado
@@ -355,6 +357,18 @@ export async function reportUnavailableProduct(orderId, storeIdx, productIdx, no
     .update({ stores })
     .eq('id', orderId);
 
+  return { error };
+}
+
+/**
+ * El repartidor abandona un pedido activo — vuelve al pool (pendiente_repartidor).
+ * Registra quién abandonó y cuándo. La función RPC valida que el caller
+ * sea el repartidor asignado.
+ *
+ * @param {number} orderId - INTEGER del pedido
+ */
+export async function abandonOrder(orderId) {
+  const { error } = await supabase.rpc('abandon_order', { p_order_id: Number(orderId) });
   return { error };
 }
 
