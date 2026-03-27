@@ -402,7 +402,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
       {/* ── Layout dos columnas: info izq + mapa derecha ──────── */}
       <div className="pedidos-layout">
         {/* Columna izquierda */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="pedidos-left-col" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {/* ── Header del pedido activo ── */}
           <div style={pedidos.orderHeader}>
             <div style={pedidos.orderHeaderLeft}>
@@ -487,14 +487,14 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           />
         </div>
 
-        {/* Columna derecha: mapa rectangular */}
-        <div style={pedidos.mapCol}>
+        {/* Columna derecha: mapa */}
+        <div className="pedidos-map-col">
           <OrderRouteMap
             key={selectedOrder.id}
             stores={result.stores}
             userCoords={userCoords}
             driverLocation={selectedOrder.driverLocation ?? null}
-            mapHeight="480px"
+            mapHeight="100%"
           />
         </div>
       </div>
