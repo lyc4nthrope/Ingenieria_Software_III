@@ -30,7 +30,7 @@ import {
   updateProductPrice,
   logPriceCorrection,
 } from '@/services/api/orders.api';
-import { getPaymentByOrderId } from '@/services/api/payments.api';
+import { getPaymentByOrderId, getReceiptSignedUrl } from '@/services/api/payments.api';
 import { getDealerBankAccounts } from '@/services/api/bankAccounts.api';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
@@ -678,8 +678,14 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
   useEffect(() => {
     if (order.status !== 'pendiente_pago') return;
     setLoadingPay(true);
-    getPaymentByOrderId(order.id).then(({ data }) => {
-      setPayment(data);
+    getPaymentByOrderId(order.id).then(async ({ data }) => {
+      if (data?.external_reference) {
+        // La URL firmada expira en 1h — regenerar para garantizar acceso al comprobante
+        const { url } = await getReceiptSignedUrl(data.external_reference);
+        setPayment({ ...data, receipt_url: url ?? data.receipt_url });
+      } else {
+        setPayment(data);
+      }
       setLoadingPay(false);
     });
   }, [order.status, order.id]);
