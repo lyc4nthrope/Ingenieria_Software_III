@@ -661,6 +661,97 @@ function AvailableOrderCard({ order, accepting, canceling, onAccept, onCancel })
   );
 }
 
+// ─── ActiveOrderStepper ───────────────────────────────────────────────────────
+// Indicador visual de las 5 fases del proceso de entrega.
+// Cada paso tiene: ícono, label corto, estado (completado / activo / pendiente).
+const STEPS = [
+  { key: 'aceptado',       icon: '✓',  label: 'Aceptado'  },
+  { key: 'comprando',      icon: '🛒', label: 'Comprando' },
+  { key: 'en_camino',      icon: '🛵', label: 'En camino' },
+  { key: 'llegando',       icon: '🔔', label: 'En puerta' },
+  { key: 'entregado',      icon: '✅', label: 'Entregado' },
+];
+
+// Mapea cada status de BD al índice del paso activo en el stepper
+const STATUS_STEP = {
+  aceptado:       0,
+  comprando:      1,
+  en_camino:      2,
+  llegando:       3,
+  pendiente_pago: 3,  // misma fase visual que "en la puerta", esperando pago
+  entregado:      4,
+};
+
+function ActiveOrderStepper({ status }) {
+  const activeIdx = STATUS_STEP[status] ?? 0;
+
+  return (
+    <div style={st.root}>
+      {STEPS.map((step, idx) => {
+        const done    = idx < activeIdx;
+        const current = idx === activeIdx;
+        return (
+          <div key={step.key} style={st.stepWrap}>
+            {/* Línea conectora izquierda */}
+            {idx > 0 && (
+              <div style={{ ...st.line, background: done || current ? ACCENT : BORDER }} />
+            )}
+
+            {/* Círculo del paso */}
+            <div style={{
+              ...st.circle,
+              background:   done    ? ACCENT : current ? ACCENT : 'transparent',
+              borderColor:  done || current ? ACCENT : BORDER,
+              color:        done || current ? '#fff'  : MUTED,
+              boxShadow:    current ? `0 0 0 4px ${ACCENT}28` : 'none',
+              transform:    current ? 'scale(1.15)' : 'scale(1)',
+              transition:   'all 0.2s ease',
+            }}>
+              {done ? '✓' : step.icon}
+            </div>
+
+            {/* Label */}
+            <span style={{
+              ...st.label,
+              color:      current ? ACCENT : done ? 'var(--text-primary)' : MUTED,
+              fontWeight: current ? 700 : 500,
+            }}>
+              {step.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const st = {
+  root: {
+    display: 'flex', alignItems: 'flex-start',
+    padding: '12px 4px 8px',
+    position: 'relative',
+  },
+  stepWrap: {
+    flex: 1, display: 'flex', flexDirection: 'column',
+    alignItems: 'center', gap: 4, position: 'relative',
+  },
+  line: {
+    position: 'absolute', top: 13, right: '50%',
+    width: '100%', height: 2,
+  },
+  circle: {
+    width: 28, height: 28, borderRadius: '50%',
+    border: '2px solid', fontSize: 12, fontWeight: 800,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 1, flexShrink: 0,
+  },
+  label: {
+    fontSize: 10, textAlign: 'center',
+    letterSpacing: '0.02em', lineHeight: 1.2,
+    maxWidth: 52,
+  },
+};
+
 // ─── ActiveOrderCard ──────────────────────────────────────────────────────────
 // Tarjeta del pedido asignado al repartidor. Muestra checklist de productos
 // cuando está "comprando" y el botón para avanzar al siguiente estado.
@@ -711,6 +802,9 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
         )}
         <span style={{ fontSize: 12, color: MUTED }}>{expanded ? '▲' : '▼'}</span>
       </div>
+
+      {/* Stepper de progreso */}
+      <ActiveOrderStepper status={order.status} />
 
       {/* Dirección de entrega */}
       <div style={r.orderAddress}>
