@@ -152,6 +152,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   // Set de supabaseIds ya presentados para rating (para no volver a mostrar)
   const ratedRef = useRef(new Set());
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
+  const removeOrderRef = useRef(removeOrder);
 
   // Actualiza el precio de un producto y registra la corrección en el log.
   // Funciona para pedidos en Supabase (Mis Pedidos) y locales (Mis Recogidas).
@@ -195,8 +196,9 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     return { error };
   };
 
-  // Mantener la ref actualizada sin re-ejecutar los efectos
+  // Mantener las refs actualizadas sin re-ejecutar los efectos
   useEffect(() => { updateOrderDeliveryRef.current = updateOrderDelivery; });
+  useEffect(() => { removeOrderRef.current = removeOrder; });
 
   const selectedOrder = orders[selectedIdx] ?? null;
 
@@ -215,6 +217,10 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
       .single()
       .then(({ data }) => {
         if (!data) return;
+        if (data.status === 'cancelado') {
+          removeOrderRef.current(selectedOrder.id);
+          return;
+        }
         const uiStatus = STATUS_MAP[data.status];
         if (uiStatus && uiStatus !== selectedOrder.deliveryStatus) {
           updateOrderDeliveryRef.current(selectedOrder.id, {
@@ -230,6 +236,10 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${selectedOrder.supabaseId}` },
         (payload) => {
+          if (payload.new?.status === 'cancelado') {
+            removeOrderRef.current(selectedOrder.id);
+            return;
+          }
           const uiStatus = STATUS_MAP[payload.new?.status];
           if (!uiStatus) return;
           updateOrderDeliveryRef.current(selectedOrder.id, {
