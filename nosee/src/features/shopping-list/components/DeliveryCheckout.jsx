@@ -20,6 +20,7 @@ function DeliveryDetailsStep({ result, onNext, onCancel }) {
   const [address,       setAddress]       = useState('');
   const [paymentMethod, setPaymentMethod] = useState(null); // 'transferencia' | 'efectivo'
   const [error,         setError]         = useState(null);
+  const [cartOpen,      setCartOpen]      = useState(false);
 
   const total = result.totalCost + DELIVERY_FEE;
 
@@ -47,6 +48,44 @@ function DeliveryDetailsStep({ result, onNext, onCancel }) {
 
       <h2 style={s.stepTitle}>Detalles de entrega</h2>
 
+      {/* Resumen colapsable del carrito */}
+      <div style={s.cartSummary}>
+        <div style={s.cartHeader} onClick={() => setCartOpen((o) => !o)}>
+          <div style={s.cartHeaderLeft}>
+            <span>🛒 Ver tu pedido</span>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>
+              · {result.stores?.reduce((acc, st) => acc + st.products.length, 0) ?? 0} productos · {result.stores?.length ?? 0} tiendas
+            </span>
+            {result.savingsPct > 0 && (
+              <span style={s.cartSavingsBadge}>Ahorrás {result.savingsPct}%</span>
+            )}
+          </div>
+          <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{cartOpen ? '▴' : '▾'}</span>
+        </div>
+        {cartOpen && (
+          <div style={s.cartBody}>
+            {result.stores?.map((s_item, si) => {
+              const emoji    = getStoreEmoji(s_item.store?.store_type_id);
+              const subtotal = s_item.products.reduce((a, p) => a + p.price * (p.item?.quantity || 1), 0);
+              return (
+                <div key={si} style={s.cartStoreCard}>
+                  <div style={s.cartStoreHeader}>
+                    <span>{emoji} {s_item.store?.name ?? 'Tienda'}</span>
+                    <span style={{ color: 'var(--accent)' }}>${subtotal.toLocaleString('es-CO')}</span>
+                  </div>
+                  {s_item.products.map((p, pi) => (
+                    <div key={pi} style={s.cartProdItem}>
+                      <span>{p.item?.productName ?? '?'} ×{p.item?.quantity || 1}</span>
+                      <span>${(p.price * (p.item?.quantity || 1)).toLocaleString('es-CO')}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Dirección */}
       <div style={s.fieldGroup}>
         <label style={s.fieldLabel}>Dirección de entrega</label>
@@ -57,6 +96,9 @@ function DeliveryDetailsStep({ result, onNext, onCancel }) {
           placeholder="Ej: Calle 10 # 5-30, Quibdó"
           style={s.input}
         />
+        <p style={s.fieldHint}>
+          Tu ubicación GPS ya fue registrada. La dirección es para que el repartidor la identifique fácilmente.
+        </p>
       </div>
 
       {/* Método de pago */}
@@ -94,6 +136,11 @@ function DeliveryDetailsStep({ result, onNext, onCancel }) {
           <span style={s.totalSub}>Domicilio: ${DELIVERY_FEE.toLocaleString('es-CO')}</span>
         </div>
         <span style={s.totalValue}>${total.toLocaleString('es-CO')} COP</span>
+        {result.savings > 0 && (
+          <span style={s.savingsBadge}>
+            💚 Ahorrás ${result.savings.toLocaleString('es-CO')} ({result.savingsPct}%) vs una sola tienda
+          </span>
+        )}
       </div>
 
       {error && <p style={s.errorMsg}>{error}</p>}
@@ -300,7 +347,7 @@ export function DeliveryCheckout({ pendingCheckout, addOrder, onConfirmed, onCan
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const s = {
   stepWrap: {
-    maxWidth: 480,
+    maxWidth: 560,
     margin: '0 auto',
     display: 'flex',
     flexDirection: 'column',
@@ -516,5 +563,78 @@ const s = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  // Paso 1 — resumen colapsable del carrito
+  cartSummary: {
+    background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
+    overflow: 'hidden',
+  },
+  cartHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px 14px',
+    cursor: 'pointer',
+    userSelect: 'none',
+  },
+  cartHeaderLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    fontSize: 13,
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+  },
+  cartSavingsBadge: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: 'var(--success, #16a34a)',
+    background: 'var(--success-soft, #dcfce7)',
+    padding: '2px 7px',
+    borderRadius: 10,
+  },
+  cartBody: {
+    padding: '0 14px 12px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  cartStoreCard: {
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    padding: '8px 10px',
+  },
+  cartStoreHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: 12,
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    marginBottom: 4,
+  },
+  cartProdItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: 11,
+    color: 'var(--text-secondary)',
+  },
+  // Paso 1 — badge de ahorro en total
+  savingsBadge: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: 'var(--success, #16a34a)',
+    background: 'var(--success-soft, #dcfce7)',
+    padding: '4px 8px',
+    borderRadius: 'var(--radius-sm)',
+  },
+  // Paso 1 — hint debajo del campo de dirección
+  fieldHint: {
+    margin: 0,
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    lineHeight: 1.4,
   },
 };
