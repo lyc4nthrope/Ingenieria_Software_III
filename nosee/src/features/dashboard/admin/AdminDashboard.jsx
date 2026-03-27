@@ -7,7 +7,7 @@
  *
  * UBICACIÓN: src/features/dashboard/admin/AdminDashboard.jsx
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { changeUserRole, getAdminReports, getAllUsers, updateReportReview, updateUserStatus } from '@/services/api/users.api';
 import { insertActionLog, getActionLogs, getLoginLogs, getUserActivityLogs } from '@/services/api/audit.api';
 import { getActionLabel as _getActionLabel, getObjectType as _getObjectType, getObjectInfo as _getObjectInfo, getDescription as _getDescription, parseBrowser as _parseBrowser, getActionCategory } from '@/features/dashboard/admin/logHelpers';
@@ -139,6 +139,8 @@ export default function AdminDashboard() {
   const [stats, setStats]                     = useState({
     users: '—', pubs: '—', validations: '—', reports: '—',
   });
+  const loadReportsRef = useRef(null);
+  const loadUnpublishedResourcesRef = useRef(null);
 
   // ─── Cargar usuarios al montar ────────────────────────────────────────────
   // Carga inicial una sola vez al montar.
@@ -150,12 +152,12 @@ export default function AdminDashboard() {
   // Cargar datos de sección cuando se activa (lazy loading)
   useEffect(() => {
     if (activeSection === 'content'  && !pubsLoaded)     loadPublications();
-    if (activeSection === 'content'  && pubFilter === 'unpublished' && !unpublishedLoaded) loadUnpublishedResources();
-    if (activeSection === 'reports'  && !reportsLoaded)  loadReports();
+    if (activeSection === 'content'  && pubFilter === 'unpublished' && !unpublishedLoaded && !unpublishedLoading) loadUnpublishedResourcesRef.current?.();
+    if (activeSection === 'reports'  && !reportsLoaded)  loadReportsRef.current?.();
     if (activeSection === 'config'   && !catsLoaded)     loadCategories();
     if (activeSection === 'logs'     && !logsLoaded)     loadLogs();
     if (activeSection === 'dealers'  && !applicationsLoaded) loadApplications();
-  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeSection, pubFilter, pubsLoaded, unpublishedLoaded, unpublishedLoading, reportsLoaded, catsLoaded, logsLoaded, applicationsLoaded]);
 
   // ─── Suscripción en tiempo real para logs ────────────────────────────────
   useEffect(() => {
@@ -185,14 +187,7 @@ export default function AdminDashboard() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (activeSection !== 'content') return;
-    if (pubFilter !== 'unpublished') return;
-    if (unpublishedLoaded || unpublishedLoading) return;
-    loadUnpublishedResources();
-  }, [activeSection, pubFilter, unpublishedLoaded, unpublishedLoading]);
+  }, [activeSection]);
 
   // ─── Logs de auditoría ────────────────────────────────────────────────────
   const loadLogs = async () => {
@@ -473,7 +468,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const loadUnpublishedResources = async () => {
+  async function loadUnpublishedResources() {
     setUnpublishedLoading(true);
     try {
       const [{ data: refs, error: refsError }, { data: storesData, error: storesError }, { data: productsData, error: productsError }] = await Promise.all([
@@ -517,7 +512,8 @@ export default function AdminDashboard() {
       setUnpublishedLoading(false);
       setUnpublishedLoaded(true);
     }
-  };
+  }
+  loadUnpublishedResourcesRef.current = loadUnpublishedResources;
 
   const handleViewStore = async (publication) => {
     const storeId = publication?.storeId || publication?.store?.id || publication?.store_id;
@@ -749,7 +745,7 @@ export default function AdminDashboard() {
   };
 
   // ─── Reportes ─────────────────────────────────────────────────────────────
-  const loadReports = async () => {
+  async function loadReports() {
     setReportsLoading(true);
     try {
       const result = await getAdminReports();
@@ -793,7 +789,8 @@ export default function AdminDashboard() {
       setReportsLoading(false);
       setReportsLoaded(true);
     }
-  };
+  }
+  loadReportsRef.current = loadReports;
 
   const updateReportData = async (report, updates = {}) => {
     const { data: authData } = await supabase.auth.getUser();

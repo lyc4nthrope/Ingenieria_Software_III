@@ -9,7 +9,7 @@
  * Fase C — Confirmación: genera ID de pedido y navega a /pedido/:id.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import * as publicationsApi from '@/services/api/publications.api';
@@ -38,7 +38,7 @@ export default function CreateOrderPage() {
   const currentUserId = useAuthStore((s) => s.user?.id);
 
   // Ítems recibidos desde ShoppingListPage
-  const selectedItems = location.state?.items ?? [];
+  const selectedItems = useMemo(() => location.state?.items ?? [], [location.state?.items]);
 
   // ── Fase ──────────────────────────────────────────────────────────────────
   // 'config' | 'result' | 'confirmed'

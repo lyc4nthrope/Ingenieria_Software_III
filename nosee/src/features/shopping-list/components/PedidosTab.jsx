@@ -306,7 +306,6 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.dealerId, selectedOrder?.id]);
 
   // ── Mostrar modal de calificación cuando el pedido es entregado ───────────

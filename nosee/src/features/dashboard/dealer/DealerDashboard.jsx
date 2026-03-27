@@ -789,7 +789,6 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
   const [abandonConfirm, setAbandonConfirm] = useState(false);
 
   // Cargar el comprobante cuando el pedido pasa a pendiente_pago
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     if (order.status !== 'pendiente_pago') return;
     setLoadingPay(true);

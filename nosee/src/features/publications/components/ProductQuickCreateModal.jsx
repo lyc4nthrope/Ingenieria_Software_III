@@ -117,7 +117,7 @@ export default function ProductQuickCreateModal({
     };
 
     loadCatalogs();
-  }, []);
+  }, [tq.errorLoadCatalogs]);
 
   const suggestedCategoryId = useMemo(() => {
     if (!initialCategoryHint || !categories.length) return "";

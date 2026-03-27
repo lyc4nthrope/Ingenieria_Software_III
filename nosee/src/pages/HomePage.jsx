@@ -610,7 +610,7 @@ export default function HomePage() {
     
     // Auto-cerrar el feedback después de 5 segundos
     setTimeout(() => setFeedback(null), 5000);
-  }, [reportPublication, reportingPublication]);
+  }, [reportPublication, reportingPublication, th.reportError, th.reportSuccess]);
 
   const handleDelete = useCallback(async (publicationId) => {
     if (!confirm(th.confirmDelete)) return;

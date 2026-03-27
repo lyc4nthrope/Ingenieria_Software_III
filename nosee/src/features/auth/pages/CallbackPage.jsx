@@ -76,7 +76,6 @@ export default function CallbackPage() {
   const params = new URLSearchParams(hash.substring(1)); // quitar el '#'
   const urlType = params.get('type');
   const urlError = params.get('error_description');
-  const accessToken = params.get('access_token');
 
   // Verificar si hay tipo almacenado en sessionStorage (para cuando Supabase limpia el hash)
   const storedCallbackType = sessionStorage.getItem('auth_callback_type');
