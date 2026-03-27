@@ -200,6 +200,23 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   useEffect(() => { updateOrderDeliveryRef.current = updateOrderDelivery; });
   useEffect(() => { removeOrderRef.current = removeOrder; });
 
+  // Sync masivo al montar: elimina del localStorage cualquier pedido que ya esté
+  // cancelado en BD, aunque no esté seleccionado en el carrusel.
+  useEffect(() => {
+    const toSync = orders.filter((o) => o.deliveryMode && o.supabaseId);
+    if (!toSync.length) return;
+    toSync.forEach((o) => {
+      supabase
+        .from('orders')
+        .select('status')
+        .eq('id', o.supabaseId)
+        .single()
+        .then(({ data }) => {
+          if (data?.status === 'cancelado') removeOrderRef.current(o.id);
+        });
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectedOrder = orders[selectedIdx] ?? null;
 
   // ── REALTIME: estado del pedido (vía Supabase) ────────────────────────────
@@ -359,7 +376,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   );
 
   return (
-    <div style={pedidos.root}>
+    <>
       {/* ── Modal de calificación del repartidor ─── */}
       {ratingModal && (
         <RatingModal
@@ -369,40 +386,40 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         />
       )}
 
-      {/* ── Carrusel de pedidos ─────────────────────────────────── */}
-      <div style={pedidos.carousel}>
-        {orders.map((o, i) => {
-          const active = i === selectedIdx;
-          const d = new Date(o.createdAt);
-          const label = d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
-          return (
-            <button
-              key={o.id}
-              type="button"
-              onClick={() => { setSelectedIdx(i); setShowTotalSum(false); }}
-              style={{ ...pedidos.pill, ...(active ? pedidos.pillActive : {}) }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={pedidos.pillId}>#{o.id.slice(-6)}</span>
-                {o.deliveryMode && <span title="Domicilio">🛵</span>}
-              </span>
-              <span style={{ ...pedidos.pillDate, ...(active ? { opacity: 0.85 } : {}) }}>
-                {label}
-              </span>
-              {active && (
-                <span style={pedidos.pillTotal}>
-                  ${o.result.totalCost.toLocaleString('es-CO')}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Layout dos columnas: info izq + mapa derecha ──────── */}
+      {/* ── Layout dos columnas: panel izq + mapa derecha (full-screen) ── */}
       <div className="pedidos-layout">
-        {/* Columna izquierda */}
+        {/* Columna izquierda — scrolleable */}
         <div className="pedidos-left-col" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+          {/* ── Carrusel de pedidos ── */}
+          <div style={pedidos.carousel}>
+            {orders.map((o, i) => {
+              const active = i === selectedIdx;
+              const d = new Date(o.createdAt);
+              const label = d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => { setSelectedIdx(i); setShowTotalSum(false); }}
+                  style={{ ...pedidos.pill, ...(active ? pedidos.pillActive : {}) }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={pedidos.pillId}>#{o.id.slice(-6)}</span>
+                    {o.deliveryMode && <span title="Domicilio">🛵</span>}
+                  </span>
+                  <span style={{ ...pedidos.pillDate, ...(active ? { opacity: 0.85 } : {}) }}>
+                    {label}
+                  </span>
+                  {active && (
+                    <span style={pedidos.pillTotal}>
+                      ${o.result.totalCost.toLocaleString('es-CO')}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
           {/* ── Header del pedido activo ── */}
           <div style={pedidos.orderHeader}>
             <div style={pedidos.orderHeaderLeft}>
@@ -494,10 +511,10 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             stores={result.stores}
             userCoords={userCoords}
             driverLocation={selectedOrder.driverLocation ?? null}
-            mapHeight="100%"
+            mapHeight="calc(100vh - 120px)"
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }

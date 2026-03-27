@@ -23,7 +23,6 @@ import {
   getAvailableOrders,
   getDealerActiveOrders,
   acceptOrder,
-  cancelAvailableOrder,
   advanceOrderStatus,
   confirmPayment,
   abandonOrder,
@@ -258,14 +257,11 @@ export default function DealerDashboard() {
     setAcceptingId(null);
   };
 
-  // ── Cancelar pedido disponible ───────────────────────────────────────────
-  const handleCancel = async (orderId) => {
-    setCancelingId(orderId);
-    const { error } = await cancelAvailableOrder(orderId);
-    if (!error) {
-      setAvailable((prev) => prev.filter((o) => o.id !== orderId));
-    }
-    setCancelingId(null);
+  // ── Rechazar pedido disponible ───────────────────────────────────────────
+  // Solo quita el pedido de la vista local del repartidor.
+  // No modifica el estado en BD — el pedido sigue disponible para otros.
+  const handleCancel = (orderId) => {
+    setAvailable((prev) => prev.filter((o) => o.id !== orderId));
   };
 
   // ── Actualizar precio de producto ────────────────────────────────────────
