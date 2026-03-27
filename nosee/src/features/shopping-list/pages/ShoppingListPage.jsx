@@ -85,8 +85,25 @@ export default function ShoppingListPage() {
           gap: 16px;
           align-items: start;
         }
+        .pedidos-layout > .pedidos-map-col {
+          position: sticky;
+          top: 70px;
+          height: calc(100vh - 90px);
+        }
+        .pedidos-layout > .pedidos-left-col {
+          max-height: calc(100vh - 90px);
+          overflow-y: auto;
+        }
         @media (max-width: 760px) {
           .pedidos-layout { grid-template-columns: 1fr; }
+          .pedidos-layout > .pedidos-map-col {
+            position: static;
+            height: 280px;
+          }
+          .pedidos-layout > .pedidos-left-col {
+            max-height: none;
+            overflow-y: visible;
+          }
         }
         @keyframes savedFlash {
           0%, 100% { color: var(--text-secondary); }

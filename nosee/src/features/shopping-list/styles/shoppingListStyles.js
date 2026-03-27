@@ -488,9 +488,6 @@ export const pedidos = {
     borderRadius: 'var(--radius-md)', overflow: 'hidden',
     border: '1px solid var(--border)',
   },
-  mapCol: {
-    position: 'sticky', top: '80px',
-  },
 };
 
 // ── Sidebar styles ─────────────────────────────────────────────────────────────
