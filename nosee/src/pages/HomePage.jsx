@@ -72,59 +72,27 @@ function ReportModal({ onClose, onSubmit }) {
       aria-describedby={descriptionId}
       onClick={onClose}
       onKeyDown={(e) => { if (e.key === 'Escape') onClose(e); }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "var(--overlay)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-        padding: "16px",
-      }}
+      className="bg-app-overlay fixed inset-0 z-[1000] flex items-center justify-center p-4"
     >
       <div
         role="button"
         tabIndex={0}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
-        style={{
-          background: "var(--bg-elevated)",
-          border: "1px solid var(--border)",
-          borderRadius: "12px",
-          padding: "24px",
-          width: "min(400px, 100%)",
-        }}
+        className="bg-app-elevated border-app-border w-full max-w-[400px] rounded-xl border p-6"
       >
-        <h3
-          id={titleId}
-          style={{
-            margin: "0 0 16px",
-            fontSize: "16px",
-            fontWeight: 600,
-            color: "var(--text-primary)",
-          }}
-        >
+        <h3 id={titleId} className="text-app-text mb-4 text-base font-semibold">
           {th.reportPublication}
         </h3>
         <p
           id={descriptionId}
-          style={{
-            fontSize: "13px",
-            color: "var(--text-secondary)",
-            marginBottom: "12px",
-          }}
+          className="text-app-text-secondary mb-3 text-[13px]"
         >
           {th.reportDescription}
         </p>
         <label
           htmlFor={selectId}
-          style={{
-            display: "block",
-            fontSize: "13px",
-            color: "var(--text-secondary)",
-            marginBottom: "6px",
-          }}
+          className="text-app-text-secondary mb-1.5 block text-[13px]"
         >
           {th.reportReason}
         </label>
@@ -134,16 +102,7 @@ function ReportModal({ onClose, onSubmit }) {
           required
           value={reportType}
           onChange={(e) => setReportType(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "8px 12px",
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border)",
-            borderRadius: "6px",
-            color: "var(--text-primary)",
-            fontSize: "14px",
-            marginBottom: "16px",
-          }}
+          className="bg-app-surface border-app-border text-app-text mb-4 w-full rounded-md border px-3 py-2 text-sm"
         >
           <option value="">{th.selectReason}</option>
           <option value="fake_price">{th.fakePrice}</option>
@@ -151,9 +110,7 @@ function ReportModal({ onClose, onSubmit }) {
           <option value="spam">{th.spam}</option>
           <option value="offensive">{th.offensive}</option>
         </select>
-        <div
-          style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}
-        >
+        <div className="flex justify-end gap-2">
           <button type="button" className="card-action-button" onClick={onClose}>
             {th.cancel}
           </button>
