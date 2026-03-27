@@ -80,29 +80,35 @@ export default function ShoppingListPage() {
           .lista-layout { grid-template-columns: 1fr; }
         }
         .pedidos-layout {
+          position: fixed;
+          top: 60px;
+          left: 0;
+          right: 0;
+          bottom: 0;
           display: grid;
-          grid-template-columns: 1fr 1.6fr;
-          gap: 16px;
-          align-items: start;
-        }
-        .pedidos-layout > .pedidos-map-col {
-          position: sticky;
-          top: 70px;
-          height: calc(100vh - 90px);
+          grid-template-columns: 320px 1fr;
+          gap: 0;
+          z-index: 10;
+          background: var(--bg-base);
         }
         .pedidos-layout > .pedidos-left-col {
-          max-height: calc(100vh - 90px);
+          height: 100%;
           overflow-y: auto;
+          padding: 16px;
+          border-right: 1px solid var(--border);
+          box-sizing: border-box;
+        }
+        .pedidos-layout > .pedidos-map-col {
+          height: 100%;
+          overflow: hidden;
         }
         @media (max-width: 760px) {
-          .pedidos-layout { grid-template-columns: 1fr; }
-          .pedidos-layout > .pedidos-map-col {
-            position: static;
-            height: 280px;
+          .pedidos-layout {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr 280px;
           }
-          .pedidos-layout > .pedidos-left-col {
-            max-height: none;
-            overflow-y: visible;
+          .pedidos-layout > .pedidos-map-col {
+            height: 280px;
           }
         }
         @keyframes savedFlash {
