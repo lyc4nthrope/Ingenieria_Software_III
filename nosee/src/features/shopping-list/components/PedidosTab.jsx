@@ -143,7 +143,7 @@ const sc = {
 };
 
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
-export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint }) {
+export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint, onBack }) {
   const [selectedIdx,  setSelectedIdx]  = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
   const [checklist,    setChecklist]    = useState({});
@@ -242,7 +242,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         if (uiStatus && uiStatus !== selectedOrder.deliveryStatus) {
           updateOrderDeliveryRef.current(selectedOrder.id, {
             deliveryStatus: uiStatus,
-            ...(data.dealer_id ? { dealerId: data.dealer_id } : {}),
+            dealerId: data.dealer_id ?? null,
           });
         }
       });
@@ -261,7 +261,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           if (!uiStatus) return;
           updateOrderDeliveryRef.current(selectedOrder.id, {
             deliveryStatus: uiStatus,
-            ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : {}),
+            dealerId: payload.new.dealer_id ?? null,
           });
         }
       )
@@ -358,11 +358,21 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
   if (orders.length === 0) {
     return (
-      <div style={pedidos.empty}>
-        <p style={pedidos.emptyText}>No hay pedidos aquí aún</p>
-        <p style={pedidos.emptyHint}>
-          {emptyHint ?? 'Ve a la pestaña Mi Lista, configura un pedido y aparecerá aquí.'}
-        </p>
+      <div className="pedidos-layout">
+        <div className="pedidos-left-col" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {onBack && (
+            <button type="button" onClick={onBack} style={bk.btn}>
+              ← Mi Lista
+            </button>
+          )}
+          <div style={pedidos.empty}>
+            <p style={pedidos.emptyText}>No hay pedidos aquí aún</p>
+            <p style={pedidos.emptyHint}>
+              {emptyHint ?? 'Ve a la pestaña Mi Lista, configura un pedido y aparecerá aquí.'}
+            </p>
+          </div>
+        </div>
+        <div className="pedidos-map-col" />
       </div>
     );
   }
@@ -390,6 +400,13 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
       <div className="pedidos-layout">
         {/* Columna izquierda — scrolleable */}
         <div className="pedidos-left-col" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+          {/* ── Botón volver a Mi Lista ── */}
+          {onBack && (
+            <button type="button" onClick={onBack} style={bk.btn}>
+              ← Mi Lista
+            </button>
+          )}
 
           {/* ── Carrusel de pedidos ── */}
           <div style={pedidos.carousel}>
@@ -518,3 +535,17 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     </>
   );
 }
+
+const bk = {
+  btn: {
+    alignSelf: 'flex-start',
+    padding: '5px 12px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+};

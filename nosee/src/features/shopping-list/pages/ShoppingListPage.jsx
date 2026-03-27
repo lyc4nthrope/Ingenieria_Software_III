@@ -191,6 +191,7 @@ export default function ShoppingListPage() {
           removeOrder={removeOrder}
           updateOrderDelivery={updateOrderDelivery}
           emptyHint="Confirma un pedido con 🛵 Domicilio y aparecerá aquí."
+          onBack={() => setActiveTab('lista')}
         />
       ) : null}
       {activeTab === 'recogidas' && (
@@ -199,6 +200,7 @@ export default function ShoppingListPage() {
           removeOrder={removeOrder}
           updateOrderDelivery={updateOrderDelivery}
           emptyHint="Confirma un pedido con 🚶 Voy yo y aparecerá aquí."
+          onBack={() => setActiveTab('lista')}
         />
       )}
     </div>
