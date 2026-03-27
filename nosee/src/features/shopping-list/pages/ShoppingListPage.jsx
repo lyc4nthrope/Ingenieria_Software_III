@@ -115,10 +115,6 @@ export default function ShoppingListPage() {
           0%, 100% { color: var(--text-secondary); }
           50% { color: var(--accent); text-shadow: 0 0 10px var(--accent); }
         }
-        .saved-lists-in-pedidos > div:first-child {
-          position: static !important;
-          top: auto !important;
-        }
       `}</style>
 
       {/* ── Cabecera ─────────────────────────────────────────────── */}
@@ -203,9 +199,6 @@ export default function ShoppingListPage() {
           removeOrder={removeOrder}
           updateOrderDelivery={updateOrderDelivery}
           emptyHint="Confirma un pedido con 🚶 Voy yo y aparecerá aquí."
-          savedLists={savedLists}
-          onLoadSavedList={loadSavedList}
-          onDeleteSavedList={deleteSavedList}
         />
       )}
     </div>
