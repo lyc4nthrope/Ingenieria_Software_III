@@ -17,6 +17,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { ListaTab } from '../components/ListaTab';
 import { PedidosTab } from '../components/PedidosTab';
 import { SavedListsSidebar } from '../components/SavedListsSidebar';
+import { DeliveryCheckout } from '../components/DeliveryCheckout';
 import { page } from '../styles/shoppingListStyles';
 
 // ─── Página ───────────────────────────────────────────────────────────────────
@@ -29,8 +30,9 @@ export default function ShoppingListPage() {
     savedLists, saveList, loadSavedList, deleteSavedList,
   } = useShoppingListStore();
 
-  const [activeTab, setActiveTab] = useState('lista');
-  const [savedFlash, setSavedFlash] = useState(false);
+  const [activeTab,       setActiveTab]       = useState('lista');
+  const [savedFlash,      setSavedFlash]      = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(null);
   const flashTimerRef = useRef(null);
 
   useEffect(() => () => clearTimeout(flashTimerRef.current), []);
@@ -39,6 +41,21 @@ export default function ShoppingListPage() {
     setSavedFlash(true);
     clearTimeout(flashTimerRef.current);
     flashTimerRef.current = setTimeout(() => setSavedFlash(false), 2000);
+  };
+
+  const handleStartDeliveryCheckout = (checkoutData) => {
+    setPendingCheckout(checkoutData);
+    setActiveTab('pedidos');
+  };
+
+  const handleCheckoutConfirmed = () => {
+    setPendingCheckout(null);
+    // quedarse en la tab Mis Pedidos — el pedido ya aparece en la lista
+  };
+
+  const handleCheckoutCancel = () => {
+    setPendingCheckout(null);
+    setActiveTab('lista');
   };
 
   const deliveryOrders = useMemo(() => orders.filter((o) => o.deliveryMode), [orders]);
@@ -133,19 +150,26 @@ export default function ShoppingListPage() {
             saveList={saveList}
             addOrder={addOrder}
             onSaved={handleSaved}
-            onConfirmedDelivery={() => setActiveTab('pedidos')}
+            onStartDeliveryCheckout={handleStartDeliveryCheckout}
             onConfirmedPickup={() => setActiveTab('recogidas')}
           />
         </div>
       )}
-      {activeTab === 'pedidos' && (
+      {activeTab === 'pedidos' && pendingCheckout ? (
+        <DeliveryCheckout
+          pendingCheckout={pendingCheckout}
+          addOrder={addOrder}
+          onConfirmed={handleCheckoutConfirmed}
+          onCancel={handleCheckoutCancel}
+        />
+      ) : activeTab === 'pedidos' ? (
         <PedidosTab
           orders={deliveryOrders}
           removeOrder={removeOrder}
           updateOrderDelivery={updateOrderDelivery}
           emptyHint="Confirma un pedido con 🛵 Domicilio y aparecerá aquí."
         />
-      )}
+      ) : null}
       {activeTab === 'recogidas' && (
         <PedidosTab
           orders={pickupOrders}

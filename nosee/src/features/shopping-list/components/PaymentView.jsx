@@ -32,8 +32,8 @@ function meta(method) {
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
-export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitted }) {
-  const [mode,      setMode]      = useState('transferencia'); // 'transferencia' | 'efectivo'
+export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitted, initialMode }) {
+  const [mode,      setMode]      = useState(initialMode ?? 'transferencia'); // 'transferencia' | 'efectivo'
   const [tabIdx,    setTabIdx]    = useState(0);
   const [file,      setFile]      = useState(null);
   const [preview,   setPreview]   = useState(null);
@@ -130,23 +130,39 @@ export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitt
         </div>
       </div>
 
-      {/* ── Selector de modo: transferencia o efectivo ── */}
-      <div style={s.modeTabs}>
-        <button
-          type="button"
-          onClick={() => setMode('transferencia')}
-          style={{ ...s.modeTab, ...(mode === 'transferencia' ? s.modeTabActive : {}) }}
-        >
-          🏦 Transferencia
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('efectivo')}
-          style={{ ...s.modeTab, ...(mode === 'efectivo' ? s.modeTabActive : {}) }}
-        >
-          💵 Efectivo
-        </button>
-      </div>
+      {/* Método pre-elegido (checkout) — badge sin selector */}
+      {initialMode ? (
+        <div style={{
+          padding: '8px 12px',
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: 13,
+          color: 'var(--text-secondary)',
+        }}>
+          Método elegido: <strong style={{ color: 'var(--text-primary)' }}>
+            {initialMode === 'efectivo' ? '💵 Efectivo' : '🏦 Transferencia'}
+          </strong>
+        </div>
+      ) : (
+        /* ── Selector de modo: transferencia o efectivo ── */
+        <div style={s.modeTabs}>
+          <button
+            type="button"
+            onClick={() => setMode('transferencia')}
+            style={{ ...s.modeTab, ...(mode === 'transferencia' ? s.modeTabActive : {}) }}
+          >
+            🏦 Transferencia
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('efectivo')}
+            style={{ ...s.modeTab, ...(mode === 'efectivo' ? s.modeTabActive : {}) }}
+          >
+            💵 Efectivo
+          </button>
+        </div>
+      )}
 
       {/* ── Modo EFECTIVO ── */}
       {mode === 'efectivo' && (
