@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { DeliveryCard } from './DeliveryCard';
 import { RatingModal } from './RatingModal';
+import { SavedListsSidebar } from './SavedListsSidebar';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
@@ -143,7 +144,7 @@ const sc = {
 };
 
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
-export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint }) {
+export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint, savedLists, onLoadSavedList, onDeleteSavedList }) {
   const [selectedIdx,  setSelectedIdx]  = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
   const [checklist,    setChecklist]    = useState({});
@@ -357,6 +358,34 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   };
 
   if (orders.length === 0) {
+    if (savedLists) {
+      // Mis Recogidas vacías pero con listas guardadas → mostrar layout de dos columnas
+      return (
+        <div className="pedidos-layout">
+          <div className="pedidos-left-col" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={pedidos.empty}>
+              <p style={pedidos.emptyText}>No hay pedidos aquí aún</p>
+              <p style={pedidos.emptyHint}>
+                {emptyHint ?? 'Ve a la pestaña Mi Lista, configura un pedido y aparecerá aquí.'}
+              </p>
+            </div>
+            {savedLists.length > 0 && (
+              <div className="saved-lists-in-pedidos">
+                <SavedListsSidebar
+                  savedLists={savedLists}
+                  onLoad={onLoadSavedList}
+                  onDelete={onDeleteSavedList}
+                  flash={false}
+                />
+              </div>
+            )}
+          </div>
+          <div className="pedidos-map-col" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Sin pedido activo</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div style={pedidos.empty}>
         <p style={pedidos.emptyText}>No hay pedidos aquí aún</p>
@@ -502,6 +531,18 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             toggleCheck={toggleCheck}
             onPriceReport={(storeIdx, pi, newPrice) => handlePriceReport(selectedOrder, storeIdx, pi, newPrice)}
           />
+
+          {/* ── Listas guardadas (solo en Mis Recogidas) ── */}
+          {savedLists && savedLists.length > 0 && (
+            <div className="saved-lists-in-pedidos" style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+              <SavedListsSidebar
+                savedLists={savedLists}
+                onLoad={onLoadSavedList}
+                onDelete={onDeleteSavedList}
+                flash={false}
+              />
+            </div>
+          )}
         </div>
 
         {/* Columna derecha: mapa */}
