@@ -1,22 +1,22 @@
 /**
  * DeliveryCheckout.jsx
  *
- * Flujo de 2 pasos para confirmar un pedido con domicilio:
- *   Paso 1 — Delivery Details: dirección de entrega + método de pago
- *   Paso 2 — Confirmación: lista de productos (read-only) + mapa full-screen
+ * Pantalla de confirmación de pedido con domicilio.
+ * Recopila dirección de entrega y método de pago, muestra resumen
+ * del carrito y totales, y crea el pedido al confirmar.
  *
  * Se monta en ShoppingListPage cuando el usuario hace clic en
  * "Confirmar pedido" desde Mi Lista con modo Domicilio.
+ * Al confirmar, va directamente a la pestaña Mis Pedidos.
  */
 
 import { useState } from 'react';
 import { useAuthStore } from '@/features/auth/store/authStore';
-import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { createOrder } from '@/services/api/orders.api';
 import { getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
 
-// ─── Paso 1: Detalles de entrega ──────────────────────────────────────────────
-function DeliveryDetailsStep({ result, onNext, onCancel }) {
+// ─── Detalles de entrega ───────────────────────────────────────────────────────
+function DeliveryDetailsStep({ result, onConfirm, onCancel, saving, saveError }) {
   const [address,       setAddress]       = useState('');
   const [paymentMethod, setPaymentMethod] = useState(null); // 'transferencia' | 'efectivo'
   const [error,         setError]         = useState(null);
@@ -24,7 +24,7 @@ function DeliveryDetailsStep({ result, onNext, onCancel }) {
 
   const total = result.totalCost + DELIVERY_FEE;
 
-  const handleNext = () => {
+  const handleConfirm = () => {
     if (!address.trim()) {
       setError('Ingresá tu dirección de entrega.');
       return;
@@ -34,18 +34,11 @@ function DeliveryDetailsStep({ result, onNext, onCancel }) {
       return;
     }
     setError(null);
-    onNext({ address: address.trim(), paymentMethod });
+    onConfirm({ address: address.trim(), paymentMethod });
   };
 
   return (
     <div style={s.stepWrap}>
-      {/* Indicador de paso */}
-      <div style={s.stepIndicator}>
-        <span style={s.stepDot}>1</span>
-        <div style={{ ...s.stepLine, background: 'var(--border)' }} />
-        <span style={{ ...s.stepDot, background: 'var(--border)', color: 'var(--text-muted)' }}>2</span>
-      </div>
-
       <h2 style={s.stepTitle}>Detalles de entrega</h2>
 
       {/* Resumen colapsable del carrito */}
@@ -108,20 +101,14 @@ function DeliveryDetailsStep({ result, onNext, onCancel }) {
           <button
             type="button"
             onClick={() => { setPaymentMethod('transferencia'); setError(null); }}
-            style={{
-              ...s.methodBtn,
-              ...(paymentMethod === 'transferencia' ? s.methodBtnActive : {}),
-            }}
+            style={{ ...s.methodBtn, ...(paymentMethod === 'transferencia' ? s.methodBtnActive : {}) }}
           >
             🏦 Transferencia
           </button>
           <button
             type="button"
             onClick={() => { setPaymentMethod('efectivo'); setError(null); }}
-            style={{
-              ...s.methodBtn,
-              ...(paymentMethod === 'efectivo' ? s.methodBtnActive : {}),
-            }}
+            style={{ ...s.methodBtn, ...(paymentMethod === 'efectivo' ? s.methodBtnActive : {}) }}
           >
             💵 Efectivo
           </button>
@@ -143,139 +130,35 @@ function DeliveryDetailsStep({ result, onNext, onCancel }) {
         )}
       </div>
 
-      {error && <p style={s.errorMsg}>{error}</p>}
+      {error    && <p style={s.errorMsg}>{error}</p>}
+      {saveError && <p style={s.errorMsg}>{saveError}</p>}
 
       <div style={s.btnRow}>
-        <button type="button" onClick={onCancel} style={s.backBtn}>← Volver</button>
-        <button type="button" onClick={handleNext} style={s.nextBtn}>
-          Siguiente paso →
+        <button type="button" onClick={onCancel} style={s.backBtn} disabled={saving}>
+          ← Volver
+        </button>
+        <button
+          type="button"
+          onClick={handleConfirm}
+          style={{ ...s.nextBtn, opacity: saving ? 0.7 : 1 }}
+          disabled={saving}
+        >
+          {saving ? 'Guardando...' : '🛵 Confirmar pedido'}
         </button>
       </div>
     </div>
   );
 }
 
-// ─── Paso 2: Confirmación con mapa full-screen ────────────────────────────────
-function DeliveryMapStep({ result, userCoords, address, paymentMethod, onConfirm, onBack, saving, saveError }) {
-  const total = result.totalCost + DELIVERY_FEE;
-
-  return (
-    <>
-      <style>{`
-        .delivery-map-layout {
-          position: fixed;
-          top: 60px;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          display: grid;
-          grid-template-columns: 300px 1fr;
-          z-index: 50;
-          background: var(--bg-base);
-        }
-        @media (max-width: 680px) {
-          .delivery-map-layout {
-            grid-template-columns: 1fr;
-            grid-template-rows: 1fr 240px;
-          }
-        }
-      `}</style>
-
-      <div className="delivery-map-layout">
-        {/* Panel izquierdo: resumen + confirmar */}
-        <div style={s.mapListPanel}>
-          {/* Indicador de paso */}
-          <div style={{ ...s.stepIndicator, marginBottom: 12 }}>
-            <span style={{ ...s.stepDot, background: 'var(--border)', color: 'var(--text-muted)' }}>1</span>
-            <div style={{ ...s.stepLine, background: 'var(--accent)' }} />
-            <span style={s.stepDot}>2</span>
-          </div>
-
-          <h2 style={{ ...s.stepTitle, fontSize: 15, marginBottom: 12 }}>Confirmar pedido</h2>
-
-          {/* Dirección y método */}
-          <div style={s.summaryCard}>
-            <p style={s.summaryRow}><strong>Entrega:</strong> {address}</p>
-            <p style={s.summaryRow}>
-              <strong>Pago:</strong>{' '}
-              {paymentMethod === 'efectivo' ? '💵 Efectivo' : '🏦 Transferencia'}
-            </p>
-          </div>
-
-          {/* Tiendas y productos (read-only) */}
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {result.stores.map((s_item, si) => {
-              const emoji    = getStoreEmoji(s_item.store?.store_type_id);
-              const subtotal = s_item.products.reduce((a, p) => a + p.price * (p.item?.quantity || 1), 0);
-              return (
-                <div key={si} style={s.storeCard}>
-                  <div style={s.storeHeader}>
-                    <span style={s.storeName}>{emoji} {s_item.store?.name ?? 'Tienda'}</span>
-                    <span style={s.storeSubtotal}>${subtotal.toLocaleString('es-CO')}</span>
-                  </div>
-                  <ul style={s.prodList}>
-                    {s_item.products.map((p, pi) => (
-                      <li key={pi} style={s.prodItem}>
-                        <span>{p.item?.productName ?? '?'} ×{p.item?.quantity || 1}</span>
-                        <span style={s.prodPrice}>${(p.price * (p.item?.quantity || 1)).toLocaleString('es-CO')}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Total + botón confirmar */}
-          <div style={s.mapFooter}>
-            <div style={s.mapTotal}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total</span>
-              <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--accent)' }}>
-                ${total.toLocaleString('es-CO')} <span style={{ fontSize: 11, fontWeight: 500 }}>COP</span>
-              </span>
-            </div>
-            {saveError && <p style={s.errorMsg}>{saveError}</p>}
-            <div style={s.btnRow}>
-              <button type="button" onClick={onBack} style={s.backBtn} disabled={saving}>← Atrás</button>
-              <button type="button" onClick={onConfirm} style={{ ...s.nextBtn, opacity: saving ? 0.7 : 1 }} disabled={saving}>
-                {saving ? 'Guardando...' : `🛵 Confirmar pedido`}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mapa — ocupa el resto */}
-        <div style={{ height: '100%', overflow: 'hidden' }}>
-          <OrderRouteMap
-            stores={result.stores}
-            userCoords={userCoords}
-            driverLocation={null}
-            mapHeight="100%"
-          />
-        </div>
-      </div>
-    </>
-  );
-}
-
 // ─── Contenedor principal del checkout ───────────────────────────────────────
 export function DeliveryCheckout({ pendingCheckout, addOrder, onConfirmed, onCancel }) {
-  const [step,      setStep]      = useState(1);
-  const [address,   setAddress]   = useState('');
-  const [method,    setMethod]    = useState(null);
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState(null);
 
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { result, items, userCoords } = pendingCheckout;
 
-  const handleNext = ({ address: addr, paymentMethod }) => {
-    setAddress(addr);
-    setMethod(paymentMethod);
-    setStep(2);
-  };
-
-  const handleConfirmOrder = async () => {
+  const handleConfirm = async ({ address, paymentMethod }) => {
     setSaving(true);
     setSaveError(null);
 
@@ -294,7 +177,7 @@ export function DeliveryCheckout({ pendingCheckout, addOrder, onConfirmed, onCan
       savingsPct:      result.savingsPct ?? 0,
       deliveryFee:     DELIVERY_FEE,
       strategy:        'balanced',
-      paymentMethod:   method,
+      paymentMethod,
     });
 
     if (error) {
@@ -311,7 +194,7 @@ export function DeliveryCheckout({ pendingCheckout, addOrder, onConfirmed, onCan
       createdAt:           new Date().toISOString(),
       deliveryMode:        true,
       deliveryStatus:      'searching',
-      paymentMethod:       method,
+      paymentMethod,
       driverLocation:      null,
       cancellationCharged: false,
     });
@@ -320,26 +203,13 @@ export function DeliveryCheckout({ pendingCheckout, addOrder, onConfirmed, onCan
     onConfirmed();
   };
 
-  if (step === 2) {
-    return (
-      <DeliveryMapStep
-        result={result}
-        userCoords={userCoords}
-        address={address}
-        paymentMethod={method}
-        onConfirm={handleConfirmOrder}
-        onBack={() => setStep(1)}
-        saving={saving}
-        saveError={saveError}
-      />
-    );
-  }
-
   return (
     <DeliveryDetailsStep
       result={result}
-      onNext={handleNext}
+      onConfirm={handleConfirm}
       onCancel={onCancel}
+      saving={saving}
+      saveError={saveError}
     />
   );
 }
@@ -353,25 +223,6 @@ const s = {
     flexDirection: 'column',
     gap: 20,
     padding: '24px 0',
-  },
-  stepIndicator: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepDot: {
-    width: 28, height: 28,
-    borderRadius: '50%',
-    background: 'var(--accent)',
-    color: '#fff',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 13, fontWeight: 800,
-    flexShrink: 0,
-  },
-  stepLine: {
-    flex: 1, height: 2,
-    background: 'var(--accent)',
-    borderRadius: 2,
   },
   stepTitle: {
     fontSize: 20,
@@ -401,6 +252,12 @@ const s = {
     outline: 'none',
     width: '100%',
     boxSizing: 'border-box',
+  },
+  fieldHint: {
+    margin: 0,
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    lineHeight: 1.4,
   },
   methodRow: {
     display: 'flex',
@@ -452,6 +309,14 @@ const s = {
     fontWeight: 800,
     color: 'var(--accent)',
   },
+  savingsBadge: {
+    fontSize: 11,
+    fontWeight: 700,
+    color: 'var(--success, #16a34a)',
+    background: 'var(--success-soft, #dcfce7)',
+    padding: '4px 8px',
+    borderRadius: 'var(--radius-sm)',
+  },
   errorMsg: {
     margin: 0,
     fontSize: 13,
@@ -486,85 +351,7 @@ const s = {
     fontWeight: 800,
     cursor: 'pointer',
   },
-  // Paso 2 — panel izquierdo
-  mapListPanel: {
-    height: '100%',
-    overflowY: 'auto',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
-    padding: '16px',
-    borderRight: '1px solid var(--border)',
-    background: 'var(--bg-base)',
-  },
-  summaryCard: {
-    padding: '10px 12px',
-    background: 'var(--bg-elevated)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
-  },
-  summaryRow: {
-    margin: 0,
-    fontSize: 13,
-    color: 'var(--text-primary)',
-  },
-  storeCard: {
-    padding: '10px 12px',
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm)',
-  },
-  storeHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  storeName: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: 'var(--text-primary)',
-  },
-  storeSubtotal: {
-    fontSize: 12,
-    fontWeight: 700,
-    color: 'var(--accent)',
-  },
-  prodList: {
-    listStyle: 'none',
-    margin: 0,
-    padding: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
-  },
-  prodItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: 12,
-    color: 'var(--text-secondary)',
-  },
-  prodPrice: {
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-  },
-  mapFooter: {
-    borderTop: '1px solid var(--border)',
-    paddingTop: 12,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-    flexShrink: 0,
-  },
-  mapTotal: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  // Paso 1 — resumen colapsable del carrito
+  // Resumen colapsable del carrito
   cartSummary: {
     background: 'var(--bg-elevated)',
     border: '1px solid var(--border)',
@@ -620,21 +407,5 @@ const s = {
     justifyContent: 'space-between',
     fontSize: 11,
     color: 'var(--text-secondary)',
-  },
-  // Paso 1 — badge de ahorro en total
-  savingsBadge: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: 'var(--success, #16a34a)',
-    background: 'var(--success-soft, #dcfce7)',
-    padding: '4px 8px',
-    borderRadius: 'var(--radius-sm)',
-  },
-  // Paso 1 — hint debajo del campo de dirección
-  fieldHint: {
-    margin: 0,
-    fontSize: 11,
-    color: 'var(--text-muted)',
-    lineHeight: 1.4,
   },
 };
