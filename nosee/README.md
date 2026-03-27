@@ -1,16 +1,41 @@
-# React + Vite
+# NØSEE
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación web construida con React + Vite.
 
-Currently, two official plugins are available:
+## UI stack oficial
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Tailwind CSS** es la base para implementar interfaces nuevas o refactors visuales.
+- **Stitch** se usa después para refinamiento visual/post-diseño.
+- El proyecto mantiene su **design system** mediante variables CSS en `src/index.css`.
+- Esas variables ya están expuestas a Tailwind con `@theme inline`.
 
-## React Compiler
+## Instrucciones para agentes (Codex / Claude)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Si trabajás en UI dentro de este repo:
 
-## Expanding the ESLint configuration
+1. Usá **Tailwind CSS** como primera opción.
+2. **No hardcodees** colores, radios, sombras o tipografía.
+3. Reutilizá los tokens existentes desde Tailwind, por ejemplo:
+   - `bg-app-bg`
+   - `bg-app-surface`
+   - `bg-app-elevated`
+   - `text-app-text`
+   - `text-app-text-secondary`
+   - `border-app-border`
+   - `rounded-app-md`
+   - `shadow-app-md`
+4. Preferí `className` con utilidades Tailwind sobre `style={{}}`.
+5. Evitá crear CSS nuevo salvo que sea realmente necesario.
+6. Después de implementar la base con Tailwind, se puede usar **Stitch** para pulir la UI.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Documento de referencia
+
+- Ver `docs/ui-guidelines.md`
+
+## Comandos
+
+```bash
+npm install
+npm run dev
+npm run build
+```

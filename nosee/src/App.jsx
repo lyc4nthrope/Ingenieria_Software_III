@@ -79,42 +79,15 @@ const OrderDetailPage = lazy(
 function NotFoundPage() {
   const { t } = useLanguage();
   return (
-    <main
-      style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        textAlign: "center",
-        gap: "16px",
-      }}
-    >
-      <div style={{ fontSize: "72px", lineHeight: 1 }}>🔍</div>
-      <h1
-        style={{
-          fontSize: "1.75rem",
-          fontWeight: "800",
-          color: "var(--text-primary)",
-        }}
-      >
-        404
-      </h1>
-      <p style={{ color: "var(--text-secondary)", fontSize: "0.9375rem" }}>
+    <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-8 text-center">
+      <div className="text-6xl leading-none md:text-7xl">🔍</div>
+      <h1 className="text-app-text text-[1.75rem] font-extrabold">404</h1>
+      <p className="text-app-text-secondary text-[0.9375rem]">
         {t.app.notFound}
       </p>
       <a
         href="/"
-        style={{
-          padding: "8px 20px",
-          background: "var(--accent-soft)",
-          color: "var(--accent)",
-          borderRadius: "var(--radius-md)",
-          fontSize: "0.875rem",
-          fontWeight: "500",
-          textDecoration: "none",
-        }}
+        className="bg-app-accent-soft text-app-accent rounded-app-md px-5 py-2 text-sm font-medium no-underline transition-colors hover:bg-app-hover"
       >
         {t.app.backHome}
       </a>
