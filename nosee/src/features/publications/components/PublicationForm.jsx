@@ -255,7 +255,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
       window.removeEventListener("focus", handleTabActive);
       document.removeEventListener("visibilitychange", handleTabActive);
     };
-  }, [productQuery, storeQuery, performProductSearch, performStoreSearch]);
+  }, [productQuery, brandQuery, storeQuery, performProductSearch, performStoreSearch]);
 
   useEffect(() => {
     if (!ENABLE_AUTO_STORE || mode !== "create") return;

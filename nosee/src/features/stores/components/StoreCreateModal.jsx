@@ -46,8 +46,7 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
   // Pre-rellenar nombre desde la búsqueda (solo en el primer render)
   useEffect(() => {
     if (initialName) updateField('name', initialName);
-  // eslint-disable-next-line react-hooks/exhaustive-deps — solo al montar
-  }, []);
+  }, [initialName, updateField]);
 
   const isPhysical = formData.type === StoreTypeEnum.PHYSICAL;
   const twoCol = isPhysical && !isMobile;

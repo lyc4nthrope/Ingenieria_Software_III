@@ -15,7 +15,6 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
   const [manualCode, setManualCode] = useState("");
   const [error, setError] = useState("");
   const [errorType, setErrorType] = useState(null);
-  const [supported, setSupported] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
@@ -44,14 +43,11 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
       setIsStarting(true);
       setError("");
       setErrorType(null);
-      setSupported(true);
-
       if (!navigator?.mediaDevices?.getUserMedia) {
         const isInsecure =
           typeof location !== "undefined" &&
           location.protocol === "http:" &&
           location.hostname !== "localhost";
-        setSupported(false);
         setErrorType("noApi");
         setError(isInsecure ? tb.errorHttpsRequired : tb.noCameraPermission);
         setIsStarting(false);
@@ -59,7 +55,6 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
       }
 
       if (typeof window?.BarcodeDetector !== "function") {
-        setSupported(false);
         setErrorType("noSupport");
         setError(tb.noScanSupport);
         setIsStarting(false);
@@ -71,7 +66,6 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
           formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39"],
         });
       } catch {
-        setSupported(false);
         setErrorType("detector");
         setError(tb.errorDetector);
         setIsStarting(false);
@@ -113,7 +107,6 @@ export default function BarcodeScannerModal({ open, onClose, onDetected }) {
           }
         }, 450);
       } catch (cameraError) {
-        setSupported(false);
         const name = cameraError?.name;
         if (name === "NotAllowedError" || name === "PermissionDeniedError") {
           setErrorType("permission");

@@ -59,12 +59,10 @@ export async function insertUserActivityLog(userId, action, details = {}) {
       details: details || {},
     });
     if (error) {
-      // eslint-disable-next-line no-console
       console.warn('[audit] insertUserActivityLog falló:', error.message, { userId, action });
     }
     return { error: error ?? null };
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.warn('[audit] insertUserActivityLog excepción:', err?.message, { userId, action });
     return { error: err };
   }
