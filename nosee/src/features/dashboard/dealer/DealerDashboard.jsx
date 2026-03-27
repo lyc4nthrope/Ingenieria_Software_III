@@ -79,11 +79,11 @@ export default function DealerDashboard() {
   const [loadingActive,   setLoadingActive]   = useState(true);
   const [acceptingId,     setAcceptingId]     = useState(null);  // id del pedido que se está aceptando
   const [acceptError,     setAcceptError]     = useState(null);
-  const [cancelingId,     setCancelingId]     = useState(null);  // id del pedido que se está cancelando
   const [noBankWarning,   setNoBankWarning]   = useState(false); // aviso sin cuentas bancarias
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
   const [confirmingId,    setConfirmingId]    = useState(null);  // id del pedido con pago pendiente de confirmación
   const [abandoningId,    setAbandoningId]    = useState(null);  // id del pedido que se está abandonando
+  const [abandonError,    setAbandonError]    = useState(null);  // { id, msg } del pedido que falló al abandonar
   const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
   const [loadAvailError,  setLoadAvailError]  = useState(null);  // error al cargar disponibles
   // Checklist local por pedido: { [orderId]: { [productKey]: boolean } }
@@ -322,9 +322,12 @@ export default function DealerDashboard() {
   // ── Abandonar pedido activo (vuelve al pool) ─────────────────────────────
   const handleAbandon = async (order) => {
     setAbandoningId(order.id);
+    setAbandonError(null);
     const { error } = await abandonOrder(order.id);
     if (!error) {
       setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
+    } else {
+      setAbandonError({ id: order.id, msg: 'No se pudo abandonar el pedido. Revisá tu conexión e intentá de nuevo.' });
     }
     setAbandoningId(null);
   };
@@ -464,7 +467,6 @@ export default function DealerDashboard() {
                     key={order.id}
                     order={order}
                     accepting={acceptingId === order.id}
-                    canceling={cancelingId === order.id}
                     onAccept={() => handleAccept(order.id)}
                     onCancel={() => handleCancel(order.id)}
                   />
@@ -512,7 +514,8 @@ export default function DealerDashboard() {
                     confirmingPayment={confirmingId === order.id}
                     onConfirmPayment={() => handleConfirmPayment(order)}
                     abandoning={abandoningId === order.id}
-                    onAbandon={() => handleAbandon(order)}
+                    abandonError={abandonError?.id === order.id ? abandonError.msg : null}
+                    onAbandon={() => { setAbandonError(null); handleAbandon(order); }}
                   />
                 ))}
               </div>
@@ -590,7 +593,7 @@ export default function DealerDashboard() {
 // ─── AvailableOrderCard ───────────────────────────────────────────────────────
 // Tarjeta de pedido disponible para aceptar. El repartidor ve qué tiene que
 // comprar, en qué tiendas y a dónde entregar antes de comprometerse.
-function AvailableOrderCard({ order, accepting, canceling, onAccept, onCancel }) {
+function AvailableOrderCard({ order, accepting, onAccept, onCancel }) {
   const items  = extractItems(order);
   const stores = extractStores(order);
   const total  = Number(order.total_estimated ?? 0) + Number(order.delivery_fee ?? 0);
@@ -652,16 +655,16 @@ function AvailableOrderCard({ order, accepting, canceling, onAccept, onCancel })
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
-            style={{ ...r.cancelBtn, ...(canceling ? { opacity: 0.7 } : {}) }}
+            style={r.cancelBtn}
             onClick={onCancel}
-            disabled={canceling || accepting}
+            disabled={accepting}
           >
-            {canceling ? '...' : '✕ Cancelar'}
+            ✕ Ignorar
           </button>
           <button
             style={{ ...r.advanceBtn, ...(accepting ? { opacity: 0.7 } : {}) }}
             onClick={onAccept}
-            disabled={accepting || canceling}
+            disabled={accepting}
           >
             {accepting ? 'Aceptando...' : '✓ Aceptar pedido'}
           </button>
@@ -767,7 +770,7 @@ const st = {
 // cuando está "comprando" y el botón para avanzar al siguiente estado.
 // Cuando status = 'pendiente_pago' muestra el comprobante del usuario (si existe)
 // y el botón para confirmar la recepción del pago.
-function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onPriceReport, confirmingPayment, onConfirmPayment, abandoning, onAbandon }) {
+function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onPriceReport, confirmingPayment, onConfirmPayment, abandoning, abandonError, onAbandon }) {
   const si     = statusInfo[order.status] ?? statusInfo.aceptado;
   const stores = extractStores(order);
   const [expanded,       setExpanded]       = useState(true);
@@ -952,6 +955,11 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
 
       {/* Botón de abandono — con confirmación inline */}
       <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 10, marginTop: 4 }}>
+        {abandonError && (
+          <p style={{ margin: '0 0 8px', fontSize: 12, color: '#dc2626', background: '#fee2e2', padding: '6px 10px', borderRadius: 6 }}>
+            {abandonError}
+          </p>
+        )}
         {!abandonConfirm ? (
           <button
             type="button"
