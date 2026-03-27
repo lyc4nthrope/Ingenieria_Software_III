@@ -5,7 +5,7 @@ import * as publicationsApi from '@/services/api/publications.api';
 import { OptimSettingsPanel } from './OptimSettingsPanel';
 import { InfiniteHorizontalCarousel } from './InfiniteHorizontalCarousel';
 import { VoyYoMapView } from './VoyYoMapView';
-import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, buildResultFromSelections } from '../utils/shoppingListUtils';
+import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, buildResultFromSelections, DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { lista } from '../styles/shoppingListStyles';
 
 // ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
