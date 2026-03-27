@@ -17,6 +17,7 @@ import EyeIcon from '@/features/auth/components/profile/EyeIcon';
 import CheckIcon from '@/features/auth/components/profile/CheckIcon';
 import { PASSWORD_RULES } from '@/features/auth/components/profile/profileUtils';
 import { DealerBankSection } from '@/features/auth/components/profile/DealerBankSection';
+import DealerOnboardingCard from '@/features/auth/components/profile/DealerOnboardingCard';
 import { UserRoleEnum } from '@/types';
 
 // ─── ProfilePage ──────────────────────────────────────────────────────────────
@@ -106,6 +107,9 @@ export default function ProfilePage() {
       />
 
       <ProfileActivitySection user={user} />
+
+      {/* Onboarding de repartidor — solo para usuarios que no son repartidores */}
+      {user?.role !== UserRoleEnum.REPARTIDOR && <DealerOnboardingCard />}
 
       {/* Sección de seguridad */}
       <div style={{

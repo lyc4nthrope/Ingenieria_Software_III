@@ -48,6 +48,8 @@ import { SummaryCard } from './components/SummaryCard';
 import { UsersTable } from './tables/UsersTable';
 import { PublicationsTable } from './tables/PublicationsTable';
 import { UnpublishedResourcesTable } from './tables/UnpublishedResourcesTable';
+import { DealerApplicationsTable } from './tables/DealerApplicationsTable';
+import { getApplications } from '@/services/api/dealerApplications.api';
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
 import { BanModal } from './modals/BanModal';
@@ -116,6 +118,11 @@ export default function AdminDashboard() {
   const [logDateFrom, setLogDateFrom] = useState('');
   const [logDateTo, setLogDateTo]     = useState('');
 
+  // Solicitudes de repartidor
+  const [applications,        setApplications]        = useState([]);
+  const [applicationsLoading, setApplicationsLoading] = useState(false);
+  const [applicationsLoaded,  setApplicationsLoaded]  = useState(false);
+
   // Configuración editable de reputación
   const [repParams, setRepParams] = useState(() => {
     try {
@@ -147,6 +154,7 @@ export default function AdminDashboard() {
     if (activeSection === 'reports'  && !reportsLoaded)  loadReports();
     if (activeSection === 'config'   && !catsLoaded)     loadCategories();
     if (activeSection === 'logs'     && !logsLoaded)     loadLogs();
+    if (activeSection === 'dealers'  && !applicationsLoaded) loadApplications();
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Suscripción en tiempo real para logs ────────────────────────────────
@@ -944,6 +952,14 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadApplications = async () => {
+    setApplicationsLoading(true);
+    const { success, data } = await getApplications();
+    if (success) setApplications(data);
+    setApplicationsLoading(false);
+    setApplicationsLoaded(true);
+  };
+
   // ─── Render ───────────────────────────────────────────────────────────────
   const reportsBadge = typeof stats.reports === 'number' && stats.reports > 0
     ? stats.reports
@@ -959,6 +975,7 @@ export default function AdminDashboard() {
             { key: 'users',    icon: '◉', label: td.navUsers },
             { key: 'content',  icon: '◈', label: td.navContent },
             { key: 'reports',  icon: '⚠', label: td.navReports, badge: reportsBadge },
+            { key: 'dealers',  icon: '🛵', label: 'Repartidores', badge: applications.filter(a => a.status === 'pending').length || null },
             { key: 'config',   icon: '⚙', label: td.navConfig },
             { key: 'logs',     icon: '◎', label: td.navLogs },
           ].map((item) => (
@@ -1611,6 +1628,25 @@ export default function AdminDashboard() {
           </>
         )}
       </main>
+
+      {/* ── Solicitudes de Repartidor ──────────────────────────────────── */}
+      {activeSection === 'dealers' && (
+        <main style={s.main} className="admin-main">
+          <div style={s.section}>
+            <div style={s.sectionHead}>
+              <span style={s.sectionTitle}>🛵 Solicitudes de Repartidor</span>
+            </div>
+            {applicationsLoading ? (
+              <Spinner />
+            ) : (
+              <DealerApplicationsTable
+                applications={applications}
+                onReviewed={() => { setApplicationsLoaded(false); loadApplications(); }}
+              />
+            )}
+          </div>
+        </main>
+      )}
 
       {banModal && (
         <BanModal

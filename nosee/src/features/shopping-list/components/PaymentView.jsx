@@ -16,6 +16,7 @@
 
 import { useState, useRef } from 'react';
 import { uploadReceipt, createPayment } from '@/services/api/payments.api';
+import { submitPaymentReceipt } from '@/services/api/orders.api';
 
 // ─── Emojis / colores por método ─────────────────────────────────────────────
 const METHOD_META = {
@@ -32,6 +33,7 @@ function meta(method) {
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitted }) {
+  const [mode,      setMode]      = useState('transferencia'); // 'transferencia' | 'efectivo'
   const [tabIdx,    setTabIdx]    = useState(0);
   const [file,      setFile]      = useState(null);
   const [preview,   setPreview]   = useState(null);
@@ -41,27 +43,11 @@ export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitt
   const fileInputRef = useRef(null);
 
   const totalAmount = (order.result?.totalCost ?? 0) + (order.result?.deliveryFee ?? 8000);
+  const orderId     = order.supabaseId ?? order.id;
 
-  // ── Sin cuentas configuradas ───────────────────────────────────────────────
-  if (!bankAccounts || bankAccounts.length === 0) {
-    return (
-      <div style={s.root}>
-        <div style={s.emptyAccounts}>
-          <span style={{ fontSize: 32 }}>🏦</span>
-          <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>
-            El repartidor no ha configurado métodos de pago
-          </p>
-          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            Pedile que configure sus datos bancarios en su perfil antes de aceptar pedidos.
-            Podés pagarle en efectivo al recibirlo.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const account = bankAccounts[tabIdx] ?? bankAccounts[0];
-  const m       = meta(account.method);
+  // account y m solo son válidos en modo transferencia con cuentas disponibles
+  const account = bankAccounts[tabIdx] ?? bankAccounts[0] ?? null;
+  const m       = account ? meta(account.method) : meta('otro');
 
   // ── Seleccionar archivo ────────────────────────────────────────────────────
   const handleFileChange = (e) => {
@@ -82,17 +68,23 @@ export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitt
     });
   };
 
-  // ── Confirmar pago ─────────────────────────────────────────────────────────
+  // ── Confirmar pago en efectivo ─────────────────────────────────────────────
+  const handleCashConfirm = async () => {
+    setUploading(true);
+    setError(null);
+    const { error: err } = await submitPaymentReceipt(orderId, 'efectivo', null);
+    setUploading(false);
+    if (err) { setError('Error al registrar el pago en efectivo. Intentá de nuevo.'); return; }
+    onPaymentSubmitted({ receiptUrl: null, method: 'efectivo' });
+  };
+
+  // ── Confirmar pago por transferencia ───────────────────────────────────────
   const handleConfirm = async () => {
     if (!file) return;
     setUploading(true);
     setError(null);
 
-    const { url, path, error: uploadErr } = await uploadReceipt(
-      userId,
-      order.supabaseId ?? order.id,
-      file
-    );
+    const { url, path, error: uploadErr } = await uploadReceipt(userId, orderId, file);
 
     if (uploadErr) {
       setError('No se pudo subir el comprobante. Verificá tu conexión e intentá de nuevo.');
@@ -101,7 +93,7 @@ export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitt
     }
 
     const { error: payErr } = await createPayment({
-      orderId:     order.supabaseId,
+      orderId:     orderId,
       userId,
       amount:      totalAmount,
       method:      account.method,
@@ -112,6 +104,9 @@ export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitt
     if (payErr) {
       setError('Comprobante subido, pero hubo un error al registrar el pago. Mostrá el comprobante al repartidor.');
     }
+
+    // Cambiar el status del pedido a pendiente_pago para notificar al repartidor
+    await submitPaymentReceipt(orderId, 'transferencia', path);
 
     setUploading(false);
     onPaymentSubmitted({ receiptUrl: url, method: account.method });
@@ -126,7 +121,7 @@ export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitt
         <div>
           <p style={s.headerTitle}>Realizar pago al repartidor</p>
           <p style={s.headerAmount}>
-            Total a transferir:{' '}
+            Total a pagar:{' '}
             <strong style={{ color: 'var(--accent)' }}>
               ${totalAmount.toLocaleString('es-CO')} COP
             </strong>
@@ -135,8 +130,60 @@ export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitt
         </div>
       </div>
 
-      {/* ── Tabs por cada cuenta del repartidor ── */}
-      {bankAccounts.length > 1 && (
+      {/* ── Selector de modo: transferencia o efectivo ── */}
+      <div style={s.modeTabs}>
+        <button
+          type="button"
+          onClick={() => setMode('transferencia')}
+          style={{ ...s.modeTab, ...(mode === 'transferencia' ? s.modeTabActive : {}) }}
+        >
+          🏦 Transferencia
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('efectivo')}
+          style={{ ...s.modeTab, ...(mode === 'efectivo' ? s.modeTabActive : {}) }}
+        >
+          💵 Efectivo
+        </button>
+      </div>
+
+      {/* ── Modo EFECTIVO ── */}
+      {mode === 'efectivo' && (
+        <div style={s.cashBox}>
+          <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            💵 Pago en efectivo
+          </p>
+          <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            Prepará el efectivo por el monto indicado arriba. Al confirmar le avisamos al repartidor que pagarás en efectivo y él verificará el monto al entregarte el pedido.
+          </p>
+          {error && <p style={s.errorMsg}>{error}</p>}
+          <button
+            type="button"
+            onClick={handleCashConfirm}
+            disabled={uploading}
+            style={{ ...s.confirmBtn, ...(uploading ? s.confirmBtnDisabled : {}) }}
+          >
+            {uploading ? 'Enviando...' : '✓ Confirmar pago en efectivo'}
+          </button>
+        </div>
+      )}
+
+      {/* ── Modo TRANSFERENCIA ── */}
+      {mode === 'transferencia' && bankAccounts.length === 0 && (
+        <div style={s.emptyAccounts}>
+          <span style={{ fontSize: 32 }}>🏦</span>
+          <p style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>
+            El repartidor no ha configurado métodos de pago
+          </p>
+          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Usá la opción de efectivo o pedile que configure sus datos bancarios en su perfil.
+          </p>
+        </div>
+      )}
+
+      {/* ── Tabs por cada cuenta del repartidor (solo en modo transferencia) ── */}
+      {mode === 'transferencia' && bankAccounts.length > 1 && (
         <div style={s.tabs}>
           {bankAccounts.map((acc, i) => {
             const mm = meta(acc.method);
@@ -159,114 +206,105 @@ export function PaymentView({ order, userId, bankAccounts = [], onPaymentSubmitt
         </div>
       )}
 
-      {/* ── Datos de la cuenta ── */}
-      <div style={{ ...s.accountCard, borderColor: m.color + '55' }}>
-        <div style={s.accountHeader}>
-          <span style={{ ...s.methodBadge, background: m.colorSoft, color: m.color }}>
-            {m.emoji} {account.label || account.method}
-          </span>
-        </div>
-
-        {/* Número de cuenta */}
-        {account.account_number && (
-          <div style={s.fieldRow}>
-            <div>
-              <p style={s.fieldLabel}>Número de cuenta / celular</p>
-              <p style={s.fieldValue}>{account.account_number}</p>
+      {/* ── Contenido de transferencia ── */}
+      {mode === 'transferencia' && bankAccounts.length > 0 && (
+        <>
+          {/* Datos de la cuenta */}
+          <div style={{ ...s.accountCard, borderColor: m.color + '55' }}>
+            <div style={s.accountHeader}>
+              <span style={{ ...s.methodBadge, background: m.colorSoft, color: m.color }}>
+                {m.emoji} {account.label || account.method}
+              </span>
             </div>
-            <button
-              type="button"
-              onClick={() => handleCopy(account.account_number, 'number')}
-              style={{ ...s.copyBtn, borderColor: m.color, color: m.color }}
-            >
-              {copied === 'number' ? '✓ Copiado' : 'Copiar'}
-            </button>
+
+            {account.account_number && (
+              <div style={s.fieldRow}>
+                <div>
+                  <p style={s.fieldLabel}>Número de cuenta / celular</p>
+                  <p style={s.fieldValue}>{account.account_number}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(account.account_number, 'number')}
+                  style={{ ...s.copyBtn, borderColor: m.color, color: m.color }}
+                >
+                  {copied === 'number' ? '✓ Copiado' : 'Copiar'}
+                </button>
+              </div>
+            )}
+
+            {account.alias && (
+              <div style={s.fieldRow}>
+                <div>
+                  <p style={s.fieldLabel}>Alias / Llave Bre</p>
+                  <p style={s.fieldValue}>{account.alias}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(account.alias, 'alias')}
+                  style={{ ...s.copyBtn, borderColor: m.color, color: m.color }}
+                >
+                  {copied === 'alias' ? '✓ Copiado' : 'Copiar'}
+                </button>
+              </div>
+            )}
+
+            {account.qr_url && (
+              <div style={s.qrWrap}>
+                <img src={account.qr_url} alt={`QR ${account.method}`} style={s.qrImg} />
+                <p style={s.qrHint}>Escaneá desde tu app bancaria</p>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Alias / Llave Bre */}
-        {account.alias && (
-          <div style={s.fieldRow}>
-            <div>
-              <p style={s.fieldLabel}>Alias / Llave Bre</p>
-              <p style={s.fieldValue}>{account.alias}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleCopy(account.alias, 'alias')}
-              style={{ ...s.copyBtn, borderColor: m.color, color: m.color }}
-            >
-              {copied === 'alias' ? '✓ Copiado' : 'Copiar'}
-            </button>
+          {/* Subir comprobante */}
+          <div style={s.uploadSection}>
+            <p style={s.uploadLabel}>📎 Subí la foto del comprobante de pago</p>
+            <p style={s.uploadHint}>El pago se confirma solo cuando el comprobante esté subido.</p>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+
+            {preview ? (
+              <div style={s.previewWrap}>
+                <img src={preview} alt="Comprobante" style={s.previewImg} />
+                <button
+                  type="button"
+                  onClick={() => { setFile(null); setPreview(null); fileInputRef.current.value = ''; }}
+                  style={s.changeBtn}
+                >
+                  Cambiar foto
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                style={s.uploadBtn}
+              >
+                📷 Tomar foto / Seleccionar comprobante
+              </button>
+            )}
           </div>
-        )}
 
-        {/* QR */}
-        {account.qr_url && (
-          <div style={s.qrWrap}>
-            <img src={account.qr_url} alt={`QR ${account.method}`} style={s.qrImg} />
-            <p style={s.qrHint}>Escaneá desde tu app bancaria</p>
-          </div>
-        )}
-      </div>
+          {error && <p style={s.errorMsg}>{error}</p>}
 
-      {/* ── Subir comprobante ── */}
-      <div style={s.uploadSection}>
-        <p style={s.uploadLabel}>📎 Subí la foto del comprobante de pago</p>
-        <p style={s.uploadHint}>
-          El pago se confirma solo cuando el comprobante esté subido.
-        </p>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          style={{ display: 'none' }}
-        />
-
-        {preview ? (
-          <div style={s.previewWrap}>
-            <img src={preview} alt="Comprobante" style={s.previewImg} />
-            <button
-              type="button"
-              onClick={() => { setFile(null); setPreview(null); fileInputRef.current.value = ''; }}
-              style={s.changeBtn}
-            >
-              Cambiar foto
-            </button>
-          </div>
-        ) : (
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            style={s.uploadBtn}
+            onClick={handleConfirm}
+            disabled={!file || uploading}
+            style={{ ...s.confirmBtn, ...(!file || uploading ? s.confirmBtnDisabled : {}) }}
           >
-            📷 Tomar foto / Seleccionar comprobante
+            {uploading ? 'Subiendo comprobante...' : !file ? 'Primero subí el comprobante' : '✓ Confirmar pago'}
           </button>
-        )}
-      </div>
-
-      {/* ── Error ── */}
-      {error && <p style={s.errorMsg}>{error}</p>}
-
-      {/* ── Confirmar ── */}
-      <button
-        type="button"
-        onClick={handleConfirm}
-        disabled={!file || uploading}
-        style={{
-          ...s.confirmBtn,
-          ...(!file || uploading ? s.confirmBtnDisabled : {}),
-        }}
-      >
-        {uploading
-          ? 'Subiendo comprobante...'
-          : !file
-            ? 'Primero subí el comprobante'
-            : '✓ Confirmar pago'}
-      </button>
+        </>
+      )}
     </div>
   );
 }
@@ -283,6 +321,21 @@ const s = {
   emptyAccounts: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
     gap: 10, padding: '20px 0', textAlign: 'center',
+  },
+  modeTabs: { display: 'flex', gap: '8px' },
+  modeTab: {
+    flex: 1, padding: '9px 14px', borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border)', background: 'var(--bg-base)',
+    color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+  },
+  modeTabActive: {
+    background: 'var(--accent-soft, #e0e7ff)', color: 'var(--accent)',
+    border: '1px solid var(--accent)', fontWeight: 800,
+  },
+  cashBox: {
+    display: 'flex', flexDirection: 'column', gap: '10px',
+    padding: '16px', background: 'var(--bg-elevated)',
+    border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
   },
   header: { display: 'flex', gap: '12px', alignItems: 'flex-start' },
   headerIcon: { fontSize: '28px', flexShrink: 0 },
