@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { DeliveryCard } from './DeliveryCard';
+import { RatingModal } from './RatingModal';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
 import { updateProductPrice, logPriceCorrection } from '@/services/api/orders.api';
+import { hasRated } from '@/services/api/dealerRatings.api';
 
 // Mapa de estado de Supabase (tabla orders) → estado de UI local
 // El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
@@ -142,9 +144,13 @@ const sc = {
 
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
 export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint }) {
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [selectedIdx,  setSelectedIdx]  = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
-  const [checklist, setChecklist] = useState({});
+  const [checklist,    setChecklist]    = useState({});
+  // ratingModal: null | { orderId: number, dealerId: string }
+  const [ratingModal,  setRatingModal]  = useState(null);
+  // Set de supabaseIds ya presentados para rating (para no volver a mostrar)
+  const ratedRef = useRef(new Set());
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
 
   // Actualiza el precio de un producto y registra la corrección en el log.
@@ -276,6 +282,26 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.dealerId, selectedOrder?.id]);
 
+  // ── Mostrar modal de calificación cuando el pedido es entregado ───────────
+  // Se activa cuando deliveryStatus cambia a 'entregado' y el usuario no ha
+  // calificado este pedido antes (verificado en BD + ref local para evitar re-mostrar).
+  useEffect(() => {
+    if (!selectedOrder?.deliveryMode) return;
+    if (selectedOrder.deliveryStatus !== 'entregado') return;
+    if (!selectedOrder.supabaseId || !selectedOrder.dealerId) return;
+
+    const sid = selectedOrder.supabaseId;
+    if (ratedRef.current.has(sid)) return;
+
+    hasRated(sid).then(({ data }) => {
+      if (!data?.rated) {
+        setRatingModal({ orderId: sid, dealerId: selectedOrder.dealerId });
+      }
+      ratedRef.current.add(sid);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.deliveryStatus, selectedOrder?.supabaseId]);
+
   const handleRemove = (id) => {
     removeOrder(id);
     setSelectedIdx((prev) => Math.max(0, prev - 1));
@@ -324,6 +350,15 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
   return (
     <div style={pedidos.root}>
+      {/* ── Modal de calificación del repartidor ─── */}
+      {ratingModal && (
+        <RatingModal
+          orderId={ratingModal.orderId}
+          dealerId={ratingModal.dealerId}
+          onDone={() => setRatingModal(null)}
+        />
+      )}
+
       {/* ── Carrusel de pedidos ─────────────────────────────────── */}
       <div style={pedidos.carousel}>
         {orders.map((o, i) => {
