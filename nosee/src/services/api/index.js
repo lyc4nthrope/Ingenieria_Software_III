@@ -12,3 +12,6 @@ export * as productsApi from './products.api';
 export * as commentsApi from './comments.api';
 export * as storesApi from './stores.api';
 export * as alertsApi from './alerts.api';
+export * as ordersApi from './orders.api';
+export * as dealerApplicationsApi from './dealerApplications.api';
+export * as dealerRatingsApi from './dealerRatings.api';

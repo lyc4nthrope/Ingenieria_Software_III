@@ -276,3 +276,121 @@ export async function getDealerLocation(dealerId) {
     .single();
   return { data, error };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PAGO — flujo sin pasarela externa (transferencia bancaria o efectivo)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * El usuario registra su método de pago y sube el comprobante (si aplica).
+ * Solo funciona cuando el pedido está en 'pendiente_pago'.
+ *
+ * RLS: el usuario solo puede actualizar su propio pedido en estado 'pendiente_pago'.
+ *
+ * @param {string} orderId
+ * @param {'transferencia'|'efectivo'} method
+ * @param {string|null} receiptUrl - URL de Cloudinary (solo para transferencia)
+ */
+export async function submitPaymentReceipt(orderId, method, receiptUrl = null) {
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      payment_method:      method,
+      payment_receipt_url: receiptUrl,
+    })
+    .eq('id', Number(orderId));
+
+  return { error };
+}
+
+/**
+ * El repartidor confirma que recibió el pago y marca el pedido como entregado.
+ * Llama a la función SECURITY DEFINER confirm_payment en Supabase,
+ * que valida que el caller sea el repartidor asignado y el estado sea 'pendiente_pago'.
+ *
+ * @param {number} orderId - INTEGER del pedido
+ */
+export async function confirmPayment(orderId) {
+  const { error } = await supabase.rpc('confirm_payment', { p_order_id: Number(orderId) });
+  return { error };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOVEDADES — producto no disponible durante la compra
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * El repartidor reporta que un producto no estaba disponible en la tienda.
+ * Guarda la novedad en el JSONB stores del pedido agregando `unavailable: true`
+ * al producto específico y un campo `unavailable_note`.
+ *
+ * @param {string} orderId
+ * @param {number} storeIdx   - índice del store en stores[]
+ * @param {number} productIdx - índice del producto en store.products[]
+ * @param {string} note       - nota del repartidor (ej: "No había en tienda")
+ */
+export async function reportUnavailableProduct(orderId, storeIdx, productIdx, note = '') {
+  // 1. Traer el JSONB actual
+  const { data: order, error: fetchErr } = await supabase
+    .from('orders')
+    .select('stores')
+    .eq('id', orderId)
+    .single();
+
+  if (fetchErr || !order?.stores) {
+    return { error: fetchErr ?? new Error('Pedido no encontrado') };
+  }
+
+  // 2. Marcar el producto como no disponible
+  const stores = JSON.parse(JSON.stringify(order.stores));
+  if (!stores[storeIdx]?.products?.[productIdx]) {
+    return { error: new Error('Índice de producto fuera de rango') };
+  }
+  stores[storeIdx].products[productIdx].unavailable       = true;
+  stores[storeIdx].products[productIdx].unavailable_note  = note;
+
+  // 3. Persistir
+  const { error } = await supabase
+    .from('orders')
+    .update({ stores })
+    .eq('id', orderId);
+
+  return { error };
+}
+
+/**
+ * Obtiene los pedidos del historial del repartidor (estado 'entregado').
+ */
+export async function getDealerOrderHistory({ limit = 20, offset = 0 } = {}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: [], error: new Error('No autenticado') };
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, local_id, status, delivery_address, total_cost, delivery_fee, created_at')
+    .eq('dealer_id', user.id)
+    .eq('status', 'entregado')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  return { data: data ?? [], error };
+}
+
+/**
+ * Obtiene un pedido con los datos del repartidor asignado (para que el usuario pueda
+ * ver sus datos de pago y contacto).
+ *
+ * @param {string} orderId
+ */
+export async function getOrderWithDealer(orderId) {
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      dealer:users!orders_dealer_id_fkey(id, full_name, avatar_url, reputation_points)
+    `)
+    .eq('id', orderId)
+    .single();
+
+  return { data, error };
+}
