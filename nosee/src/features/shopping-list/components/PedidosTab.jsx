@@ -396,18 +396,6 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             />
           )}
 
-          {/* ── Mapa VoyYo (solo recogidas) ── */}
-          {isPickup && selectedOrder && (
-            <div style={{ height: '500px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)' }}>
-              <VoyYoMapView
-                result={selectedOrder.result}
-                userCoords={selectedOrder.userCoords ?? null}
-                onAddProduct={(name, tempId, cb) => onAddProduct?.(name, tempId, cb, selectedOrder.id)}
-                onRemoveOrder={() => removeOrder(selectedOrder.id)}
-              />
-            </div>
-          )}
-
           {/* ── Productos en el pedido (solo domicilio) ── */}
           {selectedOrder.deliveryMode && allProducts.length > 0 && (
             <div style={{
@@ -523,7 +511,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           />
         </div>
 
-        {/* Columna derecha: mapa rectangular (solo delivery) */}
+        {/* Columna derecha: mapa (delivery = ruta, pickup = VoyYoMapView) */}
         {!isPickup && (
           <div style={pedidos.mapCol}>
             <OrderRouteMap
@@ -532,6 +520,19 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
               userCoords={userCoords}
               driverLocation={selectedOrder.driverLocation ?? null}
               mapHeight="480px"
+            />
+          </div>
+        )}
+        {isPickup && selectedOrder && (
+          <div
+            className="pickup-map-col"
+            style={{ ...pedidos.mapCol, height: '600px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)' }}
+          >
+            <VoyYoMapView
+              result={selectedOrder.result}
+              userCoords={selectedOrder.userCoords ?? null}
+              onAddProduct={(name, tempId, cb) => onAddProduct?.(name, tempId, cb, selectedOrder.id)}
+              onRemoveOrder={() => removeOrder(selectedOrder.id)}
             />
           </div>
         )}

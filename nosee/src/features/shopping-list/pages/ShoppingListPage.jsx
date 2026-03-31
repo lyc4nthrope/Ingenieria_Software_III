@@ -124,6 +124,7 @@ export default function ShoppingListPage() {
         }
         @media (max-width: 760px) {
           .pedidos-layout { grid-template-columns: 1fr; }
+          .pickup-map-col { order: -1; }
         }
         @keyframes savedFlash {
           0%, 100% { color: var(--text-secondary); }
