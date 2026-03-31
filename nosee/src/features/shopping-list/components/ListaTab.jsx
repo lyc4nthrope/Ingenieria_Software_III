@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useOptimPrefs } from '../hooks/useOptimPrefs';
+import { useOptimizeSingleItem } from '../hooks/useOptimizeSingleItem';
 import { useGeoLocation } from '@/features/publications/hooks/useGeoLocation';
 import * as publicationsApi from '@/services/api/publications.api';
 import { OptimSettingsPanel } from './OptimSettingsPanel';
@@ -111,29 +112,20 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   };
 
   // ── Optimización individual (para ítems añadidos post-cálculo) ───────────────
+  const { optimizeSingleItem: _optimizeSingleItem } = useOptimizeSingleItem({ prefs, hasLocation, latitude, longitude });
+
   const optimizeSingleItem = useCallback(async (item) => {
     setOptimizingItems((prev) => ({ ...prev, [item.id]: true }));
-
-    const needsCoords  = prefs.sortMode === 'nearest' || prefs.sortMode === 'balanced';
-    const apiSortBy    = prefs.validatedOnly ? 'validated' : 'cheapest';
-    const distanceParams = needsCoords && hasLocation
-      ? { maxDistance: prefs.maxDistance, latitude, longitude }
-      : {};
-
     try {
-      const res  = await publicationsApi.getPublications({ productName: item.productName, sortBy: apiSortBy, limit: 30, ...distanceParams });
-      let   pubs = res.success ? (res.data ?? []) : [];
-      if (prefs.storeType === 'physical') pubs = pubs.filter((p) => Number(p.store?.store_type_id) !== 2);
-      else if (prefs.storeType === 'online')  pubs = pubs.filter((p) => Number(p.store?.store_type_id) === 2);
-      const sorted = [...pubs].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+      const { pubs: sorted, bestPub } = await _optimizeSingleItem(item);
       setCalcResults((prev) => prev ? { ...prev, [item.id]: sorted } : { [item.id]: sorted });
-      if (sorted.length > 0) setSelectedPubs((prev) => ({ ...prev, [item.id]: sorted[0] }));
+      if (bestPub) setSelectedPubs((prev) => ({ ...prev, [item.id]: bestPub }));
     } catch {
       setCalcResults((prev) => prev ? { ...prev, [item.id]: [] } : { [item.id]: [] });
     } finally {
       setOptimizingItems((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
     }
-  }, [prefs, hasLocation, latitude, longitude]);
+  }, [_optimizeSingleItem]);
 
   // Cuando la lista ya está calculada y se agrega un ítem nuevo, optimizarlo solo
   const isCalculatedRef = useRef(false);
