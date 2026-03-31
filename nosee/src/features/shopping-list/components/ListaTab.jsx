@@ -8,6 +8,7 @@ import { InfiniteHorizontalCarousel } from './InfiniteHorizontalCarousel';
 import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, DELIVERY_FEE, buildResultFromSelections } from '../utils/shoppingListUtils';
 import { lista, modeSelection, delivForm } from '../styles/shoppingListStyles';
 import { useAuthStore } from '@/features/auth/store/authStore';
+import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import { createOrder } from '@/services/api/orders.api';
 
 // ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   const [saveError, setSaveError] = useState(null);
 
   const currentUserId = useAuthStore((s) => s.user?.id);
+  const updateItem = useShoppingListStore((s) => s.updateItem);
 
   // Ítem expandido (muestra carrusel)
   const [expandedId, setExpandedId] = useState(null);
@@ -731,7 +733,25 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                       <div style={lista.optimItemBody}>
                         <span style={lista.optimItemName}>{item.productName}</span>
                         <div style={lista.optimItemMeta}>
-                          <span style={lista.optimItemQty}>× {item.quantity}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => updateItem(item.id, { quantity: Math.max(1, item.quantity - 1) })}
+                              style={lista.qtyBtn}
+                              aria-label="Reducir cantidad"
+                            >
+                              −
+                            </button>
+                            <span style={lista.qtyValue}>{item.quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => updateItem(item.id, { quantity: item.quantity + 1 })}
+                              style={lista.qtyBtn}
+                              aria-label="Aumentar cantidad"
+                            >
+                              +
+                            </button>
+                          </div>
                           {isOptimizingThis && (
                             <span style={{ color: 'var(--accent)', fontStyle: 'italic' }}>⏳ Optimizando...</span>
                           )}
@@ -749,9 +769,9 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                         {!isOptimizingThis && hasPubs && chosenPrice !== null && (
                           <div style={{ textAlign: 'right' }}>
                             <div style={lista.optimItemPrice}>
-                              ${chosenPrice.toLocaleString('es-CO')}
+                              ${(chosenPrice * item.quantity).toLocaleString('es-CO')}
                             </div>
-                            <div style={lista.optimItemPriceSub}>COP</div>
+                            <div style={lista.optimItemPriceSub}>{item.quantity > 1 ? `${item.quantity} × $${chosenPrice.toLocaleString('es-CO')}` : 'COP'}</div>
                           </div>
                         )}
                         <div style={lista.optimItemActions}>

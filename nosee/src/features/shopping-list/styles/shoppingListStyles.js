@@ -299,6 +299,22 @@ export const lista = {
   optimItemRight: { display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 },
   optimItemPrice: { fontSize: '15px', fontWeight: 800, color: 'var(--accent)', textAlign: 'right', lineHeight: 1.2 },
   optimItemPriceSub: { fontSize: '10px', color: 'var(--text-muted)', textAlign: 'right' },
+  qtyBtn: {
+    width: '24px', height: '24px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
+    color: 'var(--text-primary)',
+    fontSize: '14px', fontWeight: 800,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', flexShrink: 0,
+    lineHeight: 1,
+  },
+  qtyValue: {
+    fontSize: '13px', fontWeight: 700,
+    color: 'var(--text-primary)',
+    minWidth: '20px', textAlign: 'center',
+  },
   optimItemActions: { display: 'flex', alignItems: 'center', gap: '4px' },
   optimChevronBtn: {
     background: 'none', border: '1px solid var(--border)', color: 'var(--text-secondary)',
