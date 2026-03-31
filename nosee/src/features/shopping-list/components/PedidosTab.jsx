@@ -3,11 +3,11 @@ import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { DeliveryCard } from './DeliveryCard';
 import { VoyYoMapView } from './VoyYoMapView';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
-import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
 import { updateProductPrice, logPriceCorrection } from '@/services/api/orders.api';
 import { createPublication } from '@/services/api/publications.api';
+import { cn } from '@/lib/cn';
 
 // Mapa de estado de Supabase (tabla orders) → estado de UI local
 // El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
@@ -35,10 +35,16 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
   const canDown = page < maxPage;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div className="flex flex-col gap-[6px]">
       {/* ── Flecha arriba ── */}
       {canUp && (
-        <button type="button" onClick={() => setPage((p) => p - 1)} style={sc.arrow}>▲</button>
+        <button
+          type="button"
+          onClick={() => setPage((p) => p - 1)}
+          className="w-full py-[5px] bg-bg-elevated border border-line rounded-sm text-accent text-[13px] font-extrabold leading-none cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          ▲
+        </button>
       )}
 
       {/* ── Tarjetas de tienda ── */}
@@ -48,46 +54,50 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
         const subtotal = s.products.reduce((a, p) => a + (p.price || 0) * (p.item?.quantity || 1), 0);
         const checked  = s.products.filter((_, pi) => checklist[`${orderId}-${si}-${pi}`]).length;
         return (
-          <div key={si} style={resv.storeCard}>
+          <div key={si} className="bg-bg-surface border border-line rounded-md overflow-hidden">
             {/* Header tienda */}
-            <div style={resv.storeHeader}>
+            <div className="flex justify-between items-center px-[14px] py-[9px] bg-bg-elevated border-b border-line text-[13px] font-bold text-text-primary">
               <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="flex items-center gap-2">
                 {checked > 0 && (
-                  <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
+                  <span className="text-[11px] text-accent font-extrabold">
                     {checked}/{s.products.length} ✓
                   </span>
                 )}
-                <span style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                <span className="text-accent font-extrabold">
                   ${subtotal.toLocaleString('es-CO')}
                 </span>
               </div>
             </div>
 
             {/* Productos */}
-            <ul style={resv.prodList}>
+            <ul className="list-none m-0 p-0">
               {s.products.map((p, pi) => {
                 const key  = `${orderId}-${si}-${pi}`;
                 const done = !!checklist[key];
                 return (
                   <li
                     key={pi}
-                    style={{ ...resv.prodItem, ...(done ? { opacity: 0.55 } : {}) }}
+                    className={cn(
+                      'flex justify-between items-center px-[14px] py-2 border-b border-line text-[13px] cursor-pointer',
+                      done && 'opacity-55',
+                    )}
                     onClick={() => toggleCheck(key)}
                   >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flex: 1, cursor: 'pointer' }}>
+                    <div className="flex items-start gap-2 flex-1 cursor-pointer">
                       {/* Checkbox */}
-                      <span style={{
-                        width: 15, height: 15, borderRadius: 3, flexShrink: 0, marginTop: 2,
-                        border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
-                        background: done ? 'var(--accent)' : 'transparent',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 9, fontWeight: 800, color: '#fff',
-                      }}>
+                      <span
+                        className={cn(
+                          'w-[15px] h-[15px] rounded-[3px] shrink-0 mt-[2px] border-2 flex items-center justify-center text-[9px] font-extrabold text-white',
+                          done ? 'border-accent bg-accent' : 'border-line bg-transparent',
+                        )}
+                      >
                         {done ? '✓' : ''}
                       </span>
-                      <div style={done ? { textDecoration: 'line-through' } : {}}>
-                        <div style={resv.prodName}>{p.item?.productName ?? p.productName ?? 'Producto'}</div>
+                      <div className={cn(done && 'line-through')}>
+                        <div className="font-semibold text-text-primary mb-[2px]">
+                          {p.item?.productName ?? p.productName ?? 'Producto'}
+                        </div>
                         {(() => {
                           const prod = p.publication?.product;
                           if (!prod) return null;
@@ -96,19 +106,21 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
                           const detail = [qty, unit].filter(Boolean).join(' ');
                           const text = [prod.name, detail].filter(Boolean).join(' · ');
                           return text ? (
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div className="text-[10px] text-text-muted overflow-hidden text-ellipsis whitespace-nowrap">
                               {text}
                             </div>
                           ) : null;
                         })()}
-                        <div style={resv.prodMeta}>×{p.item?.quantity || 1} · ${(p.price || 0).toLocaleString('es-CO')} c/u</div>
+                        <div className="text-[11px] text-text-muted">
+                          ×{p.item?.quantity || 1} · ${(p.price || 0).toLocaleString('es-CO')} c/u
+                        </div>
                       </div>
                     </div>
                     <div
-                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}
+                      className="flex flex-col items-end gap-[3px] shrink-0"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <span style={{ ...resv.prodTotal, ...(done ? { textDecoration: 'line-through' } : {}) }}>
+                      <span className={cn('font-bold text-text-primary shrink-0 ml-2', done && 'line-through')}>
                         ${((p.price || 0) * (p.item?.quantity || 1)).toLocaleString('es-CO')}
                       </span>
                       {onPriceReport && (
@@ -128,31 +140,24 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
 
       {/* ── Flecha abajo ── */}
       {canDown && (
-        <button type="button" onClick={() => setPage((p) => p + 1)} style={sc.arrow}>▼</button>
+        <button
+          type="button"
+          onClick={() => setPage((p) => p + 1)}
+          className="w-full py-[5px] bg-bg-elevated border border-line rounded-sm text-accent text-[13px] font-extrabold leading-none cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          ▼
+        </button>
       )}
 
       {/* Indicador de página */}
       {total > STORE_PAGE_SIZE && (
-        <p style={sc.pageInfo}>
+        <p className="m-0 text-[11px] text-text-muted text-center font-semibold">
           {start + 1}–{Math.min(start + STORE_PAGE_SIZE, total)} de {total} tiendas
         </p>
       )}
     </div>
   );
 }
-
-const sc = {
-  arrow: {
-    width: '100%', padding: '5px',
-    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm)', color: 'var(--accent)',
-    fontSize: '13px', fontWeight: 800, cursor: 'pointer', lineHeight: 1,
-  },
-  pageInfo: {
-    margin: 0, fontSize: '11px', color: 'var(--text-muted)',
-    textAlign: 'center', fontWeight: 600,
-  },
-};
 
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
 export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint, variant = 'delivery', onAddProduct }) {
@@ -339,9 +344,9 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
   if (orders.length === 0) {
     return (
-      <div style={pedidos.empty}>
-        <p style={pedidos.emptyText}>No hay pedidos aquí aún</p>
-        <p style={pedidos.emptyHint}>
+      <div className="flex flex-col items-center gap-2 px-6 py-10 bg-bg-surface border border-dashed border-line rounded-md text-center">
+        <p className="m-0 text-[14px] font-semibold text-text-primary">No hay pedidos aquí aún</p>
+        <p className="m-0 text-[12px] text-text-muted">
           {emptyHint ?? 'Ve a la pestaña Mi Lista, configura un pedido y aparecerá aquí.'}
         </p>
       </div>
@@ -357,9 +362,9 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   );
 
   return (
-    <div style={pedidos.root}>
+    <div className="flex flex-col gap-[10px]">
       {/* ── Carrusel de pedidos ─────────────────────────────────── */}
-      <div style={pedidos.carousel}>
+      <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
         {orders.map((o, i) => {
           const active = i === selectedIdx;
           const d = new Date(o.createdAt);
@@ -369,17 +374,22 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
               key={o.id}
               type="button"
               onClick={() => { setSelectedIdx(i); setShowTotalSum(false); }}
-              style={{ ...pedidos.pill, ...(active ? pedidos.pillActive : {}) }}
+              className={cn(
+                'shrink-0 flex flex-col items-center gap-[3px] px-[18px] py-[10px] rounded-md border cursor-pointer transition-all min-w-[90px] min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                active
+                  ? 'bg-accent border-accent text-white shadow-[0_2px_8px_rgba(0,0,0,0.15)]'
+                  : 'bg-bg-surface border-line',
+              )}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={pedidos.pillId}>#{o.id.slice(-6)}</span>
+              <span className="flex items-center gap-1">
+                <span className="text-[14px] font-extrabold font-mono">#{o.id.slice(-6)}</span>
                 {o.deliveryMode && <span title="Domicilio">🛵</span>}
               </span>
-              <span style={{ ...pedidos.pillDate, ...(active ? { opacity: 0.85 } : {}) }}>
+              <span className={cn('text-[11px] font-medium', active ? 'opacity-85' : 'text-text-muted')}>
                 {label}
               </span>
               {active && (
-                <span style={pedidos.pillTotal}>
+                <span className="text-[11px] font-bold mt-[2px]">
                   ${o.result.totalCost.toLocaleString('es-CO')}
                 </span>
               )}
@@ -387,7 +397,10 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleRemove(o.id); }}
-                  style={{ background: 'none', border: 'none', color: active ? '#fff' : 'var(--error)', cursor: 'pointer', padding: '2px 4px', fontSize: '12px', fontWeight: 800 }}
+                  className={cn(
+                    'bg-transparent border-none cursor-pointer px-1 py-[2px] text-[12px] font-extrabold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                    active ? 'text-white' : 'text-error',
+                  )}
                   aria-label="Eliminar recogida"
                 >
                   ✕
@@ -401,18 +414,20 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
       {/* ── Layout dos columnas: info izq + mapa derecha ──────── */}
       <div className="pedidos-layout">
         {/* Columna izquierda */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="flex flex-col gap-[10px]">
           {/* ── Header del pedido activo ── */}
           {!isPickup && (
-            <div style={pedidos.orderHeader}>
-              <div style={pedidos.orderHeaderLeft}>
-                <span style={pedidos.orderRef}>#{selectedOrder.id.slice(-8)}</span>
-                <span style={pedidos.orderDate}>{date}</span>
+            <div className="flex items-center justify-between px-[14px] py-[10px] bg-bg-surface border border-line rounded-md">
+              <div className="flex flex-col gap-[1px]">
+                <span className="text-[13px] font-extrabold font-mono text-text-primary">
+                  #{selectedOrder.id.slice(-8)}
+                </span>
+                <span className="text-[11px] text-text-muted">{date}</span>
               </div>
               <button
                 type="button"
                 onClick={() => handleRemove(selectedOrder.id)}
-                style={pedidos.deleteBtn}
+                className="flex items-center bg-transparent border-none text-text-muted cursor-pointer p-1 min-h-[44px] min-w-[44px] justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 title="Eliminar pedido"
               >
                 <TrashIcon />
@@ -431,53 +446,40 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
           {/* ── Productos en el pedido (solo domicilio) ── */}
           {selectedOrder.deliveryMode && allProducts.length > 0 && (
-            <div style={{
-              background: 'var(--bg-surface)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)', overflow: 'hidden',
-            }}>
-              <div style={{
-                padding: '10px 14px',
-                background: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border)',
-                fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)',
-                textTransform: 'uppercase', letterSpacing: '0.04em',
-              }}>
+            <div className="bg-bg-surface border border-line rounded-md overflow-hidden">
+              <div className="px-[14px] py-[10px] bg-bg-elevated border-b border-line text-[12px] font-bold text-text-secondary uppercase tracking-[0.04em]">
                 {allProducts.length} {allProducts.length === 1 ? 'producto' : 'productos'} en tu pedido
               </div>
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              <ul className="list-none m-0 p-0">
                 {allProducts.slice(0, 5).map((p, i) => (
-                  <li key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: '12px',
-                    padding: '10px 14px',
-                    borderBottom: i < Math.min(allProducts.length, 5) - 1 ? '1px solid var(--border)' : 'none',
-                  }}>
+                  <li
+                    key={i}
+                    className={cn(
+                      'flex items-center gap-3 px-[14px] py-[10px]',
+                      i < Math.min(allProducts.length, 5) - 1 && 'border-b border-line',
+                    )}
+                  >
                     {/* Avatar */}
-                    <div style={{
-                      width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
-                      background: 'var(--accent-soft)', border: '1px solid var(--accent)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '13px', fontWeight: 800, color: 'var(--accent)',
-                      textTransform: 'uppercase',
-                    }}>
+                    <div className="w-[34px] h-[34px] rounded-full shrink-0 bg-bg-accent-soft border border-accent flex items-center justify-center text-[13px] font-extrabold text-accent uppercase">
                       {(p.item?.productName ?? p.productName ?? '?')[0]}
                     </div>
                     {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold text-text-primary whitespace-nowrap overflow-hidden text-ellipsis">
                         {p.item?.productName ?? p.productName ?? 'Producto'}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      <div className="text-[11px] text-text-muted">
                         ×{p.item?.quantity || 1} · {p.storeName}
                       </div>
                     </div>
                     {/* Price */}
-                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>
+                    <span className="text-[13px] font-extrabold text-accent shrink-0">
                       ${((p.price || 0) * (p.item?.quantity || 1)).toLocaleString('es-CO')}
                     </span>
                   </li>
                 ))}
                 {allProducts.length > 5 && (
-                  <li style={{ padding: '8px 14px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  <li className="px-[14px] py-2 text-center text-[12px] text-text-muted font-semibold">
                     +{allProducts.length - 5} productos más
                   </li>
                 )}
@@ -486,51 +488,59 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           )}
 
           {/* ── Totales rápidos ── */}
-          <div style={pedidos.stats}>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] gap-2">
             {selectedOrder.deliveryMode && selectedOrder.deliveryStatus === 'en_camino' ? (
               <button
                 type="button"
                 onClick={() => setShowTotalSum((v) => !v)}
-                style={{ ...pedidos.stat, cursor: 'pointer', border: '1px solid var(--accent)', position: 'relative' }}
+                className="flex flex-col items-center gap-[2px] px-2 py-[10px] bg-bg-surface border border-accent rounded-md cursor-pointer relative min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 title={showTotalSum ? 'Ver desglose' : 'Ver total combinado'}
               >
                 {showTotalSum ? (
                   <>
-                    <span style={pedidos.statVal}>${(result.totalCost + DELIVERY_FEE).toLocaleString('es-CO')}</span>
-                    <span style={pedidos.statLabel}>Total c/ dom.</span>
-                    <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>← desglosar</span>
+                    <span className="text-[15px] font-extrabold text-accent">
+                      ${(result.totalCost + DELIVERY_FEE).toLocaleString('es-CO')}
+                    </span>
+                    <span className="text-[10px] text-text-muted uppercase tracking-[0.04em]">Total c/ dom.</span>
+                    <span className="text-[9px] text-accent mt-[1px]">← desglosar</span>
                   </>
                 ) : (
                   <>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
+                    <span className="text-[11px] font-extrabold text-accent leading-[1.2]">
                       ${result.totalCost.toLocaleString('es-CO')}
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> + </span>
+                      <span className="text-text-muted font-semibold"> + </span>
                       ${DELIVERY_FEE.toLocaleString('es-CO')}
                     </span>
-                    <span style={pedidos.statLabel}>Lista + Domicilio</span>
-                    <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>→ ver total</span>
+                    <span className="text-[10px] text-text-muted uppercase tracking-[0.04em]">Lista + Domicilio</span>
+                    <span className="text-[9px] text-accent mt-[1px]">→ ver total</span>
                   </>
                 )}
               </button>
             ) : (
-              <div style={pedidos.stat}>
-                <span style={pedidos.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
-                <span style={pedidos.statLabel}>Total COP</span>
+              <div className="flex flex-col items-center gap-[2px] px-2 py-[10px] bg-bg-surface border border-line rounded-md">
+                <span className="text-[15px] font-extrabold text-accent">
+                  ${result.totalCost.toLocaleString('es-CO')}
+                </span>
+                <span className="text-[10px] text-text-muted uppercase tracking-[0.04em]">Total COP</span>
               </div>
             )}
             {result.savings > 0 && (
-              <div style={pedidos.stat}>
-                <span style={{ ...pedidos.statVal, color: 'var(--success, #16a34a)' }}>{result.savingsPct}%</span>
-                <span style={pedidos.statLabel}>Ahorro</span>
+              <div className="flex flex-col items-center gap-[2px] px-2 py-[10px] bg-bg-surface border border-line rounded-md">
+                <span className="text-[15px] font-extrabold text-success">{result.savingsPct}%</span>
+                <span className="text-[10px] text-text-muted uppercase tracking-[0.04em]">Ahorro</span>
               </div>
             )}
-            <div style={pedidos.stat}>
-              <span style={pedidos.statVal}>{result.stores.length}</span>
-              <span style={pedidos.statLabel}>{result.stores.length === 1 ? 'Tienda' : 'Tiendas'}</span>
+            <div className="flex flex-col items-center gap-[2px] px-2 py-[10px] bg-bg-surface border border-line rounded-md">
+              <span className="text-[15px] font-extrabold text-accent">{result.stores.length}</span>
+              <span className="text-[10px] text-text-muted uppercase tracking-[0.04em]">
+                {result.stores.length === 1 ? 'Tienda' : 'Tiendas'}
+              </span>
             </div>
-            <div style={pedidos.stat}>
-              <span style={pedidos.statVal}>{allProducts.length}</span>
-              <span style={pedidos.statLabel}>{allProducts.length === 1 ? 'Producto' : 'Productos'}</span>
+            <div className="flex flex-col items-center gap-[2px] px-2 py-[10px] bg-bg-surface border border-line rounded-md">
+              <span className="text-[15px] font-extrabold text-accent">{allProducts.length}</span>
+              <span className="text-[10px] text-text-muted uppercase tracking-[0.04em]">
+                {allProducts.length === 1 ? 'Producto' : 'Productos'}
+              </span>
             </div>
           </div>
 
@@ -546,7 +556,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
         {/* Columna derecha: mapa (delivery = ruta, pickup = VoyYoMapView) */}
         {!isPickup && (
-          <div style={pedidos.mapCol}>
+          <div className="sticky top-[80px]">
             <OrderRouteMap
               key={selectedOrder.id}
               stores={result.stores}
@@ -558,8 +568,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         )}
         {isPickup && selectedOrder && (
           <div
-            className="pickup-map-col"
-            style={{ ...pedidos.mapCol, height: '600px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)' }}
+            className="pickup-map-col sticky top-[80px] h-[600px] rounded-md overflow-hidden border border-line"
           >
             <VoyYoMapView
               result={selectedOrder.result}
