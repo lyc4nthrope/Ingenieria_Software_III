@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { StoreOnlyMap } from '@/features/orders/components/StoreOnlyMap';
 import { parseStoreCoords } from '@/features/orders/utils/parseStoreCoords';
 import { getStoreEmoji } from '@/features/shopping-list/utils/shoppingListUtils';
@@ -27,7 +27,31 @@ function buildGoogleMapsUrl(stores, userCoords) {
 }
 
 export function VoyYoMapView({ result, userCoords, onAddProduct, onRemoveOrder }) {
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [panelOpen, setPanelOpen]           = useState(true);
+  const [checkedKeys, setCheckedKeys]       = useState(new Set());
+  const [newProductInput, setNewProductInput] = useState('');
+  const [pendingProducts, setPendingProducts] = useState([]);
+  // pendingProduct shape: { tempId: string, name: string, status: 'loading'|'done'|'error' }
+
+  const toggleCheck = useCallback((key) => {
+    setCheckedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const handleAddProduct = useCallback(() => {
+    const name = newProductInput.trim();
+    if (!name) return;
+    const tempId = `pending-${Date.now()}`;
+    setPendingProducts((prev) => [...prev, { tempId, name, status: 'loading' }]);
+    setNewProductInput('');
+    onAddProduct?.(name, tempId, (status) => {
+      setPendingProducts((prev) => prev.map((p) => p.tempId === tempId ? { ...p, status } : p));
+    });
+  }, [newProductInput, onAddProduct]);
 
   const stores      = result?.stores ?? [];
   const totalCost   = result?.totalCost ?? 0;
@@ -107,46 +131,142 @@ export function VoyYoMapView({ result, userCoords, onAddProduct, onRemoveOrder }
                     <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
                     <span style={{ color: 'var(--accent)' }}>${subtotal.toLocaleString('es-CO')}</span>
                   </div>
+
                   {/* Products */}
                   <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                    {s.products.map((p, pi) => (
-                      <li key={pi} style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        padding: '7px 12px',
-                        borderBottom: pi < s.products.length - 1 ? '1px solid var(--border)' : 'none',
-                        fontSize: '12px',
-                      }}>
-                        {/* Avatar */}
-                        <div style={{
-                          width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-                          background: 'var(--accent-soft)', border: '1px solid var(--accent)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '11px', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase',
-                          overflow: 'hidden',
+                    {s.products.map((p, pi) => {
+                      const ckKey  = `${si}-${pi}`;
+                      const isDone = checkedKeys.has(ckKey);
+                      return (
+                        <li key={pi} style={{
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          padding: '7px 12px',
+                          borderBottom: pi < s.products.length - 1 ? '1px solid var(--border)' : 'none',
+                          fontSize: '12px',
                         }}>
-                          {p.photo_url ? (
-                            <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                          ) : (
-                            (p.item?.productName ?? p.productName ?? '?')[0]
-                          )}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {p.item?.productName ?? p.productName ?? 'Producto'}
+                          {/* Checkbox */}
+                          <input
+                            type="checkbox"
+                            checked={isDone}
+                            onChange={() => toggleCheck(ckKey)}
+                            style={{ flexShrink: 0, cursor: 'pointer', accentColor: 'var(--accent)', width: '14px', height: '14px' }}
+                          />
+                          {/* Avatar */}
+                          <div style={{
+                            width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+                            background: 'var(--accent-soft)', border: '1px solid var(--accent)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '11px', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase',
+                            overflow: 'hidden',
+                          }}>
+                            {p.photo_url ? (
+                              <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                            ) : (
+                              (p.item?.productName ?? p.productName ?? '?')[0]
+                            )}
                           </div>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
-                            ×{p.item?.quantity || 1} · ${(p.price || 0).toLocaleString('es-CO')} c/u
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontWeight: 600, color: 'var(--text-primary)',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              ...(isDone ? { opacity: 0.5, textDecoration: 'line-through' } : {}),
+                            }}>
+                              {p.item?.productName ?? p.productName ?? 'Producto'}
+                            </div>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+                              ×{p.item?.quantity || 1} · ${(p.price || 0).toLocaleString('es-CO')} c/u
+                            </div>
                           </div>
-                        </div>
-                        <span style={{ fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>
-                          ${((p.price || 0) * (p.item?.quantity || 1)).toLocaleString('es-CO')}
-                        </span>
-                      </li>
-                    ))}
+                          <span style={{ fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>
+                            ${((p.price || 0) * (p.item?.quantity || 1)).toLocaleString('es-CO')}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               );
             })}
+
+            {/* Pending products (optimizando...) */}
+            {pendingProducts.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                  Buscando opciones...
+                </span>
+                {pendingProducts.map((pp) => (
+                  <div key={pp.tempId} style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '8px 12px', background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
+                  }}>
+                    <div style={{
+                      width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+                      background: 'var(--accent-soft)', border: '1px solid var(--accent)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '11px', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase',
+                    }}>
+                      {pp.name[0]}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>{pp.name}</div>
+                      {pp.status === 'loading' && (
+                        <div style={{ fontSize: '11px', color: 'var(--accent)', fontStyle: 'italic' }}>⏳ Optimizando...</div>
+                      )}
+                      {pp.status === 'error' && (
+                        <div style={{ fontSize: '11px', color: 'var(--error)' }}>
+                          Error al cargar ·{' '}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPendingProducts((prev) => prev.filter((p) => p.tempId !== pp.tempId));
+                              onAddProduct?.(pp.name);
+                            }}
+                            style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '11px', fontWeight: 700, padding: 0 }}
+                          >
+                            Reintentar
+                          </button>
+                        </div>
+                      )}
+                      {pp.status === 'done' && (
+                        <div style={{ fontSize: '11px', color: 'var(--success, #16a34a)' }}>✓ Cargado</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add-product input */}
+            <div style={{ display: 'flex', gap: '6px', paddingTop: '4px', borderTop: '1px solid var(--border)', marginTop: '4px' }}>
+              <input
+                type="text"
+                value={newProductInput}
+                onChange={(e) => setNewProductInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newProductInput.trim()) handleAddProduct();
+                }}
+                placeholder="Agregar producto..."
+                style={{
+                  flex: 1, padding: '8px 10px', fontSize: '12px',
+                  borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
+                  background: 'var(--bg-base)', color: 'var(--text-primary)', outline: 'none',
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleAddProduct}
+                disabled={!newProductInput.trim()}
+                style={{
+                  padding: '8px 12px', borderRadius: 'var(--radius-md)', border: 'none',
+                  background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 700,
+                  cursor: newProductInput.trim() ? 'pointer' : 'not-allowed',
+                  opacity: newProductInput.trim() ? 1 : 0.5,
+                }}
+              >
+                +
+              </button>
+            </div>
           </div>
         )}
       </div>

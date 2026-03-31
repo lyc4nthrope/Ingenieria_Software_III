@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { DeliveryCard } from './DeliveryCard';
-import VoyYoMapView from './VoyYoMapView';
+import { VoyYoMapView } from './VoyYoMapView';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
@@ -141,7 +141,7 @@ const sc = {
 };
 
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
-export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint, variant = 'delivery' }) {
+export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint, variant = 'delivery', onAddProduct }) {
   const isPickup = variant === 'pickup';
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
@@ -399,7 +399,11 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           {/* ── Mapa VoyYo (solo recogidas) ── */}
           {isPickup && selectedOrder && (
             <div style={{ height: '500px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)' }}>
-              <VoyYoMapView result={selectedOrder.result} userCoords={selectedOrder.userCoords ?? null} />
+              <VoyYoMapView
+                result={selectedOrder.result}
+                userCoords={selectedOrder.userCoords ?? null}
+                onAddProduct={onAddProduct}
+              />
             </div>
           )}
 
