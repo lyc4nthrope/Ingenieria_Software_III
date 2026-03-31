@@ -4,7 +4,6 @@ import { PaymentView } from './PaymentView';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { getDealerBankAccounts } from '@/services/api/bankAccounts.api';
 
-// ─── Configuración visual de cada estado ─────────────────────────────────────
 const STATUS_CONFIGS = {
   searching: {
     icon: '🛵', bg: 'var(--warning-soft, #fef9c3)', border: 'var(--warning, #ca8a04)',
@@ -12,6 +11,7 @@ const STATUS_CONFIGS = {
     title: 'Buscando repartidor...',
     desc: 'Tu pedido está en cola de asignación.',
     showCancel: true, cancelFree: true,
+    step: 1,
   },
   found: {
     icon: '✓', bg: 'var(--bg-elevated)', border: 'var(--accent)',
@@ -19,6 +19,7 @@ const STATUS_CONFIGS = {
     title: 'Repartidor asignado',
     desc: 'Sigue su ubicación en tiempo real en el mapa →',
     showCancel: true, cancelFree: false,
+    step: 1,
   },
   comprando: {
     icon: '🛒', bg: 'var(--bg-elevated)', border: 'var(--accent)',
@@ -26,6 +27,7 @@ const STATUS_CONFIGS = {
     title: 'Comprando tus productos',
     desc: 'El repartidor está comprando en las tiendas indicadas.',
     showCancel: false,
+    step: 1,
   },
   en_camino: {
     icon: '🛵', bg: 'var(--success-soft, #dcfce7)', border: 'var(--success, #16a34a)',
@@ -33,6 +35,7 @@ const STATUS_CONFIGS = {
     title: 'En camino a tu ubicación',
     desc: 'Sigue su posición en tiempo real en el mapa →',
     showCancel: false, showFee: true,
+    step: 2,
   },
   llegando: {
     icon: '🔔', bg: 'var(--accent-soft)', border: 'var(--accent)',
@@ -40,6 +43,7 @@ const STATUS_CONFIGS = {
     title: '¡El repartidor llegó!',
     desc: 'Realizá el pago para completar el domicilio.',
     showCancel: false, showPayment: true,
+    step: 2,
   },
   comprobante_subido: {
     icon: '⏳', bg: 'var(--bg-elevated)', border: 'var(--success, #16a34a)',
@@ -47,6 +51,7 @@ const STATUS_CONFIGS = {
     title: 'Comprobante enviado',
     desc: 'El repartidor está verificando tu pago.',
     showCancel: false,
+    step: 2,
   },
   entregado: {
     icon: '✅', bg: 'var(--success-soft, #dcfce7)', border: 'var(--success, #16a34a)',
@@ -54,6 +59,7 @@ const STATUS_CONFIGS = {
     title: '¡Pedido entregado!',
     desc: 'Pago confirmado. Gracias por usar NØSEE.',
     showCancel: false,
+    step: 3,
   },
   cancelled: {
     icon: '✗', bg: 'var(--error-soft, #fee2e2)', border: 'var(--error, #dc2626)',
@@ -61,15 +67,21 @@ const STATUS_CONFIGS = {
     title: 'Envío cancelado',
     desc: null,
     showCancel: false,
+    step: 0,
   },
 };
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+const STEPS = [
+  { label: 'Preparando', icon: '🛒', step: 1 },
+  { label: 'En camino', icon: '🛵', step: 2 },
+  { label: 'Entregado', icon: '✅', step: 3 },
+];
+
 export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
   const { deliveryStatus, cancellationCharged, dealerId } = order;
-  const [showPayment,  setShowPayment]  = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
-  const [loadingBank,  setLoadingBank]  = useState(false);
+  const [loadingBank, setLoadingBank] = useState(false);
   const userId = useAuthStore((s) => s.user?.id);
 
   if (!deliveryStatus) return null;
@@ -77,8 +89,6 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
   const cfg = STATUS_CONFIGS[deliveryStatus];
   if (!cfg) return null;
 
-  // ── Cargar cuentas bancarias del repartidor cuando llega ──────────────────
-  // Solo cuando el estado es 'llegando' y hay dealerId
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     if (deliveryStatus !== 'llegando' || !dealerId) return;
@@ -100,72 +110,148 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
     onPaymentSubmitted?.(result);
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {/* ── Badge de estado ── */}
+  const currentStep = cfg.step;
+
+  // Cancelled state — simple error banner
+  if (deliveryStatus === 'cancelled') {
+    return (
       <div style={{
-        display: 'flex', flexDirection: 'column', gap: '4px',
-        padding: '10px 14px',
-        background: cfg.bg,
-        border: `1px solid ${cfg.border}`,
-        borderRadius: 'var(--radius-md)',
+        padding: '14px 16px', borderRadius: 'var(--radius-md)',
+        background: cfg.bg, border: `1px solid ${cfg.border}`,
+        display: 'flex', alignItems: 'center', gap: '10px',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-            <span style={{ fontSize: '16px', fontWeight: 800, color: cfg.color }}>{cfg.icon}</span>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: cfg.color }}>{cfg.title}</span>
-          </div>
+        <span style={{ fontSize: '20px' }}>{cfg.icon}</span>
+        <div>
+          <div style={{ fontSize: '14px', fontWeight: 800, color: cfg.color }}>{cfg.title}</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{desc}</div>
+        </div>
+      </div>
+    );
+  }
 
-          {/* Cancelar */}
-          {cfg.showCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              style={{
-                flexShrink: 0, padding: '4px 10px',
-                borderRadius: 'var(--radius-sm)',
-                border: `1px solid ${cfg.border}`,
-                background: 'transparent', color: cfg.color,
-                fontSize: '11px', fontWeight: 700, cursor: 'pointer',
-              }}
-            >
-              {cfg.cancelFree ? 'Cancelar envío' : 'Cancelar (se cobra domicilio)'}
-            </button>
-          )}
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* ── Progress tracker ── */}
+      <div style={{
+        padding: '16px',
+        background: 'var(--bg-surface)', border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)',
+        display: 'flex', flexDirection: 'column', gap: '16px',
+      }}>
+        {/* 3-step indicator */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0 }}>
+          {STEPS.map((s, i) => {
+            const isActive = currentStep >= s.step;
+            const isLast = i === STEPS.length - 1;
+            return (
+              <div key={s.step} style={{ display: 'flex', alignItems: 'flex-start', flex: isLast ? 0 : 1 }}>
+                {/* Step circle + label */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                  <div style={{
+                    width: '38px', height: '38px', borderRadius: '50%',
+                    background: isActive ? 'var(--accent)' : 'var(--bg-elevated)',
+                    border: `2px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '16px',
+                    boxShadow: isActive ? '0 0 0 3px var(--accent-soft)' : 'none',
+                    transition: 'all 0.2s',
+                  }}>
+                    {isActive ? s.icon : <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)' }}>{i + 1}</span>}
+                  </div>
+                  <span style={{
+                    fontSize: '10px', fontWeight: isActive ? 700 : 500,
+                    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                    whiteSpace: 'nowrap',
+                  }}>{s.label}</span>
+                </div>
+                {/* Connector line (not after last step) */}
+                {!isLast && (
+                  <div style={{
+                    flex: 1, height: '2px', marginTop: '19px',
+                    background: currentStep > s.step ? 'var(--accent)' : 'var(--border)',
+                    transition: 'background 0.2s',
+                  }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-          {/* Botón de pago — solo en estado 'llegando' */}
-          {cfg.showPayment && (
-            <button
-              type="button"
-              onClick={() => setShowPayment((v) => !v)}
-              disabled={loadingBank}
-              style={{
-                flexShrink: 0, padding: '5px 12px',
-                borderRadius: 'var(--radius-sm)',
-                border: 'none',
-                background: 'var(--accent)', color: '#fff',
-                fontSize: '12px', fontWeight: 800, cursor: 'pointer',
-                opacity: loadingBank ? 0.6 : 1,
-              }}
-            >
-              {loadingBank ? '...' : showPayment ? 'Cerrar' : '💳 Pagar ahora'}
-            </button>
+        {/* Current status text */}
+        <div style={{
+          padding: '10px 14px',
+          background: cfg.bg, border: `1px solid ${cfg.border}`,
+          borderRadius: 'var(--radius-sm)',
+        }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: cfg.color }}>{cfg.title}</div>
+          {desc && <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>{desc}</div>}
+          {cfg.showFee && (
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--success, #16a34a)', marginTop: '4px' }}>
+              Costo domicilio: ${DELIVERY_FEE.toLocaleString('es-CO')} COP
+            </div>
           )}
         </div>
 
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)', paddingLeft: '23px' }}>
-          {desc}
-        </span>
+        {/* Dealer info (when assigned) */}
+        {dealerId && deliveryStatus !== 'searching' && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '10px 14px',
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+          }}>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '50%',
+              background: 'var(--accent-soft)', border: '2px solid var(--accent)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '18px', flexShrink: 0,
+            }}>🛵</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>Repartidor asignado</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Seguí su ubicación en el mapa</div>
+            </div>
+          </div>
+        )}
 
-        {/* Tarifa de domicilio en 'en_camino' */}
-        {cfg.showFee && (
-          <span style={{ fontSize: '11px', fontWeight: 700, paddingLeft: '23px', color: 'var(--success, #16a34a)' }}>
-            Costo domicilio: ${DELIVERY_FEE.toLocaleString('es-CO')} COP
-          </span>
+        {/* Action buttons */}
+        {(cfg.showCancel || cfg.showPayment) && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {cfg.showCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                style={{
+                  flex: 1, padding: '10px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: `1px solid ${cfg.border}`,
+                  background: 'transparent', color: cfg.color,
+                  fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                {cfg.cancelFree ? '✕ Cancelar envío' : '✕ Cancelar (se cobra domicilio)'}
+              </button>
+            )}
+            {cfg.showPayment && (
+              <button
+                type="button"
+                onClick={() => setShowPayment((v) => !v)}
+                disabled={loadingBank}
+                style={{
+                  flex: 1, padding: '10px 14px',
+                  borderRadius: 'var(--radius-sm)', border: 'none',
+                  background: 'var(--accent)', color: '#fff',
+                  fontSize: '12px', fontWeight: 800, cursor: 'pointer',
+                  opacity: loadingBank ? 0.6 : 1,
+                }}
+              >
+                {loadingBank ? '...' : showPayment ? 'Cerrar pago' : '💳 Pagar ahora'}
+              </button>
+            )}
+          </div>
         )}
       </div>
 
-      {/* ── Vista de pago (expandible al pulsar "Pagar ahora") ── */}
+      {/* Payment view (expandible) */}
       {showPayment && deliveryStatus === 'llegando' && (
         <PaymentView
           order={order}

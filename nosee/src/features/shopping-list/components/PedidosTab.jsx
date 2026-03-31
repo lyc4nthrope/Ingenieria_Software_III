@@ -382,6 +382,62 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             />
           )}
 
+          {/* ── Productos en el pedido (solo domicilio) ── */}
+          {selectedOrder.deliveryMode && allProducts.length > 0 && (
+            <div style={{
+              background: 'var(--bg-surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-md)', overflow: 'hidden',
+            }}>
+              <div style={{
+                padding: '10px 14px',
+                background: 'var(--bg-elevated)',
+                borderBottom: '1px solid var(--border)',
+                fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)',
+                textTransform: 'uppercase', letterSpacing: '0.04em',
+              }}>
+                {allProducts.length} {allProducts.length === 1 ? 'producto' : 'productos'} en tu pedido
+              </div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {allProducts.slice(0, 5).map((p, i) => (
+                  <li key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '10px 14px',
+                    borderBottom: i < Math.min(allProducts.length, 5) - 1 ? '1px solid var(--border)' : 'none',
+                  }}>
+                    {/* Avatar */}
+                    <div style={{
+                      width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
+                      background: 'var(--accent-soft)', border: '1px solid var(--accent)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '13px', fontWeight: 800, color: 'var(--accent)',
+                      textTransform: 'uppercase',
+                    }}>
+                      {(p.item?.productName ?? p.productName ?? '?')[0]}
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {p.item?.productName ?? p.productName ?? 'Producto'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        ×{p.item?.quantity || 1} · {p.storeName}
+                      </div>
+                    </div>
+                    {/* Price */}
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>
+                      ${((p.price || 0) * (p.item?.quantity || 1)).toLocaleString('es-CO')}
+                    </span>
+                  </li>
+                ))}
+                {allProducts.length > 5 && (
+                  <li style={{ padding: '8px 14px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    +{allProducts.length - 5} productos más
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+
           {/* ── Totales rápidos ── */}
           <div style={pedidos.stats}>
             {selectedOrder.deliveryMode && selectedOrder.deliveryStatus === 'en_camino' ? (
