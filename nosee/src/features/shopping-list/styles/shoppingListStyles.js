@@ -164,6 +164,7 @@ export const lista = {
     cursor: 'pointer', padding: '12px', borderRadius: 'var(--radius-sm)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0, minWidth: '44px', minHeight: '44px',
+    marginLeft: '8px',
   },
 
   carouselWrap: {

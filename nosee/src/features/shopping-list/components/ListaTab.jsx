@@ -788,15 +788,15 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                               <ChevronDownIcon open={isExpanded} />
                             </div>
                           )}
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
-                            style={lista.removeBtnLarge}
-                            aria-label={`Eliminar ${item.productName}`}
-                          >
-                            <TrashIcon />
-                          </button>
                         </div>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
+                          style={lista.removeBtnLarge}
+                          aria-label={`Eliminar ${item.productName}`}
+                        >
+                          <TrashIcon />
+                        </button>
                       </div>
                     </div>
 
