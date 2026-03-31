@@ -679,9 +679,19 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                         ...(isExpanded ? lista.optimItemRowExpanded : {}),
                       }}
                     >
-                      {/* Avatar circular */}
+                      {/* Avatar circular — imagen de la publicación o inicial */}
                       <div style={lista.optimItemAvatar}>
-                        {item.productName.charAt(0)}
+                        {chosenPub?.photo_url ? (
+                          <img
+                            src={chosenPub.photo_url}
+                            alt={item.productName}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                            onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
+                          />
+                        ) : null}
+                        <span style={{ display: chosenPub?.photo_url ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                          {item.productName.charAt(0)}
+                        </span>
                       </div>
 
                       {/* Cuerpo */}
