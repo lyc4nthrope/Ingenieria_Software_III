@@ -547,6 +547,97 @@ export const carousel = {
   },
 };
 
+// ── Delivery form styles ───────────────────────────────────────────────────────
+export const delivForm = {
+  root: { display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0' },
+
+  header: { display: 'flex', alignItems: 'flex-start', gap: '12px' },
+  backBtn: {
+    background: 'none', border: 'none', color: 'var(--accent)',
+    fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: '4px 0',
+    flexShrink: 0, marginTop: '4px',
+  },
+  headerRight: { display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 },
+  title: { fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 },
+  step: {
+    fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)',
+    textTransform: 'uppercase', letterSpacing: '0.05em',
+  },
+
+  section: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  label: {
+    fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)',
+    textTransform: 'uppercase', letterSpacing: '0.04em',
+  },
+  input: {
+    padding: '11px 14px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-base)', color: 'var(--text-primary)',
+    fontSize: '14px', outline: 'none', width: '100%', boxSizing: 'border-box',
+  },
+  inputError: {
+    borderColor: 'var(--error)', boxShadow: '0 0 0 2px var(--error-soft)',
+  },
+  textarea: {
+    padding: '11px 14px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-base)', color: 'var(--text-primary)',
+    fontSize: '14px', outline: 'none', width: '100%', boxSizing: 'border-box',
+    resize: 'vertical', fontFamily: 'inherit',
+  },
+
+  paymentOptions: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  paymentOption: {
+    display: 'flex', alignItems: 'center', gap: '12px',
+    padding: '14px 16px',
+    background: 'var(--bg-surface)', border: '2px solid var(--border)',
+    borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.15s',
+    textAlign: 'left', width: '100%', boxSizing: 'border-box',
+  },
+  paymentOptionActive: {
+    borderColor: 'var(--accent)', background: 'var(--accent-soft)',
+  },
+  paymentIcon: { fontSize: '20px', flexShrink: 0 },
+  paymentLabel: { flex: 1, fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' },
+  paymentCheck: {
+    width: '22px', height: '22px', borderRadius: '50%',
+    background: 'var(--accent)', color: '#fff',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '12px', fontWeight: 800, flexShrink: 0,
+  },
+
+  summary: {
+    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)', padding: '14px 16px',
+    display: 'flex', flexDirection: 'column', gap: '10px',
+  },
+  summaryRow: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    fontSize: '13px', color: 'var(--text-secondary)',
+  },
+  summaryLabel: { color: 'var(--text-muted)' },
+  summaryValue: { fontWeight: 600, color: 'var(--text-primary)' },
+  summaryTotal: {
+    borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: '0',
+    fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)',
+  },
+  summaryTotalValue: { fontSize: '18px', fontWeight: 800, color: 'var(--accent)' },
+
+  error: {
+    fontSize: '13px', color: 'var(--error)',
+    background: 'var(--error-soft)', padding: '10px 14px',
+    borderRadius: 'var(--radius-sm)', margin: 0,
+  },
+
+  submitBtn: {
+    padding: '15px', borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontWeight: 800, fontSize: '15px', cursor: 'pointer', width: '100%',
+  },
+};
+
 // ── Pedidos tab styles ─────────────────────────────────────────────────────────
 export const pedidos = {
   root: { display: 'flex', flexDirection: 'column', gap: '10px' },

@@ -6,7 +6,7 @@ import { OptimSettingsPanel } from './OptimSettingsPanel';
 import { InfiniteHorizontalCarousel } from './InfiniteHorizontalCarousel';
 import { VoyYoMapView } from './VoyYoMapView';
 import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, DELIVERY_FEE, buildResultFromSelections } from '../utils/shoppingListUtils';
-import { lista, modeSelection } from '../styles/shoppingListStyles';
+import { lista, modeSelection, delivForm } from '../styles/shoppingListStyles';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { createOrder } from '@/services/api/orders.api';
 
@@ -50,6 +50,11 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
   // Dirección de domicilio (solo para deliveryMode === 'delivery')
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryName, setDeliveryName] = useState('');
+  const [deliveryPhone, setDeliveryPhone] = useState('');
+  const [deliveryApartment, setDeliveryApartment] = useState('');
+  const [deliveryInstructions, setDeliveryInstructions] = useState('');
+  const [deliveryPaymentMethod, setDeliveryPaymentMethod] = useState('cash'); // 'cash' | 'transfer'
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
@@ -229,6 +234,11 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
       setSelectedPubs({});
       setDeliveryMode(null);
       setDeliveryAddress('');
+      setDeliveryName('');
+      setDeliveryPhone('');
+      setDeliveryApartment('');
+      setDeliveryInstructions('');
+      setDeliveryPaymentMethod('cash');
       setOrderResult(null);
       onConfirmedDelivery?.();
     } else {
@@ -244,12 +254,157 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
     setExpandedId(null);
   };
 
-  // ── Fase "delivery-form" — placeholder para Commit 3 ─────────────────────
+  // ── Fase "delivery-form" — formulario completo de domicilio ──────────────
   if (phase === 'delivery-form') {
+    const deliveryTotal = total + DELIVERY_FEE;
+    const canSubmit = deliveryAddress.trim().length > 0 && !saving;
+
     return (
-      <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-        <p>Formulario de domicilio próximamente...</p>
-        <button type="button" onClick={() => setPhase('mode-selection')} style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>← Volver</button>
+      <div style={delivForm.root}>
+        {/* Header with back button */}
+        <div style={delivForm.header}>
+          <button type="button" onClick={() => setPhase('mode-selection')} style={delivForm.backBtn}>
+            ← Volver
+          </button>
+          <div style={delivForm.headerRight}>
+            <h2 style={delivForm.title}>Información de entrega</h2>
+            <span style={delivForm.step}>Paso 2 de 3</span>
+          </div>
+        </div>
+
+        {/* Form fields */}
+        <div style={delivForm.section}>
+          <label style={delivForm.label}>Nombre completo *</label>
+          <input
+            type="text"
+            value={deliveryName}
+            onChange={(e) => setDeliveryName(e.target.value)}
+            placeholder="Ej: María García"
+            style={delivForm.input}
+          />
+        </div>
+
+        <div style={delivForm.section}>
+          <label style={delivForm.label}>Teléfono</label>
+          <input
+            type="tel"
+            value={deliveryPhone}
+            onChange={(e) => setDeliveryPhone(e.target.value)}
+            placeholder="Ej: 300 123 4567"
+            style={delivForm.input}
+          />
+        </div>
+
+        <div style={delivForm.section}>
+          <label style={delivForm.label}>Dirección de entrega *</label>
+          <input
+            type="text"
+            value={deliveryAddress}
+            onChange={(e) => setDeliveryAddress(e.target.value)}
+            placeholder="Ej: Calle 10 # 5-30, Quibdó"
+            style={{
+              ...delivForm.input,
+              ...(saveError && !deliveryAddress.trim() ? delivForm.inputError : {}),
+            }}
+          />
+        </div>
+
+        <div style={delivForm.section}>
+          <label style={delivForm.label}>Apartamento / Torre / Edificio</label>
+          <input
+            type="text"
+            value={deliveryApartment}
+            onChange={(e) => setDeliveryApartment(e.target.value)}
+            placeholder="Ej: Torre B, Piso 4, Apto 401"
+            style={delivForm.input}
+          />
+        </div>
+
+        <div style={delivForm.section}>
+          <label style={delivForm.label}>Instrucciones para el repartidor</label>
+          <textarea
+            value={deliveryInstructions}
+            onChange={(e) => setDeliveryInstructions(e.target.value)}
+            placeholder="Ej: Dejar en la portería, timbre no funciona..."
+            rows={3}
+            style={delivForm.textarea}
+          />
+        </div>
+
+        {/* Payment method */}
+        <div style={delivForm.section}>
+          <label style={delivForm.label}>Método de pago</label>
+          <div style={delivForm.paymentOptions}>
+            <button
+              type="button"
+              onClick={() => setDeliveryPaymentMethod('cash')}
+              style={{
+                ...delivForm.paymentOption,
+                ...(deliveryPaymentMethod === 'cash' ? delivForm.paymentOptionActive : {}),
+              }}
+            >
+              <span style={delivForm.paymentIcon}>💵</span>
+              <span style={delivForm.paymentLabel}>Efectivo al repartidor</span>
+              {deliveryPaymentMethod === 'cash' && <span style={delivForm.paymentCheck}>✓</span>}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeliveryPaymentMethod('transfer')}
+              style={{
+                ...delivForm.paymentOption,
+                ...(deliveryPaymentMethod === 'transfer' ? delivForm.paymentOptionActive : {}),
+              }}
+            >
+              <span style={delivForm.paymentIcon}>📱</span>
+              <span style={delivForm.paymentLabel}>Transferencia bancaria</span>
+              {deliveryPaymentMethod === 'transfer' && <span style={delivForm.paymentCheck}>✓</span>}
+            </button>
+          </div>
+        </div>
+
+        {/* Order summary */}
+        <div style={delivForm.summary}>
+          <div style={delivForm.summaryRow}>
+            <span style={delivForm.summaryLabel}>Subtotal productos</span>
+            <span style={delivForm.summaryValue}>${total.toLocaleString('es-CO')} COP</span>
+          </div>
+          <div style={delivForm.summaryRow}>
+            <span style={delivForm.summaryLabel}>Tarifa de domicilio</span>
+            <span style={delivForm.summaryValue}>+${DELIVERY_FEE.toLocaleString('es-CO')} COP</span>
+          </div>
+          <div style={{ ...delivForm.summaryRow, ...delivForm.summaryTotal }}>
+            <span>Total</span>
+            <span style={delivForm.summaryTotalValue}>${deliveryTotal.toLocaleString('es-CO')} COP</span>
+          </div>
+        </div>
+
+        {/* Error */}
+        {saveError && (
+          <p style={delivForm.error}>{saveError}</p>
+        )}
+        {!deliveryAddress.trim() && saveError && (
+          <p style={delivForm.error}>La dirección de entrega es obligatoria</p>
+        )}
+
+        {/* Submit button */}
+        <button
+          type="button"
+          onClick={() => {
+            if (!deliveryAddress.trim()) {
+              setSaveError('La dirección de entrega es obligatoria');
+              return;
+            }
+            handleConfirmOrder('delivery');
+          }}
+          disabled={!canSubmit}
+          style={{
+            ...delivForm.submitBtn,
+            opacity: canSubmit ? 1 : 0.6,
+            cursor: canSubmit ? 'pointer' : 'not-allowed',
+          }}
+        >
+          {saving ? 'Guardando pedido...' : `Confirmar pedido · $${deliveryTotal.toLocaleString('es-CO')} COP`}
+        </button>
       </div>
     );
   }
