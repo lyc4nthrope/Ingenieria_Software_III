@@ -672,11 +672,18 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
               if (isCalculated) {
                 return (
                   <li key={item.id} style={lista.optimItemWrap}>
-                    {/* Fila principal — card de producto optimizado */}
+                    {/* Fila principal — card de producto optimizado (toda la fila es clickeable) */}
                     <div
+                      role={hasPubs ? 'button' : undefined}
+                      tabIndex={hasPubs ? 0 : undefined}
+                      aria-expanded={hasPubs ? isExpanded : undefined}
+                      aria-label={hasPubs ? `${isExpanded ? 'Ocultar' : 'Ver'} opciones de ${item.productName}` : undefined}
+                      onClick={hasPubs ? () => toggleExpand(item.id) : undefined}
+                      onKeyDown={hasPubs ? (e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpand(item.id); } : undefined}
                       style={{
                         ...lista.optimItemRow,
                         ...(isExpanded ? lista.optimItemRowExpanded : {}),
+                        cursor: hasPubs ? 'pointer' : 'default',
                       }}
                     >
                       {/* Avatar circular — imagen de la publicación o inicial */}
@@ -719,24 +726,23 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                           </div>
                         )}
                         <div style={lista.optimItemActions}>
+                          {/* Chevron — solo indicador visual, el click lo maneja la fila entera */}
                           {hasPubs && (
-                            <button
-                              type="button"
-                              onClick={() => toggleExpand(item.id)}
-                              aria-label={`${isExpanded ? 'Ocultar' : 'Ver'} opciones de ${item.productName}`}
-                              aria-expanded={isExpanded}
+                            <div
+                              aria-hidden="true"
                               style={{
                                 ...lista.optimChevronBtn,
                                 ...(isExpanded ? lista.optimChevronBtnActive : {}),
+                                pointerEvents: 'none',
                               }}
                             >
                               <ChevronDownIcon open={isExpanded} />
-                            </button>
+                            </div>
                           )}
                           <button
                             type="button"
-                            onClick={() => handleRemove(item.id)}
-                            style={lista.removeBtn}
+                            onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
+                            style={lista.removeBtnLarge}
                             aria-label={`Eliminar ${item.productName}`}
                           >
                             <TrashIcon />

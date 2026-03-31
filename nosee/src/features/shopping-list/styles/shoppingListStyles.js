@@ -158,6 +158,13 @@ export const lista = {
     cursor: 'pointer', padding: '5px', borderRadius: 'var(--radius-sm)',
     display: 'flex', alignItems: 'center', flexShrink: 0,
   },
+  // Hitbox grande para móvil — mínimo 44×44px (guía Apple/Google HIG)
+  removeBtnLarge: {
+    background: 'none', border: 'none', color: 'var(--text-muted)',
+    cursor: 'pointer', padding: '12px', borderRadius: 'var(--radius-sm)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, minWidth: '44px', minHeight: '44px',
+  },
 
   carouselWrap: {
     marginTop: '-1px',
