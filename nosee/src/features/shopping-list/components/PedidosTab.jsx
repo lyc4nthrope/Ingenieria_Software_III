@@ -7,6 +7,7 @@ import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
 import { updateProductPrice, logPriceCorrection } from '@/services/api/orders.api';
+import { createPublication } from '@/services/api/publications.api';
 
 // Mapa de estado de Supabase (tabla orders) → estado de UI local
 // El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
@@ -87,6 +88,19 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
                       </span>
                       <div style={done ? { textDecoration: 'line-through' } : {}}>
                         <div style={resv.prodName}>{p.item?.productName ?? p.productName ?? 'Producto'}</div>
+                        {(() => {
+                          const prod = p.publication?.product;
+                          if (!prod) return null;
+                          const qty  = prod.base_quantity;
+                          const unit = prod.unit_type?.abbreviation ?? prod.unit_type?.name;
+                          const detail = [qty, unit].filter(Boolean).join(' ');
+                          const text = [prod.name, detail].filter(Boolean).join(' · ');
+                          return text ? (
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {text}
+                            </div>
+                          ) : null;
+                        })()}
                         <div style={resv.prodMeta}>×{p.item?.quantity || 1} · ${(p.price || 0).toLocaleString('es-CO')} c/u</div>
                       </div>
                     </div>
@@ -148,6 +162,23 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   const [checklist, setChecklist] = useState({});
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
 
+  // Crea una publicación nueva con los datos de la publicación original pero con el precio corregido.
+  // Fire-and-forget: no bloqueamos la UI si falla.
+  const createCorrectedPublication = (order, storeIdx, productIdx, newPrice) => {
+    const pub = order.result.stores[storeIdx]?.products[productIdx]?.publication;
+    if (!pub?.product_id || !pub?.store_id || !pub?.photo_url) return;
+    createPublication({
+      productId:   pub.product_id,
+      storeId:     pub.store_id,
+      price:       newPrice,
+      photoUrl:    pub.photo_url,
+      currency:    pub.currency ?? 'COP',
+      description: pub.description ?? null,
+      latitude:    order.userCoords?.lat ?? null,
+      longitude:   order.userCoords?.lng ?? null,
+    }).catch((err) => console.warn('[createCorrectedPublication] error:', err));
+  };
+
   // Actualiza el precio de un producto y registra la corrección en el log.
   // Funciona para pedidos en Supabase (Mis Pedidos) y locales (Mis Recogidas).
   const handlePriceReport = async (order, storeIdx, productIdx, newPrice) => {
@@ -168,6 +199,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           { storeIdx, productIdx, productName, oldPrice, newPrice, ts: new Date().toISOString() },
         ],
       });
+      createCorrectedPublication(order, storeIdx, productIdx, newPrice);
       console.info(`[PrecioCorregido] ${productName}: $${oldPrice} → $${newPrice}`);
       return { error: null };
     }
@@ -177,6 +209,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
       order.supabaseId, storeIdx, productIdx, newPrice
     );
     if (!error) {
+      createCorrectedPublication(order, storeIdx, productIdx, newPrice);
       updateOrderDelivery(order.id, {
         result: { ...order.result, stores: newStores, totalCost: newTotal },
         priceCorrections: [
