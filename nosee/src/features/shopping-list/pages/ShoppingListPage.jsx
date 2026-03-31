@@ -207,9 +207,9 @@ export default function ShoppingListPage() {
           updateOrderDelivery={updateOrderDelivery}
           emptyHint="Confirma un pedido con 🚶 Voy yo y aparecerá aquí."
           variant="pickup"
-          onAddProduct={(name, tempId, onStatusUpdate) => {
-            const activeOrder = pickupOrders[0];
-            if (activeOrder) handleAddProductToPickupOrder(activeOrder.id, name, tempId, onStatusUpdate);
+          onAddProduct={(name, tempId, onStatusUpdate, orderId) => {
+            const target = pickupOrders.find((o) => o.id === orderId) ?? pickupOrders[0];
+            if (target) handleAddProductToPickupOrder(target.id, name, tempId, onStatusUpdate);
           }}
         />
       )}

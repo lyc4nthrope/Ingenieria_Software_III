@@ -402,7 +402,8 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
               <VoyYoMapView
                 result={selectedOrder.result}
                 userCoords={selectedOrder.userCoords ?? null}
-                onAddProduct={onAddProduct}
+                onAddProduct={(name, tempId, cb) => onAddProduct?.(name, tempId, cb, selectedOrder.id)}
+                onRemoveOrder={() => removeOrder(selectedOrder.id)}
               />
             </div>
           )}
