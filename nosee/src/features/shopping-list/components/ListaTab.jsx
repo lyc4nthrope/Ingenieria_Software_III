@@ -41,7 +41,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   // Modo de entrega elegido
   const [deliveryMode, setDeliveryMode] = useState(null); // null | 'delivery' | 'pickup'
 
-  // Fase: 'list' | 'result'
+  // Fase: 'list' | 'result' | 'mode-selection'
   const [phase, setPhase] = useState('list');
   const [orderResult, setOrderResult] = useState(null);
 
@@ -257,35 +257,6 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
   return (
     <div style={lista.root}>
-      {/* ── Selector de modo — encima del buscador ─────────────── */}
-      {!isCalculated && (
-        <div style={lista.modeBlock}>
-          <p style={lista.modeLabel}>¿Cómo vas a recibir tus productos?</p>
-          <div style={lista.modeRow}>
-            <button
-              type="button"
-              onClick={() => setDeliveryMode('delivery')}
-              style={{ ...lista.modeCard, ...(deliveryMode === 'delivery' ? lista.modeCardActive : {}) }}
-            >
-              <span style={lista.modeCardIcon}>🛵</span>
-              <span style={lista.modeCardName}>Domicilio</span>
-              <span style={lista.modeCardDesc}>Te lo llevamos a tu puerta</span>
-              <span style={lista.modeCardFee}>+${DELIVERY_FEE.toLocaleString('es-CO')} aprox.</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeliveryMode('pickup')}
-              style={{ ...lista.modeCard, ...(deliveryMode === 'pickup' ? lista.modeCardActive : {}) }}
-            >
-              <span style={lista.modeCardIcon}>🚶</span>
-              <span style={lista.modeCardName}>Voy yo</span>
-              <span style={lista.modeCardDesc}>Tú recoges en tienda</span>
-              <span style={lista.modeCardFee}>Sin costo extra · mapa incluido</span>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── Badge de modo activo (post-optimización) ─────────────── */}
       {isCalculated && deliveryMode && (
         <div style={lista.modeBadgeBar}>
@@ -398,6 +369,31 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
             </div>
           )}
 
+          {/* ── Summary bar (solo post-optimización) ───────────── */}
+          {isCalculated && hasSelections && (
+            <div style={lista.summaryBar}>
+              <div style={lista.summaryLeft}>
+                <span style={lista.summaryTitle}>Resumen</span>
+                <span style={lista.summaryCount}>
+                  {Object.keys(selectedPubs).length} {Object.keys(selectedPubs).length === 1 ? 'producto' : 'productos'}
+                </span>
+              </div>
+              <div>
+                <span style={lista.summaryTotal}>
+                  ${total.toLocaleString('es-CO')}
+                </span>
+                <span style={lista.summaryTotalCurrency}> COP</span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Info banner (solo post-optimización) ────────────── */}
+          {isCalculated && (
+            <div style={lista.infoBanner}>
+              Seleccionamos las mejores opciones. Tocá un producto para ver alternativas y elegir la que más te convenga.
+            </div>
+          )}
+
           {/* ── Lista de ítems ──────────────────────────────────── */}
           <ul style={lista.list}>
             {items.map((item) => {
@@ -406,91 +402,107 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
               const hasPubs = pubs && pubs.length > 0;
               const chosenPub = selectedPubs[item.id];
               const chosenPrice = chosenPub?.price ?? null;
-              const isInteractive = isCalculated && hasPubs;
 
-              return (
-                <li key={item.id} style={lista.itemWrap}>
-                  {/* Fila principal del ítem */}
-                  <div
-                    role={isInteractive ? 'button' : undefined}
-                    tabIndex={isInteractive ? 0 : undefined}
-                    aria-expanded={isInteractive ? isExpanded : undefined}
-                    aria-label={isInteractive ? `${isExpanded ? 'Ocultar' : 'Ver'} opciones de ${item.productName}` : undefined}
-                    onClick={isInteractive ? () => toggleExpand(item.id) : undefined}
-                    onKeyDown={isInteractive ? (e) => {
-                      if (e.key === 'Enter' || e.key === ' ') toggleExpand(item.id);
-                    } : undefined}
-                    style={{
-                      ...lista.item,
-                      ...(isExpanded ? lista.itemExpanded : {}),
-                      ...(isInteractive ? { cursor: 'pointer' } : {}),
-                    }}
-                  >
-                    {/* Texto del ítem */}
-                    <div style={lista.itemText}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={lista.itemName}>
-                          {item.productName}
-                        </span>
-                        {isCalculated && hasPubs && (
-                          <span style={lista.optionsBadge}>
-                            {pubs.length} {pubs.length === 1 ? 'opción' : 'opciones'}
-                            <ChevronDownIcon open={isExpanded} />
-                          </span>
-                        )}
+              if (isCalculated) {
+                return (
+                  <li key={item.id} style={lista.optimItemWrap}>
+                    {/* Fila principal — card de producto optimizado */}
+                    <div
+                      style={{
+                        ...lista.optimItemRow,
+                        ...(isExpanded ? lista.optimItemRowExpanded : {}),
+                      }}
+                    >
+                      {/* Avatar circular */}
+                      <div style={lista.optimItemAvatar}>
+                        {item.productName.charAt(0)}
                       </div>
-                      {isCalculated && chosenPrice !== null && (
-                        <span style={lista.itemBestPrice}>
-                          ${chosenPrice.toLocaleString('es-CO')} COP
-                          {chosenPub?.store?.name ? ` · ${chosenPub.store.name}` : ''}
-                        </span>
-                      )}
-                      {isCalculated && !hasPubs && (
-                        <span style={lista.itemNoPubs}>Sin coincidencias</span>
-                      )}
+
+                      {/* Cuerpo */}
+                      <div style={lista.optimItemBody}>
+                        <span style={lista.optimItemName}>{item.productName}</span>
+                        <div style={lista.optimItemMeta}>
+                          <span style={lista.optimItemQty}>× {item.quantity}</span>
+                          {hasPubs && chosenPub?.store?.name && (
+                            <span>{chosenPub.store.name}</span>
+                          )}
+                          {!hasPubs && (
+                            <span style={{ fontStyle: 'italic' }}>Sin coincidencias</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Precio + acciones */}
+                      <div style={lista.optimItemRight}>
+                        {hasPubs && chosenPrice !== null && (
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={lista.optimItemPrice}>
+                              ${chosenPrice.toLocaleString('es-CO')}
+                            </div>
+                            <div style={lista.optimItemPriceSub}>COP</div>
+                          </div>
+                        )}
+                        <div style={lista.optimItemActions}>
+                          {hasPubs && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(item.id)}
+                              aria-label={`${isExpanded ? 'Ocultar' : 'Ver'} opciones de ${item.productName}`}
+                              aria-expanded={isExpanded}
+                              style={{
+                                ...lista.optimChevronBtn,
+                                ...(isExpanded ? lista.optimChevronBtnActive : {}),
+                              }}
+                            >
+                              <ChevronDownIcon open={isExpanded} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(item.id)}
+                            style={lista.removeBtn}
+                            aria-label={`Eliminar ${item.productName}`}
+                          >
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Botón eliminar */}
+                    {/* Carrusel de publicaciones */}
+                    {isExpanded && hasPubs && (
+                      <div style={lista.carouselWrap}>
+                        <InfiniteHorizontalCarousel
+                          publications={pubs}
+                          selectedId={chosenPub?.id ?? (pubs[0]?.id ?? 0)}
+                          onSelect={(pub) => handleSelectPub(item.id, pub)}
+                        />
+                      </div>
+                    )}
+                  </li>
+                );
+              }
+
+              // Estado pre-optimización: fila simple
+              return (
+                <li key={item.id} style={lista.itemWrap}>
+                  <div style={lista.item}>
+                    <div style={lista.itemText}>
+                      <span style={lista.itemName}>{item.productName}</span>
+                    </div>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
+                      onClick={() => handleRemove(item.id)}
                       style={lista.removeBtn}
                       aria-label={`Eliminar ${item.productName}`}
                     >
                       <TrashIcon />
                     </button>
                   </div>
-
-                  {/* Carrusel de publicaciones */}
-                  {isExpanded && hasPubs && (
-                    <div style={lista.carouselWrap}>
-                      <InfiniteHorizontalCarousel
-                        publications={pubs}
-                        selectedId={chosenPub?.id ?? (pubs[0]?.id ?? 0)}
-                        onSelect={(pub) => handleSelectPub(item.id, pub)}
-                      />
-                    </div>
-                  )}
                 </li>
               );
             })}
           </ul>
-
-          {/* ── Tarjeta de total ─────────────────────────────────── */}
-          {isCalculated && Object.keys(selectedPubs).length > 0 && (
-            <div style={lista.totalCard}>
-              <div style={lista.totalCardInner}>
-                <span style={lista.totalLabel}>Total estimado</span>
-                <span style={lista.totalValue}>
-                  ${total.toLocaleString('es-CO')}
-                  <span style={lista.totalCurrency}> COP</span>
-                </span>
-                <span style={lista.totalSub}>
-                  {Object.keys(selectedPubs).length} {Object.keys(selectedPubs).length === 1 ? 'producto elegido' : 'productos elegidos'}
-                </span>
-              </div>
-            </div>
-          )}
 
           {/* ── Dirección de entrega (solo domicilio) ────────────── */}
           {isCalculated && hasSelections && deliveryMode === 'delivery' && (
@@ -525,7 +537,18 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
             </p>
           )}
 
-          {/* ── Botón de confirmación único ──────────────────────── */}
+          {/* ── CTA: elegir modo (si aún no hay modo) ───────────── */}
+          {isCalculated && hasSelections && deliveryMode === null && (
+            <button
+              type="button"
+              onClick={() => setPhase('mode-selection')}
+              style={lista.proceedBtn}
+            >
+              ✦ Elegir cómo recibir mi pedido
+            </button>
+          )}
+
+          {/* ── Botón de confirmación (cuando ya hay modo elegido) ── */}
           {isCalculated && hasSelections && deliveryMode && (
             <button
               type="button"
@@ -560,20 +583,14 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
             <button
               type="button"
               onClick={handleCalculate}
-              disabled={calculating || !deliveryMode}
+              disabled={calculating || items.length === 0}
               style={{
                 ...lista.calcBtn,
-                opacity: (calculating || !deliveryMode) ? 0.45 : 1,
-                cursor: (calculating || !deliveryMode) ? 'not-allowed' : 'pointer',
+                opacity: (calculating || items.length === 0) ? 0.45 : 1,
+                cursor: (calculating || items.length === 0) ? 'not-allowed' : 'pointer',
               }}
             >
-              {calculating
-                ? '⏳ Optimizando...'
-                : !deliveryMode
-                  ? '✦ Elige cómo recibirás primero'
-                  : deliveryMode === 'delivery'
-                    ? '✦ Optimizar para domicilio'
-                    : '✦ Optimizar mi ruta de compra'}
+              {calculating ? '⏳ Optimizando...' : '✦ Optimizar lista'}
             </button>
             <button
               type="button"

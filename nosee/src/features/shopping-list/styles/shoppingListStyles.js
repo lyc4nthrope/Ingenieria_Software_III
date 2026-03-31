@@ -256,6 +256,79 @@ export const lista = {
     background: 'var(--accent-soft)', color: 'var(--accent)',
     borderColor: 'var(--accent)',
   },
+
+  // ── Optimized item card ──
+  optimItemWrap: { display: 'flex', flexDirection: 'column', minWidth: 0 },
+  optimItemRow: {
+    display: 'flex', alignItems: 'center', gap: '12px',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
+    padding: '12px 14px',
+    transition: 'border-color 0.15s',
+  },
+  optimItemRowExpanded: {
+    borderColor: 'var(--accent)',
+    borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
+  },
+  optimItemAvatar: {
+    width: '42px', height: '42px', flexShrink: 0,
+    borderRadius: '50%',
+    background: 'var(--accent-soft)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '16px', fontWeight: 800, color: 'var(--accent)',
+    textTransform: 'uppercase',
+    border: '1px solid var(--accent)',
+  },
+  optimItemBody: { flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 },
+  optimItemName: { fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 },
+  optimItemMeta: { fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' },
+  optimItemQty: {
+    display: 'inline-flex', alignItems: 'center',
+    padding: '1px 7px', borderRadius: '999px',
+    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+    color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 700,
+  },
+  optimItemRight: { display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 },
+  optimItemPrice: { fontSize: '15px', fontWeight: 800, color: 'var(--accent)', textAlign: 'right', lineHeight: 1.2 },
+  optimItemPriceSub: { fontSize: '10px', color: 'var(--text-muted)', textAlign: 'right' },
+  optimItemActions: { display: 'flex', alignItems: 'center', gap: '4px' },
+  optimChevronBtn: {
+    background: 'none', border: '1px solid var(--border)', color: 'var(--text-secondary)',
+    cursor: 'pointer', padding: '5px 7px', borderRadius: 'var(--radius-sm)',
+    display: 'flex', alignItems: 'center', transition: 'all 0.15s',
+  },
+  optimChevronBtnActive: {
+    background: 'var(--accent-soft)', borderColor: 'var(--accent)', color: 'var(--accent)',
+  },
+
+  // ── Summary bar + info banner ──
+  summaryBar: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '12px 16px',
+    background: 'var(--bg-surface)', border: '2px solid var(--accent)',
+    borderRadius: 'var(--radius-md)',
+  },
+  summaryLeft: { display: 'flex', flexDirection: 'column', gap: '2px' },
+  summaryTitle: { fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  summaryCount: { fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' },
+  summaryTotal: { fontSize: '22px', fontWeight: 800, color: 'var(--accent)' },
+  summaryTotalCurrency: { fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)' },
+
+  infoBanner: {
+    padding: '10px 14px',
+    background: 'var(--accent-soft)',
+    border: '1px solid var(--accent)',
+    borderRadius: 'var(--radius-md)',
+    fontSize: '12px', color: 'var(--accent)',
+    lineHeight: 1.5,
+  },
+
+  proceedBtn: {
+    padding: '14px', borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontWeight: 800, fontSize: '14px', cursor: 'pointer', width: '100%',
+  },
 };
 
 // ── Optim settings panel styles ───────────────────────────────────────────────
