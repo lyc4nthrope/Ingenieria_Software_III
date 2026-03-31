@@ -5,7 +5,6 @@ import { useGeoLocation } from '@/features/publications/hooks/useGeoLocation';
 import * as publicationsApi from '@/services/api/publications.api';
 import { OptimSettingsPanel } from './OptimSettingsPanel';
 import { InfiniteHorizontalCarousel } from './InfiniteHorizontalCarousel';
-import { VoyYoMapView } from './VoyYoMapView';
 import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, DELIVERY_FEE, buildResultFromSelections } from '../utils/shoppingListUtils';
 import { lista, modeSelection, delivForm } from '../styles/shoppingListStyles';
 import { useAuthStore } from '@/features/auth/store/authStore';
@@ -53,7 +52,6 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
   // Fase: 'list' | 'result' | 'mode-selection' | 'delivery-form'
   const [phase, setPhase] = useState('list');
-  const [orderResult, setOrderResult] = useState(null);
 
   // Modo seleccionado en la pantalla de mode-selection (antes de confirmar)
   const [selectedMode, setSelectedMode] = useState(null);
@@ -279,11 +277,12 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
       setDeliveryApartment('');
       setDeliveryInstructions('');
       setDeliveryPaymentMethod('cash');
-      setOrderResult(null);
       onConfirmedDelivery?.();
     } else {
-      setOrderResult(result);
-      setPhase('pickup');
+      setCalcResults(null);
+      setSelectedPubs({});
+      setDeliveryMode(null);
+      onConfirmedPickup?.();
     }
   };
 
@@ -545,20 +544,6 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
         </div>
       </div>
     );
-  }
-
-  // ── Fase "Voy yo" — vista lista + mapa ───────────────────────────────────
-  if (phase === 'pickup' && orderResult) {
-    const pickupCoords = hasLocation ? { lat: latitude, lng: longitude } : null;
-    const resetAll = () => {
-      setPhase('list');
-      setCalcResults(null);
-      setSelectedPubs({});
-      setDeliveryMode(null);
-      setOrderResult(null);
-      onConfirmedPickup?.();
-    };
-    return <VoyYoMapView result={orderResult} userCoords={pickupCoords} onDone={resetAll} />;
   }
 
   return (
