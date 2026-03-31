@@ -331,6 +331,77 @@ export const lista = {
   },
 };
 
+// ── Mode selection screen styles ──────────────────────────────────────────────
+export const modeSelection = {
+  root: {
+    display: 'flex', flexDirection: 'column', gap: '20px',
+    padding: '8px 0',
+  },
+  header: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  title: {
+    fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0,
+    lineHeight: 1.2,
+  },
+  subtitle: {
+    fontSize: '13px', color: 'var(--text-muted)', margin: 0,
+  },
+  optionsWrap: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  optionCard: {
+    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '18px 16px',
+    background: 'var(--bg-surface)', border: '2px solid var(--border)',
+    borderRadius: 'var(--radius-lg, 14px)',
+    cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left',
+    boxSizing: 'border-box',
+  },
+  optionCardActive: {
+    borderColor: 'var(--accent)',
+    background: 'var(--accent-soft)',
+    boxShadow: '0 0 0 3px var(--accent-soft)',
+  },
+  optionLeft: { display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1 },
+  optionIcon: { fontSize: '28px', lineHeight: 1, flexShrink: 0, marginTop: '2px' },
+  optionBody: { display: 'flex', flexDirection: 'column', gap: '4px' },
+  optionTitle: { fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' },
+  optionDesc: { fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 },
+  optionBadge: {
+    display: 'inline-block',
+    fontSize: '11px', fontWeight: 600, color: 'var(--accent)',
+    background: 'var(--accent-soft)', border: '1px solid var(--accent)',
+    borderRadius: '999px', padding: '2px 8px', alignSelf: 'flex-start',
+  },
+  checkmark: {
+    flexShrink: 0, width: '26px', height: '26px',
+    borderRadius: '50%', background: 'var(--accent)', color: '#fff',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '14px', fontWeight: 800,
+    marginLeft: '8px',
+  },
+  totalRow: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '14px 18px',
+    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
+  },
+  totalLabel: { fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 },
+  totalValue: { fontSize: '20px', fontWeight: 800, color: 'var(--accent)' },
+  actions: {
+    display: 'flex', gap: '10px',
+  },
+  cancelBtn: {
+    flex: 1, padding: '13px',
+    borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
+    background: 'var(--bg-surface)', color: 'var(--text-secondary)',
+    fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+  },
+  continueBtn: {
+    flex: 2, padding: '13px',
+    borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontWeight: 800, fontSize: '14px', cursor: 'pointer',
+  },
+};
+
 // ── Optim settings panel styles ───────────────────────────────────────────────
 export const optim = {
   panel: {

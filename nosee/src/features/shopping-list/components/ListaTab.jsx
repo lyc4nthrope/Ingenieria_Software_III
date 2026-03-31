@@ -6,7 +6,7 @@ import { OptimSettingsPanel } from './OptimSettingsPanel';
 import { InfiniteHorizontalCarousel } from './InfiniteHorizontalCarousel';
 import { VoyYoMapView } from './VoyYoMapView';
 import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, DELIVERY_FEE, buildResultFromSelections } from '../utils/shoppingListUtils';
-import { lista } from '../styles/shoppingListStyles';
+import { lista, modeSelection } from '../styles/shoppingListStyles';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { createOrder } from '@/services/api/orders.api';
 
@@ -41,9 +41,12 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   // Modo de entrega elegido
   const [deliveryMode, setDeliveryMode] = useState(null); // null | 'delivery' | 'pickup'
 
-  // Fase: 'list' | 'result' | 'mode-selection'
+  // Fase: 'list' | 'result' | 'mode-selection' | 'delivery-form'
   const [phase, setPhase] = useState('list');
   const [orderResult, setOrderResult] = useState(null);
+
+  // Modo seleccionado en la pantalla de mode-selection (antes de confirmar)
+  const [selectedMode, setSelectedMode] = useState(null);
 
   // Dirección de domicilio (solo para deliveryMode === 'delivery')
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -170,8 +173,8 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
     ? Object.values(selectedPubs).reduce((sum, pub) => sum + (pub?.price ?? 0), 0)
     : 0;
 
-  const handleConfirmOrder = async () => {
-    const isDelivery = deliveryMode === 'delivery';
+  const handleConfirmOrder = async (modeOverride) => {
+    const isDelivery = (modeOverride ?? deliveryMode) === 'delivery';
     const result = buildResultFromSelections(items, selectedPubs);
     const localId = `NSE-${Date.now().toString(36).toUpperCase()}`;
     const userCoords = hasLocation ? { lat: latitude, lng: longitude } : null;
@@ -240,6 +243,114 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
     setSelectedPubs({});
     setExpandedId(null);
   };
+
+  // ── Fase "delivery-form" — placeholder para Commit 3 ─────────────────────
+  if (phase === 'delivery-form') {
+    return (
+      <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <p>Formulario de domicilio próximamente...</p>
+        <button type="button" onClick={() => setPhase('mode-selection')} style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>← Volver</button>
+      </div>
+    );
+  }
+
+  // ── Fase "mode-selection" — pantalla de selección de modo ────────────────
+  if (phase === 'mode-selection') {
+    return (
+      <div style={modeSelection.root}>
+        {/* header */}
+        <div style={modeSelection.header}>
+          <h2 style={modeSelection.title}>¿Cómo querés recibir tu pedido?</h2>
+          <p style={modeSelection.subtitle}>Visitá una tienda o pedí envío a domicilio</p>
+        </div>
+
+        {/* option cards */}
+        <div style={modeSelection.optionsWrap}>
+          {/* Delivery card */}
+          <button
+            type="button"
+            onClick={() => setSelectedMode('delivery')}
+            style={{
+              ...modeSelection.optionCard,
+              ...(selectedMode === 'delivery' ? modeSelection.optionCardActive : {}),
+            }}
+          >
+            <div style={modeSelection.optionLeft}>
+              <span style={modeSelection.optionIcon}>🛵</span>
+              <div style={modeSelection.optionBody}>
+                <span style={modeSelection.optionTitle}>Domicilio</span>
+                <span style={modeSelection.optionDesc}>Recibí tus productos en la puerta de tu casa</span>
+                <span style={modeSelection.optionBadge}>Estimado 1-2 horas · +${DELIVERY_FEE.toLocaleString('es-CO')}</span>
+              </div>
+            </div>
+            {selectedMode === 'delivery' && <span style={modeSelection.checkmark}>✓</span>}
+          </button>
+
+          {/* Voy yo card */}
+          <button
+            type="button"
+            onClick={() => setSelectedMode('pickup')}
+            style={{
+              ...modeSelection.optionCard,
+              ...(selectedMode === 'pickup' ? modeSelection.optionCardActive : {}),
+            }}
+          >
+            <div style={modeSelection.optionLeft}>
+              <span style={modeSelection.optionIcon}>🚶</span>
+              <div style={modeSelection.optionBody}>
+                <span style={modeSelection.optionTitle}>Voy yo</span>
+                <span style={modeSelection.optionDesc}>Planeá tu ruta con el mapa de tiendas y ahorros optimizados</span>
+                <span style={modeSelection.optionBadge}>Sin costo extra · mapa incluido</span>
+              </div>
+            </div>
+            {selectedMode === 'pickup' && <span style={modeSelection.checkmark}>✓</span>}
+          </button>
+        </div>
+
+        {/* total summary */}
+        {hasSelections && (
+          <div style={modeSelection.totalRow}>
+            <span style={modeSelection.totalLabel}>Total estimado</span>
+            <span style={modeSelection.totalValue}>
+              ${(total + (selectedMode === 'delivery' ? DELIVERY_FEE : 0)).toLocaleString('es-CO')}
+              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}> COP</span>
+            </span>
+          </div>
+        )}
+
+        {/* actions */}
+        <div style={modeSelection.actions}>
+          <button
+            type="button"
+            onClick={() => { setSelectedMode(null); setPhase('list'); }}
+            style={modeSelection.cancelBtn}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!selectedMode}
+            onClick={() => {
+              if (selectedMode === 'delivery') {
+                setDeliveryMode('delivery');
+                setPhase('delivery-form');
+              } else {
+                setDeliveryMode('pickup');
+                handleConfirmOrder('pickup');
+              }
+            }}
+            style={{
+              ...modeSelection.continueBtn,
+              opacity: selectedMode ? 1 : 0.45,
+              cursor: selectedMode ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {selectedMode === 'delivery' ? 'Continuar con domicilio' : selectedMode === 'pickup' ? 'Ver ruta de compra' : 'Continuar'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ── Fase "Voy yo" — vista lista + mapa ───────────────────────────────────
   if (phase === 'pickup' && orderResult) {
