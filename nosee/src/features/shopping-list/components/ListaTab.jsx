@@ -6,7 +6,7 @@ import * as publicationsApi from '@/services/api/publications.api';
 import { OptimSettingsPanel } from './OptimSettingsPanel';
 import { InfiniteHorizontalCarousel } from './InfiniteHorizontalCarousel';
 import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, DELIVERY_FEE, buildResultFromSelections } from '../utils/shoppingListUtils';
-import { lista, modeSelection, delivForm } from '../styles/shoppingListStyles';
+import { cn } from '@/lib/cn';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import { createOrder } from '@/services/api/orders.api';
@@ -305,130 +305,138 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
     const canSubmit = deliveryAddress.trim().length > 0 && !saving;
 
     return (
-      <div style={delivForm.root}>
+      <div className="flex flex-col gap-4 py-1">
         {/* Header with back button */}
-        <div style={delivForm.header}>
-          <button type="button" onClick={() => setPhase('mode-selection')} style={delivForm.backBtn}>
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            onClick={() => setPhase('mode-selection')}
+            className="shrink-0 mt-1 bg-transparent border-none text-accent text-[13px] font-bold cursor-pointer p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
             ← Volver
           </button>
-          <div style={delivForm.headerRight}>
-            <h2 style={delivForm.title}>Información de entrega</h2>
-            <span style={delivForm.step}>Paso 2 de 3</span>
+          <div className="flex flex-col gap-1 flex-1">
+            <h2 className="text-[1.2rem] font-extrabold text-primary m-0">Información de entrega</h2>
+            <span className="text-[11px] font-bold text-muted uppercase tracking-[0.05em]">Paso 2 de 3</span>
           </div>
         </div>
 
         {/* Form fields */}
-        <div style={delivForm.section}>
-          <label style={delivForm.label}>Nombre completo *</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[12px] font-bold text-secondary uppercase tracking-[0.04em]">Nombre completo *</label>
           <input
             type="text"
             value={deliveryName}
             onChange={(e) => setDeliveryName(e.target.value)}
             placeholder="Ej: María García"
-            style={delivForm.input}
+            className="w-full px-[14px] py-[11px] rounded-md border border-line bg-base text-primary text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-accent"
           />
         </div>
 
-        <div style={delivForm.section}>
-          <label style={delivForm.label}>Teléfono</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[12px] font-bold text-secondary uppercase tracking-[0.04em]">Teléfono</label>
           <input
             type="tel"
             value={deliveryPhone}
             onChange={(e) => setDeliveryPhone(e.target.value)}
             placeholder="Ej: 300 123 4567"
-            style={delivForm.input}
+            className="w-full px-[14px] py-[11px] rounded-md border border-line bg-base text-primary text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-accent"
           />
         </div>
 
-        <div style={delivForm.section}>
-          <label style={delivForm.label}>Dirección de entrega *</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[12px] font-bold text-secondary uppercase tracking-[0.04em]">Dirección de entrega *</label>
           <input
             type="text"
             value={deliveryAddress}
             onChange={(e) => setDeliveryAddress(e.target.value)}
             placeholder="Ej: Calle 10 # 5-30, Quibdó"
-            style={{
-              ...delivForm.input,
-              ...(saveError && !deliveryAddress.trim() ? delivForm.inputError : {}),
-            }}
+            className={cn(
+              'w-full px-[14px] py-[11px] rounded-md border border-line bg-base text-primary text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-accent',
+              saveError && !deliveryAddress.trim() && 'border-error shadow-[0_0_0_2px_var(--bg-error-soft)]',
+            )}
           />
         </div>
 
-        <div style={delivForm.section}>
-          <label style={delivForm.label}>Apartamento / Torre / Edificio</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[12px] font-bold text-secondary uppercase tracking-[0.04em]">Apartamento / Torre / Edificio</label>
           <input
             type="text"
             value={deliveryApartment}
             onChange={(e) => setDeliveryApartment(e.target.value)}
             placeholder="Ej: Torre B, Piso 4, Apto 401"
-            style={delivForm.input}
+            className="w-full px-[14px] py-[11px] rounded-md border border-line bg-base text-primary text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-accent"
           />
         </div>
 
-        <div style={delivForm.section}>
-          <label style={delivForm.label}>Instrucciones para el repartidor</label>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[12px] font-bold text-secondary uppercase tracking-[0.04em]">Instrucciones para el repartidor</label>
           <textarea
             value={deliveryInstructions}
             onChange={(e) => setDeliveryInstructions(e.target.value)}
             placeholder="Ej: Dejar en la portería, timbre no funciona..."
             rows={3}
-            style={delivForm.textarea}
+            className="w-full px-[14px] py-[11px] rounded-md border border-line bg-base text-primary text-[14px] outline-none resize-y font-[inherit] focus-visible:ring-2 focus-visible:ring-accent"
           />
         </div>
 
         {/* Payment method */}
-        <div style={delivForm.section}>
-          <label style={delivForm.label}>Método de pago</label>
-          <div style={delivForm.paymentOptions}>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[12px] font-bold text-secondary uppercase tracking-[0.04em]">Método de pago</label>
+          <div className="flex flex-col gap-2">
             <button
               type="button"
               onClick={() => setDeliveryPaymentMethod('cash')}
-              style={{
-                ...delivForm.paymentOption,
-                ...(deliveryPaymentMethod === 'cash' ? delivForm.paymentOptionActive : {}),
-              }}
+              className={cn(
+                'flex items-center gap-3 w-full px-4 py-[14px] rounded-md border-2 border-line bg-surface text-left transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                deliveryPaymentMethod === 'cash' && 'border-accent bg-accent-soft',
+              )}
             >
-              <span style={delivForm.paymentIcon}>💵</span>
-              <span style={delivForm.paymentLabel}>Efectivo al repartidor</span>
-              {deliveryPaymentMethod === 'cash' && <span style={delivForm.paymentCheck}>✓</span>}
+              <span className="text-[20px] shrink-0">💵</span>
+              <span className="flex-1 text-[13px] font-bold text-primary">Efectivo al repartidor</span>
+              {deliveryPaymentMethod === 'cash' && (
+                <span className="flex items-center justify-center w-[22px] h-[22px] rounded-full bg-accent text-white text-[12px] font-extrabold shrink-0">✓</span>
+              )}
             </button>
             <button
               type="button"
               onClick={() => setDeliveryPaymentMethod('transfer')}
-              style={{
-                ...delivForm.paymentOption,
-                ...(deliveryPaymentMethod === 'transfer' ? delivForm.paymentOptionActive : {}),
-              }}
+              className={cn(
+                'flex items-center gap-3 w-full px-4 py-[14px] rounded-md border-2 border-line bg-surface text-left transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                deliveryPaymentMethod === 'transfer' && 'border-accent bg-accent-soft',
+              )}
             >
-              <span style={delivForm.paymentIcon}>📱</span>
-              <span style={delivForm.paymentLabel}>Transferencia bancaria</span>
-              {deliveryPaymentMethod === 'transfer' && <span style={delivForm.paymentCheck}>✓</span>}
+              <span className="text-[20px] shrink-0">📱</span>
+              <span className="flex-1 text-[13px] font-bold text-primary">Transferencia bancaria</span>
+              {deliveryPaymentMethod === 'transfer' && (
+                <span className="flex items-center justify-center w-[22px] h-[22px] rounded-full bg-accent text-white text-[12px] font-extrabold shrink-0">✓</span>
+              )}
             </button>
           </div>
         </div>
 
         {/* Order summary */}
-        <div style={delivForm.summary}>
-          <div style={delivForm.summaryRow}>
-            <span style={delivForm.summaryLabel}>Subtotal productos</span>
-            <span style={delivForm.summaryValue}>${total.toLocaleString('es-CO')} COP</span>
+        <div className="flex flex-col gap-2.5 bg-surface border border-line rounded-md px-4 py-[14px]">
+          <div className="flex justify-between items-center text-[13px] text-secondary">
+            <span className="text-muted">Subtotal productos</span>
+            <span className="font-semibold text-primary">${total.toLocaleString('es-CO')} COP</span>
           </div>
-          <div style={delivForm.summaryRow}>
-            <span style={delivForm.summaryLabel}>Tarifa de domicilio</span>
-            <span style={delivForm.summaryValue}>+${DELIVERY_FEE.toLocaleString('es-CO')} COP</span>
+          <div className="flex justify-between items-center text-[13px] text-secondary">
+            <span className="text-muted">Tarifa de domicilio</span>
+            <span className="font-semibold text-primary">+${DELIVERY_FEE.toLocaleString('es-CO')} COP</span>
           </div>
-          <div style={{ ...delivForm.summaryRow, ...delivForm.summaryTotal }}>
+          <div className="flex justify-between items-center border-t border-line pt-2.5 text-[15px] font-extrabold text-primary">
             <span>Total</span>
-            <span style={delivForm.summaryTotalValue}>${deliveryTotal.toLocaleString('es-CO')} COP</span>
+            <span className="text-[18px] font-extrabold text-accent">${deliveryTotal.toLocaleString('es-CO')} COP</span>
           </div>
         </div>
 
         {/* Error */}
         {saveError && (
-          <p style={delivForm.error}>{saveError}</p>
+          <p className="text-[13px] text-error bg-error-soft px-[14px] py-2.5 rounded-sm m-0">{saveError}</p>
         )}
         {!deliveryAddress.trim() && saveError && (
-          <p style={delivForm.error}>La dirección de entrega es obligatoria</p>
+          <p className="text-[13px] text-error bg-error-soft px-[14px] py-2.5 rounded-sm m-0">La dirección de entrega es obligatoria</p>
         )}
 
         {/* Submit button */}
@@ -442,11 +450,10 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
             handleConfirmOrder('delivery');
           }}
           disabled={!canSubmit}
-          style={{
-            ...delivForm.submitBtn,
-            opacity: canSubmit ? 1 : 0.6,
-            cursor: canSubmit ? 'pointer' : 'not-allowed',
-          }}
+          className={cn(
+            'w-full py-[15px] rounded-md border-none bg-accent text-white font-extrabold text-[15px] cursor-pointer transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+            !canSubmit && 'opacity-60 cursor-not-allowed',
+          )}
         >
           {saving ? 'Guardando pedido...' : `Confirmar pedido · $${deliveryTotal.toLocaleString('es-CO')} COP`}
         </button>
@@ -457,73 +464,81 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   // ── Fase "mode-selection" — pantalla de selección de modo ────────────────
   if (phase === 'mode-selection') {
     return (
-      <div style={modeSelection.root}>
+      <div className="flex flex-col gap-5 py-2">
         {/* header */}
-        <div style={modeSelection.header}>
-          <h2 style={modeSelection.title}>¿Cómo querés recibir tu pedido?</h2>
-          <p style={modeSelection.subtitle}>Visitá una tienda o pedí envío a domicilio</p>
+        <div className="flex flex-col gap-1.5">
+          <h2 className="text-[1.3rem] font-extrabold text-primary m-0 leading-tight">¿Cómo querés recibir tu pedido?</h2>
+          <p className="text-[13px] text-muted m-0">Visitá una tienda o pedí envío a domicilio</p>
         </div>
 
         {/* option cards */}
-        <div style={modeSelection.optionsWrap}>
+        <div className="flex flex-col gap-3">
           {/* Delivery card */}
           <button
             type="button"
             onClick={() => setSelectedMode('delivery')}
-            style={{
-              ...modeSelection.optionCard,
-              ...(selectedMode === 'delivery' ? modeSelection.optionCardActive : {}),
-            }}
+            className={cn(
+              'w-full flex items-center justify-between px-4 py-[18px] bg-surface border-2 border-line rounded-lg cursor-pointer transition-all duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+              selectedMode === 'delivery' && 'border-accent bg-accent-soft shadow-[0_0_0_3px_var(--bg-accent-soft)]',
+            )}
           >
-            <div style={modeSelection.optionLeft}>
-              <span style={modeSelection.optionIcon}>🛵</span>
-              <div style={modeSelection.optionBody}>
-                <span style={modeSelection.optionTitle}>Domicilio</span>
-                <span style={modeSelection.optionDesc}>Recibí tus productos en la puerta de tu casa</span>
-                <span style={modeSelection.optionBadge}>Estimado 1-2 horas · +${DELIVERY_FEE.toLocaleString('es-CO')}</span>
+            <div className="flex items-start gap-[14px] flex-1">
+              <span className="text-[28px] leading-none shrink-0 mt-0.5">🛵</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-[15px] font-extrabold text-primary">Domicilio</span>
+                <span className="text-[12px] text-secondary leading-[1.4]">Recibí tus productos en la puerta de tu casa</span>
+                <span className="inline-block self-start text-[11px] font-semibold text-accent bg-accent-soft border border-accent rounded-full px-2 py-0.5">
+                  Estimado 1-2 horas · +${DELIVERY_FEE.toLocaleString('es-CO')}
+                </span>
               </div>
             </div>
-            {selectedMode === 'delivery' && <span style={modeSelection.checkmark}>✓</span>}
+            {selectedMode === 'delivery' && (
+              <span className="flex items-center justify-center shrink-0 w-[26px] h-[26px] rounded-full bg-accent text-white text-[14px] font-extrabold ml-2">✓</span>
+            )}
           </button>
 
           {/* Voy yo card */}
           <button
             type="button"
             onClick={() => setSelectedMode('pickup')}
-            style={{
-              ...modeSelection.optionCard,
-              ...(selectedMode === 'pickup' ? modeSelection.optionCardActive : {}),
-            }}
+            className={cn(
+              'w-full flex items-center justify-between px-4 py-[18px] bg-surface border-2 border-line rounded-lg cursor-pointer transition-all duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+              selectedMode === 'pickup' && 'border-accent bg-accent-soft shadow-[0_0_0_3px_var(--bg-accent-soft)]',
+            )}
           >
-            <div style={modeSelection.optionLeft}>
-              <span style={modeSelection.optionIcon}>🚶</span>
-              <div style={modeSelection.optionBody}>
-                <span style={modeSelection.optionTitle}>Voy yo</span>
-                <span style={modeSelection.optionDesc}>Planeá tu ruta con el mapa de tiendas y ahorros optimizados</span>
-                <span style={modeSelection.optionBadge}>Sin costo extra · mapa incluido</span>
+            <div className="flex items-start gap-[14px] flex-1">
+              <span className="text-[28px] leading-none shrink-0 mt-0.5">🚶</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-[15px] font-extrabold text-primary">Voy yo</span>
+                <span className="text-[12px] text-secondary leading-[1.4]">Planeá tu ruta con el mapa de tiendas y ahorros optimizados</span>
+                <span className="inline-block self-start text-[11px] font-semibold text-accent bg-accent-soft border border-accent rounded-full px-2 py-0.5">
+                  Sin costo extra · mapa incluido
+                </span>
               </div>
             </div>
-            {selectedMode === 'pickup' && <span style={modeSelection.checkmark}>✓</span>}
+            {selectedMode === 'pickup' && (
+              <span className="flex items-center justify-center shrink-0 w-[26px] h-[26px] rounded-full bg-accent text-white text-[14px] font-extrabold ml-2">✓</span>
+            )}
           </button>
         </div>
 
         {/* total summary */}
         {hasSelections && (
-          <div style={modeSelection.totalRow}>
-            <span style={modeSelection.totalLabel}>Total estimado</span>
-            <span style={modeSelection.totalValue}>
+          <div className="flex justify-between items-center px-[18px] py-[14px] bg-surface border border-line rounded-md">
+            <span className="text-[13px] text-secondary font-semibold">Total estimado</span>
+            <span className="text-[20px] font-extrabold text-accent">
               ${(total + (selectedMode === 'delivery' ? DELIVERY_FEE : 0)).toLocaleString('es-CO')}
-              <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}> COP</span>
+              <span className="text-[12px] font-medium text-muted"> COP</span>
             </span>
           </div>
         )}
 
         {/* actions */}
-        <div style={modeSelection.actions}>
+        <div className="flex gap-2.5">
           <button
             type="button"
             onClick={() => { setSelectedMode(null); setPhase('list'); }}
-            style={modeSelection.cancelBtn}
+            className="flex-1 py-[13px] rounded-md border border-line bg-surface text-secondary font-bold text-[13px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             Cancelar
           </button>
@@ -539,11 +554,10 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                 handleConfirmOrder('pickup');
               }
             }}
-            style={{
-              ...modeSelection.continueBtn,
-              opacity: selectedMode ? 1 : 0.45,
-              cursor: selectedMode ? 'pointer' : 'not-allowed',
-            }}
+            className={cn(
+              '[flex:2] py-[13px] rounded-md border-none bg-accent text-white font-extrabold text-[14px] cursor-pointer transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+              !selectedMode && 'opacity-45 cursor-not-allowed',
+            )}
           >
             {selectedMode === 'delivery' ? 'Continuar con domicilio' : selectedMode === 'pickup' ? 'Ver ruta de compra' : 'Continuar'}
           </button>
@@ -553,21 +567,25 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   }
 
   return (
-    <div style={lista.root}>
+    <div className="flex flex-col gap-2.5 min-w-0 overflow-hidden">
       {/* ── Badge de modo activo (post-optimización) ─────────────── */}
       {isCalculated && deliveryMode && (
-        <div style={lista.modeBadgeBar}>
-          <span style={lista.modeBadgeText}>
+        <div className="flex items-center justify-between px-3 py-[7px] bg-accent-soft border border-accent rounded-sm">
+          <span className="text-[12px] font-bold text-accent">
             {deliveryMode === 'delivery' ? '🛵 Domicilio' : '🚶 Voy yo'}
           </span>
-          <button type="button" onClick={handleChangeMode} style={lista.modeBadgeChange}>
+          <button
+            type="button"
+            onClick={handleChangeMode}
+            className="bg-transparent border-none text-[11px] text-accent font-semibold cursor-pointer p-0 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
             Cambiar modo
           </button>
         </div>
       )}
 
       {/* ── Input para agregar ─────────────────────────────────── */}
-      <div style={lista.inputRow}>
+      <div className="flex gap-2">
         <input
           ref={inputRef}
           type="text"
@@ -575,61 +593,68 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Escribe un producto (ej: leche, arroz, jabón...)"
-          style={lista.input}
+          className="flex-1 px-[14px] py-2.5 rounded-md border border-line bg-base text-primary text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-accent"
         />
         <button
           type="button"
           onClick={handleAdd}
           disabled={!inputValue.trim()}
           aria-label="Agregar producto"
-          style={{
-            ...lista.addBtn,
-            opacity: inputValue.trim() ? 1 : 0.45,
-            cursor: inputValue.trim() ? 'pointer' : 'not-allowed',
-          }}
+          className={cn(
+            'flex items-center justify-center w-[42px] h-[42px] shrink-0 rounded-md border-none bg-accent text-white transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+            !inputValue.trim() && 'opacity-45 cursor-not-allowed',
+          )}
         >
           <PlusIcon />
         </button>
       </div>
 
       {items.length === 0 ? (
-        <div style={lista.empty}>
-          <p style={lista.emptyText}>Tu lista está vacía</p>
-          <p style={lista.emptyHint}>Escribe un producto arriba para comenzar</p>
+        <div className="flex flex-col gap-1.5 items-center px-6 py-8 bg-surface border border-dashed border-line rounded-md text-center">
+          <p className="text-[14px] font-semibold text-primary m-0">Tu lista está vacía</p>
+          <p className="text-[12px] text-muted m-0">Escribe un producto arriba para comenzar</p>
         </div>
       ) : (
         <>
           {/* ── Barra de herramientas ───────────────────────────── */}
-          <div style={lista.toolbar}>
-            <span style={lista.itemCount}>
+          <div className="flex justify-between items-center px-0.5">
+            <span className="text-[12px] text-secondary font-semibold">
               {items.length} {items.length === 1 ? 'producto' : 'productos'}
             </span>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <div className="flex gap-1.5 items-center">
               <button
                 type="button"
                 onClick={() => setShowSaveInput((v) => !v)}
-                style={lista.saveBtn}
+                className="bg-transparent border border-line rounded-sm text-[11px] font-semibold text-secondary cursor-pointer px-2 py-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 title="Guardar lista con un nombre"
               >
                 💾 Guardar
               </button>
-              <button type="button" onClick={clearList} style={lista.clearBtn}>Limpiar</button>
+              <button
+                type="button"
+                onClick={clearList}
+                className="bg-transparent border-none text-[12px] text-error cursor-pointer px-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                Limpiar
+              </button>
             </div>
           </div>
 
           {/* ── Notificación de guardado ────────────────────────── */}
           {saveStatus && (
-            <div style={{
-              ...lista.saveNotice,
-              ...(saveStatus === 'success' ? lista.saveNoticeSuccess : lista.saveNoticeError),
-            }}>
+            <div className={cn(
+              'px-3 py-2 rounded-sm text-[12px] font-semibold',
+              saveStatus === 'success'
+                ? 'bg-success-soft text-success border border-success'
+                : 'bg-error-soft text-error border border-error',
+            )}>
               {saveStatus === 'success' ? '✓ Lista guardada correctamente' : '✗ No se pudo guardar la lista'}
             </div>
           )}
 
           {/* ── Input para guardar lista ─────────────────────────── */}
           {showSaveInput && (
-            <div style={lista.saveRow}>
+            <div className="flex gap-1.5">
               <input
                 type="text"
                 value={saveInput}
@@ -643,7 +668,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                   if (e.key === 'Escape') setShowSaveInput(false);
                 }}
                 placeholder="Nombre de la lista (ej: Mercado semanal)"
-                style={lista.saveInput}
+                className="flex-1 px-3 py-2 rounded-md border border-accent bg-base text-primary text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 autoFocus
               />
               <button
@@ -655,11 +680,10 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                   setSaveInput('');
                   setShowSaveInput(false);
                 }}
-                style={{
-                  ...lista.saveConfirmBtn,
-                  opacity: saveInput.trim() ? 1 : 0.45,
-                  cursor: saveInput.trim() ? 'pointer' : 'not-allowed',
-                }}
+                className={cn(
+                  'px-[14px] py-2 rounded-md border-none bg-accent text-white text-[12px] font-bold shrink-0 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                  !saveInput.trim() && 'opacity-45 cursor-not-allowed',
+                )}
               >
                 Guardar
               </button>
@@ -668,31 +692,31 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
           {/* ── Summary bar (solo post-optimización) ───────────── */}
           {isCalculated && hasSelections && (
-            <div style={lista.summaryBar}>
-              <div style={lista.summaryLeft}>
-                <span style={lista.summaryTitle}>Resumen</span>
-                <span style={lista.summaryCount}>
+            <div className="flex items-center justify-between px-4 py-3 bg-surface border-2 border-accent rounded-md">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[11px] font-bold text-muted uppercase tracking-[0.05em]">Resumen</span>
+                <span className="text-[14px] font-bold text-primary">
                   {Object.keys(selectedPubs).length} {Object.keys(selectedPubs).length === 1 ? 'producto' : 'productos'}
                 </span>
               </div>
               <div>
-                <span style={lista.summaryTotal}>
+                <span className="text-[22px] font-extrabold text-accent">
                   ${total.toLocaleString('es-CO')}
                 </span>
-                <span style={lista.summaryTotalCurrency}> COP</span>
+                <span className="text-[13px] font-medium text-muted"> COP</span>
               </div>
             </div>
           )}
 
           {/* ── Info banner (solo post-optimización) ────────────── */}
           {isCalculated && (
-            <div style={lista.infoBanner}>
+            <div className="px-[14px] py-2.5 bg-accent-soft border border-accent rounded-md text-[12px] text-accent leading-[1.5]">
               Seleccionamos las mejores opciones. Tocá un producto para ver alternativas y elegir la que más te convenga.
             </div>
           )}
 
           {/* ── Lista de ítems ──────────────────────────────────── */}
-          <ul style={lista.list}>
+          <ul className="list-none m-0 p-0 flex flex-col gap-1 overflow-x-hidden">
             {items.map((item) => {
               const isExpanded          = expandedId === item.id;
               const isOptimizingThis    = !!optimizingItems[item.id];
@@ -703,7 +727,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
               if (isCalculated) {
                 return (
-                  <li key={item.id} style={lista.optimItemWrap}>
+                  <li key={item.id} className="flex flex-col min-w-0">
                     {/* Fila principal — card de producto optimizado (toda la fila es clickeable) */}
                     <div
                       role={hasPubs ? 'button' : undefined}
@@ -712,82 +736,81 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                       aria-label={hasPubs ? `${isExpanded ? 'Ocultar' : 'Ver'} opciones de ${item.productName}` : undefined}
                       onClick={hasPubs ? () => toggleExpand(item.id) : undefined}
                       onKeyDown={hasPubs ? (e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpand(item.id); } : undefined}
-                      style={{
-                        ...lista.optimItemRow,
-                        ...(isExpanded ? lista.optimItemRowExpanded : {}),
-                        cursor: hasPubs ? 'pointer' : 'default',
-                      }}
+                      className={cn(
+                        'flex items-center gap-3 bg-surface border border-line rounded-md px-[14px] py-3 transition-colors duration-150',
+                        hasPubs ? 'cursor-pointer' : 'cursor-default',
+                        isExpanded && 'border-accent rounded-b-none',
+                      )}
                     >
                       {/* Avatar circular — imagen de la publicación o inicial */}
-                      <div style={lista.optimItemAvatar}>
+                      <div className="w-[42px] h-[42px] shrink-0 rounded-full bg-accent-soft flex items-center justify-center text-[16px] font-extrabold text-accent uppercase border border-accent overflow-hidden">
                         {chosenPub?.photo_url ? (
                           <img
                             src={chosenPub.photo_url}
                             alt={item.productName}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                            className="w-full h-full object-cover rounded-full"
                             onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
                           />
                         ) : null}
-                        <span style={{ display: chosenPub?.photo_url ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                        <span className={cn('items-center justify-center w-full h-full', chosenPub?.photo_url ? 'hidden' : 'flex')}>
                           {item.productName.charAt(0)}
                         </span>
                       </div>
 
                       {/* Cuerpo */}
-                      <div style={lista.optimItemBody}>
-                        <span style={lista.optimItemName}>{item.productName}</span>
-                        <div style={lista.optimItemMeta}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
+                      <div className="flex-1 flex flex-col gap-[3px] min-w-0">
+                        <span className="text-[14px] font-bold text-primary leading-tight">{item.productName}</span>
+                        <div className="text-[11px] text-muted flex items-center gap-1.5 flex-wrap">
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
                               onClick={() => updateItem(item.id, { quantity: Math.max(1, item.quantity - 1) })}
-                              style={lista.qtyBtn}
+                              className="flex items-center justify-center w-6 h-6 rounded-sm border border-line bg-elevated text-primary text-[14px] font-extrabold cursor-pointer shrink-0 leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                               aria-label="Reducir cantidad"
                             >
                               −
                             </button>
-                            <span style={lista.qtyValue}>{item.quantity}</span>
+                            <span className="text-[13px] font-bold text-primary min-w-5 text-center">{item.quantity}</span>
                             <button
                               type="button"
                               onClick={() => updateItem(item.id, { quantity: item.quantity + 1 })}
-                              style={lista.qtyBtn}
+                              className="flex items-center justify-center w-6 h-6 rounded-sm border border-line bg-elevated text-primary text-[14px] font-extrabold cursor-pointer shrink-0 leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                               aria-label="Aumentar cantidad"
                             >
                               +
                             </button>
                           </div>
                           {isOptimizingThis && (
-                            <span style={{ color: 'var(--accent)', fontStyle: 'italic' }}>⏳ Optimizando...</span>
+                            <span className="text-accent italic">⏳ Optimizando...</span>
                           )}
                           {!isOptimizingThis && hasPubs && chosenPub?.store?.name && (
                             <span>{chosenPub.store.name}</span>
                           )}
                           {!isOptimizingThis && !hasPubs && pubs !== undefined && (
-                            <span style={{ fontStyle: 'italic' }}>Sin coincidencias</span>
+                            <span className="italic">Sin coincidencias</span>
                           )}
                         </div>
                       </div>
 
                       {/* Precio + acciones */}
-                      <div style={lista.optimItemRight}>
+                      <div className="flex items-center gap-1.5 shrink-0">
                         {!isOptimizingThis && hasPubs && chosenPrice !== null && (
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={lista.optimItemPrice}>
+                          <div className="text-right">
+                            <div className="text-[15px] font-extrabold text-accent leading-tight">
                               ${(chosenPrice * item.quantity).toLocaleString('es-CO')}
                             </div>
-                            <div style={lista.optimItemPriceSub}>{item.quantity > 1 ? `${item.quantity} × $${chosenPrice.toLocaleString('es-CO')}` : 'COP'}</div>
+                            <div className="text-[10px] text-muted text-right">{item.quantity > 1 ? `${item.quantity} × $${chosenPrice.toLocaleString('es-CO')}` : 'COP'}</div>
                           </div>
                         )}
-                        <div style={lista.optimItemActions}>
+                        <div className="flex items-center gap-1">
                           {/* Chevron — solo indicador visual, el click lo maneja la fila entera */}
                           {hasPubs && !isOptimizingThis && (
                             <div
                               aria-hidden="true"
-                              style={{
-                                ...lista.optimChevronBtn,
-                                ...(isExpanded ? lista.optimChevronBtnActive : {}),
-                                pointerEvents: 'none',
-                              }}
+                              className={cn(
+                                'flex items-center border border-line text-secondary cursor-pointer px-[7px] py-[5px] rounded-sm transition-all duration-150 pointer-events-none',
+                                isExpanded && 'bg-accent-soft border-accent text-accent',
+                              )}
                             >
                               <ChevronDownIcon open={isExpanded} />
                             </div>
@@ -796,7 +819,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
-                          style={lista.removeBtnLarge}
+                          className="flex items-center justify-center shrink-0 min-h-[44px] min-w-[44px] ml-2 p-3 rounded-sm bg-transparent border-none text-muted cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                           aria-label={`Eliminar ${item.productName}`}
                         >
                           <TrashIcon />
@@ -806,7 +829,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
                     {/* Carrusel de publicaciones */}
                     {isExpanded && hasPubs && (
-                      <div style={lista.carouselWrap}>
+                      <div className="-mt-px border-r border-b border-l border-t-0 border-accent rounded-b-md bg-elevated p-2.5 overflow-hidden max-w-full">
                         <InfiniteHorizontalCarousel
                           publications={pubs}
                           selectedId={chosenPub?.id ?? (pubs[0]?.id ?? 0)}
@@ -821,9 +844,12 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
               // Estado pre-optimización: fila simple con checkbox
               const isChecked = checkedItems.has(item.id);
               return (
-                <li key={item.id} style={lista.itemWrap}>
+                <li key={item.id} className="flex flex-col min-w-0">
                   <div
-                    style={{ ...lista.item, cursor: 'pointer', ...(isChecked ? { borderColor: 'var(--accent)', background: 'var(--accent-soft)' } : {}) }}
+                    className={cn(
+                      'flex items-center gap-2 bg-surface border border-line rounded-md px-3 py-2.5 cursor-pointer transition-colors duration-150',
+                      isChecked && 'border-accent bg-accent-soft',
+                    )}
                     onClick={() => toggleCheck(item.id)}
                   >
                     <input
@@ -831,18 +857,21 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                       checked={isChecked}
                       onChange={() => toggleCheck(item.id)}
                       onClick={(e) => e.stopPropagation()}
-                      style={{ flexShrink: 0, accentColor: 'var(--accent)', width: '15px', height: '15px', cursor: 'pointer' }}
+                      className="shrink-0 w-[15px] h-[15px] cursor-pointer accent-[var(--text-accent)]"
                       aria-label={`Marcar ${item.productName}`}
                     />
-                    <div style={{ ...lista.itemText }}>
-                      <span style={{ ...lista.itemName, ...(isChecked ? { textDecoration: 'line-through', opacity: 0.55 } : {}) }}>
+                    <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                      <span className={cn(
+                        'text-[13px] font-semibold text-primary',
+                        isChecked && 'line-through opacity-55',
+                      )}>
                         {item.productName}
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
-                      style={lista.removeBtn}
+                      className="flex items-center shrink-0 p-[5px] rounded-sm bg-transparent border-none text-muted cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       aria-label={`Eliminar ${item.productName}`}
                     >
                       <TrashIcon />
@@ -855,8 +884,8 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
           {/* ── Dirección de entrega (solo domicilio) ────────────── */}
           {isCalculated && hasSelections && deliveryMode === 'delivery' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[12px] font-semibold text-secondary">
                 Dirección de entrega
               </label>
               <input
@@ -864,24 +893,14 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                 value={deliveryAddress}
                 onChange={(e) => setDeliveryAddress(e.target.value)}
                 placeholder="Ej: Calle 10 # 5-30, Quibdó"
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border)',
-                  fontSize: 14,
-                  background: 'var(--bg-base)',
-                  color: 'var(--text-primary)',
-                  outline: 'none',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                }}
+                className="w-full px-3 py-2.5 rounded-sm border border-line bg-base text-primary text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
             </div>
           )}
 
           {/* ── Error al guardar ─────────────────────────────────── */}
           {saveError && (
-            <p style={{ ...lista.errorMsg, background: 'var(--error-soft)', color: 'var(--error)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', margin: 0, fontSize: 13 }}>
+            <p className="text-[13px] text-error bg-error-soft px-[14px] py-2.5 rounded-sm m-0">
               {saveError}
             </p>
           )}
@@ -891,7 +910,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
             <button
               type="button"
               onClick={() => setPhase('mode-selection')}
-              style={lista.proceedBtn}
+              className="w-full py-[14px] rounded-md border-none bg-accent text-white font-extrabold text-[14px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               ✦ Elegir cómo recibir mi pedido
             </button>
@@ -903,7 +922,10 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
               type="button"
               onClick={handleConfirmOrder}
               disabled={saving}
-              style={{ ...lista.confirmBtn, opacity: saving ? 0.7 : 1 }}
+              className={cn(
+                'w-full py-[14px] rounded-md border-none bg-accent text-white font-extrabold text-[14px] cursor-pointer transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                saving && 'opacity-70',
+              )}
             >
               {saving
                 ? 'Guardando pedido...'
@@ -914,8 +936,8 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
           )}
 
           {/* ── Error de cálculo ────────────────────────────────── */}
-          {calcError && <p style={lista.errorMsg}>{calcError}</p>}
-          {coordsError && <p style={lista.errorMsg}>{coordsError}</p>}
+          {calcError && <p className="text-[13px] text-error bg-error-soft px-[14px] py-2.5 rounded-sm m-0">{calcError}</p>}
+          {coordsError && <p className="text-[13px] text-error bg-error-soft px-[14px] py-2.5 rounded-sm m-0">{coordsError}</p>}
 
           {/* ── Panel de configuración ───────────────────────────── */}
           {showOptimSettings && (
@@ -928,23 +950,25 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
           )}
 
           {/* ── Fila: Botón optimizar + tuerca ──────────────────── */}
-          <div style={lista.calcRow}>
+          <div className="flex gap-2 mt-1 items-stretch">
             <button
               type="button"
               onClick={handleCalculate}
               disabled={calculating || items.length === 0}
-              style={{
-                ...lista.calcBtn,
-                opacity: (calculating || items.length === 0) ? 0.45 : 1,
-                cursor: (calculating || items.length === 0) ? 'not-allowed' : 'pointer',
-              }}
+              className={cn(
+                'flex-1 px-4 py-3 rounded-md border border-accent bg-accent-soft text-accent font-extrabold text-[14px] transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                (calculating || items.length === 0) && 'opacity-45 cursor-not-allowed',
+              )}
             >
               {calculating ? '⏳ Optimizando...' : '✦ Optimizar lista'}
             </button>
             <button
               type="button"
               onClick={() => setShowOptimSettings((v) => !v)}
-              style={{ ...lista.gearBtn, ...(showOptimSettings ? lista.gearBtnActive : {}) }}
+              className={cn(
+                'flex items-center justify-center w-11 shrink-0 rounded-md border border-line bg-elevated text-secondary cursor-pointer transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                showOptimSettings && 'bg-accent-soft text-accent border-accent',
+              )}
               title="Configuración de optimización"
               aria-label="Configuración de optimización"
             >
