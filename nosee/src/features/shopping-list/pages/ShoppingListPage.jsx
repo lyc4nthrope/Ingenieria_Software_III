@@ -152,6 +152,7 @@ export default function ShoppingListPage() {
           removeOrder={removeOrder}
           updateOrderDelivery={updateOrderDelivery}
           emptyHint="Confirma un pedido con 🚶 Voy yo y aparecerá aquí."
+          variant="pickup"
         />
       )}
     </div>

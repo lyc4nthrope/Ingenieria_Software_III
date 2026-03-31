@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { DeliveryCard } from './DeliveryCard';
+import VoyYoMapView from './VoyYoMapView';
 import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
 import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
@@ -140,7 +141,8 @@ const sc = {
 };
 
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
-export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint }) {
+export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint, variant = 'delivery' }) {
+  const isPickup = variant === 'pickup';
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
   const [checklist, setChecklist] = useState({});
@@ -348,6 +350,16 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
                   ${o.result.totalCost.toLocaleString('es-CO')}
                 </span>
               )}
+              {isPickup && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleRemove(o.id); }}
+                  style={{ background: 'none', border: 'none', color: active ? '#fff' : 'var(--error)', cursor: 'pointer', padding: '2px 4px', fontSize: '12px', fontWeight: 800 }}
+                  aria-label="Eliminar recogida"
+                >
+                  ✕
+                </button>
+              )}
             </button>
           );
         })}
@@ -358,28 +370,37 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         {/* Columna izquierda */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {/* ── Header del pedido activo ── */}
-          <div style={pedidos.orderHeader}>
-            <div style={pedidos.orderHeaderLeft}>
-              <span style={pedidos.orderRef}>#{selectedOrder.id.slice(-8)}</span>
-              <span style={pedidos.orderDate}>{date}</span>
+          {!isPickup && (
+            <div style={pedidos.orderHeader}>
+              <div style={pedidos.orderHeaderLeft}>
+                <span style={pedidos.orderRef}>#{selectedOrder.id.slice(-8)}</span>
+                <span style={pedidos.orderDate}>{date}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleRemove(selectedOrder.id)}
+                style={pedidos.deleteBtn}
+                title="Eliminar pedido"
+              >
+                <TrashIcon />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => handleRemove(selectedOrder.id)}
-              style={pedidos.deleteBtn}
-              title="Eliminar pedido"
-            >
-              <TrashIcon />
-            </button>
-          </div>
+          )}
 
           {/* ── Tarjeta de domicilio ── */}
-          {selectedOrder.deliveryMode && (
+          {selectedOrder.deliveryMode && !isPickup && (
             <DeliveryCard
               order={selectedOrder}
               onCancel={handleCancelDelivery}
               onPaymentSubmitted={handlePaymentSubmitted}
             />
+          )}
+
+          {/* ── Mapa VoyYo (solo recogidas) ── */}
+          {isPickup && selectedOrder && (
+            <div style={{ height: '500px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)' }}>
+              <VoyYoMapView result={selectedOrder.result} userCoords={selectedOrder.userCoords ?? null} />
+            </div>
           )}
 
           {/* ── Productos en el pedido (solo domicilio) ── */}
@@ -497,16 +518,18 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           />
         </div>
 
-        {/* Columna derecha: mapa rectangular */}
-        <div style={pedidos.mapCol}>
-          <OrderRouteMap
-            key={selectedOrder.id}
-            stores={result.stores}
-            userCoords={userCoords}
-            driverLocation={selectedOrder.driverLocation ?? null}
-            mapHeight="480px"
-          />
-        </div>
+        {/* Columna derecha: mapa rectangular (solo delivery) */}
+        {!isPickup && (
+          <div style={pedidos.mapCol}>
+            <OrderRouteMap
+              key={selectedOrder.id}
+              stores={result.stores}
+              userCoords={userCoords}
+              driverLocation={selectedOrder.driverLocation ?? null}
+              mapHeight="480px"
+            />
+          </div>
+        )}
       </div>
     </div>
   );
