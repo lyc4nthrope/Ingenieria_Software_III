@@ -35,6 +35,15 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   const [calculating, setCalculating] = useState(false);
   const [calcError, setCalcError] = useState(null);
 
+  // Ítems siendo optimizados individualmente (post-cálculo inicial): { [itemId]: true }
+  const [optimizingItems, setOptimizingItems] = useState({});
+
+  // Refs para leer valores actuales dentro de efectos sin agregarlos a deps
+  const calcResultsRef    = useRef(calcResults);
+  const optimizingItemsRef = useRef(optimizingItems);
+  useEffect(() => { calcResultsRef.current    = calcResults;    }, [calcResults]);
+  useEffect(() => { optimizingItemsRef.current = optimizingItems; }, [optimizingItems]);
+
   // Publicación seleccionada por ítem: { [itemId]: publication }
   const [selectedPubs, setSelectedPubs] = useState({});
 
@@ -73,7 +82,8 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
     if (!trimmed) return;
     addItem(trimmed, 1);
     setInputValue('');
-    setCalcResults(null);
+    // Si ya está calculado, NO reseteamos — el efecto detecta el ítem nuevo y lo optimiza solo
+    if (!isCalculatedRef.current) setCalcResults(null);
     inputRef.current?.focus();
   };
 
@@ -99,6 +109,44 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
     }
     saveTimerRef.current = setTimeout(() => setSaveStatus(null), 3000);
   };
+
+  // ── Optimización individual (para ítems añadidos post-cálculo) ───────────────
+  const optimizeSingleItem = useCallback(async (item) => {
+    setOptimizingItems((prev) => ({ ...prev, [item.id]: true }));
+
+    const needsCoords  = prefs.sortMode === 'nearest' || prefs.sortMode === 'balanced';
+    const apiSortBy    = prefs.validatedOnly ? 'validated' : 'cheapest';
+    const distanceParams = needsCoords && hasLocation
+      ? { maxDistance: prefs.maxDistance, latitude, longitude }
+      : {};
+
+    try {
+      const res  = await publicationsApi.getPublications({ productName: item.productName, sortBy: apiSortBy, limit: 30, ...distanceParams });
+      let   pubs = res.success ? (res.data ?? []) : [];
+      if (prefs.storeType === 'physical') pubs = pubs.filter((p) => Number(p.store?.store_type_id) !== 2);
+      else if (prefs.storeType === 'online')  pubs = pubs.filter((p) => Number(p.store?.store_type_id) === 2);
+      const sorted = [...pubs].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+      setCalcResults((prev) => prev ? { ...prev, [item.id]: sorted } : { [item.id]: sorted });
+      if (sorted.length > 0) setSelectedPubs((prev) => ({ ...prev, [item.id]: sorted[0] }));
+    } catch {
+      setCalcResults((prev) => prev ? { ...prev, [item.id]: [] } : { [item.id]: [] });
+    } finally {
+      setOptimizingItems((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
+    }
+  }, [prefs, hasLocation, latitude, longitude]);
+
+  // Cuando la lista ya está calculada y se agrega un ítem nuevo, optimizarlo solo
+  const isCalculatedRef = useRef(false);
+  useEffect(() => { isCalculatedRef.current = calcResults !== null; }, [calcResults]);
+
+  useEffect(() => {
+    if (!isCalculatedRef.current) return;
+    const missing = items.filter(
+      (item) => !(item.id in calcResultsRef.current) && !optimizingItemsRef.current[item.id]
+    );
+    missing.forEach((item) => optimizeSingleItem(item));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   const calcRequestRef = useRef(0);
 
@@ -663,11 +711,12 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
           {/* ── Lista de ítems ──────────────────────────────────── */}
           <ul style={lista.list}>
             {items.map((item) => {
-              const isExpanded = expandedId === item.id;
-              const pubs = calcResults?.[item.id];
-              const hasPubs = pubs && pubs.length > 0;
-              const chosenPub = selectedPubs[item.id];
-              const chosenPrice = chosenPub?.price ?? null;
+              const isExpanded          = expandedId === item.id;
+              const isOptimizingThis    = !!optimizingItems[item.id];
+              const pubs                = calcResults?.[item.id];
+              const hasPubs             = pubs && pubs.length > 0;
+              const chosenPub           = selectedPubs[item.id];
+              const chosenPrice         = chosenPub?.price ?? null;
 
               if (isCalculated) {
                 return (
@@ -706,10 +755,13 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                         <span style={lista.optimItemName}>{item.productName}</span>
                         <div style={lista.optimItemMeta}>
                           <span style={lista.optimItemQty}>× {item.quantity}</span>
-                          {hasPubs && chosenPub?.store?.name && (
+                          {isOptimizingThis && (
+                            <span style={{ color: 'var(--accent)', fontStyle: 'italic' }}>⏳ Optimizando...</span>
+                          )}
+                          {!isOptimizingThis && hasPubs && chosenPub?.store?.name && (
                             <span>{chosenPub.store.name}</span>
                           )}
-                          {!hasPubs && (
+                          {!isOptimizingThis && !hasPubs && pubs !== undefined && (
                             <span style={{ fontStyle: 'italic' }}>Sin coincidencias</span>
                           )}
                         </div>
@@ -717,7 +769,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
                       {/* Precio + acciones */}
                       <div style={lista.optimItemRight}>
-                        {hasPubs && chosenPrice !== null && (
+                        {!isOptimizingThis && hasPubs && chosenPrice !== null && (
                           <div style={{ textAlign: 'right' }}>
                             <div style={lista.optimItemPrice}>
                               ${chosenPrice.toLocaleString('es-CO')}
@@ -727,7 +779,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                         )}
                         <div style={lista.optimItemActions}>
                           {/* Chevron — solo indicador visual, el click lo maneja la fila entera */}
-                          {hasPubs && (
+                          {hasPubs && !isOptimizingThis && (
                             <div
                               aria-hidden="true"
                               style={{
