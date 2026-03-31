@@ -17,6 +17,10 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   const [saveInput, setSaveInput] = useState('');
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [showOptimSettings, setShowOptimSettings] = useState(false);
+  const [checkedItems, setCheckedItems] = useState(new Set());
+  const toggleCheck = (id) => setCheckedItems((prev) => {
+    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+  });
 
   // Notificación al guardar
   const [saveStatus, setSaveStatus] = useState(null); // null | 'success' | 'error'
@@ -814,16 +818,30 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                 );
               }
 
-              // Estado pre-optimización: fila simple
+              // Estado pre-optimización: fila simple con checkbox
+              const isChecked = checkedItems.has(item.id);
               return (
                 <li key={item.id} style={lista.itemWrap}>
-                  <div style={lista.item}>
-                    <div style={lista.itemText}>
-                      <span style={lista.itemName}>{item.productName}</span>
+                  <div
+                    style={{ ...lista.item, cursor: 'pointer', ...(isChecked ? { borderColor: 'var(--accent)', background: 'var(--accent-soft)' } : {}) }}
+                    onClick={() => toggleCheck(item.id)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleCheck(item.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ flexShrink: 0, accentColor: 'var(--accent)', width: '15px', height: '15px', cursor: 'pointer' }}
+                      aria-label={`Marcar ${item.productName}`}
+                    />
+                    <div style={{ ...lista.itemText }}>
+                      <span style={{ ...lista.itemName, ...(isChecked ? { textDecoration: 'line-through', opacity: 0.55 } : {}) }}>
+                        {item.productName}
+                      </span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleRemove(item.id)}
+                      onClick={(e) => { e.stopPropagation(); handleRemove(item.id); }}
                       style={lista.removeBtn}
                       aria-label={`Eliminar ${item.productName}`}
                     >
