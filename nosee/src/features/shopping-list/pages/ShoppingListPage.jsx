@@ -12,12 +12,12 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { cn } from '@/lib/cn';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ListaTab } from '../components/ListaTab';
 import { PedidosTab } from '../components/PedidosTab';
 import { SavedListsSidebar } from '../components/SavedListsSidebar';
+import { page } from '../styles/shoppingListStyles';
 import { useOptimizeSingleItem } from '@/features/shopping-list/hooks/useOptimizeSingleItem';
 import { useOptimPrefs } from '@/features/shopping-list/hooks/useOptimPrefs';
 import { useGeoLocation } from '@/features/publications/hooks/useGeoLocation';
@@ -133,40 +133,37 @@ export default function ShoppingListPage() {
       `}</style>
 
       {/* ── Cabecera ─────────────────────────────────────────────── */}
-      <div className="text-center mb-4 flex flex-col items-center gap-1.5">
-        <h1 className="text-2xl font-extrabold text-text-primary m-0">
+      <div style={page.header}>
+        <h1 style={page.title}>
           {activeTab === 'lista'     ? '🛒 Mi Lista de Compras' :
            activeTab === 'pedidos'   ? '🛵 Mis Pedidos'         :
                                        '🚶 Mis Recogidas'}
         </h1>
         {activeTab === 'lista' && items.length > 0 && (
-          <span className="bg-bg-elevated text-text-secondary border border-[var(--border)] rounded-full text-xs font-semibold px-3 py-[3px]">
+          <span style={page.badge}>
             {items.length} {items.length === 1 ? 'producto' : 'productos'} en lista
           </span>
         )}
       </div>
 
       {/* ── Pestañas ─────────────────────────────────────────────── */}
-      <div className="flex gap-1 border-b-2 border-[var(--border)] mb-5">
+      <div style={page.tabBar}>
         {tabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              'flex items-center gap-1.5 px-[18px] py-[9px] bg-transparent border-none border-b-2 border-transparent -mb-[2px]',
-              'text-[13px] font-semibold text-text-muted cursor-pointer transition-colors duration-150',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
-              'min-h-[44px] md:min-h-0',
-              activeTab === tab.key && 'text-text-accent border-b-[var(--accent)] !border-b-[color:var(--accent)]',
-            )}
+            style={{
+              ...page.tabBtn,
+              ...(activeTab === tab.key ? page.tabBtnActive : {}),
+            }}
           >
             {tab.label}
             {tab.badge > 0 && (
-              <span className={cn(
-                'px-[7px] py-px rounded-full bg-bg-elevated text-text-muted text-[11px] font-bold border border-[var(--border)]',
-                activeTab === tab.key && 'bg-bg-accent-soft text-text-accent border-[var(--accent)]',
-              )}>
+              <span style={{
+                ...page.tabBadge,
+                ...(activeTab === tab.key ? page.tabBadgeActive : {}),
+              }}>
                 {tab.badge}
               </span>
             )}

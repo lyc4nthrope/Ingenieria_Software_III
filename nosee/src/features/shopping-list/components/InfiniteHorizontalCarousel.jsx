@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { cn } from '@/lib/cn';
 import { CarouselCard } from './CarouselCard';
 import PublicationDetailModal from '@/features/publications/components/PublicationDetailModal';
 
@@ -39,11 +38,7 @@ export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect 
   }, [selectedId]);
 
   if (total === 0) {
-    return (
-      <p className="m-0 text-[12px] text-muted italic py-1">
-        Sin coincidencias encontradas para este producto.
-      </p>
-    );
+    return <p style={s.empty}>Sin coincidencias encontradas para este producto.</p>;
   }
 
   const scrollUp   = () => scrollRef.current?.scrollBy({ top: -SCROLL_STEP, behavior: 'smooth' });
@@ -51,21 +46,14 @@ export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect 
 
   return (
     <>
-      <div className="flex flex-col items-stretch gap-1">
+      <div style={s.root}>
         {/* ── Flecha arriba ── */}
         <button
           type="button"
           onClick={scrollUp}
           disabled={!canUp}
+          style={{ ...s.arrowBtn, opacity: canUp ? 1 : 0.2, cursor: canUp ? 'pointer' : 'default' }}
           aria-label="Ver opciones anteriores"
-          className={cn(
-            'w-full min-h-[44px]',
-            'bg-surface border border-line rounded-sm',
-            'text-accent text-[13px] font-extrabold leading-none',
-            'p-1 transition-opacity duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-            canUp ? 'opacity-100 cursor-pointer' : 'opacity-20 cursor-default',
-          )}
         >
           ▲
         </button>
@@ -74,8 +62,7 @@ export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect 
         <div
           ref={scrollRef}
           onScroll={updateArrows}
-          className="flex flex-col gap-[6px] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
-          style={{ maxHeight: `${MAX_HEIGHT}px` }}
+          style={s.cards}
         >
           {(publications ?? []).map((pub, idx) => {
             const isSelected = (pub.id ?? idx) === selectedId;
@@ -98,24 +85,15 @@ export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect 
           type="button"
           onClick={scrollDown}
           disabled={!canDown}
+          style={{ ...s.arrowBtn, opacity: canDown ? 1 : 0.2, cursor: canDown ? 'pointer' : 'default' }}
           aria-label="Ver más opciones"
-          className={cn(
-            'w-full min-h-[44px]',
-            'bg-surface border border-line rounded-sm',
-            'text-accent text-[13px] font-extrabold leading-none',
-            'p-1 transition-opacity duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-            canDown ? 'opacity-100 cursor-pointer' : 'opacity-20 cursor-default',
-          )}
         >
           ▼
         </button>
 
         {/* ── Contador ── */}
         {total > 1 && (
-          <p className="m-0 text-center text-[11px] text-muted font-semibold">
-            {total} opciones disponibles
-          </p>
+          <p style={s.pageInfo}>{total} opciones disponibles</p>
         )}
       </div>
 
@@ -128,3 +106,48 @@ export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect 
     </>
   );
 }
+
+// ─── Estilos ──────────────────────────────────────────────────────────────────
+const s = {
+  root: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: '4px',
+  },
+  arrowBtn: {
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-sm)',
+    color: 'var(--accent)',
+    fontSize: '13px',
+    fontWeight: 800,
+    padding: '4px',
+    lineHeight: 1,
+    width: '100%',
+    transition: 'opacity 0.15s',
+  },
+  cards: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    maxHeight: `${MAX_HEIGHT}px`,
+    overflowY: 'auto',
+    scrollbarWidth: 'thin',
+    scrollbarColor: 'var(--border) transparent',
+  },
+  pageInfo: {
+    margin: 0,
+    textAlign: 'center',
+    fontSize: '11px',
+    color: 'var(--text-muted)',
+    fontWeight: 600,
+  },
+  empty: {
+    margin: 0,
+    fontSize: '12px',
+    color: 'var(--text-muted)',
+    fontStyle: 'italic',
+    padding: '4px 0',
+  },
+};
