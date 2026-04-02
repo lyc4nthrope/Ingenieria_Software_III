@@ -5,11 +5,12 @@ import { useGeoLocation } from '@/features/publications/hooks/useGeoLocation';
 import * as publicationsApi from '@/services/api/publications.api';
 import { OptimSettingsPanel } from './OptimSettingsPanel';
 import { InfiniteHorizontalCarousel } from './InfiniteHorizontalCarousel';
-import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, DELIVERY_FEE, buildResultFromSelections } from '../utils/shoppingListUtils';
+import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, calculateDeliveryFee, buildResultFromSelections } from '../utils/shoppingListUtils';
 import { lista, modeSelection, delivForm } from '../styles/shoppingListStyles';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import { createOrder } from '@/services/api/orders.api';
+import { DeliveryMapPicker } from './DeliveryMapPicker';
 
 // ─── Pestaña Mi Lista ─────────────────────────────────────────────────────────
 export function ListaTab({ items, addItem, removeItem, clearList, saveList, addOrder, onSaved, onConfirmedDelivery, onConfirmedPickup }) {
@@ -68,6 +69,8 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   const [deliveryApartment, setDeliveryApartment] = useState('');
   const [deliveryInstructions, setDeliveryInstructions] = useState('');
   const [deliveryPaymentMethod, setDeliveryPaymentMethod] = useState('cash'); // 'cash' | 'transfer'
+  // Coords seleccionadas en el mapa de entrega — tienen prioridad sobre el GPS del hook
+  const [deliveryMapCoords, setDeliveryMapCoords] = useState(null); // { lat, lng }
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
@@ -78,6 +81,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   const [expandedId, setExpandedId] = useState(null);
 
   const inputRef = useRef(null);
+  const deliveryMapRef = useRef(null);
 
   // Limpieza del timer al desmontar
   useEffect(() => () => clearTimeout(saveTimerRef.current), []);
@@ -226,7 +230,8 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
     const isDelivery = (modeOverride ?? deliveryMode) === 'delivery';
     const result = buildResultFromSelections(items, selectedPubs);
     const localId = `NSE-${Date.now().toString(36).toUpperCase()}`;
-    const userCoords = hasLocation ? { lat: latitude, lng: longitude } : null;
+    const userCoords = deliveryMapCoords ?? (hasLocation ? { lat: latitude, lng: longitude } : null);
+    const fee = isDelivery ? calculateDeliveryFee(result.stores, userCoords) : 0;
 
     setSaving(true);
     setSaveError(null);
@@ -245,7 +250,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
         totalCost:       result.totalCost,
         savings:         result.savings     ?? 0,
         savingsPct:      result.savingsPct  ?? 0,
-        deliveryFee:     DELIVERY_FEE,
+        deliveryFee:     fee,
         strategy:        'balanced',
       });
 
@@ -263,6 +268,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
       supabaseId,
       result,
       userCoords,
+      deliveryFee:          fee,
       createdAt:            new Date().toISOString(),
       deliveryMode:         isDelivery,
       deliveryStatus:       isDelivery ? 'searching' : null,
@@ -283,6 +289,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
       setDeliveryApartment('');
       setDeliveryInstructions('');
       setDeliveryPaymentMethod('cash');
+      setDeliveryMapCoords(null);
       onConfirmedDelivery?.();
     } else {
       setCalcResults(null);
@@ -301,8 +308,12 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
   // ── Fase "delivery-form" — formulario completo de domicilio ──────────────
   if (phase === 'delivery-form') {
-    const deliveryTotal = total + DELIVERY_FEE;
+    const previewUserCoords = deliveryMapCoords ?? (hasLocation ? { lat: latitude, lng: longitude } : null);
+    const previewResult = buildResultFromSelections(items, selectedPubs);
+    const previewDeliveryFee = calculateDeliveryFee(previewResult.stores, previewUserCoords);
+    const deliveryTotal = total + previewDeliveryFee;
     const canSubmit = deliveryAddress.trim().length > 0 && !saving;
+    const mapInitialCoords = hasLocation ? { lat: latitude, lng: longitude } : null;
 
     return (
       <div style={delivForm.root}>
@@ -342,16 +353,56 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
         <div style={delivForm.section}>
           <label style={delivForm.label}>Dirección de entrega *</label>
-          <input
-            type="text"
-            value={deliveryAddress}
-            onChange={(e) => setDeliveryAddress(e.target.value)}
-            placeholder="Ej: Calle 10 # 5-30, Quibdó"
-            style={{
-              ...delivForm.input,
-              ...(saveError && !deliveryAddress.trim() ? delivForm.inputError : {}),
-            }}
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <input
+              type="text"
+              value={deliveryAddress}
+              onChange={(e) => setDeliveryAddress(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  deliveryMapRef.current?.geocodeAndMove(deliveryAddress);
+                }
+              }}
+              placeholder="Ej: Calle 10 # 5-30, Quibdó — presioná Enter para ver en mapa"
+              style={{
+                ...delivForm.input,
+                flex: 1,
+                ...(saveError && !deliveryAddress.trim() ? delivForm.inputError : {}),
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => deliveryMapRef.current?.geocodeAndMove(deliveryAddress)}
+              style={{
+                padding: '0 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--accent)',
+                background: 'var(--accent-soft)',
+                color: 'var(--accent)',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                fontFamily: 'inherit',
+              }}
+            >
+              📍 Ver
+            </button>
+          </div>
+          {/* Mapa: entrega + tiendas */}
+          <DeliveryMapPicker
+            ref={deliveryMapRef}
+            initialCoords={mapInitialCoords}
+            stores={previewResult.stores}
+            deliveryFee={previewDeliveryFee}
+            onChange={setDeliveryMapCoords}
           />
+          {deliveryMapCoords && (
+            <p style={{ fontSize: '11px', color: 'var(--success, #16a34a)', margin: '2px 0 0', fontWeight: 600 }}>
+              📍 Entrega: {deliveryMapCoords.lat.toFixed(5)}, {deliveryMapCoords.lng.toFixed(5)}
+            </p>
+          )}
         </div>
 
         <div style={delivForm.section}>
@@ -415,7 +466,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
           </div>
           <div style={delivForm.summaryRow}>
             <span style={delivForm.summaryLabel}>Tarifa de domicilio</span>
-            <span style={delivForm.summaryValue}>+${DELIVERY_FEE.toLocaleString('es-CO')} COP</span>
+            <span style={delivForm.summaryValue}>+${previewDeliveryFee.toLocaleString('es-CO')} COP</span>
           </div>
           <div style={{ ...delivForm.summaryRow, ...delivForm.summaryTotal }}>
             <span>Total</span>
@@ -456,6 +507,9 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
   // ── Fase "mode-selection" — pantalla de selección de modo ────────────────
   if (phase === 'mode-selection') {
+    const modeUserCoords = deliveryMapCoords ?? (hasLocation ? { lat: latitude, lng: longitude } : null);
+    const modeResult = buildResultFromSelections(items, selectedPubs);
+    const modeDeliveryFee = calculateDeliveryFee(modeResult.stores, modeUserCoords);
     return (
       <div style={modeSelection.root}>
         {/* header */}
@@ -480,7 +534,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
               <div style={modeSelection.optionBody}>
                 <span style={modeSelection.optionTitle}>Domicilio</span>
                 <span style={modeSelection.optionDesc}>Recibí tus productos en la puerta de tu casa</span>
-                <span style={modeSelection.optionBadge}>Estimado 1-2 horas · +${DELIVERY_FEE.toLocaleString('es-CO')}</span>
+                <span style={modeSelection.optionBadge}>Estimado 1-2 horas · +${modeDeliveryFee.toLocaleString('es-CO')}</span>
               </div>
             </div>
             {selectedMode === 'delivery' && <span style={modeSelection.checkmark}>✓</span>}
@@ -512,7 +566,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
           <div style={modeSelection.totalRow}>
             <span style={modeSelection.totalLabel}>Total estimado</span>
             <span style={modeSelection.totalValue}>
-              ${(total + (selectedMode === 'delivery' ? DELIVERY_FEE : 0)).toLocaleString('es-CO')}
+              ${(total + (selectedMode === 'delivery' ? modeDeliveryFee : 0)).toLocaleString('es-CO')}
               <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-muted)' }}> COP</span>
             </span>
           </div>

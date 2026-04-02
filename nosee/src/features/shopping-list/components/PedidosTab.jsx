@@ -2,16 +2,24 @@ import { useState, useEffect, useRef } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { DeliveryCard } from './DeliveryCard';
 import { VoyYoMapView } from './VoyYoMapView';
-import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
+import { TrashIcon, getStoreEmoji, calculateDeliveryFee } from '../utils/shoppingListUtils';
 import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
-import { updateProductPrice, logPriceCorrection } from '@/services/api/orders.api';
+import { PriceAdjustmentBanner } from '@/features/orders/components/PriceAdjustmentBanner';
+import {
+  updateProductPrice,
+  logPriceCorrection,
+  resolvePriceAdjustment,
+  getPendingAdjustments,
+  cancelOrderByUser,
+} from '@/services/api/orders.api';
 import { createPublication } from '@/services/api/publications.api';
 
 // Mapa de estado de Supabase (tabla orders) → estado de UI local
 // El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
 const STATUS_MAP = {
+  pendiente_pago:       'pendiente_pago',
   pendiente_repartidor: 'searching',
   aceptado:             'found',
   comprando:            'comprando',
@@ -160,6 +168,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showTotalSum, setShowTotalSum] = useState(false);
   const [checklist, setChecklist] = useState({});
+  const [pendingAdjustments, setPendingAdjustments] = useState([]);
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
 
   // Crea una publicación nueva con los datos de la publicación original pero con el precio corregido.
@@ -263,6 +272,8 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           updateOrderDeliveryRef.current(selectedOrder.id, {
             deliveryStatus: uiStatus,
             ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : {}),
+            // Capturar el timestamp de llegando para el timer de 10 min (Caso D)
+            ...(payload.new.status === 'llegando' ? { llegandoAt: payload.new.updated_at ?? payload.new.llegando_at ?? new Date().toISOString() } : {}),
           });
         }
       )
@@ -310,6 +321,50 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.dealerId, selectedOrder?.id]);
 
+  // ── REALTIME + CARGA INICIAL: ajustes de precio pendientes (Caso B) ───────
+  useEffect(() => {
+    if (!selectedOrder?.supabaseId || isPickup) return;
+
+    // Cargar ajustes pendientes al montar
+    getPendingAdjustments(selectedOrder.supabaseId).then(({ data }) => {
+      setPendingAdjustments(data ?? []);
+    });
+
+    const channel = supabase
+      .channel(`price-adj-${selectedOrder.supabaseId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'price_adjustment_requests', filter: `order_id=eq.${selectedOrder.supabaseId}` },
+        (payload) => {
+          if (payload.new?.status === 'pending') {
+            setPendingAdjustments((prev) => [...prev, payload.new]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.supabaseId]);
+
+  // ── Aprobar ajuste de precio (Caso B) ─────────────────────────────────────
+  const handleApproveAdjustment = async (adjustment) => {
+    const { data, error } = await resolvePriceAdjustment(adjustment.id, true);
+    if (error || !data) return;
+    // Actualizar el precio en Supabase y en el store local
+    await updateProductPrice(data.order_id, data.store_idx, data.product_idx, data.requested_price);
+    setPendingAdjustments((prev) => prev.filter((a) => a.id !== adjustment.id));
+    updateOrderDelivery(selectedOrder.id, { result: null }); // forzar re-fetch en próxima carga
+  };
+
+  // ── Rechazar ajuste de precio → cancela el pedido (Caso B) ────────────────
+  const handleRejectAdjustment = async (adjustment) => {
+    const { error } = await resolvePriceAdjustment(adjustment.id, false);
+    if (error) return;
+    await cancelOrderByUser(adjustment.order_id);
+    setPendingAdjustments((prev) => prev.filter((a) => a.id !== adjustment.id));
+  };
+
   const handleRemove = (id) => {
     removeOrder(id);
     setSelectedIdx((prev) => Math.max(0, prev - 1));
@@ -328,7 +383,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     });
   };
 
-  // Cuando el usuario sube el comprobante de pago
+  // Cuando el usuario sube el comprobante de pago al repartidor (estado 'llegando')
   const handlePaymentSubmitted = ({ receiptUrl, method }) => {
     updateOrderDelivery(selectedOrder.id, {
       deliveryStatus: 'comprobante_subido',
@@ -429,6 +484,16 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             />
           )}
 
+          {/* ── Banners de ajuste de precio pendientes (Caso B) ── */}
+          {!isPickup && pendingAdjustments.length > 0 && pendingAdjustments.map((adj) => (
+            <PriceAdjustmentBanner
+              key={adj.id}
+              adjustment={adj}
+              onApprove={handleApproveAdjustment}
+              onReject={handleRejectAdjustment}
+            />
+          ))}
+
           {/* ── Productos en el pedido (solo domicilio) ── */}
           {selectedOrder.deliveryMode && allProducts.length > 0 && (
             <div style={{
@@ -494,23 +559,26 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
                 style={{ ...pedidos.stat, cursor: 'pointer', border: '1px solid var(--accent)', position: 'relative' }}
                 title={showTotalSum ? 'Ver desglose' : 'Ver total combinado'}
               >
-                {showTotalSum ? (
-                  <>
-                    <span style={pedidos.statVal}>${(result.totalCost + DELIVERY_FEE).toLocaleString('es-CO')}</span>
-                    <span style={pedidos.statLabel}>Total c/ dom.</span>
-                    <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>← desglosar</span>
-                  </>
-                ) : (
-                  <>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
-                      ${result.totalCost.toLocaleString('es-CO')}
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> + </span>
-                      ${DELIVERY_FEE.toLocaleString('es-CO')}
-                    </span>
-                    <span style={pedidos.statLabel}>Lista + Domicilio</span>
-                    <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>→ ver total</span>
-                  </>
-                )}
+                {(() => {
+                  const fee = selectedOrder.deliveryFee ?? calculateDeliveryFee(result?.stores, userCoords);
+                  return showTotalSum ? (
+                    <>
+                      <span style={pedidos.statVal}>${(result.totalCost + fee).toLocaleString('es-CO')}</span>
+                      <span style={pedidos.statLabel}>Total c/ dom.</span>
+                      <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>← desglosar</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
+                        ${result.totalCost.toLocaleString('es-CO')}
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> + </span>
+                        ${fee.toLocaleString('es-CO')}
+                      </span>
+                      <span style={pedidos.statLabel}>Lista + Domicilio</span>
+                      <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>→ ver total</span>
+                    </>
+                  );
+                })()}
               </button>
             ) : (
               <div style={pedidos.stat}>

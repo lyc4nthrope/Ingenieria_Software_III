@@ -23,7 +23,7 @@ import {
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { insertUserActivityLog } from '@/services/api/audit.api';
 import { createOrder } from '@/services/api/orders.api';
-import { DELIVERY_FEE } from '@/features/shopping-list/utils/shoppingListUtils';
+import { calculateDeliveryFee } from '@/features/shopping-list/utils/shoppingListUtils';
 
 // ─── Radios disponibles ───────────────────────────────────────────────────────
 const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
@@ -136,7 +136,7 @@ export default function CreateOrderPage() {
     setSaving(true);
     setSaveError(null);
 
-    const fee = wantsDelivery ? DELIVERY_FEE : 0;
+    const fee = wantsDelivery ? calculateDeliveryFee(result.stores, coords) : 0;
 
     const { data: savedOrder, error } = await createOrder({
       userId:          currentUserId,
@@ -175,7 +175,8 @@ export default function CreateOrderPage() {
       userCoords:           coords,
       createdAt:            new Date().toISOString(),
       deliveryMode:         wantsDelivery,
-      deliveryStatus:       wantsDelivery ? 'searching' : null,
+      deliveryStatus:       wantsDelivery ? 'pendiente_pago' : null,
+      deliveryPin:          savedOrder?.delivery_pin ?? null,
       driverLocation:       null,
       cancellationCharged:  false,
     });

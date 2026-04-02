@@ -44,12 +44,14 @@ export async function createOrder({
 }) {
   const totalSingleStore = Math.round((totalCost ?? 0) + (savings ?? 0));
 
+  const deliveryPin = String(Math.floor(1000 + Math.random() * 9000));
+
   const { data, error } = await supabase
     .from('orders')
     .insert({
       user_id:                    userId,
       local_id:                   localId,
-      status:                     deliveryMode ? 'pendiente_repartidor' : 'usuario_se_encarga',
+      status:                     deliveryMode ? 'pendiente_pago' : 'usuario_se_encarga',
       delivery_mode:              deliveryMode,
       // delivery_address es NOT NULL sin default — usar '' si el usuario no escribió dirección
       delivery_address:           deliveryAddress || '',
@@ -64,8 +66,10 @@ export async function createOrder({
       delivery_fee:               deliveryFee     ?? 0,
       strategy:                   strategy        ?? 'balanced',
       confirmed_at:               new Date().toISOString(),
+      // PIN de verificación para cerrar el pedido (RF-03)
+      delivery_pin:               deliveryPin,
     })
-    .select('id')   // solo necesitamos el id INTEGER generado
+    .select('id, delivery_pin')   // devolvemos el PIN para mostrarlo al cliente
     .single();
 
   return { data, error };
@@ -275,4 +279,143 @@ export async function getDealerLocation(dealerId) {
     .eq('dealer_id', dealerId)
     .single();
   return { data, error };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PAGO PREVIO Y PIN DE VERIFICACIÓN (RF-01, RF-03)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Importar solo cuando se necesite — evitar import circular con payments.api
+// Se importa dinámicamente en submitUpfrontReceipt para no crear dependencia circular.
+
+/**
+ * Sube el comprobante de pago previo y libera el pedido al pool de repartidores.
+ * Combina: upload → guardar URL en order → confirm_order_payment RPC.
+ *
+ * @param {number} orderId - id INTEGER del pedido
+ * @param {string} userId  - UUID del usuario
+ * @param {File}   file    - imagen del comprobante
+ */
+export async function submitUpfrontReceipt(orderId, userId, file) {
+  const { uploadReceipt } = await import('@/services/api/payments.api');
+  const { url, error: uploadErr } = await uploadReceipt(userId, orderId, file);
+  if (uploadErr) return { error: uploadErr };
+
+  const { error: updateErr } = await supabase
+    .from('orders')
+    .update({ payment_receipt_url: url })
+    .eq('id', orderId);
+  if (updateErr) return { error: updateErr };
+
+  const { error } = await supabase.rpc('confirm_order_payment', { p_order_id: orderId });
+  return { error };
+}
+
+/**
+ * Libera el pedido al pool de repartidores tras confirmar el pago.
+ * Cambia status de 'pendiente_pago' → 'pendiente_repartidor'.
+ * Solo el dueño del pedido puede llamarlo (validado en la RPC SECURITY DEFINER).
+ *
+ * @param {number} orderId - id INTEGER del pedido
+ */
+export async function confirmOrderPayment(orderId) {
+  const { error } = await supabase.rpc('confirm_order_payment', {
+    p_order_id: orderId,
+  });
+  return { error };
+}
+
+/**
+ * Verifica el PIN de entrega ingresado por el repartidor.
+ * Si es correcto, la RPC avanza el estado a 'entregado' atómicamente.
+ * El repartidor nunca puede leer el PIN directamente (solo el dueño del pedido).
+ *
+ * @param {number} orderId - id INTEGER del pedido
+ * @param {string} pin     - PIN de 4 dígitos ingresado por el repartidor
+ * @returns {{ data: boolean, error }}
+ */
+export async function verifyDeliveryPin(orderId, pin) {
+  const { data, error } = await supabase.rpc('verify_delivery_pin', {
+    p_order_id: orderId,
+    p_pin:      pin,
+  });
+  return { data: data === true, error };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AJUSTE DE PRECIO — Caso B del spec (discrepancia > 5%)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Porcentaje de tolerancia para aplicar ajuste de precio sin pedir aprobación.
+ * Si el nuevo precio supera este umbral sobre el original → se requiere aprobación.
+ */
+export const PRICE_ADJUSTMENT_THRESHOLD = 0.05;
+
+/**
+ * Crea una solicitud de ajuste de precio pendiente de aprobación por el cliente.
+ * Llamado por el repartidor cuando el precio real difiere > 5% del estimado.
+ */
+export async function requestPriceAdjustment({ orderId, storeIdx, productIdx, productName, originalPrice, requestedPrice }) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('price_adjustment_requests')
+    .insert({
+      order_id:        orderId,
+      store_idx:       storeIdx,
+      product_idx:     productIdx,
+      product_name:    productName,
+      original_price:  originalPrice,
+      requested_price: requestedPrice,
+      requested_by:    user?.id,
+    })
+    .select('id')
+    .single();
+  return { data, error };
+}
+
+/**
+ * Aprueba o rechaza una solicitud de ajuste de precio (solo el dueño del pedido).
+ * Retorna los datos de la solicitud para que el frontend actualice el precio si aplica.
+ *
+ * @param {number}  requestId - id de la solicitud en price_adjustment_requests
+ * @param {boolean} approved  - true = aprobar, false = rechazar
+ */
+export async function resolvePriceAdjustment(requestId, approved) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('price_adjustment_requests')
+    .update({
+      status:       approved ? 'approved' : 'rejected',
+      resolved_by:  user?.id,
+      resolved_at:  new Date().toISOString(),
+    })
+    .eq('id', requestId)
+    .eq('status', 'pending')
+    .select('id, order_id, store_idx, product_idx, requested_price, original_price, product_name')
+    .single();
+  return { data, error };
+}
+
+/**
+ * Obtiene las solicitudes de ajuste de precio pendientes para un pedido.
+ * Usado para cargar el estado inicial cuando el cliente abre PedidosTab.
+ */
+export async function getPendingAdjustments(orderId) {
+  const { data, error } = await supabase
+    .from('price_adjustment_requests')
+    .select('id, store_idx, product_idx, product_name, original_price, requested_price, created_at')
+    .eq('order_id', orderId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+  return { data: data ?? [], error };
+}
+
+/**
+ * Cancela un pedido desde el lado del cliente (ej: tras rechazar un ajuste de precio).
+ * Funciona en cualquier estado excepto 'entregado' o ya 'cancelado'.
+ */
+export async function cancelOrderByUser(orderId) {
+  const { error } = await supabase.rpc('cancel_order_by_user', { p_order_id: orderId });
+  return { error };
 }
