@@ -1,19 +1,22 @@
 /**
- * process-mp-payment — Edge Function
+ * process-mp-compromiso — Edge Function
  *
- * Procesa el pago de la tarifa de servicio (delivery_fee) mediante MercadoPago.
+ * Procesa el pago del fondo de compromiso (5% del total del pedido, mínimo 1.000 COP).
+ * Se ejecuta cuando el repartidor ya aceptó el pedido (estado pendiente_compromiso)
+ * y el cliente paga el fondo antes de que el repartidor salga a comprar.
  *
  * FLUJO:
  *   1. Validar JWT del usuario autenticado
- *   2. Verificar que el pedido pertenece al usuario y está en 'pendiente_pago'
+ *   2. Verificar que el pedido pertenece al usuario y está en 'pendiente_compromiso'
  *   3. Llamar a la API de MercadoPago con el token del CardPayment brick
- *   4. Si aprobado → confirm_order_payment RPC + guardar tarjeta en customer MP
+ *   4. Si aprobado → confirm_compromiso_payment RPC (→ status: 'comprando') + guardar tarjeta
  *   5. Retornar { success, status, paymentId, customerId }
  *
- * SEGURIDAD:
- *   - ACCESS_TOKEN de MP nunca sale del servidor
- *   - confirm_order_payment usa auth.uid() → se llama con anonClient (JWT del usuario)
- *   - El monto nunca viene del cliente: se lee de la BD
+ * DIFERENCIAS con process-mp-payment:
+ *   - Valida status === 'pendiente_compromiso' (no 'pendiente_pago')
+ *   - Usa order.compromiso_amount como monto (no delivery_fee)
+ *   - Descripción: "Fondo de compromiso — pedido #N"
+ *   - Llama RPC confirm_compromiso_payment (no confirm_order_payment)
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -73,7 +76,7 @@ Deno.serve(async (req) => {
 
   // ── 2. Parsear body ───────────────────────────────────────────────────────
   let body: {
-    orderId:               number;
+    orderId:               string;
     token:                 string;
     paymentMethodId:       string;
     issuerId?:             string | number;
@@ -94,65 +97,42 @@ Deno.serve(async (req) => {
   }
 
   // ── 3. Verificar pedido ───────────────────────────────────────────────────
-  console.log("[process-mp-payment] orderId:", orderId, "userId:", user.id);
-
   const { data: order, error: orderErr } = await adminClient
     .from("orders")
-    .select("id, user_id, service_fee, total_estimated, status")
+    .select("id, user_id, compromiso_amount, status")
     .eq("id", orderId)
     .single();
 
-  if (orderErr || !order) {
-    console.error("[process-mp-payment] order fetch error:", orderErr?.message, "orderId:", orderId);
-    return json(404, { error: "Order not found" });
-  }
-  console.log("[process-mp-payment] order:", { id: order.id, status: order.status, service_fee: order.service_fee, total_estimated: order.total_estimated });
-
+  if (orderErr || !order) return json(404, { error: "Order not found" });
   if (order.user_id !== user.id) return json(403, { error: "Forbidden" });
-  if (order.status !== "pendiente_pago") {
-    console.error("[process-mp-payment] invalid status:", order.status);
+  if (order.status !== "pendiente_compromiso") {
     return json(400, { error: `Invalid status: ${order.status}` });
   }
-
-  // Pedidos legacy (previos a la migración service_fee) → calcular en tiempo real
-  const serviceFeeAmount = (order.service_fee && order.service_fee > 0)
-    ? Number(order.service_fee)
-    : Math.max(5000, 2000 + Math.round(Number(order.total_estimated ?? 0) * 0.03));
-
-  console.log("[process-mp-payment] serviceFeeAmount:", serviceFeeAmount);
-
-  if (serviceFeeAmount <= 0) {
-    console.error("[process-mp-payment] invalid serviceFeeAmount:", serviceFeeAmount);
-    return json(400, { error: "Cannot determine service_fee amount" });
+  if (!order.compromiso_amount || order.compromiso_amount <= 0) {
+    return json(400, { error: "Invalid compromiso_amount" });
   }
 
   // ── 4. Procesar pago con MercadoPago ─────────────────────────────────────
-  const mpPayload = {
-    transaction_amount: serviceFeeAmount,
-    token,
-    description:       `Tarifa de servicio — pedido #${orderId}`,
-    installments:      installments ?? 1,
-    payment_method_id: paymentMethodId,
-    ...(issuerId ? { issuer_id: Number(issuerId) } : {}),
-    payer: {
-      email,
-      ...(identificationType && identificationNumber
-        ? { identification: { type: identificationType, number: identificationNumber } }
-        : {}),
-    },
-  };
-  console.log("[process-mp-payment] MP payload (no token):", JSON.stringify({ ...mpPayload, token: "[redacted]" }));
-
   let mpData: { status: string; status_detail: string; id?: number };
   try {
-    mpData = await mpFetch("/v1/payments", mpToken, "POST", mpPayload);
+    mpData = await mpFetch("/v1/payments", mpToken, "POST", {
+      transaction_amount: Number(order.compromiso_amount),
+      token,
+      description:       `Fondo de compromiso — pedido #${orderId}`,
+      installments:      installments ?? 1,
+      payment_method_id: paymentMethodId,
+      ...(issuerId ? { issuer_id: issuerId } : {}),
+      payer: {
+        email,
+        ...(identificationType && identificationNumber
+          ? { identification: { type: identificationType, number: identificationNumber } }
+          : {}),
+      },
+    });
   } catch (err) {
     return json(502, { error: "Failed to reach MercadoPago API", detail: String(err) });
   }
 
-  console.log("[process-mp-payment] MP response:", JSON.stringify(mpData));
-
-  // status numérico = error de la API de MP (ej: 400, 500), no un estado de pago
   if (typeof mpData.status === "number") {
     return json(200, { success: false, status: "mp_api_error", detail: (mpData as any).message ?? "Error interno de MercadoPago. Intentá de nuevo." });
   }
@@ -161,18 +141,19 @@ Deno.serve(async (req) => {
     return json(200, { success: false, status: mpData.status, detail: mpData.status_detail });
   }
 
-  // ── 5. Confirmar pedido en BD ─────────────────────────────────────────────
-  const { error: rpcErr } = await anonClient.rpc("confirm_order_payment", { p_order_id: orderId });
+  // ── 5. Confirmar compromiso en BD (→ status: 'comprando') ─────────────────
+  const { error: rpcErr } = await anonClient.rpc("confirm_compromiso_payment", {
+    p_order_id:   orderId,
+    p_payment_id: String(mpData.id),
+  });
   if (rpcErr) {
-    console.error("[process-mp-payment] confirm_order_payment failed:", rpcErr.message);
-    return json(500, { error: "Payment approved but order confirmation failed", detail: rpcErr.message });
+    console.error("[process-mp-compromiso] confirm_compromiso_payment failed:", rpcErr.message);
+    return json(500, { error: "Payment approved but compromiso confirmation failed", detail: rpcErr.message });
   }
 
   // ── 6. Guardar tarjeta en customer de MercadoPago ─────────────────────────
-  // Permite que en próximos pagos el brick muestre la tarjeta guardada.
   let customerId: string | null = null;
   try {
-    // Leer mp_customer_id existente
     const { data: userRow } = await adminClient
       .from("users")
       .select("mp_customer_id")
@@ -182,7 +163,6 @@ Deno.serve(async (req) => {
     if (userRow?.mp_customer_id) {
       customerId = userRow.mp_customer_id;
     } else {
-      // Crear customer nuevo en MP
       const mpCustomer = await mpFetch("/v1/customers", mpToken, "POST", { email });
       if (mpCustomer?.id) {
         customerId = String(mpCustomer.id);
@@ -193,13 +173,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Guardar tarjeta en el customer
     if (customerId) {
       await mpFetch(`/v1/customers/${customerId}/cards`, mpToken, "POST", { token });
     }
   } catch (err) {
-    // No bloqueamos el flujo si falla el guardado — el pago ya fue procesado
-    console.warn("[process-mp-payment] card save failed:", String(err));
+    console.warn("[process-mp-compromiso] card save failed:", String(err));
   }
 
   return json(200, {

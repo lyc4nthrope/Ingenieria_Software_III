@@ -363,13 +363,14 @@ export default function DealerDashboard() {
   const totalEarned = history.reduce((s, h) => s + Number(h.delivery_fee ?? 0), 0);
 
   const STATUS_INFO = {
-    pendiente_repartidor: { label: 'Disponible',     color: 'var(--warning)',       bg: 'var(--warning-soft)' },
-    aceptado:             { label: 'Aceptado',        color: 'var(--accent)',        bg: 'var(--accent-soft)' },
-    comprando:            { label: 'Comprando',       color: 'var(--warning)',       bg: 'var(--warning-soft)' },
-    en_camino:            { label: 'En camino',       color: 'var(--success)',       bg: 'var(--success-soft)' },
-    llegando:             { label: 'En la puerta',    color: 'var(--accent)',        bg: 'var(--accent-soft)' },
-    entregado:            { label: 'Entregado',       color: 'var(--success)',       bg: 'var(--success-soft)' },
-    cancelado:            { label: 'Cancelado',       color: 'var(--error)',         bg: 'var(--error-soft)' },
+    pendiente_repartidor: { label: 'Disponible',          color: 'var(--warning)',       bg: 'var(--warning-soft)' },
+    aceptado:             { label: 'Aceptado',             color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+    pendiente_compromiso: { label: 'Esp. compromiso',      color: '#92400e',              bg: 'var(--warning-soft, #fef9c3)' },
+    comprando:            { label: 'Comprando',            color: 'var(--warning)',       bg: 'var(--warning-soft)' },
+    en_camino:            { label: 'En camino',            color: 'var(--success)',       bg: 'var(--success-soft)' },
+    llegando:             { label: 'En la puerta',         color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+    entregado:            { label: 'Entregado',            color: 'var(--success)',       bg: 'var(--success-soft)' },
+    cancelado:            { label: 'Cancelado',            color: 'var(--error)',         bg: 'var(--error-soft)' },
   };
 
   // Pedido activo para la tab "ruta"
@@ -791,6 +792,24 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
               </ul>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Banner de espera de compromiso (estado pendiente_compromiso) */}
+      {order.status === 'pendiente_compromiso' && (
+        <div style={{
+          padding: '12px 14px',
+          background: 'var(--warning-soft, #fef9c3)',
+          border: '1px solid var(--warning, #ca8a04)',
+          borderRadius: 'var(--radius-md)',
+          display: 'flex', flexDirection: 'column', gap: '4px',
+        }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
+            ⏳ Esperando pago de compromiso
+          </span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            El cliente está confirmando el fondo de compromiso. Podrás salir a comprar cuando se acredite el pago.
+          </span>
         </div>
       )}
 

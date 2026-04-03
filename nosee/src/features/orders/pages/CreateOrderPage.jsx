@@ -53,6 +53,7 @@ export default function CreateOrderPage() {
   const [storeType, setStoreType] = useState('all'); // 'all' | 'physical' | 'virtual'
   const [strategy, setStrategy] = useState('balanced'); // 'price' | 'fewest_stores' | 'balanced'
   const [wantsDelivery, setWantsDelivery] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('transferencia');
 
   // ── Resultado ─────────────────────────────────────────────────────────────
   const [result, setResult] = useState(null);
@@ -137,6 +138,7 @@ export default function CreateOrderPage() {
     setSaveError(null);
 
     const fee = wantsDelivery ? calculateDeliveryFee(result.stores, coords) : 0;
+    const serviceFee = wantsDelivery ? Math.max(5000, 2000 + Math.round((result.totalCost ?? 0) * 0.03)) : 0;
 
     const { data: savedOrder, error } = await createOrder({
       userId:          currentUserId,
@@ -150,7 +152,9 @@ export default function CreateOrderPage() {
       savings:         result.savings     ?? 0,
       savingsPct:      result.savingsPct  ?? 0,
       deliveryFee:     fee,
+      serviceFee,
       strategy,
+      paymentMethod,
     });
 
     if (error) {
@@ -179,6 +183,7 @@ export default function CreateOrderPage() {
       deliveryPin:          savedOrder?.delivery_pin ?? null,
       driverLocation:       null,
       cancellationCharged:  false,
+      paymentMethod,
     });
 
     insertUserActivityLog(currentUserId, 'crear_pedido', {
@@ -376,6 +381,31 @@ export default function CreateOrderPage() {
               ))}
             </div>
           </div>
+
+          {/* Método de pago al repartidor (solo visible con domicilio) */}
+          {wantsDelivery && (
+            <div>
+              <label style={styles.sectionLabel}>Método de pago al repartidor</label>
+              <div style={styles.storeTypeRow}>
+                {[
+                  { value: 'efectivo', label: '💵 Efectivo' },
+                  { value: 'transferencia', label: '🏦 Transferencia' },
+                ].map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPaymentMethod(value)}
+                    style={{
+                      ...styles.storeTypeBtn,
+                      ...(paymentMethod === value ? styles.storeTypeBtnActive : {}),
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {calcError && <p style={styles.errorMsg}>{calcError}</p>}
 

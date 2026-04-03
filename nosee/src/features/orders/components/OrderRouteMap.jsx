@@ -76,7 +76,7 @@ async function fetchOsrmRoute(waypoints) {
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
-export default function OrderRouteMap({ stores, userCoords, driverLocation = null, mapHeight = '340px' }) {
+export default function OrderRouteMap({ stores, userCoords, driverLocation = null, mapHeight = '340px', showRoute = true }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const leafletRef = useRef(null); // guardar instancia de L para efectos posteriores
@@ -155,29 +155,31 @@ export default function OrderRouteMap({ stores, userCoords, driverLocation = nul
       if (bounds.length > 1) map.fitBounds(bounds, { padding: [40, 40] });
 
       // ── Ruta ─────────────────────────────────────────────────────────────
-      const routePoints = [
-        ...(userCoords ? [{ lat: userCoords.lat, lng: userCoords.lng }] : []),
-        ...available.map((w) => w.coords),
-      ];
+      if (showRoute) {
+        const routePoints = [
+          ...(userCoords ? [{ lat: userCoords.lat, lng: userCoords.lng }] : []),
+          ...available.map((w) => w.coords),
+        ];
 
-      if (routePoints.length >= 2) {
-        try {
-          const latlngs = await fetchOsrmRoute(routePoints);
-          if (!mounted) return;
-          L.polyline(latlngs, {
-            color: '#2563eb',
-            weight: 4,
-            opacity: 0.8,
-          }).addTo(map);
-          if (mounted) setRouteMode('osrm');
-        } catch {
-          // Fallback: línea recta entre puntos
-          if (!mounted) return;
-          L.polyline(
-            routePoints.map((p) => [p.lat, p.lng]),
-            { color: '#2563eb', weight: 3, opacity: 0.6, dashArray: '8 6' }
-          ).addTo(map);
-          if (mounted) setRouteMode('straight');
+        if (routePoints.length >= 2) {
+          try {
+            const latlngs = await fetchOsrmRoute(routePoints);
+            if (!mounted) return;
+            L.polyline(latlngs, {
+              color: '#2563eb',
+              weight: 4,
+              opacity: 0.8,
+            }).addTo(map);
+            if (mounted) setRouteMode('osrm');
+          } catch {
+            // Fallback: línea recta entre puntos
+            if (!mounted) return;
+            L.polyline(
+              routePoints.map((p) => [p.lat, p.lng]),
+              { color: '#2563eb', weight: 3, opacity: 0.6, dashArray: '8 6' }
+            ).addTo(map);
+            if (mounted) setRouteMode('straight');
+          }
         }
       }
 
@@ -247,7 +249,7 @@ export default function OrderRouteMap({ stores, userCoords, driverLocation = nul
       </div>
 
       {/* Aviso ruta aproximada */}
-      {status === 'ready' && routeMode === 'straight' && (
+      {showRoute && status === 'ready' && routeMode === 'straight' && (
         <p style={styles.notice}>
           ⚠️ Ruta aproximada (línea recta) — OSRM no disponible en este momento
         </p>

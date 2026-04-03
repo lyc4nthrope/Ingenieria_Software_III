@@ -4,11 +4,19 @@ import { PaymentView } from './PaymentView';
 import { useAuthStore } from '@/features/auth/store/authStore';
 import { getDealerBankAccounts } from '@/services/api/bankAccounts.api';
 import { useDeliveryTimer } from '@/features/orders/hooks/useDeliveryTimer';
-import { confirmOrderPayment, submitUpfrontReceipt } from '@/services/api/orders.api';
+import { confirmOrderPayment, submitUpfrontReceipt, confirmCompromisoPago } from '@/services/api/orders.api';
 import { CardPayment } from '@mercadopago/sdk-react';
 import { supabase } from '@/services/supabase.client';
 
 const STATUS_CONFIGS = {
+  pendiente_compromiso: {
+    icon: '🤝', bg: 'var(--warning-soft, #fef9c3)', border: 'var(--warning, #ca8a04)',
+    color: '#92400e',
+    title: 'Repartidor asignado — pagá el fondo de compromiso',
+    desc: 'Pagá el fondo de compromiso para que el repartidor salga a comprar. El domicilio y los productos los pagás al momento de la entrega.',
+    showCompromisoPago: true,
+    step: 1,
+  },
   pendiente_pago: {
     icon: '💳', bg: 'var(--warning-soft, #fef9c3)', border: 'var(--warning, #ca8a04)',
     color: '#92400e',
@@ -81,6 +89,14 @@ const STATUS_CONFIGS = {
     showCancel: false,
     step: 0,
   },
+  auto_gestionado: {
+    icon: '🙋', bg: 'var(--bg-elevated)', border: 'var(--border)',
+    color: 'var(--text-muted)',
+    title: 'Te encargás vos',
+    desc: 'Decidiste gestionar este pedido por tu cuenta.',
+    showCancel: false,
+    step: 0,
+  },
 };
 
 const STEPS = [
@@ -90,17 +106,21 @@ const STEPS = [
 ];
 
 export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
-  const { deliveryStatus, cancellationCharged, dealerId, deliveryFee: storedFee, result, userCoords, deliveryPin, llegandoAt } = order;
+  const { deliveryStatus, cancellationCharged, dealerId, deliveryFee: storedFee, result, userCoords, deliveryPin, llegandoAt, compromisoAmount } = order;
   const displayFee = storedFee ?? calculateDeliveryFee(result?.stores, userCoords);
+  // Tarifa de plataforma cobrada en pendiente_pago: mínimo 5.000 COP, base 2.000 + 3% del total
+  const serviceFee = Math.max(5000, 2000 + Math.round((result?.totalCost ?? 0) * 0.03));
   const [showPayment, setShowPayment] = useState(false);
+  const [paymentMode, setPaymentMode] = useState(null);
   const [bankAccounts, setBankAccounts] = useState([]);
   const [loadingBank, setLoadingBank] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [receiptFile, setReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState(null);
   const [receiptError, setReceiptError] = useState(null);
-  const [mpError, setMpError]         = useState(null);
+  const [mpError, setMpError]           = useState(null);
   const [mpCustomerId, setMpCustomerId] = useState(null);
+  const [mpCustomerReady, setMpCustomerReady] = useState(false);
   const userId = useAuthStore((s) => s.user?.id);
 
   // Timer de 10 min para el Caso D (cliente ausente) — solo activo en estado 'llegando'
@@ -114,13 +134,17 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
-    if (deliveryStatus !== 'pendiente_pago' || !userId) return;
+    if (!['pendiente_pago', 'pendiente_compromiso', 'llegando'].includes(deliveryStatus) || !userId) return;
+    setMpCustomerReady(false);
     supabase
       .from('users')
       .select('mp_customer_id')
       .eq('id', userId)
       .single()
-      .then(({ data }) => { if (data?.mp_customer_id) setMpCustomerId(data.mp_customer_id); });
+      .then(({ data }) => {
+        if (data?.mp_customer_id) setMpCustomerId(data.mp_customer_id);
+        setMpCustomerReady(true);
+      });
   }, [deliveryStatus, userId]);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -143,6 +167,37 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
     reader.readAsDataURL(file);
   };
 
+  // Pago final con pasarela (estado llegando) — usa la tarjeta guardada del pago de servicio
+  const handleFinalMPSubmit = async (formData) => {
+    if (!order.supabaseId) return;
+    setConfirmingPayment(true);
+    setMpError(null);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('process-mp-payment', {
+        body: {
+          orderId:              order.supabaseId,
+          token:                formData.token,
+          paymentMethodId:      formData.payment_method_id,
+          issuerId:             formData.issuer_id,
+          installments:         formData.installments,
+          email:                formData.payer?.email,
+          identificationType:   formData.payer?.identification?.type,
+          identificationNumber: formData.payer?.identification?.number,
+        },
+      });
+      if (fnErr || !data?.success) {
+        setMpError(`Pago rechazado: ${data?.detail ?? data?.error ?? 'intentá de nuevo'}`);
+      } else {
+        onPaymentSubmitted?.({ receiptUrl: null, method: 'pasarela' });
+      }
+    } catch (err) {
+      setMpError('Error inesperado. Verificá tu conexión e intentá de nuevo.');
+      console.error('[DeliveryCard] final MP payment error:', err);
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
   // Pago de la tarifa de servicio con MercadoPago (estado pendiente_pago)
   const handleMPSubmit = async (formData) => {
     if (!order.supabaseId) return;
@@ -162,7 +217,11 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
         },
       });
       if (fnErr || !data?.success) {
-        setMpError(`Pago rechazado: ${data?.detail ?? data?.error ?? 'intentá de nuevo'}`);
+        const detail = data?.detail ?? data?.error ?? 'intentá de nuevo';
+        const msg = data?.status === 'mp_api_error'
+          ? `Error de MercadoPago: ${detail}. Volvé a ingresar los datos de la tarjeta.`
+          : `Pago rechazado: ${detail}`;
+        setMpError(msg);
       } else if (data?.customerId) {
         setMpCustomerId(data.customerId);
       }
@@ -171,6 +230,39 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
     } catch (err) {
       setMpError('Error inesperado. Verificá tu conexión e intentá de nuevo.');
       console.error('[DeliveryCard] MP payment error:', err);
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
+  // Pago del fondo de compromiso con MercadoPago (estado pendiente_compromiso)
+  const handleCompromisoSubmit = async (formData) => {
+    if (!order.supabaseId) return;
+    setConfirmingPayment(true);
+    setMpError(null);
+    try {
+      const { data, error: fnErr } = await confirmCompromisoPago(order.supabaseId, {
+        token:                formData.token,
+        paymentMethodId:      formData.payment_method_id,
+        issuerId:             formData.issuer_id,
+        installments:         formData.installments,
+        email:                formData.payer?.email,
+        identificationType:   formData.payer?.identification?.type,
+        identificationNumber: formData.payer?.identification?.number,
+      });
+      if (fnErr || !data?.success) {
+        const detail = data?.detail ?? data?.error ?? 'intentá de nuevo';
+        const msg = data?.status === 'mp_api_error'
+          ? `Error de MercadoPago: ${detail}. Volvé a ingresar los datos de la tarjeta.`
+          : `Pago rechazado: ${detail}`;
+        setMpError(msg);
+      } else if (data?.customerId) {
+        setMpCustomerId(data.customerId);
+      }
+      // Realtime en PedidosTab actualiza deliveryStatus a 'comprando' automáticamente
+    } catch (err) {
+      setMpError('Error inesperado. Verificá tu conexión e intentá de nuevo.');
+      console.error('[DeliveryCard] compromiso payment error:', err);
     } finally {
       setConfirmingPayment(false);
     }
@@ -187,10 +279,11 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
     onPaymentSubmitted?.(result);
   };
 
+
   const currentStep = cfg.step;
 
-  // Cancelled state — simple error banner
-  if (deliveryStatus === 'cancelled') {
+  // Cancelled / auto_gestionado state — simple terminal banner
+  if (deliveryStatus === 'cancelled' || deliveryStatus === 'auto_gestionado') {
     return (
       <div style={{
         padding: '14px 16px', borderRadius: 'var(--radius-md)',
@@ -328,7 +421,7 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
         )}
 
         {/* Action buttons */}
-        {(cfg.showCancel || cfg.showPayment || cfg.showConfirmPayment) && (
+        {(cfg.showCancel || cfg.showPayment || cfg.showConfirmPayment || cfg.showCompromisoPago) && (
           <div style={{ display: 'flex', gap: '8px' }}>
             {cfg.showCancel && (
               <button
@@ -344,6 +437,56 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
               >
                 {cfg.cancelFree ? '✕ Cancelar envío' : '✕ Cancelar (se cobra domicilio)'}
               </button>
+            )}
+            {cfg.showCompromisoPago && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                <div style={{
+                  padding: '12px 14px',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex', flexDirection: 'column', gap: '6px',
+                }}>
+                  <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    🤝 ¿Qué es el fondo de compromiso?
+                  </p>
+                  <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    Es un monto pequeño que va a un <strong>fondo de respaldo</strong> para el repartidor.
+                    <strong> No es el costo del domicilio ni de tus productos</strong> — eso se le paga al repartidor cuando entregue.
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Fondo de compromiso</span>
+                    <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent)' }}>
+                      ${(compromisoAmount ?? 0).toLocaleString('es-CO')} COP
+                    </span>
+                  </div>
+                </div>
+                {mpCustomerReady ? (
+                  <CardPayment
+                    initialization={{
+                      amount: compromisoAmount ?? 0,
+                      ...(mpCustomerId ? { payer: { customerId: mpCustomerId } } : {}),
+                    }}
+                    onSubmit={handleCompromisoSubmit}
+                    onError={(err) => setMpError(err.message)}
+                    customization={{
+                      paymentMethods: { minInstallments: 1, maxInstallments: 1 },
+                    }}
+                  />
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>
+                    Cargando pasarela...
+                  </div>
+                )}
+                {confirmingPayment && (
+                  <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 700, textAlign: 'center' }}>
+                    ⏳ Procesando pago...
+                  </div>
+                )}
+                {mpError && (
+                  <span style={{ fontSize: '11px', color: 'var(--error, #dc2626)', fontWeight: 600 }}>{mpError}</span>
+                )}
+              </div>
             )}
             {cfg.showConfirmPayment && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
@@ -365,21 +508,27 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px solid var(--border)' }}>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tarifa de servicio</span>
                     <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent)' }}>
-                      ${displayFee.toLocaleString('es-CO')} COP
+                      ${serviceFee.toLocaleString('es-CO')} COP
                     </span>
                   </div>
                 </div>
-                <CardPayment
-                  initialization={{
-                    amount: displayFee,
-                    ...(mpCustomerId ? { payer: { customerId: mpCustomerId } } : {}),
-                  }}
-                  onSubmit={handleMPSubmit}
-                  onError={(err) => setMpError(err.message)}
-                  customization={{
-                    paymentMethods: { minInstallments: 1, maxInstallments: 1 },
-                  }}
-                />
+                {mpCustomerReady ? (
+                  <CardPayment
+                    initialization={{
+                      amount: serviceFee,
+                      ...(mpCustomerId ? { payer: { customerId: mpCustomerId } } : {}),
+                    }}
+                    onSubmit={handleMPSubmit}
+                    onError={(err) => setMpError(err.message)}
+                    customization={{
+                      paymentMethods: { minInstallments: 1, maxInstallments: 1 },
+                    }}
+                  />
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>
+                    Cargando pasarela...
+                  </div>
+                )}
                 {confirmingPayment && (
                   <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 700, textAlign: 'center' }}>
                     ⏳ Procesando pago...
@@ -391,20 +540,89 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
               </div>
             )}
             {cfg.showPayment && (
-              <button
-                type="button"
-                onClick={() => setShowPayment((v) => !v)}
-                disabled={loadingBank}
-                style={{
+              order.paymentMethod === 'efectivo' ? (
+                <div style={{
                   flex: 1, padding: '10px 14px',
-                  borderRadius: 'var(--radius-sm)', border: 'none',
-                  background: 'var(--accent)', color: '#fff',
-                  fontSize: '12px', fontWeight: 800, cursor: 'pointer',
-                  opacity: loadingBank ? 0.6 : 1,
-                }}
-              >
-                {loadingBank ? '...' : showPayment ? 'Cerrar pago' : '💳 Pagar ahora'}
-              </button>
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  fontSize: '12px', color: 'var(--text-muted)',
+                  textAlign: 'center', fontWeight: 600,
+                }}>
+                  💵 Pagá en efectivo al repartidor
+                </div>
+              ) : (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    ¿Cómo realizás el pago?
+                  </p>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {/* Por confianza = comprobante de transferencia */}
+                    <button
+                      type="button"
+                      onClick={() => { setPaymentMode('confianza'); setShowPayment(true); }}
+                      disabled={loadingBank}
+                      style={{
+                        flex: 1, padding: '10px 12px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: `2px solid ${paymentMode === 'confianza' ? 'var(--accent)' : 'var(--border)'}`,
+                        background: paymentMode === 'confianza' ? 'var(--accent-soft)' : 'transparent',
+                        color: paymentMode === 'confianza' ? 'var(--accent)' : 'var(--text-muted)',
+                        fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                        opacity: loadingBank ? 0.6 : 1,
+                      }}
+                    >
+                      📎 Por confianza
+                    </button>
+                    {/* Pasarela = CardPayment brick con tarjeta guardada */}
+                    <button
+                      type="button"
+                      onClick={() => { setPaymentMode('pasarela'); setShowPayment(false); }}
+                      style={{
+                        flex: 1, padding: '10px 12px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: `2px solid ${paymentMode === 'pasarela' ? 'var(--accent)' : 'var(--border)'}`,
+                        background: paymentMode === 'pasarela' ? 'var(--accent-soft)' : 'transparent',
+                        color: paymentMode === 'pasarela' ? 'var(--accent)' : 'var(--text-muted)',
+                        fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      💳 Pasarela
+                    </button>
+                  </div>
+
+                  {/* Pasarela: CardPayment brick con tarjeta guardada del pago de servicio */}
+                  {paymentMode === 'pasarela' && (
+                    <>
+                      {mpCustomerReady ? (
+                        <CardPayment
+                          initialization={{
+                            amount: (result?.totalCost ?? 0) + displayFee,
+                            ...(mpCustomerId ? { payer: { customerId: mpCustomerId } } : {}),
+                          }}
+                          onSubmit={handleFinalMPSubmit}
+                          onError={(err) => setMpError(err.message)}
+                          customization={{
+                            paymentMethods: { minInstallments: 1, maxInstallments: 1 },
+                          }}
+                        />
+                      ) : (
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>
+                          Cargando pasarela...
+                        </div>
+                      )}
+                      {confirmingPayment && (
+                        <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 700, textAlign: 'center' }}>
+                          ⏳ Procesando pago...
+                        </div>
+                      )}
+                      {mpError && (
+                        <span style={{ fontSize: '11px', color: 'var(--error, #dc2626)', fontWeight: 600 }}>{mpError}</span>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
             )}
           </div>
         )}

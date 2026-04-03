@@ -312,7 +312,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
     const previewResult = buildResultFromSelections(items, selectedPubs);
     const previewDeliveryFee = calculateDeliveryFee(previewResult.stores, previewUserCoords);
     const deliveryTotal = total + previewDeliveryFee;
-    const canSubmit = deliveryAddress.trim().length > 0 && !saving;
+    const canSubmit = (deliveryAddress.trim().length > 0 || deliveryMapCoords !== null) && !saving;
     const mapInitialCoords = hasLocation ? { lat: latitude, lng: longitude } : null;
 
     return (
@@ -352,7 +352,13 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
         </div>
 
         <div style={delivForm.section}>
-          <label style={delivForm.label}>Dirección de entrega *</label>
+          <label style={delivForm.label}>
+            Dirección de entrega
+            {deliveryMapCoords
+              ? <span style={{ fontSize: '11px', color: 'var(--success, #16a34a)', fontWeight: 400, marginLeft: '6px' }}>✓ opcional — ubicación marcada en el mapa</span>
+              : <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>(opcional si marcás en el mapa)</span>
+            }
+          </label>
           <div style={{ display: 'flex', gap: '6px' }}>
             <input
               type="text"
@@ -368,7 +374,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
               style={{
                 ...delivForm.input,
                 flex: 1,
-                ...(saveError && !deliveryAddress.trim() ? delivForm.inputError : {}),
+                ...(saveError && !deliveryAddress.trim() && !deliveryMapCoords ? delivForm.inputError : {}),
               }}
             />
             <button
@@ -390,7 +396,10 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
               📍 Ver
             </button>
           </div>
-          {/* Mapa: entrega + tiendas */}
+          {/* Mapa: marcá tu ubicación de entrega */}
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '8px 0 4px', fontWeight: 500 }}>
+            📍 Marcá tu ubicación de entrega en el mapa
+          </p>
           <DeliveryMapPicker
             ref={deliveryMapRef}
             initialCoords={mapInitialCoords}
@@ -478,16 +487,16 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
         {saveError && (
           <p style={delivForm.error}>{saveError}</p>
         )}
-        {!deliveryAddress.trim() && saveError && (
-          <p style={delivForm.error}>La dirección de entrega es obligatoria</p>
+        {!deliveryAddress.trim() && !deliveryMapCoords && saveError && (
+          <p style={delivForm.error}>Escribí una dirección o marcá tu ubicación en el mapa</p>
         )}
 
         {/* Submit button */}
         <button
           type="button"
           onClick={() => {
-            if (!deliveryAddress.trim()) {
-              setSaveError('La dirección de entrega es obligatoria');
+            if (!deliveryAddress.trim() && !deliveryMapCoords) {
+              setSaveError('Escribí una dirección o marcá tu ubicación en el mapa');
               return;
             }
             handleConfirmOrder('delivery');

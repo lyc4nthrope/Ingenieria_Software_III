@@ -40,7 +40,9 @@ export async function createOrder({
   savings,        // → derivamos total_single_store_estimate y savings_percentage
   savingsPct,     // → savings_percentage
   deliveryFee,
+  serviceFee,     // → tarifa de plataforma: 2.000 + 3% del total
   strategy,
+  paymentMethod,
 }) {
   const totalSingleStore = Math.round((totalCost ?? 0) + (savings ?? 0));
 
@@ -64,7 +66,9 @@ export async function createOrder({
       savings_percentage:         savingsPct      ?? 0,
       // Nueva columna agregada en la migración de Proceso 4
       delivery_fee:               deliveryFee     ?? 0,
+      service_fee:                serviceFee      ?? 0,
       strategy:                   strategy        ?? 'balanced',
+      payment_method:             paymentMethod   ?? 'transferencia',
       confirmed_at:               new Date().toISOString(),
       // PIN de verificación para cerrar el pedido (RF-03)
       delivery_pin:               deliveryPin,
@@ -128,7 +132,7 @@ export async function getDealerActiveOrders() {
   const { data, error } = await supabase
     .from('orders')
     .select('*')
-    .in('status', ['aceptado', 'comprando', 'en_camino', 'llegando'])
+    .in('status', ['aceptado', 'pendiente_compromiso', 'comprando', 'en_camino', 'llegando'])
     .order('created_at', { ascending: false });
 
   return { data: data ?? [], error };
@@ -418,4 +422,18 @@ export async function getPendingAdjustments(orderId) {
 export async function cancelOrderByUser(orderId) {
   const { error } = await supabase.rpc('cancel_order_by_user', { p_order_id: orderId });
   return { error };
+}
+
+/**
+ * Procesa el pago del fondo de compromiso vía MercadoPago.
+ * Invoca la Edge Function process-mp-compromiso con los datos del CardPayment brick.
+ * Si el pago es aprobado, el pedido avanza automáticamente a 'comprando'.
+ *
+ * @param {number} orderId - id INTEGER del pedido
+ * @param {object} paymentData - datos del formulario de CardPayment
+ */
+export async function confirmCompromisoPago(orderId, { token, paymentMethodId, issuerId, installments, email, identificationType, identificationNumber }) {
+  return supabase.functions.invoke('process-mp-compromiso', {
+    body: { orderId, token, paymentMethodId, issuerId, installments, email, identificationType, identificationNumber },
+  });
 }

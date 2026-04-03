@@ -19,21 +19,23 @@ import { createPublication } from '@/services/api/publications.api';
 // Mapa de estado de Supabase (tabla orders) → estado de UI local
 // El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
 const STATUS_MAP = {
-  pendiente_pago:       'pendiente_pago',
-  pendiente_repartidor: 'searching',
-  aceptado:             'found',
-  comprando:            'comprando',
-  en_camino:            'en_camino',
-  llegando:             'llegando',
-  entregado:            'entregado',
-  cancelado:            'cancelled',
+  pendiente_pago:         'pendiente_pago',
+  pendiente_repartidor:   'searching',
+  aceptado:               'pendiente_compromiso', // legacy: repartidor aceptó, cliente debe pagar compromiso
+  pendiente_compromiso:   'pendiente_compromiso',
+  comprando:              'comprando',
+  en_camino:              'en_camino',
+  llegando:               'llegando',
+  entregado:              'entregado',
+  cancelado:              'cancelled',
+  usuario_se_encarga:     'auto_gestionado',
 };
 
 const STORE_PAGE_SIZE = 3;
 
 // ─── Paginador de tarjetas de tienda (máximo 3 a la vez) ──────────────────────
 // Flechas ▲/▼ afuera del bloque de tarjetas, igual al estilo de VoyYoMapView.
-function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport }) {
+function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport, readOnly = false }) {
   const [page, setPage] = useState(0);
   const total   = stores.length;
   const maxPage = Math.max(0, Math.ceil(total / STORE_PAGE_SIZE) - 1);
@@ -61,7 +63,7 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
             <div style={resv.storeHeader}>
               <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {checked > 0 && (
+                {!readOnly && checked > 0 && (
                   <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
                     {checked}/{s.products.length} ✓
                   </span>
@@ -81,33 +83,35 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
                   <li
                     key={pi}
                     style={{ ...resv.prodItem, ...(done ? { opacity: 0.55 } : {}) }}
-                    onClick={() => toggleCheck(key)}
+                    onClick={readOnly ? undefined : () => toggleCheck(key)}
                   >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flex: 1, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flex: 1, cursor: readOnly ? 'default' : 'pointer' }}>
                       {/* Checkbox */}
-                      <span style={{
-                        width: 15, height: 15, borderRadius: 3, flexShrink: 0, marginTop: 2,
-                        border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
-                        background: done ? 'var(--accent)' : 'transparent',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 9, fontWeight: 800, color: '#fff',
-                      }}>
-                        {done ? '✓' : ''}
-                      </span>
+                      {!readOnly && (
+                        <span style={{
+                          width: 15, height: 15, borderRadius: 3, flexShrink: 0, marginTop: 2,
+                          border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
+                          background: done ? 'var(--accent)' : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 9, fontWeight: 800, color: '#fff',
+                        }}>
+                          {done ? '✓' : ''}
+                        </span>
+                      )}
                       <div style={done ? { textDecoration: 'line-through' } : {}}>
                         <div style={resv.prodName}>{p.item?.productName ?? p.productName ?? 'Producto'}</div>
                         {(() => {
                           const prod = p.publication?.product;
                           if (!prod) return null;
-                          const qty  = prod.base_quantity;
-                          const unit = prod.unit_type?.abbreviation ?? prod.unit_type?.name;
-                          const detail = [qty, unit].filter(Boolean).join(' ');
-                          const text = [prod.name, detail].filter(Boolean).join(' · ');
-                          return text ? (
-                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {text}
-                            </div>
-                          ) : null;
+                          const detailStyle = { fontSize: '10px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+                          const unitDetail = [prod.base_quantity, prod.unit_type?.abbreviation ?? prod.unit_type?.name].filter(Boolean).join(' ');
+                          return (
+                            <>
+                              {prod.name && <div style={detailStyle}>{prod.name}</div>}
+                              {prod.brand?.name && <div style={detailStyle}>{prod.brand.name}</div>}
+                              {unitDetail && <div style={detailStyle}>{unitDetail}</div>}
+                            </>
+                          );
                         })()}
                         <div style={resv.prodMeta}>×{p.item?.quantity || 1} · ${(p.price || 0).toLocaleString('es-CO')} c/u</div>
                       </div>
@@ -166,9 +170,9 @@ const sc = {
 export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint, variant = 'delivery', onAddProduct }) {
   const isPickup = variant === 'pickup';
   const [selectedIdx, setSelectedIdx] = useState(0);
-  const [showTotalSum, setShowTotalSum] = useState(false);
   const [checklist, setChecklist] = useState({});
   const [pendingAdjustments, setPendingAdjustments] = useState([]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
 
   // Crea una publicación nueva con los datos de la publicación original pero con el precio corregido.
@@ -247,7 +251,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
     supabase
       .from('orders')
-      .select('status, dealer_id')
+      .select('status, dealer_id, compromiso_amount')
       .eq('id', selectedOrder.supabaseId)
       .single()
       .then(({ data }) => {
@@ -257,6 +261,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           updateOrderDeliveryRef.current(selectedOrder.id, {
             deliveryStatus: uiStatus,
             ...(data.dealer_id ? { dealerId: data.dealer_id } : {}),
+            ...(data.compromiso_amount ? { compromisoAmount: data.compromiso_amount } : {}),
           });
         }
       });
@@ -274,6 +279,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : {}),
             // Capturar el timestamp de llegando para el timer de 10 min (Caso D)
             ...(payload.new.status === 'llegando' ? { llegandoAt: payload.new.updated_at ?? payload.new.llegando_at ?? new Date().toISOString() } : {}),
+            ...(payload.new.compromiso_amount ? { compromisoAmount: payload.new.compromiso_amount } : {}),
           });
         }
       )
@@ -367,6 +373,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
   const handleRemove = (id) => {
     removeOrder(id);
+    setConfirmDeleteId(null);
     setSelectedIdx((prev) => Math.max(0, prev - 1));
   };
 
@@ -423,7 +430,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             <button
               key={o.id}
               type="button"
-              onClick={() => { setSelectedIdx(i); setShowTotalSum(false); }}
+              onClick={() => setSelectedIdx(i)}
               style={{ ...pedidos.pill, ...(active ? pedidos.pillActive : {}) }}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -459,20 +466,74 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {/* ── Header del pedido activo ── */}
           {!isPickup && (
-            <div style={pedidos.orderHeader}>
-              <div style={pedidos.orderHeaderLeft}>
-                <span style={pedidos.orderRef}>#{selectedOrder.id.slice(-8)}</span>
-                <span style={pedidos.orderDate}>{date}</span>
+            <>
+              <div style={pedidos.orderHeader}>
+                <div style={pedidos.orderHeaderLeft}>
+                  <span style={pedidos.orderRef}>#{selectedOrder.id.slice(-8)}</span>
+                  <span style={pedidos.orderDate}>{date}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(selectedOrder.id)}
+                  style={pedidos.deleteBtn}
+                  title="Eliminar pedido"
+                >
+                  <TrashIcon />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleRemove(selectedOrder.id)}
-                style={pedidos.deleteBtn}
-                title="Eliminar pedido"
-              >
-                <TrashIcon />
-              </button>
-            </div>
+
+              {/* ── Confirmación de eliminación ── */}
+              {confirmDeleteId === selectedOrder.id && (() => {
+                const isActive = selectedOrder.deliveryMode &&
+                  !['entregado', 'cancelled', 'auto_gestionado'].includes(selectedOrder.deliveryStatus);
+                return (
+                  <div style={{
+                    padding: '12px 14px',
+                    background: isActive ? 'var(--error-soft, #fee2e2)' : 'var(--bg-elevated)',
+                    border: `1px solid ${isActive ? 'var(--error, #dc2626)' : 'var(--border)'}`,
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex', flexDirection: 'column', gap: '8px',
+                  }}>
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: isActive ? 'var(--error, #dc2626)' : 'var(--text-primary)' }}>
+                      {isActive ? '⚠️ Este pedido tiene un domicilio activo' : '¿Eliminás este pedido?'}
+                    </p>
+                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                      {isActive
+                        ? 'Eliminar de tu vista no cancela el domicilio ni te exime del pago. El repartidor y la plataforma conservan el registro completo del pedido.'
+                        : 'Se eliminará de tu historial local. Esta acción no se puede deshacer.'}
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(null)}
+                        style={{
+                          flex: 1, padding: '8px 12px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border)',
+                          background: 'transparent', color: 'var(--text-muted)',
+                          fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(selectedOrder.id)}
+                        style={{
+                          flex: 1, padding: '8px 12px',
+                          borderRadius: 'var(--radius-sm)', border: 'none',
+                          background: isActive ? 'var(--error, #dc2626)' : 'var(--text-muted)',
+                          color: '#fff',
+                          fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        {isActive ? 'Entiendo, eliminar igual' : 'Eliminar'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
           )}
 
           {/* ── Tarjeta de domicilio ── */}
@@ -494,92 +555,27 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             />
           ))}
 
-          {/* ── Productos en el pedido (solo domicilio) ── */}
-          {selectedOrder.deliveryMode && allProducts.length > 0 && (
-            <div style={{
-              background: 'var(--bg-surface)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-md)', overflow: 'hidden',
-            }}>
-              <div style={{
-                padding: '10px 14px',
-                background: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border)',
-                fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)',
-                textTransform: 'uppercase', letterSpacing: '0.04em',
-              }}>
-                {allProducts.length} {allProducts.length === 1 ? 'producto' : 'productos'} en tu pedido
-              </div>
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                {allProducts.slice(0, 5).map((p, i) => (
-                  <li key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: '12px',
-                    padding: '10px 14px',
-                    borderBottom: i < Math.min(allProducts.length, 5) - 1 ? '1px solid var(--border)' : 'none',
-                  }}>
-                    {/* Avatar */}
-                    <div style={{
-                      width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
-                      background: 'var(--accent-soft)', border: '1px solid var(--accent)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '13px', fontWeight: 800, color: 'var(--accent)',
-                      textTransform: 'uppercase',
-                    }}>
-                      {(p.item?.productName ?? p.productName ?? '?')[0]}
-                    </div>
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {p.item?.productName ?? p.productName ?? 'Producto'}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        ×{p.item?.quantity || 1} · {p.storeName}
-                      </div>
-                    </div>
-                    {/* Price */}
-                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>
-                      ${((p.price || 0) * (p.item?.quantity || 1)).toLocaleString('es-CO')}
-                    </span>
-                  </li>
-                ))}
-                {allProducts.length > 5 && (
-                  <li style={{ padding: '8px 14px', textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    +{allProducts.length - 5} productos más
-                  </li>
-                )}
-              </ul>
-            </div>
-          )}
-
           {/* ── Totales rápidos ── */}
           <div style={pedidos.stats}>
-            {selectedOrder.deliveryMode && selectedOrder.deliveryStatus === 'en_camino' ? (
-              <button
-                type="button"
-                onClick={() => setShowTotalSum((v) => !v)}
-                style={{ ...pedidos.stat, cursor: 'pointer', border: '1px solid var(--accent)', position: 'relative' }}
-                title={showTotalSum ? 'Ver desglose' : 'Ver total combinado'}
-              >
-                {(() => {
-                  const fee = selectedOrder.deliveryFee ?? calculateDeliveryFee(result?.stores, userCoords);
-                  return showTotalSum ? (
-                    <>
-                      <span style={pedidos.statVal}>${(result.totalCost + fee).toLocaleString('es-CO')}</span>
-                      <span style={pedidos.statLabel}>Total c/ dom.</span>
-                      <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>← desglosar</span>
-                    </>
-                  ) : (
-                    <>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
-                        ${result.totalCost.toLocaleString('es-CO')}
-                        <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> + </span>
-                        ${fee.toLocaleString('es-CO')}
-                      </span>
-                      <span style={pedidos.statLabel}>Lista + Domicilio</span>
-                      <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>→ ver total</span>
-                    </>
-                  );
-                })()}
-              </button>
+            {selectedOrder.deliveryMode ? (
+              <>
+                <div style={pedidos.stat}>
+                  <span style={pedidos.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
+                  <span style={pedidos.statLabel}>Productos</span>
+                </div>
+                <div style={pedidos.stat}>
+                  <span style={pedidos.statVal}>
+                    ${(selectedOrder.deliveryFee ?? calculateDeliveryFee(result?.stores, userCoords)).toLocaleString('es-CO')}
+                  </span>
+                  <span style={pedidos.statLabel}>Domicilio</span>
+                </div>
+                <div style={pedidos.stat}>
+                  <span style={{ ...pedidos.statVal, color: 'var(--accent)' }}>
+                    ${(result.totalCost + (selectedOrder.deliveryFee ?? calculateDeliveryFee(result?.stores, userCoords))).toLocaleString('es-CO')}
+                  </span>
+                  <span style={pedidos.statLabel}>Total</span>
+                </div>
+              </>
             ) : (
               <div style={pedidos.stat}>
                 <span style={pedidos.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
@@ -608,7 +604,8 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             orderId={selectedOrder.id}
             checklist={checklist}
             toggleCheck={toggleCheck}
-            onPriceReport={(storeIdx, pi, newPrice) => handlePriceReport(selectedOrder, storeIdx, pi, newPrice)}
+            onPriceReport={isPickup ? (storeIdx, pi, newPrice) => handlePriceReport(selectedOrder, storeIdx, pi, newPrice) : null}
+            readOnly={!isPickup}
           />
         </div>
 
@@ -621,6 +618,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
               userCoords={userCoords}
               driverLocation={selectedOrder.driverLocation ?? null}
               mapHeight="480px"
+              showRoute={false}
             />
           </div>
         )}
