@@ -87,10 +87,22 @@ Deno.serve(async (req) => {
   try { body = await req.json(); }
   catch { return json(400, { error: "Invalid JSON body" }); }
 
+  console.log("[process-mp-compromiso] === INICIO ===");
+  console.log("[process-mp-compromiso] body recibido:", { 
+    orderId, 
+    token: token?.substring(0, 10) + "...", 
+    paymentMethodId, 
+    email,
+    hasIssuerId: !!issuerId,
+    installments,
+    hasIdentification: !!(identificationType && identificationNumber)
+  });
+
   const { orderId, token, paymentMethodId, issuerId, installments, email,
           identificationType, identificationNumber } = body;
 
   if (!orderId || !token || !paymentMethodId || !email) {
+    console.log("[process-mp-compromiso] ERROR: Faltan campos requeridos");
     return json(400, { error: "Missing required fields" });
   }
 
@@ -100,13 +112,40 @@ Deno.serve(async (req) => {
     .eq("id", orderId)
     .single();
 
-  if (orderErr || !order) return json(404, { error: "Order not found" });
-  if (order.user_id !== user.id) return json(403, { error: "Forbidden" });
+  console.log("[process-mp-compromiso] pedido query:", { 
+    orderErr: orderErr?.message, 
+    orderFound: !!order,
+    orderId,
+    userId: user.id
+  });
+
+  if (orderErr || !order) {
+    console.log("[process-mp-compromiso] ERROR: Order not found");
+    return json(404, { error: "Order not found" });
+  }
+
+  console.log("[process-mp-compromiso] pedido encontrado:", { 
+    id: order.id, 
+    status: order.status, 
+    compromiso_amount: order.compromiso_amount,
+    orderUserId: order.user_id,
+    requestingUserId: user.id,
+    userMatch: order.user_id === user.id
+  });
+
+  if (order.user_id !== user.id) {
+    console.log("[process-mp-compromiso] ERROR: Forbidden - user mismatch");
+    return json(403, { error: "Forbidden" });
+  }
   if (order.status !== "pendiente_compromiso") {
+    console.log("[process-mp-compromiso] ERROR: Invalid status - esperado pendiente_compromiso, recibido:", order.status);
     return json(400, { error: `Invalid status: ${order.status}` });
   }
 
-  let mpData: { status: string; status_detail: string; id?: number };
+  console.log("[process-mp-compromiso] Calling MercadoPago API...");
+  console.log("[process-mp-compromiso] mpToken starts with:", mpToken?.substring(0, 10));
+
+  let mpData: { status: string; status_detail: string; id?: number; message?: string };
   try {
     mpData = await mpFetch("/v1/payments", mpToken, "POST", {
       transaction_amount: Number(order.compromiso_amount),
@@ -123,21 +162,29 @@ Deno.serve(async (req) => {
       },
     });
   } catch (err) {
+    console.log("[process-mp-compromiso] ERROR: No se pudo conectar a MP:", String(err));
     return json(502, { error: "Failed to reach MercadoPago API", detail: String(err) });
   }
 
+  console.log("[process-mp-compromiso] MP response:", JSON.stringify(mpData));
+
   if (mpData.status !== "approved") {
+    console.log("[process-mp-compromiso] Pago NO aprobado, status:", mpData.status, "detail:", mpData.status_detail);
     return json(200, { success: false, status: mpData.status, detail: mpData.status_detail });
   }
+
+  console.log("[process-mp-compromiso] Pago aprobado! paymentId:", mpData.id);
 
   const { error: rpcErr } = await anonClient.rpc("confirm_compromiso_payment", {
     p_order_id:   orderId,
     p_payment_id: String(mpData.id),
   });
   if (rpcErr) {
-    console.error("[process-mp-compromiso] confirm_compromiso_payment failed:", rpcErr.message);
+    console.error("[process-mp-compromiso] RPC ERROR:", rpcErr.message, "code:", rpcErr.code);
     return json(500, { error: "Payment approved but compromiso confirmation failed", detail: rpcErr.message });
   }
+
+  console.log("[process-mp-compromiso] RPC confirm_compromiso_payment exitoso");
 
   let customerId: string | null = null;
   try {
