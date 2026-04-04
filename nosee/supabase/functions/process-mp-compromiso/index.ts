@@ -62,7 +62,6 @@ Deno.serve(async (req) => {
   const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const mpToken     = Deno.env.get("MP_ACCESS_TOKEN")!;
 
-  // ── 1. Validar JWT ────────────────────────────────────────────────────────
   const anonClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
     auth:   { persistSession: false, autoRefreshToken: false },
@@ -74,9 +73,8 @@ Deno.serve(async (req) => {
   const { data: { user }, error: authErr } = await anonClient.auth.getUser();
   if (authErr || !user) return json(401, { error: "Unauthorized", detail: authErr?.message });
 
-  // ── 2. Parsear body ───────────────────────────────────────────────────────
   let body: {
-    orderId:               string;
+    orderId:               number;
     token:                 string;
     paymentMethodId:       string;
     issuerId?:             string | number;
@@ -96,7 +94,6 @@ Deno.serve(async (req) => {
     return json(400, { error: "Missing required fields" });
   }
 
-  // ── 3. Verificar pedido ───────────────────────────────────────────────────
   const { data: order, error: orderErr } = await adminClient
     .from("orders")
     .select("id, user_id, compromiso_amount, status")
@@ -108,11 +105,7 @@ Deno.serve(async (req) => {
   if (order.status !== "pendiente_compromiso") {
     return json(400, { error: `Invalid status: ${order.status}` });
   }
-  if (!order.compromiso_amount || order.compromiso_amount <= 0) {
-    return json(400, { error: "Invalid compromiso_amount" });
-  }
 
-  // ── 4. Procesar pago con MercadoPago ─────────────────────────────────────
   let mpData: { status: string; status_detail: string; id?: number };
   try {
     mpData = await mpFetch("/v1/payments", mpToken, "POST", {
@@ -133,15 +126,10 @@ Deno.serve(async (req) => {
     return json(502, { error: "Failed to reach MercadoPago API", detail: String(err) });
   }
 
-  if (typeof mpData.status === "number") {
-    return json(200, { success: false, status: "mp_api_error", detail: (mpData as any).message ?? "Error interno de MercadoPago. Intentá de nuevo." });
-  }
-
   if (mpData.status !== "approved") {
     return json(200, { success: false, status: mpData.status, detail: mpData.status_detail });
   }
 
-  // ── 5. Confirmar compromiso en BD (→ status: 'comprando') ─────────────────
   const { error: rpcErr } = await anonClient.rpc("confirm_compromiso_payment", {
     p_order_id:   orderId,
     p_payment_id: String(mpData.id),
@@ -151,7 +139,6 @@ Deno.serve(async (req) => {
     return json(500, { error: "Payment approved but compromiso confirmation failed", detail: rpcErr.message });
   }
 
-  // ── 6. Guardar tarjeta en customer de MercadoPago ─────────────────────────
   let customerId: string | null = null;
   try {
     const { data: userRow } = await adminClient
