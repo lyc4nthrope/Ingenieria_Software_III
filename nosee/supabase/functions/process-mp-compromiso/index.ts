@@ -87,6 +87,9 @@ Deno.serve(async (req) => {
   try { body = await req.json(); }
   catch { return json(400, { error: "Invalid JSON body" }); }
 
+  const { orderId, token, paymentMethodId, issuerId, installments, email,
+          identificationType, identificationNumber } = body;
+
   console.log("[process-mp-compromiso] === INICIO ===");
   console.log("[process-mp-compromiso] orderId:", orderId);
   console.log("[process-mp-compromiso] paymentMethodId:", paymentMethodId);
@@ -94,9 +97,6 @@ Deno.serve(async (req) => {
   console.log("[process-mp-compromiso] hasIssuerId:", !!issuerId);
   console.log("[process-mp-compromiso] installments:", installments);
   console.log("[process-mp-compromiso] hasIdentification:", !!(identificationType && identificationNumber));
-
-  const { orderId, token, paymentMethodId, issuerId, installments, email,
-          identificationType, identificationNumber } = body;
 
   if (!orderId || !token || !paymentMethodId || !email) {
     console.log("[process-mp-compromiso] ERROR: Faltan campos requeridos");
@@ -119,14 +119,10 @@ Deno.serve(async (req) => {
     return json(404, { error: "Order not found" });
   }
 
-  console.log("[process-mp-compromiso] pedido encontrado:", { 
-    id: order.id, 
-    status: order.status, 
-    compromiso_amount: order.compromiso_amount,
-    orderUserId: order.user_id,
-    requestingUserId: user.id,
-    userMatch: order.user_id === user.id
-  });
+  console.log("[process-mp-compromiso] pedido encontrado - id:", order.id);
+  console.log("[process-mp-compromiso] pedido status:", order.status);
+  console.log("[process-mp-compromiso] compromiso_amount:", order.compromiso_amount);
+  console.log("[process-mp-compromiso] userMatch:", order.user_id === user.id);
 
   if (order.user_id !== user.id) {
     console.log("[process-mp-compromiso] ERROR: Forbidden - user mismatch");
