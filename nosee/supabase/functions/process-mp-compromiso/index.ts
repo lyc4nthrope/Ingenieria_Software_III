@@ -88,15 +88,12 @@ Deno.serve(async (req) => {
   catch { return json(400, { error: "Invalid JSON body" }); }
 
   console.log("[process-mp-compromiso] === INICIO ===");
-  console.log("[process-mp-compromiso] body recibido:", { 
-    orderId, 
-    token: token?.substring(0, 10) + "...", 
-    paymentMethodId, 
-    email,
-    hasIssuerId: !!issuerId,
-    installments,
-    hasIdentification: !!(identificationType && identificationNumber)
-  });
+  console.log("[process-mp-compromiso] orderId:", orderId);
+  console.log("[process-mp-compromiso] paymentMethodId:", paymentMethodId);
+  console.log("[process-mp-compromiso] email:", email);
+  console.log("[process-mp-compromiso] hasIssuerId:", !!issuerId);
+  console.log("[process-mp-compromiso] installments:", installments);
+  console.log("[process-mp-compromiso] hasIdentification:", !!(identificationType && identificationNumber));
 
   const { orderId, token, paymentMethodId, issuerId, installments, email,
           identificationType, identificationNumber } = body;
@@ -112,12 +109,10 @@ Deno.serve(async (req) => {
     .eq("id", orderId)
     .single();
 
-  console.log("[process-mp-compromiso] pedido query:", { 
-    orderErr: orderErr?.message, 
-    orderFound: !!order,
-    orderId,
-    userId: user.id
-  });
+  console.log("[process-mp-compromiso] orderErr:", orderErr ? orderErr.message : "none");
+  console.log("[process-mp-compromiso] orderFound:", !!order);
+  console.log("[process-mp-compromiso] orderId:", orderId);
+  console.log("[process-mp-compromiso] userId:", user.id);
 
   if (orderErr || !order) {
     console.log("[process-mp-compromiso] ERROR: Order not found");
@@ -143,14 +138,14 @@ Deno.serve(async (req) => {
   }
 
   console.log("[process-mp-compromiso] Calling MercadoPago API...");
-  console.log("[process-mp-compromiso] mpToken starts with:", mpToken?.substring(0, 10));
+  console.log("[process-mp-compromiso] mpToken starts with:", mpToken ? mpToken.substring(0, 10) : "undefined");
 
   let mpData: { status: string; status_detail: string; id?: number; message?: string };
   try {
     mpData = await mpFetch("/v1/payments", mpToken, "POST", {
       transaction_amount: Number(order.compromiso_amount),
       token,
-      description:       `Fondo de compromiso — pedido #${orderId}`,
+      description:       `Fondo de compromiso - pedido #${orderId}`,
       installments:      installments ?? 1,
       payment_method_id: paymentMethodId,
       ...(issuerId ? { issuer_id: issuerId } : {}),
@@ -166,7 +161,10 @@ Deno.serve(async (req) => {
     return json(502, { error: "Failed to reach MercadoPago API", detail: String(err) });
   }
 
-  console.log("[process-mp-compromiso] MP response:", JSON.stringify(mpData));
+  console.log("[process-mp-compromiso] MP response status:", mpData.status);
+  console.log("[process-mp-compromiso] MP response status_detail:", mpData.status_detail);
+  console.log("[process-mp-compromiso] MP response id:", mpData.id);
+  console.log("[process-mp-compromiso] MP response message:", mpData.message || "none");
 
   if (mpData.status !== "approved") {
     console.log("[process-mp-compromiso] Pago NO aprobado, status:", mpData.status, "detail:", mpData.status_detail);
