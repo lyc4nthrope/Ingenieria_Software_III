@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
 
   const { data: order, error: orderErr } = await adminClient
     .from("orders")
-    .select("id, user_id, compromiso_amount, status")
+    .select("id, user_id, compromiso_amount, total_estimated, status")
     .eq("id", orderId)
     .single();
 
@@ -122,6 +122,7 @@ Deno.serve(async (req) => {
   console.log("[process-mp-compromiso] pedido encontrado - id:", order.id);
   console.log("[process-mp-compromiso] pedido status:", order.status);
   console.log("[process-mp-compromiso] compromiso_amount:", order.compromiso_amount);
+  console.log("[process-mp-compromiso] total_estimated:", order.total_estimated);
   console.log("[process-mp-compromiso] userMatch:", order.user_id === user.id);
 
   if (order.user_id !== user.id) {
@@ -133,25 +134,38 @@ Deno.serve(async (req) => {
     return json(400, { error: `Invalid status: ${order.status}` });
   }
 
+  // Fuente de verdad del pago de compromiso: orders.compromiso_amount.
+  const compromisoAmount = Number(order.compromiso_amount ?? 0);
+
+  console.log("[process-mp-compromiso] compromisoAmount final:", compromisoAmount);
+
+  if (compromisoAmount <= 0) {
+    console.log("[process-mp-compromiso] ERROR: compromiso_amount invalido o ausente");
+    return json(400, { error: "Invalid compromiso_amount" });
+  }
+
   console.log("[process-mp-compromiso] Calling MercadoPago API...");
   console.log("[process-mp-compromiso] mpToken starts with:", mpToken ? mpToken.substring(0, 10) : "undefined");
 
-  let mpData: { status: string; status_detail: string; id?: number; message?: string };
+  const mpPayload = {
+    transaction_amount: compromisoAmount,
+    token,
+    description:       `Fondo de compromiso - pedido #${orderId}`,
+    installments:      installments ?? 1,
+    payment_method_id: paymentMethodId,
+    ...(issuerId ? { issuer_id: Number(issuerId) } : {}),
+    payer: {
+      email,
+      ...(identificationType && identificationNumber
+        ? { identification: { type: identificationType, number: identificationNumber } }
+        : {}),
+    },
+  };
+  console.log("[process-mp-compromiso] MP payload (no token):", JSON.stringify({ ...mpPayload, token: "[redacted]" }));
+
+  let mpData: { status: string | number; status_detail?: string; id?: number; message?: string };
   try {
-    mpData = await mpFetch("/v1/payments", mpToken, "POST", {
-      transaction_amount: Number(order.compromiso_amount),
-      token,
-      description:       `Fondo de compromiso - pedido #${orderId}`,
-      installments:      installments ?? 1,
-      payment_method_id: paymentMethodId,
-      ...(issuerId ? { issuer_id: issuerId } : {}),
-      payer: {
-        email,
-        ...(identificationType && identificationNumber
-          ? { identification: { type: identificationType, number: identificationNumber } }
-          : {}),
-      },
-    });
+    mpData = await mpFetch("/v1/payments", mpToken, "POST", mpPayload);
   } catch (err) {
     console.log("[process-mp-compromiso] ERROR: No se pudo conectar a MP:", String(err));
     return json(502, { error: "Failed to reach MercadoPago API", detail: String(err) });
@@ -161,10 +175,46 @@ Deno.serve(async (req) => {
   console.log("[process-mp-compromiso] MP response status_detail:", mpData.status_detail);
   console.log("[process-mp-compromiso] MP response id:", mpData.id);
   console.log("[process-mp-compromiso] MP response message:", mpData.message || "none");
+  console.log("[process-mp-compromiso] MP response raw:", JSON.stringify(mpData));
+
+  if (mpData.status === 500 && mpData.message === "internal_error" && issuerId) {
+    console.log("[process-mp-compromiso] Retry sin issuer_id por internal_error...");
+    const retryPayload = {
+      ...mpPayload,
+      issuer_id: undefined,
+    };
+    console.log("[process-mp-compromiso] Retry payload (no token):", JSON.stringify({ ...retryPayload, token: "[redacted]" }));
+
+    try {
+      mpData = await mpFetch("/v1/payments", mpToken, "POST", retryPayload);
+    } catch (err) {
+      console.log("[process-mp-compromiso] ERROR: Retry sin issuer_id fallo al conectar:", String(err));
+      return json(502, { error: "Failed to reach MercadoPago API", detail: String(err) });
+    }
+
+    console.log("[process-mp-compromiso] Retry response status:", mpData.status);
+    console.log("[process-mp-compromiso] Retry response status_detail:", mpData.status_detail);
+    console.log("[process-mp-compromiso] Retry response id:", mpData.id);
+    console.log("[process-mp-compromiso] Retry response message:", mpData.message || "none");
+    console.log("[process-mp-compromiso] Retry response raw:", JSON.stringify(mpData));
+  }
+
+  if (typeof mpData.status === "number") {
+    console.log("[process-mp-compromiso] ERROR: MercadoPago API devolvio error numerico");
+    return json(200, {
+      success: false,
+      status: "mp_api_error",
+      detail: mpData.message ?? "Error interno de MercadoPago. Intenta de nuevo.",
+    });
+  }
 
   if (mpData.status !== "approved") {
     console.log("[process-mp-compromiso] Pago NO aprobado, status:", mpData.status, "detail:", mpData.status_detail);
-    return json(200, { success: false, status: mpData.status, detail: mpData.status_detail });
+    return json(200, {
+      success: false,
+      status: mpData.status,
+      detail: mpData.status_detail ?? mpData.message ?? "MercadoPago rechazo el pago.",
+    });
   }
 
   console.log("[process-mp-compromiso] Pago aprobado! paymentId:", mpData.id);

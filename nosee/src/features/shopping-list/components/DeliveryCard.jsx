@@ -17,19 +17,11 @@ const STATUS_CONFIGS = {
     showCompromisoPago: true,
     step: 1,
   },
-  pendiente_pago: {
-    icon: '💳', bg: 'var(--warning-soft, #fef9c3)', border: 'var(--warning, #ca8a04)',
-    color: '#92400e',
-    title: 'Esperando confirmación de pago',
-    desc: 'Confirmá tu pedido para que los repartidores puedan verlo.',
-    showConfirmPayment: true,
-    step: 0,
-  },
   searching: {
     icon: '🛵', bg: 'var(--warning-soft, #fef9c3)', border: 'var(--warning, #ca8a04)',
     color: '#92400e',
-    title: 'Buscando repartidor...',
-    desc: 'Tu pedido está en cola de asignación.',
+    title: 'Esperando que un repartidor acepte tu pedido',
+    desc: 'Tu pedido ya es visible para todos los repartidores disponibles. Cuando alguien lo acepte, te notificamos para que hagás el pago de compromiso.',
     showCancel: true, cancelFree: true,
     step: 1,
   },
@@ -108,8 +100,6 @@ const STEPS = [
 export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
   const { deliveryStatus, cancellationCharged, dealerId, deliveryFee: storedFee, result, userCoords, deliveryPin, llegandoAt, compromisoAmount } = order;
   const displayFee = storedFee ?? calculateDeliveryFee(result?.stores, userCoords);
-  // Tarifa de plataforma cobrada en pendiente_pago: mínimo 5.000 COP, base 2.000 + 3% del total
-  const serviceFee = Math.max(5000, 2000 + Math.round((result?.totalCost ?? 0) * 0.03));
   const [showPayment, setShowPayment] = useState(false);
   const [paymentMode, setPaymentMode] = useState(null);
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -127,14 +117,9 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
   const timerStart = deliveryStatus === 'llegando' ? (llegandoAt ?? null) : null;
   const { formattedTime, isExpired } = useDeliveryTimer(timerStart);
 
-  if (!deliveryStatus) return null;
-
-  const cfg = STATUS_CONFIGS[deliveryStatus];
-  if (!cfg) return null;
-
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
-    if (!['pendiente_pago', 'pendiente_compromiso', 'llegando'].includes(deliveryStatus) || !userId) return;
+    if (!['pendiente_compromiso', 'llegando'].includes(deliveryStatus) || !userId) return;
     setMpCustomerReady(false);
     supabase
       .from('users')
@@ -156,6 +141,11 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
       setLoadingBank(false);
     });
   }, [deliveryStatus, dealerId]);
+
+  if (!deliveryStatus) return null;
+
+  const cfg = STATUS_CONFIGS[deliveryStatus];
+  if (!cfg) return null;
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -193,43 +183,6 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
     } catch (err) {
       setMpError('Error inesperado. Verificá tu conexión e intentá de nuevo.');
       console.error('[DeliveryCard] final MP payment error:', err);
-    } finally {
-      setConfirmingPayment(false);
-    }
-  };
-
-  // Pago de la tarifa de servicio con MercadoPago (estado pendiente_pago)
-  const handleMPSubmit = async (formData) => {
-    if (!order.supabaseId) return;
-    setConfirmingPayment(true);
-    setMpError(null);
-    try {
-      const { data, error: fnErr } = await supabase.functions.invoke('process-mp-payment', {
-        body: {
-          orderId:              order.supabaseId,
-          token:                formData.token,
-          paymentMethodId:      formData.payment_method_id,
-          issuerId:             formData.issuer_id,
-          installments:         formData.installments,
-          email:                formData.payer?.email,
-          identificationType:   formData.payer?.identification?.type,
-          identificationNumber: formData.payer?.identification?.number,
-        },
-      });
-      if (fnErr || !data?.success) {
-        const detail = data?.detail ?? data?.error ?? 'intentá de nuevo';
-        const msg = data?.status === 'mp_api_error'
-          ? `Error de MercadoPago: ${detail}. Volvé a ingresar los datos de la tarjeta.`
-          : `Pago rechazado: ${detail}`;
-        setMpError(msg);
-      } else if (data?.customerId) {
-        setMpCustomerId(data.customerId);
-      }
-      // El estado en Supabase cambia a 'pendiente_repartidor' vía RPC.
-      // El Realtime en PedidosTab lo recibe y actualiza el deliveryStatus automáticamente.
-    } catch (err) {
-      setMpError('Error inesperado. Verificá tu conexión e intentá de nuevo.');
-      console.error('[DeliveryCard] MP payment error:', err);
     } finally {
       setConfirmingPayment(false);
     }
@@ -421,7 +374,7 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
         )}
 
         {/* Action buttons */}
-        {(cfg.showCancel || cfg.showPayment || cfg.showConfirmPayment || cfg.showCompromisoPago) && (
+        {(cfg.showCancel || cfg.showPayment || cfg.showCompromisoPago) && (
           <div style={{ display: 'flex', gap: '8px' }}>
             {cfg.showCancel && (
               <button
@@ -448,14 +401,18 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
                   display: 'flex', flexDirection: 'column', gap: '6px',
                 }}>
                   <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    🤝 ¿Qué es el fondo de compromiso?
+                    🤝 Un repartidor aceptó tu pedido
                   </p>
                   <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                    Es un monto pequeño que va a un <strong>fondo de respaldo</strong> para el repartidor.
-                    <strong> No es el costo del domicilio ni de tus productos</strong> — eso se le paga al repartidor cuando entregue.
+                    Para que salga a comprar, necesitamos que hagás un <strong>pago de compromiso</strong>.
+                    Este monto va a un <strong>fondo de respaldo para repartidores</strong> — protege al repartidor
+                    si es víctima de una estafa, y le da confianza de que vas a recibir el pedido.
+                  </p>
+                  <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    💡 <strong>El costo de tus productos y el domicilio los pagás directamente al repartidor cuando entregue.</strong>
                   </p>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Fondo de compromiso</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Pago de compromiso</span>
                     <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent)' }}>
                       ${(compromisoAmount ?? 0).toLocaleString('es-CO')} COP
                     </span>
@@ -465,60 +422,8 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
                   <CardPayment
                     initialization={{
                       amount: compromisoAmount ?? 0,
-                      ...(mpCustomerId ? { payer: { customerId: mpCustomerId } } : {}),
                     }}
                     onSubmit={handleCompromisoSubmit}
-                    onError={(err) => setMpError(err.message)}
-                    customization={{
-                      paymentMethods: { minInstallments: 1, maxInstallments: 1 },
-                    }}
-                  />
-                ) : (
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>
-                    Cargando pasarela...
-                  </div>
-                )}
-                {confirmingPayment && (
-                  <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 700, textAlign: 'center' }}>
-                    ⏳ Procesando pago...
-                  </div>
-                )}
-                {mpError && (
-                  <span style={{ fontSize: '11px', color: 'var(--error, #dc2626)', fontWeight: 600 }}>{mpError}</span>
-                )}
-              </div>
-            )}
-            {cfg.showConfirmPayment && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-                {/* Resumen del cobro */}
-                <div style={{
-                  padding: '12px 14px',
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)',
-                  display: 'flex', flexDirection: 'column', gap: '6px',
-                }}>
-                  <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    💳 ¿Por qué se cobra esto?
-                  </p>
-                  <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                    La <strong>tarifa de servicio</strong> cubre la asignación del repartidor.
-                    Se cobra una vez por pedido, antes de que un repartidor lo acepte.
-                  </p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tarifa de servicio</span>
-                    <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent)' }}>
-                      ${serviceFee.toLocaleString('es-CO')} COP
-                    </span>
-                  </div>
-                </div>
-                {mpCustomerReady ? (
-                  <CardPayment
-                    initialization={{
-                      amount: serviceFee,
-                      ...(mpCustomerId ? { payer: { customerId: mpCustomerId } } : {}),
-                    }}
-                    onSubmit={handleMPSubmit}
                     onError={(err) => setMpError(err.message)}
                     customization={{
                       paymentMethods: { minInstallments: 1, maxInstallments: 1 },

@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
 
   const { data: order, error: orderErr } = await adminClient
     .from("orders")
-    .select("id, user_id, service_fee, total_estimated, status")
+    .select("id, user_id, service_fee, total_estimated, total_single_store_estimate, status")
     .eq("id", orderId)
     .single();
 
@@ -106,7 +106,13 @@ Deno.serve(async (req) => {
     console.error("[process-mp-payment] order fetch error:", orderErr?.message, "orderId:", orderId);
     return json(404, { error: "Order not found" });
   }
-  console.log("[process-mp-payment] order:", { id: order.id, status: order.status, service_fee: order.service_fee, total_estimated: order.total_estimated });
+  console.log("[process-mp-payment] order:", {
+    id: order.id,
+    status: order.status,
+    service_fee: order.service_fee,
+    total_estimated: order.total_estimated,
+    total_single_store_estimate: order.total_single_store_estimate,
+  });
 
   if (order.user_id !== user.id) return json(403, { error: "Forbidden" });
   if (order.status !== "pendiente_pago") {
@@ -117,7 +123,7 @@ Deno.serve(async (req) => {
   // Pedidos legacy (previos a la migración service_fee) → calcular en tiempo real
   const serviceFeeAmount = (order.service_fee && order.service_fee > 0)
     ? Number(order.service_fee)
-    : Math.max(5000, 2000 + Math.round(Number(order.total_estimated ?? 0) * 0.03));
+    : 2000 + Math.round(Number(order.total_single_store_estimate ?? 0) * 0.03);
 
   console.log("[process-mp-payment] serviceFeeAmount:", serviceFeeAmount);
 

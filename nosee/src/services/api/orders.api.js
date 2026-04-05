@@ -45,6 +45,8 @@ export async function createOrder({
   paymentMethod,
 }) {
   const totalSingleStore = Math.round((totalCost ?? 0) + (savings ?? 0));
+  const totalEstimated = totalSingleStore + (deliveryFee ?? 0);
+  const compromisoAmount = 2000 + Math.round(totalSingleStore * 0.03);
 
   const deliveryPin = String(Math.floor(1000 + Math.random() * 9000));
 
@@ -53,7 +55,7 @@ export async function createOrder({
     .insert({
       user_id:                    userId,
       local_id:                   localId,
-      status:                     deliveryMode ? 'pendiente_pago' : 'usuario_se_encarga',
+      status:                     deliveryMode ? 'pendiente_repartidor' : 'usuario_se_encarga',
       delivery_mode:              deliveryMode,
       // delivery_address es NOT NULL sin default — usar '' si el usuario no escribió dirección
       delivery_address:           deliveryAddress || '',
@@ -61,12 +63,13 @@ export async function createOrder({
       stores:                     stores          ?? [],
       items:                      items           ?? [],
       // Columnas de costos que ya existían en el esquema
-      total_estimated:            totalCost       ?? 0,
+      total_estimated:            totalEstimated  ?? 0,
       total_single_store_estimate: totalSingleStore,
       savings_percentage:         savingsPct      ?? 0,
       // Nueva columna agregada en la migración de Proceso 4
       delivery_fee:               deliveryFee     ?? 0,
-      service_fee:                serviceFee      ?? 0,
+      service_fee:                serviceFee      ?? compromisoAmount,
+      compromiso_amount:          compromisoAmount,
       strategy:                   strategy        ?? 'balanced',
       payment_method:             paymentMethod   ?? 'transferencia',
       confirmed_at:               new Date().toISOString(),
