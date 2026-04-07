@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_engram_engram__mem_save",
+      "Bash(ls src/*.css)",
+      "Bash(find src:*)",
+      "Bash(npm install:*)",
+      "Bash(npx vite:*)",
+      "mcp__plugin_engram_engram__mem_context"
+    ]
+  }
+}

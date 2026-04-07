@@ -17,8 +17,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { ListaTab } from '../components/ListaTab';
 import { PedidosTab } from '../components/PedidosTab';
 import { SavedListsSidebar } from '../components/SavedListsSidebar';
-import { DeliveryCheckout } from '../components/DeliveryCheckout';
 import { page } from '../styles/shoppingListStyles';
+import { useOptimizeSingleItem } from '@/features/shopping-list/hooks/useOptimizeSingleItem';
+import { useOptimPrefs } from '@/features/shopping-list/hooks/useOptimPrefs';
+import { useGeoLocation } from '@/features/publications/hooks/useGeoLocation';
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 export default function ShoppingListPage() {
@@ -30,9 +32,12 @@ export default function ShoppingListPage() {
     savedLists, saveList, loadSavedList, deleteSavedList,
   } = useShoppingListStore();
 
-  const [activeTab,       setActiveTab]       = useState('lista');
-  const [savedFlash,      setSavedFlash]      = useState(false);
-  const [pendingCheckout, setPendingCheckout] = useState(null);
+  const [prefs] = useOptimPrefs();
+  const { latitude, longitude, hasLocation } = useGeoLocation({ timeout: 8000 });
+  const { optimizeSingleItem } = useOptimizeSingleItem({ prefs, hasLocation, latitude, longitude });
+
+  const [activeTab, setActiveTab] = useState('lista');
+  const [savedFlash, setSavedFlash] = useState(false);
   const flashTimerRef = useRef(null);
 
   useEffect(() => () => clearTimeout(flashTimerRef.current), []);
@@ -43,21 +48,6 @@ export default function ShoppingListPage() {
     flashTimerRef.current = setTimeout(() => setSavedFlash(false), 2000);
   };
 
-  const handleStartDeliveryCheckout = (checkoutData) => {
-    setPendingCheckout(checkoutData);
-    setActiveTab('pedidos');
-  };
-
-  const handleCheckoutConfirmed = () => {
-    setPendingCheckout(null);
-    // quedarse en la tab Mis Pedidos — el pedido ya aparece en la lista
-  };
-
-  const handleCheckoutCancel = () => {
-    setPendingCheckout(null);
-    setActiveTab('lista');
-  };
-
   const deliveryOrders = useMemo(() => orders.filter((o) => o.deliveryMode), [orders]);
   const pickupOrders   = useMemo(() => orders.filter((o) => !o.deliveryMode), [orders]);
 
@@ -66,6 +56,53 @@ export default function ShoppingListPage() {
     { key: 'pedidos',   label: 'Mis Pedidos',    badge: deliveryOrders.length },
     { key: 'recogidas', label: 'Mis Recogidas',  badge: pickupOrders.length },
   ], [deliveryOrders.length, pickupOrders.length]);
+
+  const handleAddProductToPickupOrder = async (orderId, name, tempId, onStatusUpdate) => {
+    // Add item to the shopping list store
+    addItem(name, 1);
+
+    // Find the order
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) { onStatusUpdate?.('error'); return; }
+
+    try {
+      const fakeItem = { id: tempId, productName: name, quantity: 1 };
+      const { bestPub } = await optimizeSingleItem(fakeItem);
+
+      if (!bestPub) { onStatusUpdate?.('error'); return; }
+
+      // Merge bestPub into the order result under the correct store
+      const storeName   = bestPub.store?.name ?? 'Tienda';
+      const existingIdx = order.result.stores.findIndex((s) => s.store?.name === storeName);
+      const newProduct  = {
+        item:  { productName: name, quantity: 1 },
+        price: bestPub.price ?? 0,
+        productName: name,
+        photo_url: bestPub.photo_url ?? null,
+      };
+
+      let newStores;
+      if (existingIdx >= 0) {
+        newStores = order.result.stores.map((s, i) =>
+          i === existingIdx ? { ...s, products: [...s.products, newProduct] } : s
+        );
+      } else {
+        newStores = [...order.result.stores, { store: bestPub.store, products: [newProduct] }];
+      }
+
+      const newTotal = newStores.reduce(
+        (sum, s) => sum + s.products.reduce((ps, p) => ps + (p.price ?? 0) * (p.item?.quantity ?? 1), 0), 0
+      );
+
+      updateOrderDelivery(orderId, {
+        result: { ...order.result, stores: newStores, totalCost: newTotal },
+      });
+
+      onStatusUpdate?.('done');
+    } catch {
+      onStatusUpdate?.('error');
+    }
+  };
 
   return (
     <div className="home-wrapper">
@@ -80,36 +117,14 @@ export default function ShoppingListPage() {
           .lista-layout { grid-template-columns: 1fr; }
         }
         .pedidos-layout {
-          position: fixed;
-          top: 60px;
-          left: 0;
-          right: 0;
-          bottom: 0;
           display: grid;
-          grid-template-columns: 320px 1fr;
-          gap: 0;
-          z-index: 10;
-          background: var(--bg-base);
-        }
-        .pedidos-layout > .pedidos-left-col {
-          height: 100%;
-          overflow-y: auto;
-          padding: 16px;
-          border-right: 1px solid var(--border);
-          box-sizing: border-box;
-        }
-        .pedidos-layout > .pedidos-map-col {
-          height: 100%;
-          overflow: hidden;
+          grid-template-columns: 1fr 1.6fr;
+          gap: 16px;
+          align-items: start;
         }
         @media (max-width: 760px) {
-          .pedidos-layout {
-            grid-template-columns: 1fr;
-            grid-template-rows: 1fr 280px;
-          }
-          .pedidos-layout > .pedidos-map-col {
-            height: 280px;
-          }
+          .pedidos-layout { grid-template-columns: 1fr; }
+          .pickup-map-col { order: -1; }
         }
         @keyframes savedFlash {
           0%, 100% { color: var(--text-secondary); }
@@ -173,34 +188,30 @@ export default function ShoppingListPage() {
             saveList={saveList}
             addOrder={addOrder}
             onSaved={handleSaved}
-            onStartDeliveryCheckout={handleStartDeliveryCheckout}
+            onConfirmedDelivery={() => setActiveTab('pedidos')}
             onConfirmedPickup={() => setActiveTab('recogidas')}
           />
         </div>
       )}
-      {activeTab === 'pedidos' && pendingCheckout ? (
-        <DeliveryCheckout
-          pendingCheckout={pendingCheckout}
-          addOrder={addOrder}
-          onConfirmed={handleCheckoutConfirmed}
-          onCancel={handleCheckoutCancel}
-        />
-      ) : activeTab === 'pedidos' ? (
+      {activeTab === 'pedidos' && (
         <PedidosTab
           orders={deliveryOrders}
           removeOrder={removeOrder}
           updateOrderDelivery={updateOrderDelivery}
           emptyHint="Confirma un pedido con 🛵 Domicilio y aparecerá aquí."
-          onBack={() => setActiveTab('lista')}
         />
-      ) : null}
+      )}
       {activeTab === 'recogidas' && (
         <PedidosTab
           orders={pickupOrders}
           removeOrder={removeOrder}
           updateOrderDelivery={updateOrderDelivery}
           emptyHint="Confirma un pedido con 🚶 Voy yo y aparecerá aquí."
-          onBack={() => setActiveTab('lista')}
+          variant="pickup"
+          onAddProduct={(name, tempId, onStatusUpdate, orderId) => {
+            const target = pickupOrders.find((o) => o.id === orderId) ?? pickupOrders[0];
+            if (target) handleAddProductToPickupOrder(target.id, name, tempId, onStatusUpdate);
+          }}
         />
       )}
     </div>

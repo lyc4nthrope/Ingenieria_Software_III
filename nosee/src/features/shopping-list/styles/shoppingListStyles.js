@@ -158,6 +158,14 @@ export const lista = {
     cursor: 'pointer', padding: '5px', borderRadius: 'var(--radius-sm)',
     display: 'flex', alignItems: 'center', flexShrink: 0,
   },
+  // Hitbox grande para móvil — mínimo 44×44px (guía Apple/Google HIG)
+  removeBtnLarge: {
+    background: 'none', border: 'none', color: 'var(--text-muted)',
+    cursor: 'pointer', padding: '12px', borderRadius: 'var(--radius-sm)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, minWidth: '44px', minHeight: '44px',
+    marginLeft: '8px',
+  },
 
   carouselWrap: {
     marginTop: '-1px',
@@ -255,6 +263,166 @@ export const lista = {
   gearBtnActive: {
     background: 'var(--accent-soft)', color: 'var(--accent)',
     borderColor: 'var(--accent)',
+  },
+
+  // ── Optimized item card ──
+  optimItemWrap: { display: 'flex', flexDirection: 'column', minWidth: 0 },
+  optimItemRow: {
+    display: 'flex', alignItems: 'center', gap: '12px',
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
+    padding: '12px 14px',
+    transition: 'border-color 0.15s',
+  },
+  optimItemRowExpanded: {
+    borderColor: 'var(--accent)',
+    borderBottomLeftRadius: 0, borderBottomRightRadius: 0,
+  },
+  optimItemAvatar: {
+    width: '42px', height: '42px', flexShrink: 0,
+    borderRadius: '50%',
+    background: 'var(--accent-soft)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '16px', fontWeight: 800, color: 'var(--accent)',
+    textTransform: 'uppercase',
+    border: '1px solid var(--accent)',
+  },
+  optimItemBody: { flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 },
+  optimItemName: { fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 },
+  optimItemMeta: { fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' },
+  optimItemQty: {
+    display: 'inline-flex', alignItems: 'center',
+    padding: '1px 7px', borderRadius: '999px',
+    background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+    color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 700,
+  },
+  optimItemRight: { display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 },
+  optimItemPrice: { fontSize: '15px', fontWeight: 800, color: 'var(--accent)', textAlign: 'right', lineHeight: 1.2 },
+  optimItemPriceSub: { fontSize: '10px', color: 'var(--text-muted)', textAlign: 'right' },
+  qtyBtn: {
+    width: '24px', height: '24px',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-elevated)',
+    color: 'var(--text-primary)',
+    fontSize: '14px', fontWeight: 800,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', flexShrink: 0,
+    lineHeight: 1,
+  },
+  qtyValue: {
+    fontSize: '13px', fontWeight: 700,
+    color: 'var(--text-primary)',
+    minWidth: '20px', textAlign: 'center',
+  },
+  optimItemActions: { display: 'flex', alignItems: 'center', gap: '4px' },
+  optimChevronBtn: {
+    background: 'none', border: '1px solid var(--border)', color: 'var(--text-secondary)',
+    cursor: 'pointer', padding: '5px 7px', borderRadius: 'var(--radius-sm)',
+    display: 'flex', alignItems: 'center', transition: 'all 0.15s',
+  },
+  optimChevronBtnActive: {
+    background: 'var(--accent-soft)', borderColor: 'var(--accent)', color: 'var(--accent)',
+  },
+
+  // ── Summary bar + info banner ──
+  summaryBar: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '12px 16px',
+    background: 'var(--bg-surface)', border: '2px solid var(--accent)',
+    borderRadius: 'var(--radius-md)',
+  },
+  summaryLeft: { display: 'flex', flexDirection: 'column', gap: '2px' },
+  summaryTitle: { fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  summaryCount: { fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' },
+  summaryTotal: { fontSize: '22px', fontWeight: 800, color: 'var(--accent)' },
+  summaryTotalCurrency: { fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)' },
+
+  infoBanner: {
+    padding: '10px 14px',
+    background: 'var(--accent-soft)',
+    border: '1px solid var(--accent)',
+    borderRadius: 'var(--radius-md)',
+    fontSize: '12px', color: 'var(--accent)',
+    lineHeight: 1.5,
+  },
+
+  proceedBtn: {
+    padding: '14px', borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontWeight: 800, fontSize: '14px', cursor: 'pointer', width: '100%',
+  },
+};
+
+// ── Mode selection screen styles ──────────────────────────────────────────────
+export const modeSelection = {
+  root: {
+    display: 'flex', flexDirection: 'column', gap: '20px',
+    padding: '8px 0',
+  },
+  header: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  title: {
+    fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0,
+    lineHeight: 1.2,
+  },
+  subtitle: {
+    fontSize: '13px', color: 'var(--text-muted)', margin: 0,
+  },
+  optionsWrap: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  optionCard: {
+    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '18px 16px',
+    background: 'var(--bg-surface)', border: '2px solid var(--border)',
+    borderRadius: 'var(--radius-lg, 14px)',
+    cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left',
+    boxSizing: 'border-box',
+  },
+  optionCardActive: {
+    borderColor: 'var(--accent)',
+    background: 'var(--accent-soft)',
+    boxShadow: '0 0 0 3px var(--accent-soft)',
+  },
+  optionLeft: { display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1 },
+  optionIcon: { fontSize: '28px', lineHeight: 1, flexShrink: 0, marginTop: '2px' },
+  optionBody: { display: 'flex', flexDirection: 'column', gap: '4px' },
+  optionTitle: { fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' },
+  optionDesc: { fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 },
+  optionBadge: {
+    display: 'inline-block',
+    fontSize: '11px', fontWeight: 600, color: 'var(--accent)',
+    background: 'var(--accent-soft)', border: '1px solid var(--accent)',
+    borderRadius: '999px', padding: '2px 8px', alignSelf: 'flex-start',
+  },
+  checkmark: {
+    flexShrink: 0, width: '26px', height: '26px',
+    borderRadius: '50%', background: 'var(--accent)', color: '#fff',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '14px', fontWeight: 800,
+    marginLeft: '8px',
+  },
+  totalRow: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '14px 18px',
+    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)',
+  },
+  totalLabel: { fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 },
+  totalValue: { fontSize: '20px', fontWeight: 800, color: 'var(--accent)' },
+  actions: {
+    display: 'flex', gap: '10px',
+  },
+  cancelBtn: {
+    flex: 1, padding: '13px',
+    borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
+    background: 'var(--bg-surface)', color: 'var(--text-secondary)',
+    fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+  },
+  continueBtn: {
+    flex: 2, padding: '13px',
+    borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontWeight: 800, fontSize: '14px', cursor: 'pointer',
   },
 };
 
@@ -400,6 +568,97 @@ export const carousel = {
     color: 'var(--accent)', fontSize: '10px', fontWeight: 600,
     cursor: 'pointer', padding: 0, textAlign: 'left',
     textDecoration: 'underline', textUnderlineOffset: '2px',
+  },
+};
+
+// ── Delivery form styles ───────────────────────────────────────────────────────
+export const delivForm = {
+  root: { display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0' },
+
+  header: { display: 'flex', alignItems: 'flex-start', gap: '12px' },
+  backBtn: {
+    background: 'none', border: 'none', color: 'var(--accent)',
+    fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: '4px 0',
+    flexShrink: 0, marginTop: '4px',
+  },
+  headerRight: { display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 },
+  title: { fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 },
+  step: {
+    fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)',
+    textTransform: 'uppercase', letterSpacing: '0.05em',
+  },
+
+  section: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  label: {
+    fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)',
+    textTransform: 'uppercase', letterSpacing: '0.04em',
+  },
+  input: {
+    padding: '11px 14px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-base)', color: 'var(--text-primary)',
+    fontSize: '14px', outline: 'none', width: '100%', boxSizing: 'border-box',
+  },
+  inputError: {
+    borderColor: 'var(--error)', boxShadow: '0 0 0 2px var(--error-soft)',
+  },
+  textarea: {
+    padding: '11px 14px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-base)', color: 'var(--text-primary)',
+    fontSize: '14px', outline: 'none', width: '100%', boxSizing: 'border-box',
+    resize: 'vertical', fontFamily: 'inherit',
+  },
+
+  paymentOptions: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  paymentOption: {
+    display: 'flex', alignItems: 'center', gap: '12px',
+    padding: '14px 16px',
+    background: 'var(--bg-surface)', border: '2px solid var(--border)',
+    borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'all 0.15s',
+    textAlign: 'left', width: '100%', boxSizing: 'border-box',
+  },
+  paymentOptionActive: {
+    borderColor: 'var(--accent)', background: 'var(--accent-soft)',
+  },
+  paymentIcon: { fontSize: '20px', flexShrink: 0 },
+  paymentLabel: { flex: 1, fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' },
+  paymentCheck: {
+    width: '22px', height: '22px', borderRadius: '50%',
+    background: 'var(--accent)', color: '#fff',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: '12px', fontWeight: 800, flexShrink: 0,
+  },
+
+  summary: {
+    background: 'var(--bg-surface)', border: '1px solid var(--border)',
+    borderRadius: 'var(--radius-md)', padding: '14px 16px',
+    display: 'flex', flexDirection: 'column', gap: '10px',
+  },
+  summaryRow: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    fontSize: '13px', color: 'var(--text-secondary)',
+  },
+  summaryLabel: { color: 'var(--text-muted)' },
+  summaryValue: { fontWeight: 600, color: 'var(--text-primary)' },
+  summaryTotal: {
+    borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: '0',
+    fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)',
+  },
+  summaryTotalValue: { fontSize: '18px', fontWeight: 800, color: 'var(--accent)' },
+
+  error: {
+    fontSize: '13px', color: 'var(--error)',
+    background: 'var(--error-soft)', padding: '10px 14px',
+    borderRadius: 'var(--radius-sm)', margin: 0,
+  },
+
+  submitBtn: {
+    padding: '15px', borderRadius: 'var(--radius-md)', border: 'none',
+    background: 'var(--accent)', color: '#fff',
+    fontWeight: 800, fontSize: '15px', cursor: 'pointer', width: '100%',
   },
 };
 

@@ -23,31 +23,32 @@ import {
   getAvailableOrders,
   getDealerActiveOrders,
   acceptOrder,
+  cancelAvailableOrder,
   advanceOrderStatus,
-  confirmPayment,
-  abandonOrder,
+  verifyDeliveryPin,
   upsertDealerLocation,
   updateProductPrice,
   logPriceCorrection,
+  requestPriceAdjustment,
+  PRICE_ADJUSTMENT_THRESHOLD,
 } from '@/services/api/orders.api';
-import { getPaymentByOrderId, getReceiptSignedUrl } from '@/services/api/payments.api';
+import { useDeliveryTimer } from '@/features/orders/hooks/useDeliveryTimer';
 import { getDealerBankAccounts } from '@/services/api/bankAccounts.api';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
 
-// Etiquetas y próximo estado para cada transición.
-// 'llegando' y 'pendiente_pago' no tienen avance directo desde el repartidor:
-//   llegando       → el usuario paga → orders.status = pendiente_pago
-//   pendiente_pago → repartidor confirma pago → confirmPayment() → entregado
+// Etiquetas y próximo estado para cada transición
 const NEXT_LABEL = {
   aceptado:  '🛒 Llegué a la tienda',
   comprando: '🛵 Terminé las compras',
   en_camino: '🔔 Llegué a la puerta',
+  llegando:  '✅ Entrega completada',
 };
 const NEXT_STATUS = {
   aceptado:  'comprando',
   comprando: 'en_camino',
   en_camino: 'llegando',
+  llegando:  'entregado',
 };
 
 // ─── Helpers para leer el JSONB guardado por CreateOrderPage ─────────────────
@@ -79,13 +80,9 @@ export default function DealerDashboard() {
   const [loadingActive,   setLoadingActive]   = useState(true);
   const [acceptingId,     setAcceptingId]     = useState(null);  // id del pedido que se está aceptando
   const [acceptError,     setAcceptError]     = useState(null);
+  const [cancelingId,     setCancelingId]     = useState(null);  // id del pedido que se está cancelando
   const [noBankWarning,   setNoBankWarning]   = useState(false); // aviso sin cuentas bancarias
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
-  const [advanceError,    setAdvanceError]    = useState(null);  // { id, msg } del pedido que falló al avanzar
-  const [confirmingId,    setConfirmingId]    = useState(null);  // id del pedido con pago pendiente de confirmación
-  const [confirmError,    setConfirmError]    = useState(null);  // { id, msg } del pedido que falló al confirmar
-  const [abandoningId,    setAbandoningId]    = useState(null);  // id del pedido que se está abandonando
-  const [abandonError,    setAbandonError]    = useState(null);  // { id, msg } del pedido que falló al abandonar
   const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
   const [loadAvailError,  setLoadAvailError]  = useState(null);  // error al cargar disponibles
   // Checklist local por pedido: { [orderId]: { [productKey]: boolean } }
@@ -259,16 +256,36 @@ export default function DealerDashboard() {
     setAcceptingId(null);
   };
 
-  // ── Rechazar pedido disponible ───────────────────────────────────────────
-  // Solo quita el pedido de la vista local del repartidor.
-  // No modifica el estado en BD — el pedido sigue disponible para otros.
-  const handleCancel = (orderId) => {
-    setAvailable((prev) => prev.filter((o) => o.id !== orderId));
+  // ── Cancelar pedido disponible ───────────────────────────────────────────
+  const handleCancel = async (orderId) => {
+    setCancelingId(orderId);
+    const { error } = await cancelAvailableOrder(orderId);
+    if (!error) {
+      setAvailable((prev) => prev.filter((o) => o.id !== orderId));
+    }
+    setCancelingId(null);
   };
 
-  // ── Actualizar precio de producto ────────────────────────────────────────
+  // ── Actualizar precio de producto (Caso B: >5% → solicitar aprobación) ──
   const handlePriceReport = async (order, storeIdx, productIdx, newPrice) => {
-    const productName = order.stores?.[storeIdx]?.products?.[productIdx]?.item?.productName;
+    const product      = order.stores?.[storeIdx]?.products?.[productIdx];
+    const productName  = product?.item?.productName;
+    const originalPrice = product?.price ?? 0;
+
+    // Caso B: si el nuevo precio supera el umbral del 5%, solicitar aprobación al cliente
+    if (originalPrice > 0 && newPrice > originalPrice * (1 + PRICE_ADJUSTMENT_THRESHOLD)) {
+      const { error } = await requestPriceAdjustment({
+        orderId:        order.id,
+        storeIdx,
+        productIdx,
+        productName,
+        originalPrice,
+        requestedPrice: newPrice,
+      });
+      return { error, pending: true };
+    }
+
+    // Cambio menor al 5% — actualizar directamente
     const { error, newStores, newTotal, oldPrice } = await updateProductPrice(
       order.id, storeIdx, productIdx, newPrice
     );
@@ -281,63 +298,57 @@ export default function DealerDashboard() {
         )
       );
       logPriceCorrection({ orderId: order.id, storeIdx, productIdx, productName, oldPrice, newPrice, role: 'dealer' });
-      console.info(`[PrecioCorregido-dealer] ${productName}: $${oldPrice} → $${newPrice}`);
     }
     return { error };
   };
 
   // ── Avanzar estado del pedido ────────────────────────────────────────────
+  // Nota: la transición llegando → entregado se maneja via handleVerifyPin (RF-03).
+  // handleAdvance solo cubre aceptado/comprando/en_camino/llegando y cancelado (entrega fallida).
   const handleAdvance = async (order) => {
     const newStatus = NEXT_STATUS[order.status];
-    if (!newStatus) return;
+    if (!newStatus || newStatus === 'entregado') return; // entregado requiere PIN
 
     setAdvancingId(order.id);
-    setAdvanceError(null);
     const { error } = await advanceOrderStatus(order.id, newStatus);
 
     if (!error) {
-      if (newStatus === 'entregado') {
-        setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
-        setHistory((prev) => [{ ...order, status: 'entregado' }, ...prev]);
-      } else {
-        setActiveOrders((prev) =>
-          prev.map((o) => o.id === order.id ? { ...o, status: newStatus } : o)
-        );
-      }
-    } else {
-      setAdvanceError({ id: order.id, msg: 'No se pudo actualizar el estado. Revisá tu conexión e intentá de nuevo.' });
+      const now = new Date().toISOString();
+      setActiveOrders((prev) =>
+        prev.map((o) => o.id === order.id
+          ? { ...o, status: newStatus, ...(newStatus === 'llegando' ? { llegando_at: now, updated_at: now } : {}) }
+          : o
+        )
+      );
     }
 
     setAdvancingId(null);
   };
 
-  // ── Confirmar pago del usuario ───────────────────────────────────────────
-  // Se llama cuando el repartidor verifica el comprobante (o el efectivo) y
-  // marca el pedido como entregado llamando al RPC confirm_payment() en Supabase.
-  const handleConfirmPayment = async (order) => {
-    setConfirmingId(order.id);
-    setConfirmError(null);
-    const { error } = await confirmPayment(order.id);
-    if (!error) {
-      setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
-      setHistory((prev) => [{ ...order, status: 'entregado' }, ...prev]);
-    } else {
-      setConfirmError({ id: order.id, msg: 'No se pudo confirmar el pago. Revisá tu conexión e intentá de nuevo.' });
+  // ── Verificar PIN del cliente para cerrar el pedido (RF-03) ──────────────
+  const handleVerifyPin = async (order, pin) => {
+    setAdvancingId(order.id);
+    const { data: ok, error } = await verifyDeliveryPin(order.id, pin);
+    setAdvancingId(null);
+
+    if (error || !ok) {
+      return { success: false };
     }
-    setConfirmingId(null);
+
+    setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
+    setHistory((prev) => [{ ...order, status: 'entregado' }, ...prev]);
+    return { success: true };
   };
 
-  // ── Abandonar pedido activo (vuelve al pool) ─────────────────────────────
-  const handleAbandon = async (order) => {
-    setAbandoningId(order.id);
-    setAbandonError(null);
-    const { error } = await abandonOrder(order.id);
+  // ── Marcar entrega fallida (Caso D: timer vencido) ────────────────────────
+  const handleDeliveryFailed = async (order) => {
+    setAdvancingId(order.id);
+    const { error } = await advanceOrderStatus(order.id, 'cancelado');
+    setAdvancingId(null);
     if (!error) {
       setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
-    } else {
-      setAbandonError({ id: order.id, msg: 'No se pudo abandonar el pedido. Revisá tu conexión e intentá de nuevo.' });
+      setHistory((prev) => [{ ...order, status: 'cancelado' }, ...prev]);
     }
-    setAbandoningId(null);
   };
 
   // ── Toggle checklist ────────────────────────────────────────────────────
@@ -352,14 +363,14 @@ export default function DealerDashboard() {
   const totalEarned = history.reduce((s, h) => s + Number(h.delivery_fee ?? 0), 0);
 
   const STATUS_INFO = {
-    pendiente_repartidor: { label: 'Disponible',     color: 'var(--warning)',       bg: 'var(--warning-soft)' },
-    aceptado:             { label: 'Aceptado',        color: 'var(--accent)',        bg: 'var(--accent-soft)' },
-    comprando:            { label: 'Comprando',       color: 'var(--warning)',       bg: 'var(--warning-soft)' },
-    en_camino:            { label: 'En camino',       color: 'var(--success)',       bg: 'var(--success-soft)' },
-    llegando:             { label: 'En la puerta',    color: 'var(--accent)',        bg: 'var(--accent-soft)' },
-    pendiente_pago:       { label: 'Esperando pago', color: '#92400e',              bg: '#fef3c7' },
-    entregado:            { label: 'Entregado',       color: 'var(--success)',       bg: 'var(--success-soft)' },
-    cancelado:            { label: 'Cancelado',       color: 'var(--error)',         bg: 'var(--error-soft)' },
+    pendiente_repartidor: { label: 'Disponible',          color: 'var(--warning)',       bg: 'var(--warning-soft)' },
+    aceptado:             { label: 'Aceptado',             color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+    pendiente_compromiso: { label: 'Esp. compromiso',      color: '#92400e',              bg: 'var(--warning-soft, #fef9c3)' },
+    comprando:            { label: 'Comprando',            color: 'var(--warning)',       bg: 'var(--warning-soft)' },
+    en_camino:            { label: 'En camino',            color: 'var(--success)',       bg: 'var(--success-soft)' },
+    llegando:             { label: 'En la puerta',         color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+    entregado:            { label: 'Entregado',            color: 'var(--success)',       bg: 'var(--success-soft)' },
+    cancelado:            { label: 'Cancelado',            color: 'var(--error)',         bg: 'var(--error-soft)' },
   };
 
   // Pedido activo para la tab "ruta"
@@ -475,6 +486,7 @@ export default function DealerDashboard() {
                     key={order.id}
                     order={order}
                     accepting={acceptingId === order.id}
+                    canceling={cancelingId === order.id}
                     onAccept={() => handleAccept(order.id)}
                     onCancel={() => handleCancel(order.id)}
                   />
@@ -517,15 +529,10 @@ export default function DealerDashboard() {
                     checklist={checklist[order.id] ?? {}}
                     onToggleCheck={(key) => toggleCheck(order.id, key)}
                     advancing={advancingId === order.id}
-                    advanceError={advanceError?.id === order.id ? advanceError.msg : null}
-                    onAdvance={() => { setAdvanceError(null); handleAdvance(order); }}
+                    onAdvance={() => handleAdvance(order)}
+                    onVerifyPin={(pin) => handleVerifyPin(order, pin)}
+                    onDeliveryFailed={() => handleDeliveryFailed(order)}
                     onPriceReport={(si, pi, newPrice) => handlePriceReport(order, si, pi, newPrice)}
-                    confirmingPayment={confirmingId === order.id}
-                    confirmError={confirmError?.id === order.id ? confirmError.msg : null}
-                    onConfirmPayment={() => { setConfirmError(null); handleConfirmPayment(order); }}
-                    abandoning={abandoningId === order.id}
-                    abandonError={abandonError?.id === order.id ? abandonError.msg : null}
-                    onAbandon={() => { setAbandonError(null); handleAbandon(order); }}
                   />
                 ))}
               </div>
@@ -603,7 +610,7 @@ export default function DealerDashboard() {
 // ─── AvailableOrderCard ───────────────────────────────────────────────────────
 // Tarjeta de pedido disponible para aceptar. El repartidor ve qué tiene que
 // comprar, en qué tiendas y a dónde entregar antes de comprometerse.
-function AvailableOrderCard({ order, accepting, onAccept, onCancel }) {
+function AvailableOrderCard({ order, accepting, canceling, onAccept, onCancel }) {
   const items  = extractItems(order);
   const stores = extractStores(order);
   const total  = Number(order.total_estimated ?? 0) + Number(order.delivery_fee ?? 0);
@@ -665,16 +672,16 @@ function AvailableOrderCard({ order, accepting, onAccept, onCancel }) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
-            style={r.cancelBtn}
+            style={{ ...r.cancelBtn, ...(canceling ? { opacity: 0.7 } : {}) }}
             onClick={onCancel}
-            disabled={accepting}
+            disabled={canceling || accepting}
           >
-            ✕ Ignorar
+            {canceling ? '...' : '✕ Cancelar'}
           </button>
           <button
             style={{ ...r.advanceBtn, ...(accepting ? { opacity: 0.7 } : {}) }}
             onClick={onAccept}
-            disabled={accepting}
+            disabled={accepting || canceling}
           >
             {accepting ? 'Aceptando...' : '✓ Aceptar pedido'}
           </button>
@@ -684,131 +691,38 @@ function AvailableOrderCard({ order, accepting, onAccept, onCancel }) {
   );
 }
 
-// ─── ActiveOrderStepper ───────────────────────────────────────────────────────
-// Indicador visual de las 5 fases del proceso de entrega.
-// Cada paso tiene: ícono, label corto, estado (completado / activo / pendiente).
-const STEPS = [
-  { key: 'aceptado',       icon: '✓',  label: 'Aceptado'  },
-  { key: 'comprando',      icon: '🛒', label: 'Comprando' },
-  { key: 'en_camino',      icon: '🛵', label: 'En camino' },
-  { key: 'llegando',       icon: '🔔', label: 'En puerta' },
-  { key: 'entregado',      icon: '✅', label: 'Entregado' },
-];
-
-// Mapea cada status de BD al índice del paso activo en el stepper
-const STATUS_STEP = {
-  aceptado:       0,
-  comprando:      1,
-  en_camino:      2,
-  llegando:       3,
-  pendiente_pago: 3,  // misma fase visual que "en la puerta", esperando pago
-  entregado:      4,
-};
-
-function ActiveOrderStepper({ status }) {
-  const activeIdx = STATUS_STEP[status] ?? 0;
-
-  return (
-    <div style={st.root}>
-      {STEPS.map((step, idx) => {
-        const done    = idx < activeIdx;
-        const current = idx === activeIdx;
-        return (
-          <div key={step.key} style={st.stepWrap}>
-            {/* Línea conectora izquierda */}
-            {idx > 0 && (
-              <div style={{ ...st.line, background: done || current ? ACCENT : BORDER }} />
-            )}
-
-            {/* Círculo del paso */}
-            <div style={{
-              ...st.circle,
-              background:   done    ? ACCENT : current ? ACCENT : 'transparent',
-              borderColor:  done || current ? ACCENT : BORDER,
-              color:        done || current ? '#fff'  : MUTED,
-              boxShadow:    current ? `0 0 0 4px ${ACCENT}28` : 'none',
-              transform:    current ? 'scale(1.15)' : 'scale(1)',
-              transition:   'all 0.2s ease',
-            }}>
-              {done ? '✓' : step.icon}
-            </div>
-
-            {/* Label */}
-            <span style={{
-              ...st.label,
-              color:      current ? ACCENT : done ? 'var(--text-primary)' : MUTED,
-              fontWeight: current ? 700 : 500,
-            }}>
-              {step.label}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-const st = {
-  root: {
-    display: 'flex', alignItems: 'flex-start',
-    padding: '12px 4px 8px',
-    position: 'relative',
-  },
-  stepWrap: {
-    flex: 1, display: 'flex', flexDirection: 'column',
-    alignItems: 'center', gap: 4, position: 'relative',
-  },
-  line: {
-    position: 'absolute', top: 13, right: '50%',
-    width: '100%', height: 2,
-  },
-  circle: {
-    width: 28, height: 28, borderRadius: '50%',
-    border: '2px solid', fontSize: 12, fontWeight: 800,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 1, flexShrink: 0,
-  },
-  label: {
-    fontSize: 10, textAlign: 'center',
-    letterSpacing: '0.02em', lineHeight: 1.2,
-    maxWidth: 52,
-  },
-};
-
 // ─── ActiveOrderCard ──────────────────────────────────────────────────────────
 // Tarjeta del pedido asignado al repartidor. Muestra checklist de productos
 // cuando está "comprando" y el botón para avanzar al siguiente estado.
-// Cuando status = 'pendiente_pago' muestra el comprobante del usuario (si existe)
-// y el botón para confirmar la recepción del pago.
-function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, advanceError, onAdvance, onPriceReport, confirmingPayment, confirmError, onConfirmPayment, abandoning, abandonError, onAbandon }) {
+function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onVerifyPin, onDeliveryFailed, onPriceReport }) {
   const si     = statusInfo[order.status] ?? statusInfo.aceptado;
   const stores = extractStores(order);
-  const [expanded,       setExpanded]       = useState(true);
-  const [payment,        setPayment]        = useState(null);   // { receipt_url, payment_method }
-  const [loadingPay,     setLoadingPay]     = useState(false);
-  const [abandonConfirm, setAbandonConfirm] = useState(false);
+  const [expanded, setExpanded] = useState(true);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(null);
+  const [verifyingPin, setVerifyingPin] = useState(false);
 
-  // Cargar el comprobante cuando el pedido pasa a pendiente_pago
-  useEffect(() => {
-    if (order.status !== 'pendiente_pago') return;
-    setLoadingPay(true);
-    getPaymentByOrderId(order.id).then(async ({ data }) => {
-      if (data?.external_reference) {
-        // La URL firmada expira en 1h — regenerar para garantizar acceso al comprobante
-        const { url } = await getReceiptSignedUrl(data.external_reference);
-        setPayment({ ...data, receipt_url: url ?? data.receipt_url });
-      } else {
-        setPayment(data);
-      }
-      setLoadingPay(false);
-    });
-  }, [order.status, order.id]);
+  // Timer de 10 min para el Caso D — solo activo cuando el repartidor llega a la puerta
+  const timerStart = order.status === 'llegando' ? (order.llegando_at ?? order.updated_at ?? null) : null;
+  const { formattedTime, isExpired } = useDeliveryTimer(timerStart);
 
   // Contar productos completados del checklist
   const allProducts = stores.flatMap((s, si) =>
     (s.products ?? []).map((p, pi) => ({ key: `${si}-${pi}`, name: p.item?.productName ?? '?', qty: p.item?.quantity ?? 1 }))
   );
   const checked = allProducts.filter((p) => checklist[p.key]).length;
+
+  const handlePinSubmit = async () => {
+    if (pinInput.length !== 4) { setPinError('El PIN debe tener 4 dígitos'); return; }
+    setPinError(null);
+    setVerifyingPin(true);
+    const { success } = await onVerifyPin(pinInput);
+    setVerifyingPin(false);
+    if (!success) {
+      setPinError('PIN incorrecto. Pedile al cliente el PIN correcto.');
+      setPinInput('');
+    }
+  };
 
   return (
     <article style={{ ...r.orderCard, ...r.orderCardSelected }}>
@@ -825,9 +739,6 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
         )}
         <span style={{ fontSize: 12, color: MUTED }}>{expanded ? '▲' : '▼'}</span>
       </div>
-
-      {/* Stepper de progreso */}
-      <ActiveOrderStepper status={order.status} />
 
       {/* Dirección de entrega */}
       <div style={r.orderAddress}>
@@ -884,145 +795,110 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
         </div>
       )}
 
-      {/* Panel de pago — solo cuando status = pendiente_pago */}
-      {order.status === 'pendiente_pago' && (
+      {/* Banner de espera de compromiso (estado pendiente_compromiso) */}
+      {order.status === 'pendiente_compromiso' && (
         <div style={{
-          padding: '12px 14px', borderRadius: 8,
-          background: '#fef3c7', border: '1px solid #fde68a',
-          display: 'flex', flexDirection: 'column', gap: 8,
+          padding: '12px 14px',
+          background: 'var(--warning-soft, #fef9c3)',
+          border: '1px solid var(--warning, #ca8a04)',
+          borderRadius: 'var(--radius-md)',
+          display: 'flex', flexDirection: 'column', gap: '4px',
         }}>
-          {loadingPay ? (
-            <p style={{ margin: 0, fontSize: 13, color: '#92400e' }}>Cargando comprobante...</p>
-          ) : payment ? (
-            <>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#92400e' }}>
-                💳 Pago enviado por el usuario
-              </p>
-              <p style={{ margin: 0, fontSize: 12, color: '#92400e' }}>
-                Método: <strong>{payment.payment_method}</strong>
-              </p>
-              {payment.receipt_url && (
-                <a
-                  href={payment.receipt_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: '#1d4ed8', fontWeight: 600 }}
-                >
-                  📎 Ver comprobante de pago
-                </a>
-              )}
-            </>
-          ) : (
-            <>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#92400e' }}>
-                💵 Pago en efectivo
-              </p>
-              <p style={{ margin: 0, fontSize: 12, color: '#92400e' }}>
-                El usuario indicó que pagará en efectivo al recibir el pedido.
-              </p>
-            </>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
+            ⏳ Esperando pago de compromiso
+          </span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            El cliente está confirmando el fondo de compromiso. Podrás salir a comprar cuando se acredite el pago.
+          </span>
+        </div>
+      )}
+
+      {/* Footer: total + botón avanzar / flujo PIN / timer */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Timer de espera cuando el repartidor ya llegó (Caso D) */}
+        {order.status === 'llegando' && timerStart && (
+          <div style={{
+            padding: '8px 12px',
+            background: isExpired ? 'var(--error-soft, #fee2e2)' : 'var(--bg-elevated)',
+            border: `1px solid ${isExpired ? 'var(--error, #dc2626)' : 'var(--border)'}`,
+            borderRadius: 6,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span>{isExpired ? '⚠️' : '⏱'}</span>
+            <span style={{ fontSize: 12, color: isExpired ? 'var(--error, #dc2626)' : MUTED, fontWeight: isExpired ? 700 : 400 }}>
+              {isExpired ? 'Tiempo vencido' : `Tiempo de espera: ${formattedTime}`}
+            </span>
+          </div>
+        )}
+
+        <div style={r.orderFooter}>
+          <div>
+            <div style={r.orderTotal}>
+              ${(Number(order.total_estimated ?? 0) + Number(order.delivery_fee ?? 0)).toLocaleString('es-CO')}
+            </div>
+            <div style={{ fontSize: 11, color: MUTED }}>total a cobrar</div>
+          </div>
+
+          {/* Botones de avance normales (todos excepto llegando → entregado) */}
+          {NEXT_LABEL[order.status] && order.status !== 'llegando' && (
+            <button
+              style={{ ...r.advanceBtn, ...(advancing ? { opacity: 0.7 } : {}) }}
+              onClick={onAdvance}
+              disabled={advancing}
+            >
+              {advancing ? 'Actualizando...' : NEXT_LABEL[order.status]}
+            </button>
           )}
-          <button
-            style={{
-              marginTop: 4, padding: '9px 16px',
-              borderRadius: 6, border: 'none',
-              background: '#065f46', color: '#fff',
-              fontSize: 13, fontWeight: 700, cursor: confirmingPayment ? 'not-allowed' : 'pointer',
-              opacity: confirmingPayment ? 0.6 : 1,
-            }}
-            onClick={onConfirmPayment}
-            disabled={confirmingPayment}
-          >
-            {confirmingPayment ? 'Confirmando...' : '✅ Confirmar pago recibido'}
-          </button>
+
+          {/* Botón entrega fallida cuando timer vence (Caso D) */}
+          {order.status === 'llegando' && isExpired && (
+            <button
+              style={{ ...r.advanceBtn, background: 'var(--error, #dc2626)', ...(advancing ? { opacity: 0.7 } : {}) }}
+              onClick={onDeliveryFailed}
+              disabled={advancing}
+            >
+              {advancing ? 'Procesando...' : '✗ Entrega fallida'}
+            </button>
+          )}
         </div>
-      )}
 
-      {/* Footer: total + botón avanzar (solo estados con transición directa) */}
-      <div style={r.orderFooter}>
-        <div>
-          <div style={r.orderTotal}>
-            ${(Number(order.total_estimated ?? 0) + Number(order.delivery_fee ?? 0)).toLocaleString('es-CO')}
-          </div>
-          <div style={{ fontSize: 11, color: MUTED }}>total a cobrar</div>
-        </div>
-        {order.status === 'llegando' && (
-          <div style={{ fontSize: 12, color: MUTED, fontStyle: 'italic', maxWidth: 200, textAlign: 'right' }}>
-            Esperando que el usuario realice el pago...
-          </div>
-        )}
-        {NEXT_LABEL[order.status] && (
-          <button
-            style={{ ...r.advanceBtn, ...(advancing ? { opacity: 0.7 } : {}) }}
-            onClick={onAdvance}
-            disabled={advancing}
-          >
-            {advancing ? 'Actualizando...' : NEXT_LABEL[order.status]}
-          </button>
-        )}
-      </div>
-
-      {/* Errores de avance / confirmación de pago */}
-      {(advanceError || confirmError) && (
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#dc2626', background: '#fee2e2', padding: '6px 10px', borderRadius: 6 }}>
-          {advanceError || confirmError}
-        </p>
-      )}
-
-      {/* Botón de abandono — con confirmación inline */}
-      <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 10, marginTop: 4 }}>
-        {abandonError && (
-          <p style={{ margin: '0 0 8px', fontSize: 12, color: '#dc2626', background: '#fee2e2', padding: '6px 10px', borderRadius: 6 }}>
-            {abandonError}
-          </p>
-        )}
-        {!abandonConfirm ? (
-          <button
-            type="button"
-            onClick={() => setAbandonConfirm(true)}
-            disabled={abandoning}
-            style={{
-              width: '100%', padding: '7px 12px',
-              borderRadius: 6, border: `1px solid ${BORDER}`,
-              background: 'transparent', color: MUTED,
-              fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            {abandoning ? 'Abandonando...' : '↩ Abandonar pedido'}
-          </button>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <p style={{ margin: 0, fontSize: 12, color: '#92400e', fontWeight: 600 }}>
-              ¿Seguro? El pedido volverá al pool para otro repartidor.
-            </p>
+        {/* Flujo PIN cuando llegó a la puerta y timer NO venció (RF-03) */}
+        {order.status === 'llegando' && !isExpired && (
+          <div style={{
+            padding: '12px 14px',
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+            borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 8,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: MUTED }}>
+              🔑 Pedile al cliente el PIN de entrega de 4 dígitos
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => setAbandonConfirm(false)}
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="0000"
+                value={pinInput}
+                onChange={(e) => { setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError(null); }}
                 style={{
-                  flex: 1, padding: '7px 0',
-                  borderRadius: 6, border: `1px solid ${BORDER}`,
-                  background: 'transparent', color: MUTED,
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  flex: 1, padding: '8px 12px', fontSize: 18, fontWeight: 800,
+                  letterSpacing: '0.3em', textAlign: 'center',
+                  border: `1px solid ${pinError ? 'var(--error, #dc2626)' : 'var(--border)'}`,
+                  borderRadius: 6, background: 'var(--bg-base)', color: 'var(--text-primary)',
+                  outline: 'none',
                 }}
-              >
-                Cancelar
-              </button>
+              />
               <button
-                type="button"
-                onClick={() => { setAbandonConfirm(false); onAbandon(); }}
-                disabled={abandoning}
-                style={{
-                  flex: 1, padding: '7px 0',
-                  borderRadius: 6, border: 'none',
-                  background: '#dc2626', color: '#fff',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  opacity: abandoning ? 0.6 : 1,
-                }}
+                style={{ ...r.advanceBtn, flexShrink: 0, ...(verifyingPin || advancing ? { opacity: 0.7 } : {}) }}
+                onClick={handlePinSubmit}
+                disabled={verifyingPin || advancing || pinInput.length !== 4}
               >
-                {abandoning ? '...' : 'Sí, abandonar'}
+                {verifyingPin ? '...' : '✓ Verificar'}
               </button>
             </div>
+            {pinError && (
+              <div style={{ fontSize: 11, color: 'var(--error, #dc2626)', fontWeight: 600 }}>{pinError}</div>
+            )}
           </div>
         )}
       </div>

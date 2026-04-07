@@ -8,7 +8,9 @@ import {
   useAuthStore,
   selectIsInitialized,
   selectAuthUser,
+  selectIsAuthenticated,
 } from "@/features/auth/store/authStore";
+import ChatWidget from "@/features/chat/components/ChatWidget";
 import { useShoppingListStore } from "@/features/shopping-list/store/shoppingListStore";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -372,6 +374,8 @@ function ShoppingListSync() {
 
 function AppShell() {
   const { t } = useLanguage();
+  const user = useAuthStore(selectAuthUser);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   // Rastrear page views en cada cambio de ruta (GA4)
   usePageView();
   const [isOffline, setIsOffline] = useState(
@@ -427,6 +431,7 @@ function AppShell() {
       <Footer />
       <AccessibilityMenu />
       <RoleChangeToast />
+      {isAuthenticated && user?.id && <ChatWidget userId={user.id} />}
     </div>
   );
 }

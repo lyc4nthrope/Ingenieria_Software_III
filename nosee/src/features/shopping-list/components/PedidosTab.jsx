@@ -1,32 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { DeliveryCard } from './DeliveryCard';
-import { RatingModal } from './RatingModal';
-import { TrashIcon, getStoreEmoji, DELIVERY_FEE } from '../utils/shoppingListUtils';
+import { VoyYoMapView } from './VoyYoMapView';
+import { TrashIcon, getStoreEmoji, calculateDeliveryFee } from '../utils/shoppingListUtils';
 import { pedidos, resv } from '../styles/shoppingListStyles';
 import { supabase } from '@/services/supabase.client';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
-import { updateProductPrice, logPriceCorrection, cancelOrder } from '@/services/api/orders.api';
-import { hasRated } from '@/services/api/dealerRatings.api';
+import { PriceAdjustmentBanner } from '@/features/orders/components/PriceAdjustmentBanner';
+import {
+  updateProductPrice,
+  logPriceCorrection,
+  resolvePriceAdjustment,
+  getPendingAdjustments,
+  cancelOrderByUser,
+} from '@/services/api/orders.api';
+import { createPublication } from '@/services/api/publications.api';
 
 // Mapa de estado de Supabase (tabla orders) → estado de UI local
 // El repartidor avanza el estado en BD; aquí lo convertimos al nombre usado en DeliveryCard.
 const STATUS_MAP = {
-  pendiente_repartidor: 'searching',
-  aceptado:             'found',
-  comprando:            'comprando',
-  en_camino:            'en_camino',
-  llegando:             'llegando',
-  pendiente_pago:       'comprobante_subido',
-  entregado:            'entregado',
-  cancelado:            'cancelled',
+  pendiente_pago:         'pendiente_pago',
+  pendiente_repartidor:   'searching',
+  aceptado:               'pendiente_compromiso', // legacy: repartidor aceptó, cliente debe pagar compromiso
+  pendiente_compromiso:   'pendiente_compromiso',
+  comprando:              'comprando',
+  en_camino:              'en_camino',
+  llegando:               'llegando',
+  entregado:              'entregado',
+  cancelado:              'cancelled',
+  usuario_se_encarga:     'auto_gestionado',
 };
 
 const STORE_PAGE_SIZE = 3;
 
 // ─── Paginador de tarjetas de tienda (máximo 3 a la vez) ──────────────────────
 // Flechas ▲/▼ afuera del bloque de tarjetas, igual al estilo de VoyYoMapView.
-function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport }) {
+function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport, readOnly = false }) {
   const [page, setPage] = useState(0);
   const total   = stores.length;
   const maxPage = Math.max(0, Math.ceil(total / STORE_PAGE_SIZE) - 1);
@@ -54,7 +63,7 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
             <div style={resv.storeHeader}>
               <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {checked > 0 && (
+                {!readOnly && checked > 0 && (
                   <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
                     {checked}/{s.products.length} ✓
                   </span>
@@ -74,21 +83,36 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
                   <li
                     key={pi}
                     style={{ ...resv.prodItem, ...(done ? { opacity: 0.55 } : {}) }}
-                    onClick={() => toggleCheck(key)}
+                    onClick={readOnly ? undefined : () => toggleCheck(key)}
                   >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flex: 1, cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flex: 1, cursor: readOnly ? 'default' : 'pointer' }}>
                       {/* Checkbox */}
-                      <span style={{
-                        width: 15, height: 15, borderRadius: 3, flexShrink: 0, marginTop: 2,
-                        border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
-                        background: done ? 'var(--accent)' : 'transparent',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 9, fontWeight: 800, color: '#fff',
-                      }}>
-                        {done ? '✓' : ''}
-                      </span>
+                      {!readOnly && (
+                        <span style={{
+                          width: 15, height: 15, borderRadius: 3, flexShrink: 0, marginTop: 2,
+                          border: `2px solid ${done ? 'var(--accent)' : 'var(--border)'}`,
+                          background: done ? 'var(--accent)' : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 9, fontWeight: 800, color: '#fff',
+                        }}>
+                          {done ? '✓' : ''}
+                        </span>
+                      )}
                       <div style={done ? { textDecoration: 'line-through' } : {}}>
                         <div style={resv.prodName}>{p.item?.productName ?? p.productName ?? 'Producto'}</div>
+                        {(() => {
+                          const prod = p.publication?.product;
+                          if (!prod) return null;
+                          const detailStyle = { fontSize: '10px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+                          const unitDetail = [prod.base_quantity, prod.unit_type?.abbreviation ?? prod.unit_type?.name].filter(Boolean).join(' ');
+                          return (
+                            <>
+                              {prod.name && <div style={detailStyle}>{prod.name}</div>}
+                              {prod.brand?.name && <div style={detailStyle}>{prod.brand.name}</div>}
+                              {unitDetail && <div style={detailStyle}>{unitDetail}</div>}
+                            </>
+                          );
+                        })()}
                         <div style={resv.prodMeta}>×{p.item?.quantity || 1} · ${(p.price || 0).toLocaleString('es-CO')} c/u</div>
                       </div>
                     </div>
@@ -143,16 +167,30 @@ const sc = {
 };
 
 // ─── Pestaña Mis Pedidos ───────────────────────────────────────────────────────
-export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint, onBack }) {
-  const [selectedIdx,  setSelectedIdx]  = useState(0);
-  const [showTotalSum, setShowTotalSum] = useState(false);
-  const [checklist,    setChecklist]    = useState({});
-  // ratingModal: null | { orderId: number, dealerId: string }
-  const [ratingModal,  setRatingModal]  = useState(null);
-  // Set de supabaseIds ya presentados para rating (para no volver a mostrar)
-  const ratedRef = useRef(new Set());
+export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint, variant = 'delivery', onAddProduct }) {
+  const isPickup = variant === 'pickup';
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [checklist, setChecklist] = useState({});
+  const [pendingAdjustments, setPendingAdjustments] = useState([]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const updateOrderDeliveryRef = useRef(updateOrderDelivery);
-  const removeOrderRef = useRef(removeOrder);
+
+  // Crea una publicación nueva con los datos de la publicación original pero con el precio corregido.
+  // Fire-and-forget: no bloqueamos la UI si falla.
+  const createCorrectedPublication = (order, storeIdx, productIdx, newPrice) => {
+    const pub = order.result.stores[storeIdx]?.products[productIdx]?.publication;
+    if (!pub?.product_id || !pub?.store_id || !pub?.photo_url) return;
+    createPublication({
+      productId:   pub.product_id,
+      storeId:     pub.store_id,
+      price:       newPrice,
+      photoUrl:    pub.photo_url,
+      currency:    pub.currency ?? 'COP',
+      description: pub.description ?? null,
+      latitude:    order.userCoords?.lat ?? null,
+      longitude:   order.userCoords?.lng ?? null,
+    }).catch((err) => console.warn('[createCorrectedPublication] error:', err));
+  };
 
   // Actualiza el precio de un producto y registra la corrección en el log.
   // Funciona para pedidos en Supabase (Mis Pedidos) y locales (Mis Recogidas).
@@ -174,6 +212,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           { storeIdx, productIdx, productName, oldPrice, newPrice, ts: new Date().toISOString() },
         ],
       });
+      createCorrectedPublication(order, storeIdx, productIdx, newPrice);
       console.info(`[PrecioCorregido] ${productName}: $${oldPrice} → $${newPrice}`);
       return { error: null };
     }
@@ -183,6 +222,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
       order.supabaseId, storeIdx, productIdx, newPrice
     );
     if (!error) {
+      createCorrectedPublication(order, storeIdx, productIdx, newPrice);
       updateOrderDelivery(order.id, {
         result: { ...order.result, stores: newStores, totalCost: newTotal },
         priceCorrections: [
@@ -196,26 +236,8 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     return { error };
   };
 
-  // Mantener las refs actualizadas sin re-ejecutar los efectos
+  // Mantener la ref actualizada sin re-ejecutar los efectos
   useEffect(() => { updateOrderDeliveryRef.current = updateOrderDelivery; });
-  useEffect(() => { removeOrderRef.current = removeOrder; });
-
-  // Sync masivo al montar: elimina del localStorage cualquier pedido que ya esté
-  // cancelado en BD, aunque no esté seleccionado en el carrusel.
-  useEffect(() => {
-    const toSync = orders.filter((o) => o.deliveryMode && o.supabaseId);
-    if (!toSync.length) return;
-    toSync.forEach((o) => {
-      supabase
-        .from('orders')
-        .select('status')
-        .eq('id', o.supabaseId)
-        .single()
-        .then(({ data }) => {
-          if (data?.status === 'cancelado') removeOrderRef.current(o.id);
-        });
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedOrder = orders[selectedIdx] ?? null;
 
@@ -229,20 +251,17 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
     supabase
       .from('orders')
-      .select('status, dealer_id')
+      .select('status, dealer_id, compromiso_amount')
       .eq('id', selectedOrder.supabaseId)
       .single()
       .then(({ data }) => {
         if (!data) return;
-        if (data.status === 'cancelado') {
-          removeOrderRef.current(selectedOrder.id);
-          return;
-        }
         const uiStatus = STATUS_MAP[data.status];
         if (uiStatus && uiStatus !== selectedOrder.deliveryStatus) {
           updateOrderDeliveryRef.current(selectedOrder.id, {
             deliveryStatus: uiStatus,
-            dealerId: data.dealer_id ?? null,
+            ...(data.dealer_id ? { dealerId: data.dealer_id } : {}),
+            ...(data.compromiso_amount ? { compromisoAmount: data.compromiso_amount } : {}),
           });
         }
       });
@@ -253,15 +272,14 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${selectedOrder.supabaseId}` },
         (payload) => {
-          if (payload.new?.status === 'cancelado') {
-            removeOrderRef.current(selectedOrder.id);
-            return;
-          }
           const uiStatus = STATUS_MAP[payload.new?.status];
           if (!uiStatus) return;
           updateOrderDeliveryRef.current(selectedOrder.id, {
             deliveryStatus: uiStatus,
-            dealerId: payload.new.dealer_id ?? null,
+            ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : {}),
+            // Capturar el timestamp de llegando para el timer de 10 min (Caso D)
+            ...(payload.new.status === 'llegando' ? { llegandoAt: payload.new.updated_at ?? payload.new.llegando_at ?? new Date().toISOString() } : {}),
+            ...(payload.new.compromiso_amount ? { compromisoAmount: payload.new.compromiso_amount } : {}),
           });
         }
       )
@@ -306,36 +324,56 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
       .subscribe();
 
     return () => supabase.removeChannel(channel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.dealerId, selectedOrder?.id]);
 
-  // ── Mostrar modal de calificación cuando el pedido es entregado ───────────
-  // Se activa cuando deliveryStatus cambia a 'entregado' y el usuario no ha
-  // calificado este pedido antes (verificado en BD + ref local para evitar re-mostrar).
+  // ── REALTIME + CARGA INICIAL: ajustes de precio pendientes (Caso B) ───────
   useEffect(() => {
-    if (!selectedOrder?.deliveryMode) return;
-    if (selectedOrder.deliveryStatus !== 'entregado') return;
-    if (!selectedOrder.supabaseId || !selectedOrder.dealerId) return;
+    if (!selectedOrder?.supabaseId || isPickup) return;
 
-    const sid = selectedOrder.supabaseId;
-    if (ratedRef.current.has(sid)) return;
-
-    hasRated(sid).then(({ data }) => {
-      if (!data?.rated) {
-        setRatingModal({ orderId: sid, dealerId: selectedOrder.dealerId });
-      }
-      ratedRef.current.add(sid);
+    // Cargar ajustes pendientes al montar
+    getPendingAdjustments(selectedOrder.supabaseId).then(({ data }) => {
+      setPendingAdjustments(data ?? []);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedOrder?.deliveryStatus, selectedOrder?.supabaseId]);
 
-  const handleRemove = (order) => {
-    // Guard: no permitir borrar un pedido de domicilio con repartidor activo
-    const activeStatuses = ['found', 'comprando', 'en_camino', 'llegando', 'comprobante_subido'];
-    if (order.deliveryMode && activeStatuses.includes(order.deliveryStatus)) {
-      alert('No podés eliminar un pedido mientras el repartidor está activo. Primero cancelá el domicilio.');
-      return;
-    }
-    removeOrder(order.id);
+    const channel = supabase
+      .channel(`price-adj-${selectedOrder.supabaseId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'price_adjustment_requests', filter: `order_id=eq.${selectedOrder.supabaseId}` },
+        (payload) => {
+          if (payload.new?.status === 'pending') {
+            setPendingAdjustments((prev) => [...prev, payload.new]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.supabaseId]);
+
+  // ── Aprobar ajuste de precio (Caso B) ─────────────────────────────────────
+  const handleApproveAdjustment = async (adjustment) => {
+    const { data, error } = await resolvePriceAdjustment(adjustment.id, true);
+    if (error || !data) return;
+    // Actualizar el precio en Supabase y en el store local
+    await updateProductPrice(data.order_id, data.store_idx, data.product_idx, data.requested_price);
+    setPendingAdjustments((prev) => prev.filter((a) => a.id !== adjustment.id));
+    updateOrderDelivery(selectedOrder.id, { result: null }); // forzar re-fetch en próxima carga
+  };
+
+  // ── Rechazar ajuste de precio → cancela el pedido (Caso B) ────────────────
+  const handleRejectAdjustment = async (adjustment) => {
+    const { error } = await resolvePriceAdjustment(adjustment.id, false);
+    if (error) return;
+    await cancelOrderByUser(adjustment.order_id);
+    setPendingAdjustments((prev) => prev.filter((a) => a.id !== adjustment.id));
+  };
+
+  const handleRemove = (id) => {
+    removeOrder(id);
+    setConfirmDeleteId(null);
     setSelectedIdx((prev) => Math.max(0, prev - 1));
   };
 
@@ -343,33 +381,16 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     setChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const [cancelling, setCancelling] = useState(false);
-  const [cancelError, setCancelError] = useState(null);
-
-  const handleCancelDelivery = async () => {
+  const handleCancelDelivery = () => {
     if (!selectedOrder) return;
     const charged = selectedOrder.deliveryStatus !== 'searching';
-
-    // Si el pedido está en Supabase, cancelarlo también en BD
-    if (selectedOrder.supabaseId) {
-      setCancelling(true);
-      setCancelError(null);
-      const { error } = await cancelOrder(selectedOrder.supabaseId);
-      if (error) {
-        setCancelError('No se pudo cancelar el pedido. Intentá de nuevo.');
-        setCancelling(false);
-        return;
-      }
-      setCancelling(false);
-    }
-
     updateOrderDelivery(selectedOrder.id, {
       deliveryStatus: 'cancelled',
       cancellationCharged: charged,
     });
   };
 
-  // Cuando el usuario sube el comprobante de pago
+  // Cuando el usuario sube el comprobante de pago al repartidor (estado 'llegando')
   const handlePaymentSubmitted = ({ receiptUrl, method }) => {
     updateOrderDelivery(selectedOrder.id, {
       deliveryStatus: 'comprobante_subido',
@@ -380,21 +401,11 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
   if (orders.length === 0) {
     return (
-      <div className="pedidos-layout">
-        <div className="pedidos-left-col" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {onBack && (
-            <button type="button" onClick={onBack} style={bk.btn}>
-              ← Mi Lista
-            </button>
-          )}
-          <div style={pedidos.empty}>
-            <p style={pedidos.emptyText}>No hay pedidos aquí aún</p>
-            <p style={pedidos.emptyHint}>
-              {emptyHint ?? 'Ve a la pestaña Mi Lista, configura un pedido y aparecerá aquí.'}
-            </p>
-          </div>
-        </div>
-        <div className="pedidos-map-col" />
+      <div style={pedidos.empty}>
+        <p style={pedidos.emptyText}>No hay pedidos aquí aún</p>
+        <p style={pedidos.emptyHint}>
+          {emptyHint ?? 'Ve a la pestaña Mi Lista, configura un pedido y aparecerá aquí.'}
+        </p>
       </div>
     );
   }
@@ -408,111 +419,163 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
   );
 
   return (
-    <>
-      {/* ── Modal de calificación del repartidor ─── */}
-      {ratingModal && (
-        <RatingModal
-          orderId={ratingModal.orderId}
-          dealerId={ratingModal.dealerId}
-          onDone={() => setRatingModal(null)}
-        />
-      )}
-
-      {/* ── Layout dos columnas: panel izq + mapa derecha (full-screen) ── */}
-      <div className="pedidos-layout">
-        {/* Columna izquierda — scrolleable */}
-        <div className="pedidos-left-col" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-          {/* ── Botón volver a Mi Lista ── */}
-          {onBack && (
-            <button type="button" onClick={onBack} style={bk.btn}>
-              ← Mi Lista
+    <div style={pedidos.root}>
+      {/* ── Carrusel de pedidos ─────────────────────────────────── */}
+      <div style={pedidos.carousel}>
+        {orders.map((o, i) => {
+          const active = i === selectedIdx;
+          const d = new Date(o.createdAt);
+          const label = d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
+          return (
+            <button
+              key={o.id}
+              type="button"
+              onClick={() => setSelectedIdx(i)}
+              style={{ ...pedidos.pill, ...(active ? pedidos.pillActive : {}) }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={pedidos.pillId}>#{o.id.slice(-6)}</span>
+                {o.deliveryMode && <span title="Domicilio">🛵</span>}
+              </span>
+              <span style={{ ...pedidos.pillDate, ...(active ? { opacity: 0.85 } : {}) }}>
+                {label}
+              </span>
+              {active && (
+                <span style={pedidos.pillTotal}>
+                  ${o.result.totalCost.toLocaleString('es-CO')}
+                </span>
+              )}
+              {isPickup && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleRemove(o.id); }}
+                  style={{ background: 'none', border: 'none', color: active ? '#fff' : 'var(--error)', cursor: 'pointer', padding: '2px 4px', fontSize: '12px', fontWeight: 800 }}
+                  aria-label="Eliminar recogida"
+                >
+                  ✕
+                </button>
+              )}
             </button>
+          );
+        })}
+      </div>
+
+      {/* ── Layout dos columnas: info izq + mapa derecha ──────── */}
+      <div className="pedidos-layout">
+        {/* Columna izquierda */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* ── Header del pedido activo ── */}
+          {!isPickup && (
+            <>
+              <div style={pedidos.orderHeader}>
+                <div style={pedidos.orderHeaderLeft}>
+                  <span style={pedidos.orderRef}>#{selectedOrder.id.slice(-8)}</span>
+                  <span style={pedidos.orderDate}>{date}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteId(selectedOrder.id)}
+                  style={pedidos.deleteBtn}
+                  title="Eliminar pedido"
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+
+              {/* ── Confirmación de eliminación ── */}
+              {confirmDeleteId === selectedOrder.id && (() => {
+                const isActive = selectedOrder.deliveryMode &&
+                  !['entregado', 'cancelled', 'auto_gestionado'].includes(selectedOrder.deliveryStatus);
+                return (
+                  <div style={{
+                    padding: '12px 14px',
+                    background: isActive ? 'var(--error-soft, #fee2e2)' : 'var(--bg-elevated)',
+                    border: `1px solid ${isActive ? 'var(--error, #dc2626)' : 'var(--border)'}`,
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex', flexDirection: 'column', gap: '8px',
+                  }}>
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: isActive ? 'var(--error, #dc2626)' : 'var(--text-primary)' }}>
+                      {isActive ? '⚠️ Este pedido tiene un domicilio activo' : '¿Eliminás este pedido?'}
+                    </p>
+                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                      {isActive
+                        ? 'Eliminar de tu vista no cancela el domicilio ni te exime del pago. El repartidor y la plataforma conservan el registro completo del pedido.'
+                        : 'Se eliminará de tu historial local. Esta acción no se puede deshacer.'}
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(null)}
+                        style={{
+                          flex: 1, padding: '8px 12px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border)',
+                          background: 'transparent', color: 'var(--text-muted)',
+                          fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(selectedOrder.id)}
+                        style={{
+                          flex: 1, padding: '8px 12px',
+                          borderRadius: 'var(--radius-sm)', border: 'none',
+                          background: isActive ? 'var(--error, #dc2626)' : 'var(--text-muted)',
+                          color: '#fff',
+                          fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                        }}
+                      >
+                        {isActive ? 'Entiendo, eliminar igual' : 'Eliminar'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
           )}
 
-          {/* ── Carrusel de pedidos ── */}
-          <div style={pedidos.carousel}>
-            {orders.map((o, i) => {
-              const active = i === selectedIdx;
-              const d = new Date(o.createdAt);
-              const label = d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' });
-              return (
-                <button
-                  key={o.id}
-                  type="button"
-                  onClick={() => { setSelectedIdx(i); setShowTotalSum(false); }}
-                  style={{ ...pedidos.pill, ...(active ? pedidos.pillActive : {}) }}
-                >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={pedidos.pillId}>#{o.id.slice(-6)}</span>
-                    {o.deliveryMode && <span title="Domicilio">🛵</span>}
-                  </span>
-                  <span style={{ ...pedidos.pillDate, ...(active ? { opacity: 0.85 } : {}) }}>
-                    {label}
-                  </span>
-                  {active && (
-                    <span style={pedidos.pillTotal}>
-                      ${o.result.totalCost.toLocaleString('es-CO')}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          {/* ── Header del pedido activo ── */}
-          <div style={pedidos.orderHeader}>
-            <div style={pedidos.orderHeaderLeft}>
-              <span style={pedidos.orderRef}>#{selectedOrder.id.slice(-8)}</span>
-              <span style={pedidos.orderDate}>{date}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => handleRemove(selectedOrder)}
-              style={pedidos.deleteBtn}
-              title="Eliminar pedido"
-            >
-              <TrashIcon />
-            </button>
-          </div>
-
           {/* ── Tarjeta de domicilio ── */}
-          {selectedOrder.deliveryMode && (
+          {selectedOrder.deliveryMode && !isPickup && (
             <DeliveryCard
               order={selectedOrder}
               onCancel={handleCancelDelivery}
               onPaymentSubmitted={handlePaymentSubmitted}
-              cancelling={cancelling}
-              cancelError={cancelError}
             />
           )}
 
+          {/* ── Banners de ajuste de precio pendientes (Caso B) ── */}
+          {!isPickup && pendingAdjustments.length > 0 && pendingAdjustments.map((adj) => (
+            <PriceAdjustmentBanner
+              key={adj.id}
+              adjustment={adj}
+              onApprove={handleApproveAdjustment}
+              onReject={handleRejectAdjustment}
+            />
+          ))}
+
           {/* ── Totales rápidos ── */}
           <div style={pedidos.stats}>
-            {selectedOrder.deliveryMode && selectedOrder.deliveryStatus === 'en_camino' ? (
-              <button
-                type="button"
-                onClick={() => setShowTotalSum((v) => !v)}
-                style={{ ...pedidos.stat, cursor: 'pointer', border: '1px solid var(--accent)', position: 'relative' }}
-                title={showTotalSum ? 'Ver desglose' : 'Ver total combinado'}
-              >
-                {showTotalSum ? (
-                  <>
-                    <span style={pedidos.statVal}>${(result.totalCost + DELIVERY_FEE).toLocaleString('es-CO')}</span>
-                    <span style={pedidos.statLabel}>Total c/ dom.</span>
-                    <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>← desglosar</span>
-                  </>
-                ) : (
-                  <>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1.2 }}>
-                      ${result.totalCost.toLocaleString('es-CO')}
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}> + </span>
-                      ${DELIVERY_FEE.toLocaleString('es-CO')}
-                    </span>
-                    <span style={pedidos.statLabel}>Lista + Domicilio</span>
-                    <span style={{ fontSize: '9px', color: 'var(--accent)', marginTop: '1px' }}>→ ver total</span>
-                  </>
-                )}
-              </button>
+            {selectedOrder.deliveryMode ? (
+              <>
+                <div style={pedidos.stat}>
+                  <span style={pedidos.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
+                  <span style={pedidos.statLabel}>Productos</span>
+                </div>
+                <div style={pedidos.stat}>
+                  <span style={pedidos.statVal}>
+                    ${(selectedOrder.deliveryFee ?? calculateDeliveryFee(result?.stores, userCoords)).toLocaleString('es-CO')}
+                  </span>
+                  <span style={pedidos.statLabel}>Domicilio</span>
+                </div>
+                <div style={pedidos.stat}>
+                  <span style={{ ...pedidos.statVal, color: 'var(--accent)' }}>
+                    ${(result.totalCost + (selectedOrder.deliveryFee ?? calculateDeliveryFee(result?.stores, userCoords))).toLocaleString('es-CO')}
+                  </span>
+                  <span style={pedidos.statLabel}>Total</span>
+                </div>
+              </>
             ) : (
               <div style={pedidos.stat}>
                 <span style={pedidos.statVal}>${result.totalCost.toLocaleString('es-CO')}</span>
@@ -541,35 +604,38 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             orderId={selectedOrder.id}
             checklist={checklist}
             toggleCheck={toggleCheck}
-            onPriceReport={(storeIdx, pi, newPrice) => handlePriceReport(selectedOrder, storeIdx, pi, newPrice)}
+            onPriceReport={isPickup ? (storeIdx, pi, newPrice) => handlePriceReport(selectedOrder, storeIdx, pi, newPrice) : null}
+            readOnly={!isPickup}
           />
         </div>
 
-        {/* Columna derecha: mapa */}
-        <div className="pedidos-map-col">
-          <OrderRouteMap
-            key={selectedOrder.id}
-            stores={result.stores}
-            userCoords={userCoords}
-            driverLocation={selectedOrder.driverLocation ?? null}
-            mapHeight="calc(100vh - 120px)"
-          />
-        </div>
+        {/* Columna derecha: mapa (delivery = ruta, pickup = VoyYoMapView) */}
+        {!isPickup && (
+          <div style={pedidos.mapCol}>
+            <OrderRouteMap
+              key={selectedOrder.id}
+              stores={result.stores}
+              userCoords={userCoords}
+              driverLocation={selectedOrder.driverLocation ?? null}
+              mapHeight="480px"
+              showRoute={false}
+            />
+          </div>
+        )}
+        {isPickup && selectedOrder && (
+          <div
+            className="pickup-map-col"
+            style={{ ...pedidos.mapCol, height: '600px', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)' }}
+          >
+            <VoyYoMapView
+              result={selectedOrder.result}
+              userCoords={selectedOrder.userCoords ?? null}
+              onAddProduct={(name, tempId, cb) => onAddProduct?.(name, tempId, cb, selectedOrder.id)}
+              onRemoveOrder={() => removeOrder(selectedOrder.id)}
+            />
+          </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }
-
-const bk = {
-  btn: {
-    alignSelf: 'flex-start',
-    padding: '5px 12px',
-    borderRadius: 'var(--radius-sm)',
-    border: '1px solid var(--border)',
-    background: 'transparent',
-    color: 'var(--text-secondary)',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
-  },
-};

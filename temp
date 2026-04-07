@@ -1,0 +1,2786 @@
+#LOGS SUPABASE
+[
+  {
+    "event_message": "[process-mp-compromiso] ERROR: MercadoPago API devolvio error numerico\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "01cacbd1-4855-4320-ab54-208eff96340c",
+    "level": "info",
+    "timestamp": 1775346341259000
+  },
+  {
+    "event_message": "[process-mp-compromiso] Retry response id: undefined\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "9c74c57f-5f2c-4d4d-b4d5-ae3d6935dbab",
+    "level": "info",
+    "timestamp": 1775346341259000
+  },
+  {
+    "event_message": "[process-mp-compromiso] Retry response message: internal_error\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "63aa6d28-41a2-4fe3-89a8-c5f63927382d",
+    "level": "info",
+    "timestamp": 1775346341259000
+  },
+  {
+    "event_message": "[process-mp-compromiso] Retry response status_detail: undefined\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "9f06c16f-7057-43ec-92de-9eaee539758d",
+    "level": "info",
+    "timestamp": 1775346341259000
+  },
+  {
+    "event_message": "[process-mp-compromiso] Retry response status: 500\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "751acd76-ee9d-4cb4-8919-0ba19d56c016",
+    "level": "info",
+    "timestamp": 1775346341259000
+  },
+  {
+    "event_message": "[process-mp-compromiso] Retry response raw: {\"message\":\"internal_error\",\"error\":null,\"status\":500,\"cause\":[]}\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "b7e2f687-6588-4ca7-b65e-a4227cbfee6f",
+    "level": "info",
+    "timestamp": 1775346341259000
+  },
+  {
+    "event_message": "[process-mp-compromiso] MP response message: internal_error\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "69a0c323-bbd3-4865-b538-7d1b9769943e",
+    "level": "info",
+    "timestamp": 1775346341055000
+  },
+  {
+    "event_message": "[process-mp-compromiso] MP response status_detail: undefined\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "5b13856c-b073-45fd-bb5b-e06cf80e63ff",
+    "level": "info",
+    "timestamp": 1775346341055000
+  },
+  {
+    "event_message": "[process-mp-compromiso] Retry payload (no token): {\"transaction_amount\":2098,\"token\":\"[redacted]\",\"description\":\"Fondo de compromiso - pedido #58\",\"installments\":1,\"payment_method_id\":\"visa\",\"payer\":{\"email\":\"noserogue@gmail.com\",\"identification\":{\"type\":\"CC\",\"number\":\"123456789\"}}}\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "177a2b71-60b8-4236-8a22-f74d73722f1e",
+    "level": "info",
+    "timestamp": 1775346341055000
+  },
+  {
+    "event_message": "[process-mp-compromiso] MP response id: undefined\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "ee36fce1-8098-4f6f-ad59-ed79ffe20781",
+    "level": "info",
+    "timestamp": 1775346341055000
+  },
+  {
+    "event_message": "[process-mp-compromiso] Retry sin issuer_id por internal_error...\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "d9baba26-022e-4b81-9ac2-9f3b86c5356b",
+    "level": "info",
+    "timestamp": 1775346341055000
+  },
+  {
+    "event_message": "[process-mp-compromiso] MP response raw: {\"message\":\"internal_error\",\"error\":null,\"status\":500,\"cause\":[]}\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "e342cc49-0864-485d-b7b9-a0d94a37c29b",
+    "level": "info",
+    "timestamp": 1775346341055000
+  },
+  {
+    "event_message": "[process-mp-compromiso] MP response status: 500\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "a3495097-b8a8-40cf-8123-3e61271cc824",
+    "level": "info",
+    "timestamp": 1775346341055000
+  },
+  {
+    "event_message": "[process-mp-compromiso] orderId: 58\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "c5b3d1fb-252f-4154-9907-480ea51b7ee3",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] orderFound: true\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "2a639226-0004-4cdb-b847-1b68c7740821",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] Calling MercadoPago API...\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "d845003e-a4f8-4b39-a235-97194c3866dc",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] orderErr: none\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "d8b6c54a-ee1c-40da-aa4e-e8a59f4fdc94",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] userId: 28698f84-9183-4ea0-b148-67b76701018a\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "a853c589-a680-4ab9-bec0-bd5ecff3155e",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] compromisoAmount final: 2098\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "de748726-c837-40c7-a2fc-215c75e5690f",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] mpToken starts with: TEST-88706\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "b25643f3-e455-4e91-a9c9-2ac0374d387f",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] pedido status: pendiente_compromiso\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "50a3e4ba-120e-4781-980a-4379d3d5766b",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] compromiso_amount: 2098\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "9b52e1ec-4378-4b07-a9af-d0100f6a0f32",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] pedido encontrado - id: 58\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "f76c247f-efbd-4801-b91a-e213b48bae06",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] total_estimated: 8072\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "e6f43e14-14ba-4b13-8802-dbad70a78821",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] userMatch: true\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "fcfa843f-d379-4ffa-9552-8748ddd85932",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] MP payload (no token): {\"transaction_amount\":2098,\"token\":\"[redacted]\",\"description\":\"Fondo de compromiso - pedido #58\",\"installments\":1,\"payment_method_id\":\"visa\",\"issuer_id\":205,\"payer\":{\"email\":\"noserogue@gmail.com\",\"identification\":{\"type\":\"CC\",\"number\":\"123456789\"}}}\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "dfb2a3d1-077e-40ee-b85b-b4a98693adcc",
+    "level": "info",
+    "timestamp": 1775346340868000
+  },
+  {
+    "event_message": "[process-mp-compromiso] orderId: 58\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "53066509-71ea-4e51-8faf-f198dcdc62f5",
+    "level": "info",
+    "timestamp": 1775346340464000
+  },
+  {
+    "event_message": "[process-mp-compromiso] === INICIO ===\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "4137b52a-ea60-45de-b025-8bf29877ad36",
+    "level": "info",
+    "timestamp": 1775346340464000
+  },
+  {
+    "event_message": "[process-mp-compromiso] installments: 1\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "c1c9fb8b-53cf-4cb7-9095-eeba4729c08d",
+    "level": "info",
+    "timestamp": 1775346340464000
+  },
+  {
+    "event_message": "[process-mp-compromiso] paymentMethodId: visa\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "b7cfad68-c201-4ccd-bae4-b86deb59190e",
+    "level": "info",
+    "timestamp": 1775346340464000
+  },
+  {
+    "event_message": "[process-mp-compromiso] hasIssuerId: true\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "3f669892-bcc7-4a9f-9b52-aebc5078f7f4",
+    "level": "info",
+    "timestamp": 1775346340464000
+  },
+  {
+    "event_message": "[process-mp-compromiso] email: noserogue@gmail.com\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "01a93e7a-96a9-4532-952a-34023def0ef8",
+    "level": "info",
+    "timestamp": 1775346340464000
+  },
+  {
+    "event_message": "[process-mp-compromiso] hasIdentification: true\n",
+    "event_type": "Log",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "3354cc69-e895-43e6-bae8-7dd55771cf63",
+    "level": "info",
+    "timestamp": 1775346340464000
+  },
+  {
+    "event_message": "booted (time: 38ms)",
+    "event_type": "Boot",
+    "execution_id": "37abe0fc-b752-4183-b8d4-688722da0228",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "d6392c6d-0ee1-4f18-bdb1-f4029c2fd35d",
+    "level": "log",
+    "timestamp": 1775346340128000
+  },
+  {
+    "event_message": "booted (time: 37ms)",
+    "event_type": "Boot",
+    "execution_id": "36041932-ff3e-4b27-94e9-a7f63f94681d",
+    "function_id": "6034ab82-7231-493f-b26a-f1635eef9080",
+    "id": "e0ed3eee-3857-4760-9b1a-377ba32ef520",
+    "level": "log",
+    "timestamp": 1775346339886000
+  }
+]
+
+#LOGS CONSOLE
+40135406
+installHook.js:1 /checkout/api_integration/core_methods/payment_methods Could not send event id 7277c66a-0878-4852-be17-cd0c8707e9af. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ v2:1
+(anonymous) @ v2:1
+await in (anonymous)
+getPaymentMethods @ v2:1
+await in getPaymentMethods
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+l @ VM11809 cardPayment.js:2
+m @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T @ VM11809 cardPayment.js:2
+C @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+I @ VM11809 cardPayment.js:2
+e.$$.update @ VM11809 cardPayment.js:2
+y @ VM11809 cardPayment.js:2
+v @ VM11809 cardPayment.js:2
+Promise.then
+u @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+resetFormError @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+triggerEvent @ v2:1
+(anonymous) @ v2:1
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ v2:1
+(anonymous) @ v2:1
+await in (anonymous)
+getPaymentMethods @ v2:1
+await in getPaymentMethods
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+l @ VM11809 cardPayment.js:2
+m @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T @ VM11809 cardPayment.js:2
+C @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+I @ VM11809 cardPayment.js:2
+e.$$.update @ VM11809 cardPayment.js:2
+y @ VM11809 cardPayment.js:2
+v @ VM11809 cardPayment.js:2
+Promise.then
+u @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+resetFormError @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+triggerEvent @ v2:1
+(anonymous) @ v2:1
+installHook.js:1 /checkout/api_integration/core_methods/installments Could not send event id dd90081e-3e68-47ce-a8cf-5516649c0196. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ v2:1
+(anonymous) @ v2:1
+await in (anonymous)
+getInstallments @ v2:1
+await in getInstallments
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+l @ VM11809 cardPayment.js:2
+f @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T @ VM11809 cardPayment.js:2
+_ @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+Promise.then
+l @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T @ VM11809 cardPayment.js:2
+C @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+I @ VM11809 cardPayment.js:2
+e.$$.update @ VM11809 cardPayment.js:2
+y @ VM11809 cardPayment.js:2
+v @ VM11809 cardPayment.js:2
+Promise.then
+u @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+resetFormError @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+triggerEvent @ v2:1
+(anonymous) @ v2:1
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ v2:1
+(anonymous) @ v2:1
+await in (anonymous)
+getInstallments @ v2:1
+await in getInstallments
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+l @ VM11809 cardPayment.js:2
+f @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T @ VM11809 cardPayment.js:2
+_ @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+Promise.then
+l @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T @ VM11809 cardPayment.js:2
+C @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+I @ VM11809 cardPayment.js:2
+e.$$.update @ VM11809 cardPayment.js:2
+y @ VM11809 cardPayment.js:2
+v @ VM11809 cardPayment.js:2
+Promise.then
+u @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+resetFormError @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+triggerEvent @ v2:1
+(anonymous) @ v2:1
+installHook.js:1 /checkout/bricks/payment_methods_search Could not send event id 17a5a0e3-0c3c-455b-9c1f-7e136c06185e. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+sendMelidataDispatch @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+o @ VM11809 cardPayment.js:2
+paymentMethodSearch @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+Promise.then
+l @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+I @ VM11809 cardPayment.js:2
+e.$$.update @ VM11809 cardPayment.js:2
+y @ VM11809 cardPayment.js:2
+v @ VM11809 cardPayment.js:2
+Promise.then
+u @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+resetFormError @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+triggerEvent @ v2:1
+(anonymous) @ v2:1
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+sendMelidataDispatch @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+o @ VM11809 cardPayment.js:2
+paymentMethodSearch @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+Promise.then
+l @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+I @ VM11809 cardPayment.js:2
+e.$$.update @ VM11809 cardPayment.js:2
+y @ VM11809 cardPayment.js:2
+v @ VM11809 cardPayment.js:2
+Promise.then
+u @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+resetFormError @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+triggerEvent @ v2:1
+(anonymous) @ v2:1
+installHook.js:1 /checkout/bricks/change_input Could not send event id 995889e2-1af8-4446-aa55-e006dd254690. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+sendMelidataDispatch @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+o @ VM11809 cardPayment.js:2
+changeInput @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T.s @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+triggerEvent @ v2:1
+(anonymous) @ v2:1
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+sendMelidataDispatch @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+o @ VM11809 cardPayment.js:2
+changeInput @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T.s @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+triggerEvent @ v2:1
+(anonymous) @ v2:1
+installHook.js:1 /checkout/bricks/change_input Could not send event id ee848bc3-9006-4341-9753-70d4fdbf3256. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+sendMelidataDispatch @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+o @ VM11809 cardPayment.js:2
+changeInput @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T.s @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+triggerEvent @ v2:1
+(anonymous) @ v2:1
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+sendMelidataDispatch @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+o @ VM11809 cardPayment.js:2
+changeInput @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T.s @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+triggerEvent @ v2:1
+(anonymous) @ v2:1
+installHook.js:1 /checkout/api_integration/core_methods/create_card_token Could not send event id aa11d9dd-2e0f-4e11-b312-4db5038b9e39. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ v2:1
+createCardToken @ v2:1
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+l @ VM11809 cardPayment.js:2
+d @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T @ VM11809 cardPayment.js:2
+E @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+w @ VM11809 cardPayment.js:2
+I @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+Promise.then
+l @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+setTimeout
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ 7754.7754.js:1
+(anonymous) @ VM11809 cardPayment.js:2
+d @ VM11809 cardPayment.js:2
+(anonymous) @ 5529.5529.js:1
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ v2:1
+createCardToken @ v2:1
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+l @ VM11809 cardPayment.js:2
+d @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+T @ VM11809 cardPayment.js:2
+E @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+w @ VM11809 cardPayment.js:2
+I @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+Promise.then
+l @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+setTimeout
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ 7754.7754.js:1
+(anonymous) @ VM11809 cardPayment.js:2
+d @ VM11809 cardPayment.js:2
+(anonymous) @ 5529.5529.js:1
+DeliveryCard.jsx:199 [DeliveryCard] compromiso formData.payer: {email: 'noserogue@gmail.com', identification: {…}}
+installHook.js:1 /checkout/bricks/submit Could not send event id edb5796c-f411-4534-bd48-58a65f7fabe9. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+sendMelidataDispatch @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+o @ VM11809 cardPayment.js:2
+submit @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+S @ VM11809 cardPayment.js:2
+D @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+Promise.then
+l @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+Promise.then
+l @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+setTimeout
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ 7754.7754.js:1
+(anonymous) @ VM11809 cardPayment.js:2
+d @ VM11809 cardPayment.js:2
+(anonymous) @ 5529.5529.js:1
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+sendMelidataDispatch @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+o @ VM11809 cardPayment.js:2
+submit @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+S @ VM11809 cardPayment.js:2
+D @ VM11809 cardPayment.js:2
+i @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+Promise.then
+l @ VM11809 cardPayment.js:2
+a @ VM11809 cardPayment.js:2
+Promise.then
+l @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+setTimeout
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ VM11809 cardPayment.js:2
+(anonymous) @ 7754.7754.js:1
+(anonymous) @ VM11809 cardPayment.js:2
+d @ VM11809 cardPayment.js:2
+(anonymous) @ 5529.5529.js:1
+installHook.js:1 /checkout/bricks/first_form_interaction Could not send event id 2f860d66-2059-4d93-af40-18d4105e0fff. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+i @ VM11945 cardPayment.js:2
+sendMelidataDispatch @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+o @ VM11945 cardPayment.js:2
+firstFormInteraction @ VM11945 cardPayment.js:2
+u @ VM11945 cardPayment.js:2
+e.$$.update @ VM11945 cardPayment.js:2
+m @ VM11945 cardPayment.js:2
+Ce @ VM11945 cardPayment.js:2
+k @ VM11945 cardPayment.js:2
+R @ VM11945 cardPayment.js:2
+m @ VM11945 cardPayment.js:2
+P @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+fe @ VM11945 cardPayment.js:2
+initialize @ VM11945 cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+(anonymous) @ react-dom_client.js?v=c3aa7fda:12776
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+i @ VM11945 cardPayment.js:2
+sendMelidataDispatch @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+o @ VM11945 cardPayment.js:2
+firstFormInteraction @ VM11945 cardPayment.js:2
+u @ VM11945 cardPayment.js:2
+e.$$.update @ VM11945 cardPayment.js:2
+m @ VM11945 cardPayment.js:2
+Ce @ VM11945 cardPayment.js:2
+k @ VM11945 cardPayment.js:2
+R @ VM11945 cardPayment.js:2
+m @ VM11945 cardPayment.js:2
+P @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+fe @ VM11945 cardPayment.js:2
+initialize @ VM11945 cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+(anonymous) @ react-dom_client.js?v=c3aa7fda:12776
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+installHook.js:1 /checkout/bricks/render Could not send event id 0475436f-b405-4119-a93b-429a9c2be6ab. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+i @ VM11945 cardPayment.js:2
+sendMelidataDispatch @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+o @ VM11945 cardPayment.js:2
+render @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+fe @ VM11945 cardPayment.js:2
+initialize @ VM11945 cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+(anonymous) @ react-dom_client.js?v=c3aa7fda:12776
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+i @ VM11945 cardPayment.js:2
+sendMelidataDispatch @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+o @ VM11945 cardPayment.js:2
+render @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+a @ VM11945 cardPayment.js:2
+Promise.then
+l @ VM11945 cardPayment.js:2
+(anonymous) @ VM11945 cardPayment.js:2
+fe @ VM11945 cardPayment.js:2
+initialize @ VM11945 cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+(anonymous) @ react-dom_client.js?v=c3aa7fda:12776
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+installHook.js:1 /checkout/bricks/first_form_interaction Could not send event id 8e3e2f56-feea-4a6e-b80c-861c271a8a56. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+i @ VM12077 cardPayment.js:2
+sendMelidataDispatch @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+o @ VM12077 cardPayment.js:2
+firstFormInteraction @ VM12077 cardPayment.js:2
+u @ VM12077 cardPayment.js:2
+e.$$.update @ VM12077 cardPayment.js:2
+m @ VM12077 cardPayment.js:2
+Ce @ VM12077 cardPayment.js:2
+k @ VM12077 cardPayment.js:2
+R @ VM12077 cardPayment.js:2
+m @ VM12077 cardPayment.js:2
+P @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+fe @ VM12077 cardPayment.js:2
+initialize @ VM12077 cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+(anonymous) @ react-dom_client.js?v=c3aa7fda:12776
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+i @ VM12077 cardPayment.js:2
+sendMelidataDispatch @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+o @ VM12077 cardPayment.js:2
+firstFormInteraction @ VM12077 cardPayment.js:2
+u @ VM12077 cardPayment.js:2
+e.$$.update @ VM12077 cardPayment.js:2
+m @ VM12077 cardPayment.js:2
+Ce @ VM12077 cardPayment.js:2
+k @ VM12077 cardPayment.js:2
+R @ VM12077 cardPayment.js:2
+m @ VM12077 cardPayment.js:2
+P @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+fe @ VM12077 cardPayment.js:2
+initialize @ VM12077 cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+(anonymous) @ react-dom_client.js?v=c3aa7fda:12776
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+installHook.js:1 /checkout/bricks/render Could not send event id 67657ffa-360f-46c1-b219-0a270f666acc. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+i @ VM12077 cardPayment.js:2
+sendMelidataDispatch @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+o @ VM12077 cardPayment.js:2
+render @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+fe @ VM12077 cardPayment.js:2
+initialize @ VM12077 cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+(anonymous) @ react-dom_client.js?v=c3aa7fda:12776
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+i @ VM12077 cardPayment.js:2
+sendMelidataDispatch @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+o @ VM12077 cardPayment.js:2
+render @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+a @ VM12077 cardPayment.js:2
+Promise.then
+l @ VM12077 cardPayment.js:2
+(anonymous) @ VM12077 cardPayment.js:2
+fe @ VM12077 cardPayment.js:2
+initialize @ VM12077 cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+(anonymous) @ react-dom_client.js?v=c3aa7fda:12776
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+installHook.js:1 /checkout/bricks/first_form_interaction Could not send event id 6173f6cd-5b8a-42a4-976c-0437193f2df0. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+i @ cardPayment.js:2
+sendMelidataDispatch @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+o @ cardPayment.js:2
+firstFormInteraction @ cardPayment.js:2
+u @ cardPayment.js:2
+e.$$.update @ cardPayment.js:2
+m @ cardPayment.js:2
+Ce @ cardPayment.js:2
+k @ cardPayment.js:2
+R @ cardPayment.js:2
+m @ cardPayment.js:2
+P @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+fe @ cardPayment.js:2
+initialize @ cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+flushPendingEffects @ react-dom_client.js?v=c3aa7fda:13088
+flushSpawnedWork @ react-dom_client.js?v=c3aa7fda:13062
+commitRoot @ react-dom_client.js?v=c3aa7fda:12804
+commitRootWhenReady @ react-dom_client.js?v=c3aa7fda:12016
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11950
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ v2:1
+d @ v2:1
+postEvent @ v2:1
+send @ v2:1
+(anonymous) @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+i @ cardPayment.js:2
+sendMelidataDispatch @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+o @ cardPayment.js:2
+firstFormInteraction @ cardPayment.js:2
+u @ cardPayment.js:2
+e.$$.update @ cardPayment.js:2
+m @ cardPayment.js:2
+Ce @ cardPayment.js:2
+k @ cardPayment.js:2
+R @ cardPayment.js:2
+m @ cardPayment.js:2
+P @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+fe @ cardPayment.js:2
+initialize @ cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+flushPendingEffects @ react-dom_client.js?v=c3aa7fda:13088
+flushSpawnedWork @ react-dom_client.js?v=c3aa7fda:13062
+commitRoot @ react-dom_client.js?v=c3aa7fda:12804
+commitRootWhenReady @ react-dom_client.js?v=c3aa7fda:12016
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11950
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+installHook.js:1 /checkout/bricks/render Could not send event id 371b7c8b-a218-4166-b514-a53e0371022d. Error: [object ProgressEvent]
+overrideMethod @ installHook.js:1
+postEvent @ v2:1
+await in postEvent
+send @ v2:1
+(anonymous) @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+i @ cardPayment.js:2
+sendMelidataDispatch @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+o @ cardPayment.js:2
+render @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+a @ cardPayment.js:2
+Promise.then
+l @ cardPayment.js:2
+(anonymous) @ cardPayment.js:2
+fe @ cardPayment.js:2
+initialize @ cardPayment.js:2
+render @ v2:1
+await in render
+(anonymous) @ v2:1
+create @ v2:1
+await in create
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:239
+fulfilled @ @mercadopago_sdk-react.js?v=c3aa7fda:218
+Promise.then
+step @ @mercadopago_sdk-react.js?v=c3aa7fda:231
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:233
+__awaiter3 @ @mercadopago_sdk-react.js?v=c3aa7fda:215
+initBrick @ @mercadopago_sdk-react.js?v=c3aa7fda:236
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:294
+setTimeout
+(anonymous) @ @mercadopago_sdk-react.js?v=c3aa7fda:293
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18567
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+commitHookEffectListMount @ react-dom_client.js?v=c3aa7fda:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=c3aa7fda:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11167
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11141
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11055
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=c3aa7fda:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=c3aa7fda:11066
+flushPassiveEffects @ react-dom_client.js?v=c3aa7fda:13150
+flushPendingEffects @ react-dom_client.js?v=c3aa7fda:13088
+flushSpawnedWork @ react-dom_client.js?v=c3aa7fda:13062
+commitRoot @ react-dom_client.js?v=c3aa7fda:12804
+commitRootWhenReady @ react-dom_client.js?v=c3aa7fda:12016
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11950
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<CardPayment>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+DeliveryCard @ DeliveryCard.jsx:425
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+<DeliveryCard>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+PedidosTab @ PedidosTab.jsx:541
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<PedidosTab>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+ShoppingListPage @ ShoppingListPage.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopSync @ react-dom_client.js?v=c3aa7fda:12424
+renderRootSync @ react-dom_client.js?v=c3aa7fda:12408
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performSyncWorkOnRoot @ react-dom_client.js?v=c3aa7fda:13517
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=c3aa7fda:13414
+processRootScheduleInMicrotask @ react-dom_client.js?v=c3aa7fda:13437
+(anonymous) @ react-dom_client.js?v=c3aa7fda:13531
+<...>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=c3aa7fda:247
+AppContent @ App.jsx:233
+react_stack_bottom_frame @ react-dom_client.js?v=c3aa7fda:18509
+renderWithHooksAgain @ react-dom_client.js?v=c3aa7fda:5729
+renderWithHooks @ react-dom_client.js?v=c3aa7fda:5665
+updateFunctionComponent @ react-dom_client.js?v=c3aa7fda:7475
+beginWork @ react-dom_client.js?v=c3aa7fda:8525
+runWithFiberInDEV @ react-dom_client.js?v=c3aa7fda:997
+performUnitOfWork @ react-dom_client.js?v=c3aa7fda:12561
+workLoopConcurrentByScheduler @ react-dom_client.js?v=c3aa7fda:12557
+renderRootConcurrent @ react-dom_client.js?v=c3aa7fda:12539
+performWorkOnRoot @ react-dom_client.js?v=c3aa7fda:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=c3aa7fda:13505
+performWorkUntilDeadline @ react-dom_client.js?v=c3aa7fda:36
+v2:1  POST https://api.mercadolibre.com/tracks net::ERR_BLOCKED_BY_CLIENT
