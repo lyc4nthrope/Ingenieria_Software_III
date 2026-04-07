@@ -1,5 +1,3 @@
-@import "tailwindcss";
-
 /* Google Fonts se carga desde index.html con <link> para evitar bloqueo de render */
 
 /* ── Design Tokens ──────────────────────────────────── */
@@ -61,30 +59,6 @@
 
   /* Navbar */
   --nav-bg: rgba(8, 12, 20, 0.85);
-}
-
-@theme inline {
-  --font-sans: var(--font-sans);
-  --color-app-bg: var(--bg-base);
-  --color-app-surface: var(--bg-surface);
-  --color-app-elevated: var(--bg-elevated);
-  --color-app-hover: var(--bg-hover);
-  --color-app-border: var(--border);
-  --color-app-border-soft: var(--border-soft);
-  --color-app-text: var(--text-primary);
-  --color-app-text-secondary: var(--text-secondary);
-  --color-app-text-muted: var(--text-muted);
-  --color-app-accent: var(--accent);
-  --color-app-accent-hover: var(--accent-hover);
-  --color-app-accent-soft: var(--accent-soft);
-  --color-app-overlay: var(--overlay);
-  --radius-app-sm: var(--radius-sm);
-  --radius-app-md: var(--radius-md);
-  --radius-app-lg: var(--radius-lg);
-  --radius-app-xl: var(--radius-xl);
-  --shadow-app-sm: var(--shadow-sm);
-  --shadow-app-md: var(--shadow-md);
-  --shadow-app-lg: var(--shadow-lg);
 }
 
 /* ── Modo día (WCAG 1.4.3 Contrast) ─────────────────── */
