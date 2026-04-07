@@ -440,3 +440,27 @@ export async function confirmCompromisoPago(orderId, { token, paymentMethodId, i
     body: { orderId, token, paymentMethodId, issuerId, installments, email, identificationType, identificationNumber },
   });
 }
+
+/**
+ * Registra el método de pago elegido por el usuario.
+ * - Para 'efectivo': solo actualiza payment_method
+ * - Para 'transferencia': actualiza payment_method Y receipt_url (subido previamente)
+ *
+ * @param {number} orderId  - id INTEGER del pedido
+ * @param {string} paymentMethod - 'efectivo' | 'transferencia'
+ * @param {string|null} receiptUrl - URL del comprobante (null para efectivo)
+ */
+export async function submitPaymentReceipt(orderId, paymentMethod, receiptUrl) {
+  const updates = {
+    payment_method: paymentMethod,
+    payment_receipt_url: receiptUrl,
+  };
+
+  const { error } = await supabase
+    .from('orders')
+    .update(updates)
+    .eq('id', orderId)
+    .eq('status', 'pendiente_pago');
+
+  return { error };
+}
