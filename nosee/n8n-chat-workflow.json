@@ -5,32 +5,39 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "chat",
-        "responseMode": "onReceived",
-        "options": {"rawQuery": true}
+        "responseMode": "onWorkflowFinish",
+        "options": {}
       },
       "id": "webhook-trigger",
       "name": "Chat Webhook",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
+      "typeVersion": 2,
       "position": [250, 300],
       "webhookId": "nosee-chat"
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT id, role, content, created_at \nFROM chat_hub_messages \nWHERE session_id = '{{ $json.sessionId }}'\nORDER BY created_at ASC \nLIMIT 20",
-        "options": {}
+        "query": "SELECT id, name as role, content, \"createdAt\"\nFROM n8n_schema.chat_hub_messages\nWHERE \"sessionId\" = $1\nORDER BY \"createdAt\" ASC\nLIMIT 20",
+        "options": {
+          "queryReplacement": {
+            "values": {
+              "1": "={{ $json.sessionId }}"
+            }
+          }
+        }
       },
       "id": "get-history",
       "name": "Get Chat History",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 1,
+      "typeVersion": 2.5,
       "position": [500, 300],
-      "credentials": {"postgres": "Tu Credencial Supabase"}
+      "credentials": {"postgres": "Tu Credencial Supabase"},
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const systemPrompt = \"Eres el asistente de Nosee. Ayudas a usuarios a buscar productos, comparar precios y encontrar las mejores ofertas. Sé claro, conciso y amigable.\";\nconst history = $json.chatHistory || [];\nconst currentMessage = $json.message;\nconst sessionId = $json.sessionId;\nconst userId = $json.userId;\n\nconst messages = [\n  { role: \"system\", content: systemPrompt },\n  ...history.map(m => ({ role: m.role, content: m.content })),\n  { role: \"user\", content: currentMessage }\n];\n\nreturn { messages, sessionId, userId, currentMessage };"
+        "jsCode": "const systemPrompt = \"Eres el asistente de Nosee. Ayudas a usuarios a buscar productos, comparar precios y encontrar las mejores ofertas. Sé claro, conciso y amigable.\";\n\nconst history = $input.all().map(m => ({\n  role: m.role || 'assistant',\n  content: m.content\n}));\n\nconst currentMessage = $json.message;\nconst sessionId = $json.sessionId;\nconst userId = $json.userId;\n\nconst messages = [\n  { role: \"system\", content: systemPrompt },\n  ...history,\n  { role: \"user\", content: currentMessage }\n];\n\nreturn { messages, sessionId, userId, currentMessage };"
       },
       "id": "build-messages",
       "name": "Build Messages",
@@ -50,17 +57,14 @@
           {"name": "X-Title", "value": "Nosee Chat"}
         ]},
         "sendBody": true,
-        "bodyParameters": {"parameters": [
-          {"name": "model", "value": "meta-llama/llama-3.2-3b-instruct:free"},
-          {"name": "messages", "value": "={{ $json.messages }}"},
-          {"name": "temperature", "value": 0.7}
-        ]},
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"meta-llama/llama-3.2-3b-instruct:free\",\n  \"messages\": {{ $json.messages }},\n  \"temperature\": 0.7\n}",
         "options": {"timeout": 120000}
       },
       "id": "openrouter",
       "name": "OpenRouter API",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "typeVersion": 4.2,
       "position": [1000, 300]
     },
     {
@@ -75,52 +79,78 @@
       "id": "extract-response",
       "name": "Extract Response",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
+      "typeVersion": 3.4,
       "position": [1250, 300]
     },
     {
       "parameters": {
-        "operation": "insert",
+        "schema": "n8n_schema",
         "table": "chat_hub_messages",
-        "columns": {"columns": [
-          {"column": "id", "value": "={{ $json.sessionId }}"},
-          {"column": "session_id", "value": "={{ $json.sessionId }}"},
-          {"column": "role", "value": "user"},
-          {"column": "content", "value": "={{ $json.currentMessage }}"},
-          {"column": "provider", "value": "openrouter"},
-          {"column": "model", "value": "={{ $json.model }}"},
-          {"column": "created_at", "value": "={{ $now() }}"}
-        ]},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.sessionId }}",
+            "sessionId": "={{ $json.sessionId }}",
+            "type": "chat",
+            "name": "user",
+            "content": "={{ $json.currentMessage }}",
+            "provider": "openrouter",
+            "model": "={{ $json.model }}"
+          },
+          "schema": [
+            {"id": "id", "displayName": "id", "required": true, "type": "string"},
+            {"id": "sessionId", "displayName": "sessionId", "required": true, "type": "string"},
+            {"id": "type", "displayName": "type", "required": true, "type": "string"},
+            {"id": "name", "displayName": "name", "required": true, "type": "string"},
+            {"id": "content", "displayName": "content", "required": true, "type": "string"},
+            {"id": "provider", "displayName": "provider", "required": false, "type": "string"},
+            {"id": "model", "displayName": "model", "required": false, "type": "string"}
+          ]
+        },
         "options": {}
       },
       "id": "save-user-msg",
       "name": "Save User Message",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 1,
+      "typeVersion": 2.5,
       "position": [1500, 200],
-      "credentials": {"postgres": "Tu Credencial Supabase"}
+      "credentials": {"postgres": "Tu Credencial Supabase"},
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "operation": "insert",
+        "schema": "n8n_schema",
         "table": "chat_hub_messages",
-        "columns": {"columns": [
-          {"column": "id", "value": "={{ $json.sessionId }}"},
-          {"column": "session_id", "value": "={{ $json.sessionId }}"},
-          {"column": "role", "value": "assistant"},
-          {"column": "content", "value": "={{ $json.reply }}"},
-          {"column": "provider", "value": "openrouter"},
-          {"column": "model", "value": "={{ $json.model }}"},
-          {"column": "created_at", "value": "={{ $now() }}"}
-        ]},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.sessionId }}",
+            "sessionId": "={{ $json.sessionId }}",
+            "type": "chat",
+            "name": "assistant",
+            "content": "={{ $json.reply }}",
+            "provider": "openrouter",
+            "model": "={{ $json.model }}"
+          },
+          "schema": [
+            {"id": "id", "displayName": "id", "required": true, "type": "string"},
+            {"id": "sessionId", "displayName": "sessionId", "required": true, "type": "string"},
+            {"id": "type", "displayName": "type", "required": true, "type": "string"},
+            {"id": "name", "displayName": "name", "required": true, "type": "string"},
+            {"id": "content", "displayName": "content", "required": true, "type": "string"},
+            {"id": "provider", "displayName": "provider", "required": false, "type": "string"},
+            {"id": "model", "displayName": "model", "required": false, "type": "string"}
+          ]
+        },
         "options": {}
       },
       "id": "save-assistant-msg",
       "name": "Save Assistant Message",
       "type": "n8n-nodes-base.postgres",
-      "typeVersion": 1,
+      "typeVersion": 2.5,
       "position": [1500, 400],
-      "credentials": {"postgres": "Tu Credencial Supabase"}
+      "credentials": {"postgres": "Tu Credencial Supabase"},
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -130,7 +160,7 @@
       "id": "respond",
       "name": "Respond to Chat",
       "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
+      "typeVersion": 1.1,
       "position": [1750, 300]
     }
   ],
