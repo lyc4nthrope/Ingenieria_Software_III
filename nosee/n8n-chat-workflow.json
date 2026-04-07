@@ -1,0 +1,149 @@
+{
+  "name": "Nosee Chat Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "onReceived",
+        "options": {"rawQuery": true}
+      },
+      "id": "webhook-trigger",
+      "name": "Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "nosee-chat"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, role, content, created_at \nFROM chat_hub_messages \nWHERE session_id = '{{ $json.sessionId }}'\nORDER BY created_at ASC \nLIMIT 20",
+        "options": {}
+      },
+      "id": "get-history",
+      "name": "Get Chat History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [500, 300],
+      "credentials": {"postgres": "Tu Credencial Supabase"}
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = \"Eres el asistente de Nosee. Ayudas a usuarios a buscar productos, comparar precios y encontrar las mejores ofertas. Sé claro, conciso y amigable.\";\nconst history = $json.chatHistory || [];\nconst currentMessage = $json.message;\nconst sessionId = $json.sessionId;\nconst userId = $json.userId;\n\nconst messages = [\n  { role: \"system\", content: systemPrompt },\n  ...history.map(m => ({ role: m.role, content: m.content })),\n  { role: \"user\", content: currentMessage }\n];\n\nreturn { messages, sessionId, userId, currentMessage };"
+      },
+      "id": "build-messages",
+      "name": "Build Messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 3,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "method": "POST",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [
+          {"name": "Authorization", "value": "Bearer TU_OPENROUTER_API_KEY"},
+          {"name": "Content-Type", "value": "application/json"},
+          {"name": "HTTP-Referer", "value": "https://nosee.app"},
+          {"name": "X-Title", "value": "Nosee Chat"}
+        ]},
+        "sendBody": true,
+        "bodyParameters": {"parameters": [
+          {"name": "model", "value": "meta-llama/llama-3.2-3b-instruct:free"},
+          {"name": "messages", "value": "={{ $json.messages }}"},
+          {"name": "temperature", "value": 0.7}
+        ]},
+        "options": {"timeout": 120000}
+      },
+      "id": "openrouter",
+      "name": "OpenRouter API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {"assignments": [
+          {"id": "reply", "name": "reply", "value": "={{ $json.choices[0].message.content }}", "type": "string"},
+          {"id": "model", "name": "model", "value": "={{ $json.model }}", "type": "string"},
+          {"id": "provider", "name": "provider", "value": "openrouter", "type": "string"}
+        ]},
+        "options": {}
+      },
+      "id": "extract-response",
+      "name": "Extract Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "chat_hub_messages",
+        "columns": {"columns": [
+          {"column": "id", "value": "={{ $json.sessionId }}"},
+          {"column": "session_id", "value": "={{ $json.sessionId }}"},
+          {"column": "role", "value": "user"},
+          {"column": "content", "value": "={{ $json.currentMessage }}"},
+          {"column": "provider", "value": "openrouter"},
+          {"column": "model", "value": "={{ $json.model }}"},
+          {"column": "created_at", "value": "={{ $now() }}"}
+        ]},
+        "options": {}
+      },
+      "id": "save-user-msg",
+      "name": "Save User Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1500, 200],
+      "credentials": {"postgres": "Tu Credencial Supabase"}
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "chat_hub_messages",
+        "columns": {"columns": [
+          {"column": "id", "value": "={{ $json.sessionId }}"},
+          {"column": "session_id", "value": "={{ $json.sessionId }}"},
+          {"column": "role", "value": "assistant"},
+          {"column": "content", "value": "={{ $json.reply }}"},
+          {"column": "provider", "value": "openrouter"},
+          {"column": "model", "value": "={{ $json.model }}"},
+          {"column": "created_at", "value": "={{ $now() }}"}
+        ]},
+        "options": {}
+      },
+      "id": "save-assistant-msg",
+      "name": "Save Assistant Message",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1500, 400],
+      "credentials": {"postgres": "Tu Credencial Supabase"}
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"reply\": $json.reply } }}"
+      },
+      "id": "respond",
+      "name": "Respond to Chat",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1750, 300]
+    }
+  ],
+  "connections": {
+    "Chat Webhook": {"main": [[{"node": "Get Chat History", "type": "main", "index": 0}]]},
+    "Get Chat History": {"main": [[{"node": "Build Messages", "type": "main", "index": 0}]]},
+    "Build Messages": {"main": [[{"node": "OpenRouter API", "type": "main", "index": 0}]]},
+    "OpenRouter API": {"main": [[{"node": "Extract Response", "type": "main", "index": 0}]]},
+    "Extract Response": {"main": [
+      [{"node": "Save User Message", "type": "main", "index": 0}],
+      [{"node": "Save Assistant Message", "type": "main", "index": 0}]
+    ]},
+    "Save User Message": {"main": [[{"node": "Respond to Chat", "type": "main", "index": 0}]]},
+    "Save Assistant Message": {"main": [[{"node": "Respond to Chat", "type": "main", "index": 0}]]}
+  }
+}
