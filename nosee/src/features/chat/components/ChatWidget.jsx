@@ -7,71 +7,18 @@
  * UBICACIÓN: src/features/chat/components/ChatWidget.jsx
  */
 
-import { useState, useRef } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useState, useRef, useEffect } from 'react';
 import useChat from '@/features/chat/hooks/useChat';
 import styles from '@/features/chat/styles/chatStyles';
-
-// ─── Íconos SVG inline ──────────────────────────────────────────────────────
-
-const ChatIcon = () => (
-  <svg
-    aria-hidden="true"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-  </svg>
-);
-
-const CloseIcon = () => (
-  <svg
-    aria-hidden="true"
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <line x1="18" y1="6" x2="6" y2="18" />
-    <line x1="6" y1="6" x2="18" y2="18" />
-  </svg>
-);
-
-const SendIcon = () => (
-  <svg
-    aria-hidden="true"
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <line x1="22" y1="2" x2="11" y2="13" />
-    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-  </svg>
-);
+import { ChatIcon, CloseIcon, SendIcon } from './chatIcons';
 
 // ─── Componente ─────────────────────────────────────────────────────────────
 
 export default function ChatWidget({ userId }) {
-  const { t } = useLanguage();
   const [inputValue, setInputValue] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
-  const [btnHover, setBtnHover] = useState(false);
   const inputRef = useRef(null);
+  const buttonRef = useRef(null);
 
   const {
     messages,
@@ -96,22 +43,47 @@ export default function ChatWidget({ userId }) {
       e.preventDefault();
       handleSend();
     }
+    if (e.key === 'Escape' && isOpen) {
+      closeChat();
+      setTimeout(() => {
+        if (buttonRef.current) {
+          buttonRef.current.focus();
+        }
+      }, 0);
+    }
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleFocusTrap = (e) => {
+      if (e.key !== 'Tab') return;
+      const panel = document.querySelector('[data-chat-panel]');
+      if (!panel) return;
+      const focusable = panel.querySelectorAll('button, input, [tabindex]:not([tabindex="-1"])');
+      if (focusable.length === 0) return;
+      e.preventDefault();
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (document.activeElement === last || !panel.contains(document.activeElement)) {
+        first.focus();
+      } else {
+        last.focus();
+      }
+    };
+    document.addEventListener('keydown', handleFocusTrap);
+    return () => document.removeEventListener('keydown', handleFocusTrap);
+  }, [isOpen]);
 
   // ─── Botón flotante ─────────────────────────────────────────────────────
   if (!isOpen) {
     return (
       <button
+        ref={buttonRef}
         type="button"
         aria-label="Abrir chat de asistencia"
         onClick={openChat}
-        onMouseEnter={() => setBtnHover(true)}
-        onMouseLeave={() => setBtnHover(false)}
         className="chat-widget-button"
-        style={{
-          ...styles.floatingButton,
-          ...(btnHover ? styles.floatingButtonHover : {}),
-        }}
+        style={styles.floatingButton}
       >
         <ChatIcon />
       </button>
@@ -120,11 +92,17 @@ export default function ChatWidget({ userId }) {
 
   // ─── Panel del chat ─────────────────────────────────────────────────────
   return (
-    <div className="chat-widget-panel" style={styles.panel}>
+    <div
+      className="chat-widget-panel"
+      style={styles.panel}
+      data-chat-panel
+      role="dialog"
+      aria-label="Chat de asistencia"
+    >
       {/* Header */}
-      <div style={styles.header}>
+      <div style={styles.header} role="banner" aria-label="Cabecera del chat">
         <div>
-          <h3 style={styles.headerTitle}>Asistente Nosee</h3>
+          <h3 style={styles.headerTitle} aria-level="2">Asistente Nosee</h3>
           <p style={styles.headerSubtitle}>Consultá sobre productos y precios</p>
         </div>
         <button
@@ -146,7 +124,12 @@ export default function ChatWidget({ userId }) {
       )}
 
       {/* Messages area */}
-      <div style={styles.messagesArea}>
+      <div
+        style={styles.messagesArea}
+        role="log"
+        aria-live="polite"
+        aria-label="Historial de mensajes"
+      >
         {messages.length === 0 ? (
           <div style={styles.emptyState}>
             <span style={styles.emptyIcon} aria-hidden="true">💬</span>
@@ -159,6 +142,8 @@ export default function ChatWidget({ userId }) {
           messages.map((msg) => (
             <div
               key={msg.id}
+              role="article"
+              aria-label={`Mensaje de ${msg.role}`}
               style={{
                 ...styles.messageBubble,
                 ...(msg.role === 'user' ? styles.userMessage : styles.assistantMessage),
@@ -183,8 +168,12 @@ export default function ChatWidget({ userId }) {
 
       {/* Input area */}
       <div style={styles.inputArea}>
+        <label htmlFor="chat-input" style={styles.srOnly}>
+          Escribí tu mensaje
+        </label>
         <input
           ref={inputRef}
+          id="chat-input"
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
@@ -193,11 +182,15 @@ export default function ChatWidget({ userId }) {
           onBlur={() => setInputFocused(false)}
           placeholder="Escribí tu mensaje..."
           disabled={isLoading}
+          aria-describedby="chat-input-desc"
           style={{
             ...styles.input,
             ...(inputFocused ? styles.inputFocus : {}),
           }}
         />
+        <span id="chat-input-desc" style={styles.srOnly}>
+          Presioná Enter para enviar tu mensaje
+        </span>
         <button
           type="button"
           aria-label="Enviar mensaje"
