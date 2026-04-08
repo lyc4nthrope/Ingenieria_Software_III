@@ -10,6 +10,10 @@ const __dirname = path.dirname(__filename)
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  esbuild: {
+    loader: 'jsx',
+    include: /(\.jsx?|\.(tests?|spec?)\/.*\.jsx?)$/,
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -37,6 +41,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    plugins: [react()],
     setupFiles: ['./tests/setup.js'],
     exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**'],
     coverage: {
