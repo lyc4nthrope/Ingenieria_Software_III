@@ -1,9 +1,9 @@
 /**
- * chatIcons.js
+ * chatIcons.jsx
  *
  * Íconos SVG para el ChatWidget.
  *
- * UBICACIÓN: src/features/chat/components/chatIcons.js
+ * UBICACIÓN: src/features/chat/components/chatIcons.jsx
  */
 
 export const ChatIcon = () => (
