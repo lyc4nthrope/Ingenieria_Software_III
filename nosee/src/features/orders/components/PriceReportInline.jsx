@@ -32,17 +32,23 @@ export function PriceReportInline({ currentPrice, onConfirm }) {
     if (!valid) return;
     setLoading(true);
     setError(null);
-    const { error: err } = await onConfirm(parsed);
+    const { error: err, pending } = await onConfirm(parsed);
     setLoading(false);
     if (err) {
       setError('No se pudo actualizar. Intentá de nuevo.');
     } else {
-      setDone(true);
+      setDone(pending ? 'pending' : 'done');
       setOpen(false);
       setValue('');
-      setTimeout(() => setDone(false), 3000);
+      setTimeout(() => setDone(false), pending ? 8000 : 3000);
     }
   };
+
+  if (done === 'pending') {
+    return (
+      <span style={{ ...s.doneMsg, color: 'var(--warning, #ca8a04)' }}>⏳ Ajuste pendiente</span>
+    );
+  }
 
   if (done) {
     return (

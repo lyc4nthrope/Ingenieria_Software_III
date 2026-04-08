@@ -1,42 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { CarouselCard } from './CarouselCard';
 import PublicationDetailModal from '@/features/publications/components/PublicationDetailModal';
 
-const PAGE_SIZE = 3;
+const MAX_HEIGHT  = 280; // px — altura máxima del contenedor scrolleable
+const SCROLL_STEP = 90;  // px — cuánto mueve cada flecha
 
-// ─── Paginador vertical de tarjetas de publicaciones ─────────────────────────
-// Muestra máximo 3 tarjetas a la vez con flechas ▲ / ▼ para navegar.
-// Reemplaza el carrusel horizontal anterior.
+// ─── Lista scrolleable de tarjetas de publicaciones ──────────────────────────
+// El contenedor tiene scroll libre + flechas ▲/▼ como atajo de scroll.
+// Las flechas se muestran solo cuando hay contenido arriba/abajo.
+// La tarjeta seleccionada hace scrollIntoView automáticamente.
 export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect }) {
-  const [page, setPage] = useState(0);
   const [detailPub, setDetailPub] = useState(null);
+  const [canUp,     setCanUp]     = useState(false);
+  const [canDown,   setCanDown]   = useState(false);
+  const scrollRef  = useRef(null);
+  const selectedRef = useRef(null);
 
-  const total   = publications?.length ?? 0;
-  const maxPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
-  const start   = page * PAGE_SIZE;
-  const visible = (publications ?? []).slice(start, start + PAGE_SIZE);
+  const total = publications?.length ?? 0;
 
-  // Reiniciar página cuando cambia la lista de publicaciones
-  useEffect(() => { setPage(0); }, [publications]);
+  // Actualizar visibilidad de flechas según posición de scroll
+  const updateArrows = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanUp(el.scrollTop > 4);
+    setCanDown(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+  }, []);
 
-  // Si la selección actual NO está en la página visible, ir a su página
+  // Recalcular flechas al montar y cuando cambia la lista
   useEffect(() => {
-    if (!selectedId) return;
-    const idx = (publications ?? []).findIndex((p) => p.id === selectedId);
-    if (idx < 0) return;
-    const targetPage = Math.floor(idx / PAGE_SIZE);
-    setPage(targetPage);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    updateArrows();
+  }, [publications, updateArrows]);
+
+  // Scroll automático al ítem seleccionado cuando cambia
+  useEffect(() => {
+    if (!selectedRef.current) return;
+    selectedRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [selectedId]);
 
   if (total === 0) {
-    return (
-      <p style={s.empty}>Sin coincidencias encontradas para este producto.</p>
-    );
+    return <p style={s.empty}>Sin coincidencias encontradas para este producto.</p>;
   }
 
-  const canUp   = page > 0;
-  const canDown = page < maxPage;
+  const scrollUp   = () => scrollRef.current?.scrollBy({ top: -SCROLL_STEP, behavior: 'smooth' });
+  const scrollDown = () => scrollRef.current?.scrollBy({ top:  SCROLL_STEP, behavior: 'smooth' });
 
   return (
     <>
@@ -44,44 +50,50 @@ export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect 
         {/* ── Flecha arriba ── */}
         <button
           type="button"
-          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          onClick={scrollUp}
           disabled={!canUp}
-          style={{ ...s.arrowBtn, opacity: canUp ? 1 : 0.25, cursor: canUp ? 'pointer' : 'default' }}
+          style={{ ...s.arrowBtn, opacity: canUp ? 1 : 0.2, cursor: canUp ? 'pointer' : 'default' }}
           aria-label="Ver opciones anteriores"
         >
           ▲
         </button>
 
-        {/* ── Tarjetas ── */}
-        <div style={s.cards}>
-          {visible.map((pub, idx) => (
-            <CarouselCard
-              key={pub.id ?? (start + idx)}
-              pub={pub}
-              globalIdx={start + idx}
-              isSelected={(pub.id ?? (start + idx)) === selectedId}
-              onSelect={onSelect}
-              onDetail={setDetailPub}
-            />
-          ))}
+        {/* ── Lista scrolleable ── */}
+        <div
+          ref={scrollRef}
+          onScroll={updateArrows}
+          style={s.cards}
+        >
+          {(publications ?? []).map((pub, idx) => {
+            const isSelected = (pub.id ?? idx) === selectedId;
+            return (
+              <div key={pub.id ?? idx} ref={isSelected ? selectedRef : null}>
+                <CarouselCard
+                  pub={pub}
+                  globalIdx={idx}
+                  isSelected={isSelected}
+                  onSelect={onSelect}
+                  onDetail={setDetailPub}
+                />
+              </div>
+            );
+          })}
         </div>
 
         {/* ── Flecha abajo ── */}
         <button
           type="button"
-          onClick={() => setPage((p) => Math.min(maxPage, p + 1))}
+          onClick={scrollDown}
           disabled={!canDown}
-          style={{ ...s.arrowBtn, opacity: canDown ? 1 : 0.25, cursor: canDown ? 'pointer' : 'default' }}
+          style={{ ...s.arrowBtn, opacity: canDown ? 1 : 0.2, cursor: canDown ? 'pointer' : 'default' }}
           aria-label="Ver más opciones"
         >
           ▼
         </button>
 
-        {/* ── Indicador de página ── */}
-        {total > PAGE_SIZE && (
-          <p style={s.pageInfo}>
-            {start + 1}–{Math.min(start + PAGE_SIZE, total)} de {total} opciones
-          </p>
+        {/* ── Contador ── */}
+        {total > 1 && (
+          <p style={s.pageInfo}>{total} opciones disponibles</p>
         )}
       </div>
 
@@ -119,6 +131,10 @@ const s = {
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
+    maxHeight: `${MAX_HEIGHT}px`,
+    overflowY: 'auto',
+    scrollbarWidth: 'thin',
+    scrollbarColor: 'var(--border) transparent',
   },
   pageInfo: {
     margin: 0,

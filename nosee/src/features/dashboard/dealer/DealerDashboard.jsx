@@ -25,10 +25,14 @@ import {
   acceptOrder,
   cancelAvailableOrder,
   advanceOrderStatus,
+  verifyDeliveryPin,
   upsertDealerLocation,
   updateProductPrice,
   logPriceCorrection,
+  requestPriceAdjustment,
+  PRICE_ADJUSTMENT_THRESHOLD,
 } from '@/services/api/orders.api';
+import { useDeliveryTimer } from '@/features/orders/hooks/useDeliveryTimer';
 import { getDealerBankAccounts } from '@/services/api/bankAccounts.api';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
@@ -262,9 +266,26 @@ export default function DealerDashboard() {
     setCancelingId(null);
   };
 
-  // ── Actualizar precio de producto ────────────────────────────────────────
+  // ── Actualizar precio de producto (Caso B: >5% → solicitar aprobación) ──
   const handlePriceReport = async (order, storeIdx, productIdx, newPrice) => {
-    const productName = order.stores?.[storeIdx]?.products?.[productIdx]?.item?.productName;
+    const product      = order.stores?.[storeIdx]?.products?.[productIdx];
+    const productName  = product?.item?.productName;
+    const originalPrice = product?.price ?? 0;
+
+    // Caso B: si el nuevo precio supera el umbral del 5%, solicitar aprobación al cliente
+    if (originalPrice > 0 && newPrice > originalPrice * (1 + PRICE_ADJUSTMENT_THRESHOLD)) {
+      const { error } = await requestPriceAdjustment({
+        orderId:        order.id,
+        storeIdx,
+        productIdx,
+        productName,
+        originalPrice,
+        requestedPrice: newPrice,
+      });
+      return { error, pending: true };
+    }
+
+    // Cambio menor al 5% — actualizar directamente
     const { error, newStores, newTotal, oldPrice } = await updateProductPrice(
       order.id, storeIdx, productIdx, newPrice
     );
@@ -277,31 +298,57 @@ export default function DealerDashboard() {
         )
       );
       logPriceCorrection({ orderId: order.id, storeIdx, productIdx, productName, oldPrice, newPrice, role: 'dealer' });
-      console.info(`[PrecioCorregido-dealer] ${productName}: $${oldPrice} → $${newPrice}`);
     }
     return { error };
   };
 
   // ── Avanzar estado del pedido ────────────────────────────────────────────
+  // Nota: la transición llegando → entregado se maneja via handleVerifyPin (RF-03).
+  // handleAdvance solo cubre aceptado/comprando/en_camino/llegando y cancelado (entrega fallida).
   const handleAdvance = async (order) => {
     const newStatus = NEXT_STATUS[order.status];
-    if (!newStatus) return;
+    if (!newStatus || newStatus === 'entregado') return; // entregado requiere PIN
 
     setAdvancingId(order.id);
     const { error } = await advanceOrderStatus(order.id, newStatus);
 
     if (!error) {
-      if (newStatus === 'entregado') {
-        setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
-        setHistory((prev) => [{ ...order, status: 'entregado' }, ...prev]);
-      } else {
-        setActiveOrders((prev) =>
-          prev.map((o) => o.id === order.id ? { ...o, status: newStatus } : o)
-        );
-      }
+      const now = new Date().toISOString();
+      setActiveOrders((prev) =>
+        prev.map((o) => o.id === order.id
+          ? { ...o, status: newStatus, ...(newStatus === 'llegando' ? { llegando_at: now, updated_at: now } : {}) }
+          : o
+        )
+      );
     }
 
     setAdvancingId(null);
+  };
+
+  // ── Verificar PIN del cliente para cerrar el pedido (RF-03) ──────────────
+  const handleVerifyPin = async (order, pin) => {
+    setAdvancingId(order.id);
+    const { data: ok, error } = await verifyDeliveryPin(order.id, pin);
+    setAdvancingId(null);
+
+    if (error || !ok) {
+      return { success: false };
+    }
+
+    setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
+    setHistory((prev) => [{ ...order, status: 'entregado' }, ...prev]);
+    return { success: true };
+  };
+
+  // ── Marcar entrega fallida (Caso D: timer vencido) ────────────────────────
+  const handleDeliveryFailed = async (order) => {
+    setAdvancingId(order.id);
+    const { error } = await advanceOrderStatus(order.id, 'cancelado');
+    setAdvancingId(null);
+    if (!error) {
+      setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
+      setHistory((prev) => [{ ...order, status: 'cancelado' }, ...prev]);
+    }
   };
 
   // ── Toggle checklist ────────────────────────────────────────────────────
@@ -316,13 +363,14 @@ export default function DealerDashboard() {
   const totalEarned = history.reduce((s, h) => s + Number(h.delivery_fee ?? 0), 0);
 
   const STATUS_INFO = {
-    pendiente_repartidor: { label: 'Disponible',     color: 'var(--warning)',       bg: 'var(--warning-soft)' },
-    aceptado:             { label: 'Aceptado',        color: 'var(--accent)',        bg: 'var(--accent-soft)' },
-    comprando:            { label: 'Comprando',       color: 'var(--warning)',       bg: 'var(--warning-soft)' },
-    en_camino:            { label: 'En camino',       color: 'var(--success)',       bg: 'var(--success-soft)' },
-    llegando:             { label: 'En la puerta',    color: 'var(--accent)',        bg: 'var(--accent-soft)' },
-    entregado:            { label: 'Entregado',       color: 'var(--success)',       bg: 'var(--success-soft)' },
-    cancelado:            { label: 'Cancelado',       color: 'var(--error)',         bg: 'var(--error-soft)' },
+    pendiente_repartidor: { label: 'Disponible',          color: 'var(--warning)',       bg: 'var(--warning-soft)' },
+    aceptado:             { label: 'Aceptado',             color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+    pendiente_compromiso: { label: 'Esp. compromiso',      color: '#92400e',              bg: 'var(--warning-soft, #fef9c3)' },
+    comprando:            { label: 'Comprando',            color: 'var(--warning)',       bg: 'var(--warning-soft)' },
+    en_camino:            { label: 'En camino',            color: 'var(--success)',       bg: 'var(--success-soft)' },
+    llegando:             { label: 'En la puerta',         color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+    entregado:            { label: 'Entregado',            color: 'var(--success)',       bg: 'var(--success-soft)' },
+    cancelado:            { label: 'Cancelado',            color: 'var(--error)',         bg: 'var(--error-soft)' },
   };
 
   // Pedido activo para la tab "ruta"
@@ -482,6 +530,8 @@ export default function DealerDashboard() {
                     onToggleCheck={(key) => toggleCheck(order.id, key)}
                     advancing={advancingId === order.id}
                     onAdvance={() => handleAdvance(order)}
+                    onVerifyPin={(pin) => handleVerifyPin(order, pin)}
+                    onDeliveryFailed={() => handleDeliveryFailed(order)}
                     onPriceReport={(si, pi, newPrice) => handlePriceReport(order, si, pi, newPrice)}
                   />
                 ))}
@@ -644,16 +694,35 @@ function AvailableOrderCard({ order, accepting, canceling, onAccept, onCancel })
 // ─── ActiveOrderCard ──────────────────────────────────────────────────────────
 // Tarjeta del pedido asignado al repartidor. Muestra checklist de productos
 // cuando está "comprando" y el botón para avanzar al siguiente estado.
-function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onPriceReport }) {
+function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onVerifyPin, onDeliveryFailed, onPriceReport }) {
   const si     = statusInfo[order.status] ?? statusInfo.aceptado;
   const stores = extractStores(order);
   const [expanded, setExpanded] = useState(true);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(null);
+  const [verifyingPin, setVerifyingPin] = useState(false);
+
+  // Timer de 10 min para el Caso D — solo activo cuando el repartidor llega a la puerta
+  const timerStart = order.status === 'llegando' ? (order.llegando_at ?? order.updated_at ?? null) : null;
+  const { formattedTime, isExpired } = useDeliveryTimer(timerStart);
 
   // Contar productos completados del checklist
   const allProducts = stores.flatMap((s, si) =>
     (s.products ?? []).map((p, pi) => ({ key: `${si}-${pi}`, name: p.item?.productName ?? '?', qty: p.item?.quantity ?? 1 }))
   );
   const checked = allProducts.filter((p) => checklist[p.key]).length;
+
+  const handlePinSubmit = async () => {
+    if (pinInput.length !== 4) { setPinError('El PIN debe tener 4 dígitos'); return; }
+    setPinError(null);
+    setVerifyingPin(true);
+    const { success } = await onVerifyPin(pinInput);
+    setVerifyingPin(false);
+    if (!success) {
+      setPinError('PIN incorrecto. Pedile al cliente el PIN correcto.');
+      setPinInput('');
+    }
+  };
 
   return (
     <article style={{ ...r.orderCard, ...r.orderCardSelected }}>
@@ -726,22 +795,111 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
         </div>
       )}
 
-      {/* Footer: total + botón avanzar */}
-      <div style={r.orderFooter}>
-        <div>
-          <div style={r.orderTotal}>
-            ${(Number(order.total_estimated ?? 0) + Number(order.delivery_fee ?? 0)).toLocaleString('es-CO')}
-          </div>
-          <div style={{ fontSize: 11, color: MUTED }}>total a cobrar</div>
+      {/* Banner de espera de compromiso (estado pendiente_compromiso) */}
+      {order.status === 'pendiente_compromiso' && (
+        <div style={{
+          padding: '12px 14px',
+          background: 'var(--warning-soft, #fef9c3)',
+          border: '1px solid var(--warning, #ca8a04)',
+          borderRadius: 'var(--radius-md)',
+          display: 'flex', flexDirection: 'column', gap: '4px',
+        }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400e' }}>
+            ⏳ Esperando pago de compromiso
+          </span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            El cliente está confirmando el fondo de compromiso. Podrás salir a comprar cuando se acredite el pago.
+          </span>
         </div>
-        {NEXT_LABEL[order.status] && (
-          <button
-            style={{ ...r.advanceBtn, ...(advancing ? { opacity: 0.7 } : {}) }}
-            onClick={onAdvance}
-            disabled={advancing}
-          >
-            {advancing ? 'Actualizando...' : NEXT_LABEL[order.status]}
-          </button>
+      )}
+
+      {/* Footer: total + botón avanzar / flujo PIN / timer */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Timer de espera cuando el repartidor ya llegó (Caso D) */}
+        {order.status === 'llegando' && timerStart && (
+          <div style={{
+            padding: '8px 12px',
+            background: isExpired ? 'var(--error-soft, #fee2e2)' : 'var(--bg-elevated)',
+            border: `1px solid ${isExpired ? 'var(--error, #dc2626)' : 'var(--border)'}`,
+            borderRadius: 6,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span>{isExpired ? '⚠️' : '⏱'}</span>
+            <span style={{ fontSize: 12, color: isExpired ? 'var(--error, #dc2626)' : MUTED, fontWeight: isExpired ? 700 : 400 }}>
+              {isExpired ? 'Tiempo vencido' : `Tiempo de espera: ${formattedTime}`}
+            </span>
+          </div>
+        )}
+
+        <div style={r.orderFooter}>
+          <div>
+            <div style={r.orderTotal}>
+              ${(Number(order.total_estimated ?? 0) + Number(order.delivery_fee ?? 0)).toLocaleString('es-CO')}
+            </div>
+            <div style={{ fontSize: 11, color: MUTED }}>total a cobrar</div>
+          </div>
+
+          {/* Botones de avance normales (todos excepto llegando → entregado) */}
+          {NEXT_LABEL[order.status] && order.status !== 'llegando' && (
+            <button
+              style={{ ...r.advanceBtn, ...(advancing ? { opacity: 0.7 } : {}) }}
+              onClick={onAdvance}
+              disabled={advancing}
+            >
+              {advancing ? 'Actualizando...' : NEXT_LABEL[order.status]}
+            </button>
+          )}
+
+          {/* Botón entrega fallida cuando timer vence (Caso D) */}
+          {order.status === 'llegando' && isExpired && (
+            <button
+              style={{ ...r.advanceBtn, background: 'var(--error, #dc2626)', ...(advancing ? { opacity: 0.7 } : {}) }}
+              onClick={onDeliveryFailed}
+              disabled={advancing}
+            >
+              {advancing ? 'Procesando...' : '✗ Entrega fallida'}
+            </button>
+          )}
+        </div>
+
+        {/* Flujo PIN cuando llegó a la puerta y timer NO venció (RF-03) */}
+        {order.status === 'llegando' && !isExpired && (
+          <div style={{
+            padding: '12px 14px',
+            background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+            borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 8,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: MUTED }}>
+              🔑 Pedile al cliente el PIN de entrega de 4 dígitos
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="0000"
+                value={pinInput}
+                onChange={(e) => { setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError(null); }}
+                style={{
+                  flex: 1, padding: '8px 12px', fontSize: 18, fontWeight: 800,
+                  letterSpacing: '0.3em', textAlign: 'center',
+                  border: `1px solid ${pinError ? 'var(--error, #dc2626)' : 'var(--border)'}`,
+                  borderRadius: 6, background: 'var(--bg-base)', color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
+              <button
+                style={{ ...r.advanceBtn, flexShrink: 0, ...(verifyingPin || advancing ? { opacity: 0.7 } : {}) }}
+                onClick={handlePinSubmit}
+                disabled={verifyingPin || advancing || pinInput.length !== 4}
+              >
+                {verifyingPin ? '...' : '✓ Verificar'}
+              </button>
+            </div>
+            {pinError && (
+              <div style={{ fontSize: 11, color: 'var(--error, #dc2626)', fontWeight: 600 }}>{pinError}</div>
+            )}
+          </div>
         )}
       </div>
     </article>

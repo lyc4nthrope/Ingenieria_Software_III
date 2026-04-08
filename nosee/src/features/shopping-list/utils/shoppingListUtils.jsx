@@ -1,3 +1,5 @@
+import { parseStoreCoords } from '@/features/orders/utils/parseStoreCoords';
+
 // ─── Iconos ───────────────────────────────────────────────────────────────────
 export const TrashIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -27,8 +29,40 @@ export const GearIcon = () => (
   </svg>
 );
 
-// Tarifa estimada de domicilio — placeholder hasta implementar Proceso 4
-export const DELIVERY_FEE = 8_000; // COP
+// ─── Tarifas de domicilio ─────────────────────────────────────────────────────
+const STORE_FEE_PER = 3_000; // COP por tienda
+const KM_FEE = 3_000;        // COP por km por tienda
+
+function haversineKm({ lat: lat1, lng: lng1 }, { lat: lat2, lng: lng2 }) {
+  const R = 6371;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Calcula el costo total de domicilio:
+ *  - $3.000 COP por tienda
+ *  - $3.000 COP × km entre userCoords y cada tienda
+ * Si no hay coordenadas de usuario, solo se cobra por cantidad de tiendas.
+ */
+export function calculateDeliveryFee(stores, userCoords) {
+  if (!stores?.length) return 0;
+  const storeFee = stores.length * STORE_FEE_PER;
+  if (!userCoords?.lat || !userCoords?.lng) return storeFee;
+  let distanceFee = 0;
+  for (const s of stores) {
+    const storeCoords = parseStoreCoords(s.store?.location);
+    if (storeCoords) {
+      distanceFee += haversineKm(userCoords, storeCoords) * KM_FEE;
+    }
+  }
+  return Math.round(storeFee + distanceFee);
+}
 
 // ─── Preferencias de optimización ────────────────────────────────────────────
 export const OPTIM_PREFS_KEY = 'nosee-optim-prefs';
