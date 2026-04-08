@@ -55,6 +55,8 @@ jobs:
           VITE_ENABLE_BARCODE_SCAN: ${{ secrets.VITE_ENABLE_BARCODE_SCAN }}
           VITE_GA_MEASUREMENT_ID: ${{ secrets.VITE_GA_MEASUREMENT_ID }}
           VITE_METRICS_SERVER_URL: ${{ secrets.VITE_METRICS_SERVER_URL }}
+          VITE_N8N_CHAT_WEBHOOK_URL: ${{ secrets.VITE_N8N_CHAT_WEBHOOK_URL }}
+          VITE_MP_PUBLIC_KEY: ${{ secrets.VITE_MP_PUBLIC_KEY }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
