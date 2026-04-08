@@ -8,13 +8,26 @@
  */
 
 const styles = {
+  // ─── Utilidades de accesibilidad ─────────────────────────────────────
+  srOnly: {
+    position: 'absolute',
+    width: '1px',
+    height: '1px',
+    padding: '0',
+    margin: '-1px',
+    overflow: 'hidden',
+    clip: 'rect(0, 0, 0, 0)',
+    whiteSpace: 'nowrap',
+    border: '0',
+  },
+
   // ─── Botón flotante ─────────────────────────────────────────────────────
   floatingButton: {
     position: 'fixed',
     bottom: '24px',
     left: '24px',
-    width: '56px',
-    height: '56px',
+    width: '48px',
+    height: '48px',
     borderRadius: '50%',
     background: 'var(--accent)',
     color: 'var(--bg-base)',
@@ -38,9 +51,9 @@ const styles = {
     position: 'fixed',
     bottom: '90px',
     left: '24px',
-    width: '380px',
+    width: '340px',
     maxWidth: 'calc(100vw - 48px)',
-    height: '520px',
+    height: '460px',
     maxHeight: 'calc(100vh - 120px)',
     background: 'var(--bg-surface)',
     borderRadius: 'var(--radius-lg)',
