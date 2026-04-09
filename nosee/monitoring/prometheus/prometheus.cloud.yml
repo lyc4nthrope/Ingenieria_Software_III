@@ -14,4 +14,4 @@ scrape_configs:
     scrape_timeout: 10s
     honor_labels: true
     static_configs:
-      - targets: ['ingenieriasoftwareiii-production.up.railway.app']
+      - targets: ['metrics-production-7ab7.up.railway.app']
