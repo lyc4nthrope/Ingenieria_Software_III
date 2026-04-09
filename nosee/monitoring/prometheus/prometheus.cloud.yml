@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: 'nosee'
+    environment: 'production'
+
+scrape_configs:
+  # Métricas personalizadas de NØSEE — metrics-server en Railway
+  - job_name: 'nosee-app'
+    scheme: https
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+    static_configs:
+      - targets: ['ingenieriasoftwareiii-production.up.railway.app']
