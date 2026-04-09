@@ -26,7 +26,7 @@ import {
 } from "@/services/moderation";
 import { recordVote, recordPublicationReport, recordVoteDuplicateRejected } from "@/services/metrics";
 
-import { clamp, normalizeSearchText } from "@/services/utils/normalization";
+import { clamp, normalizeSearchText, tokenTextScore } from "@/services/utils/normalization";
 import { hasCoordinates, parseStoreLocation, calculateDistance } from "@/services/utils/geoUtils";
 import {
   REQUEST_TIMEOUT_MS, EXTENDED_RETRY_TIMEOUT_MS,
@@ -320,25 +320,8 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
         ? clamp(((stats.total / Math.max(stats.count, 1)) - Number(publication.price)) / Math.max(stats.total / Math.max(stats.count, 1), 1) + 0.5, 0, 1)
         : 0.5;
 
-      const productTextScore = normalizedProductQuery
-        ? normalizedProductText === normalizedProductQuery
-          ? 1
-          : normalizedProductText.startsWith(normalizedProductQuery)
-            ? 0.92
-            : normalizedProductText.includes(normalizedProductQuery)
-              ? 0.78
-              : 0
-        : 0.5;
-
-      const storeTextScore = normalizedStoreQuery
-        ? normalizedStoreText === normalizedStoreQuery
-          ? 1
-          : normalizedStoreText.startsWith(normalizedStoreQuery)
-            ? 0.9
-            : normalizedStoreText.includes(normalizedStoreQuery)
-              ? 0.72
-              : 0
-        : 0.5;
+      const productTextScore = tokenTextScore(normalizedProductQuery, normalizedProductText);
+      const storeTextScore = tokenTextScore(normalizedStoreQuery, normalizedStoreText);
 
       const textScore =
         normalizedProductQuery || normalizedStoreQuery
