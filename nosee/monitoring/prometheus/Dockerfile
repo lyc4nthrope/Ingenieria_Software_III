@@ -1,4 +1,8 @@
 FROM prom/prometheus:v2.47.0
 COPY prometheus.cloud.yml /etc/prometheus/prometheus.yml
 EXPOSE 9090
-ENTRYPOINT ["/bin/sh", "-c", "exec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --web.listen-address=:${PORT:-9090} --storage.tsdb.path=/prometheus --storage.tsdb.retention.time=15d"]
+CMD ["--config.file=/etc/prometheus/prometheus.yml", \
+     "--storage.tsdb.path=/prometheus", \
+     "--web.console.libraries=/usr/share/prometheus/console_libraries", \
+     "--web.console.templates=/usr/share/prometheus/consoles", \
+     "--web.listen-address=:9090"]
