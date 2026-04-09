@@ -9,7 +9,7 @@
  * Fase C — Confirmación: genera ID de pedido y navega a /pedido/:id.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import * as publicationsApi from '@/services/api/publications.api';
@@ -24,6 +24,12 @@ import { useAuthStore } from '@/features/auth/store/authStore';
 import { insertUserActivityLog } from '@/services/api/audit.api';
 import { createOrder } from '@/services/api/orders.api';
 import { calculateDeliveryFee } from '@/features/shopping-list/utils/shoppingListUtils';
+import {
+  recordShoppingListOrderStarted,
+  recordShoppingListOrderAbandoned,
+  recordOptimizationRun,
+  recordOrderConfirmed,
+} from '@/services/metrics';
 
 // ─── Radios disponibles ───────────────────────────────────────────────────────
 const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
@@ -39,6 +45,21 @@ export default function CreateOrderPage() {
 
   // Ítems recibidos desde ShoppingListPage
   const selectedItems = useMemo(() => location.state?.items ?? [], [location.state?.items]);
+
+  // ── Métricas — inicio y abandono del flujo de pedido ─────────────────────
+  const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => {
+    if (selectedItems.length > 0) {
+      recordShoppingListOrderStarted(selectedItems.length);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (!confirmed) recordShoppingListOrderAbandoned();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmed]);
 
   // ── Fase ──────────────────────────────────────────────────────────────────
   // 'config' | 'result' | 'confirmed'
@@ -114,7 +135,11 @@ export default function CreateOrderPage() {
         strategy === 'price' ? optimizeByPrice :
         strategy === 'fewest_stores' ? optimizeByFewestStores :
         optimizeBalanced;
+      const calcStart = Date.now();
       const optimized = optimizeFn(itemResults);
+      const calcDuration = Date.now() - calcStart;
+      const noResultCount = optimized.noResultItems?.length ?? 0;
+      recordOptimizationRun(strategy, calcDuration, noResultCount);
       setResult(optimized);
       setPhase('result');
     } catch (err) {
@@ -195,6 +220,8 @@ export default function CreateOrderPage() {
       deliveryMode: wantsDelivery,
     });
 
+    recordOrderConfirmed(strategy, wantsDelivery, result?.totalCost ?? 0, result?.savingsPct ?? 0);
+    setConfirmed(true);
     setSaving(false);
     setPhase('confirmed');
     setTimeout(() => navigate('/lista'), 1500);
