@@ -115,6 +115,18 @@ npm run dev
 | `nosee_publications_upvote_ratio` | Índice de veracidad (gauge) | >0.85 |
 | `nosee_publications_reports_total` | Contenido denunciado | <5% activas |
 
+### Proceso 3 — Gestión de Pedido, Optimización de Compra y Ubicación
+
+| Métrica Prometheus | Descripción | Meta |
+|--------------------|-------------|------|
+| `nosee_shopping_list_order_started_total` | Inicio del flujo de pedido | — |
+| `nosee_shopping_list_order_abandoned_total` | Abandono de CreateOrderPage sin confirmar | <20% de iniciados |
+| `nosee_orders_created_total{strategy,delivery_mode}` | Pedidos confirmados | — |
+| `nosee_orders_optimization_total{strategy}` | Ejecuciones del motor por estrategia | — |
+| `nosee_orders_optimization_duration_ms` | Latencia del cálculo de optimización (histogram) | <5000 ms |
+| `nosee_orders_no_results_items_total` | Ítems sin publicaciones en el área | 0 |
+| `nosee_orders_savings_percent` | % de ahorro por pedido (histogram) | >0% |
+
 ### Rendimiento
 
 | Métrica Prometheus | Descripción | Meta (PDF) |
@@ -148,6 +160,7 @@ Paneles incluidos:
 - **Fila 3 — Publicaciones:** Upvote ratio, Densidad evidencia, Publicaciones 24h, Reportes 24h
 - **Fila 4 — Votos:** Upvotes vs Downvotes en el tiempo
 - **Fila 5 — Rendimiento:** Latencia API P95 por endpoint, Percentiles P50/P95/P99
+- **Fila 6 — Proceso 3:** Pedidos confirmados, Tasa abandono, Latencia optimización P95, Ahorro P50, Ítems sin resultado, Estrategia usada, Pedidos por modo entrega
 
 ---
 

@@ -217,3 +217,59 @@ export function recordGeocodingRequest(result, type = 'reverse') {
 export function recordVoteDuplicateRejected() {
   push('vote_duplicate_rejected', {});
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROCESO 3 — Gestión de Pedido, Optimización de Compra y Ubicación
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Métrica: Inicio del flujo de pedido (denominador para tasa de abandono)
+ * Llamar cuando el usuario navega a CreateOrderPage con ítems seleccionados.
+ *
+ * @param {number} itemCount — Cantidad de ítems seleccionados
+ */
+export function recordShoppingListOrderStarted(itemCount) {
+  push('shopping_list_order_started', { item_count: itemCount });
+}
+
+/**
+ * Métrica: Abandono del flujo de pedido (meta: <20% de los iniciados)
+ * Llamar cuando el usuario abandona CreateOrderPage sin confirmar.
+ */
+export function recordShoppingListOrderAbandoned() {
+  push('shopping_list_order_abandoned', {});
+}
+
+/**
+ * Métrica: Ejecución del motor de optimización
+ * (Latencia meta: <5000ms; ítems sin resultado meta: 0)
+ *
+ * @param {'price'|'fewest_stores'|'balanced'} strategy — Algoritmo usado
+ * @param {number} durationMs — Tiempo de cálculo en ms
+ * @param {number} noResultCount — Ítems sin publicaciones encontradas
+ */
+export function recordOptimizationRun(strategy, durationMs, noResultCount) {
+  push('optimization_run', {
+    strategy,
+    duration_ms: durationMs,
+    no_result_count: noResultCount,
+  });
+}
+
+/**
+ * Métrica: Pedido confirmado por el usuario
+ * (Efectividad del motor: ahorro registrado)
+ *
+ * @param {'price'|'fewest_stores'|'balanced'} strategy — Estrategia usada
+ * @param {boolean} deliveryMode — true = domicilio, false = voy yo
+ * @param {number} totalCost — Costo total del pedido en COP
+ * @param {number} savingsPct — Porcentaje de ahorro respecto al precio máximo
+ */
+export function recordOrderConfirmed(strategy, deliveryMode, totalCost, savingsPct) {
+  push('order_confirmed', {
+    strategy,
+    delivery_mode: deliveryMode ? 'delivery' : 'pickup',
+    total_cost: totalCost,
+    savings_pct: savingsPct,
+  });
+}

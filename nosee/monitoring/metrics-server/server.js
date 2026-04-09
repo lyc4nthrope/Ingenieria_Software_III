@@ -24,6 +24,15 @@
  *   nosee_publications_upvote_ratio     (gauge, meta: >0.85)
  *   nosee_publications_reports_total    (meta: <5% de activas)
  *
+ * Proceso 3 — Gestión de Pedido, Optimización de Compra y Ubicación
+ *   nosee_shopping_list_order_started_total
+ *   nosee_shopping_list_order_abandoned_total (meta: <20% de iniciados)
+ *   nosee_orders_created_total{strategy,delivery_mode}
+ *   nosee_orders_optimization_total{strategy}
+ *   nosee_orders_optimization_duration_ms     (meta: <5000ms)
+ *   nosee_orders_no_results_items_total       (meta: 0)
+ *   nosee_orders_savings_percent              (meta: >0%)
+ *
  * Rendimiento
  *   nosee_api_request_duration_ms       (meta: <3000ms)
  */
@@ -208,6 +217,56 @@ const voteDuplicateRejectedTotal = new Counter({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PROCESO 3 — Gestión de Pedido, Optimización de Compra y Ubicación
+// ─────────────────────────────────────────────────────────────────────────────
+
+const shoppingListOrderStartedTotal = new Counter({
+  name: 'nosee_shopping_list_order_started_total',
+  help: 'Usuarios que inician el flujo de creación de pedido (denominador para tasa de abandono)',
+  registers: [register],
+});
+
+const shoppingListOrderAbandonedTotal = new Counter({
+  name: 'nosee_shopping_list_order_abandoned_total',
+  help: 'Usuarios que abandonan CreateOrderPage sin confirmar (meta: <20% de los iniciados)',
+  registers: [register],
+});
+
+const ordersCreatedTotal = new Counter({
+  name: 'nosee_orders_created_total',
+  help: 'Pedidos confirmados por el usuario',
+  labelNames: ['strategy', 'delivery_mode'],
+  registers: [register],
+});
+
+const ordersOptimizationTotal = new Counter({
+  name: 'nosee_orders_optimization_total',
+  help: 'Ejecuciones del motor de optimización por estrategia',
+  labelNames: ['strategy'],
+  registers: [register],
+});
+
+const ordersOptimizationDurationMs = new Histogram({
+  name: 'nosee_orders_optimization_duration_ms',
+  help: 'Duración del cálculo de optimización en ms (meta: <5000ms)',
+  buckets: [200, 500, 1000, 2000, 3000, 5000, 8000, 15000],
+  registers: [register],
+});
+
+const ordersNoResultItemsTotal = new Counter({
+  name: 'nosee_orders_no_results_items_total',
+  help: 'Ítems sin publicaciones encontradas en el área (meta: 0)',
+  registers: [register],
+});
+
+const ordersSavingsPct = new Histogram({
+  name: 'nosee_orders_savings_percent',
+  help: 'Porcentaje de ahorro por pedido respecto al precio máximo (meta: >0%)',
+  buckets: [0, 5, 10, 15, 20, 30, 40, 50, 60, 75, 100],
+  registers: [register],
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // RENDIMIENTO
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -363,6 +422,39 @@ app.post('/api/metrics', (req, res) => {
     case 'vote_duplicate_rejected':
       voteDuplicateRejectedTotal.inc();
       break;
+
+    // ── Proceso 3 ─────────────────────────────────────────────────────────────
+    case 'shopping_list_order_started':
+      shoppingListOrderStartedTotal.inc();
+      break;
+
+    case 'shopping_list_order_abandoned':
+      shoppingListOrderAbandonedTotal.inc();
+      break;
+
+    case 'optimization_run': {
+      const strat = ['price', 'fewest_stores', 'balanced'].includes(data.strategy)
+        ? data.strategy : 'unknown';
+      ordersOptimizationTotal.inc({ strategy: strat });
+      if (typeof data.duration_ms === 'number') {
+        ordersOptimizationDurationMs.observe(data.duration_ms);
+      }
+      if (typeof data.no_result_count === 'number' && data.no_result_count > 0) {
+        ordersNoResultItemsTotal.inc(data.no_result_count);
+      }
+      break;
+    }
+
+    case 'order_confirmed': {
+      const strat = ['price', 'fewest_stores', 'balanced'].includes(data.strategy)
+        ? data.strategy : 'unknown';
+      const mode = data.delivery_mode === 'delivery' ? 'delivery' : 'pickup';
+      ordersCreatedTotal.inc({ strategy: strat, delivery_mode: mode });
+      if (typeof data.savings_pct === 'number') {
+        ordersSavingsPct.observe(data.savings_pct);
+      }
+      break;
+    }
 
     // ── Rendimiento ───────────────────────────────────────────────────────
     case 'api_latency':
