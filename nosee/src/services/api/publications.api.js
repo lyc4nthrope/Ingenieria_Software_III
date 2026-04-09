@@ -1309,7 +1309,7 @@ export const validatePublication = async (publicationId, voteType = 1) => {
       .select("id")
       .eq("publication_id", publicationId)
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
     if (existingVote) {
       recordVoteDuplicateRejected();
