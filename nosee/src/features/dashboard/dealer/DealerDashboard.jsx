@@ -1156,12 +1156,38 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
                       >
                         {done ? '✓' : ''}
                       </span>
-                      <span style={{ flex: 1 }} onClick={() => onToggleCheck(key)}>
-                        {p.item?.productName ?? '?'}
-                        <span style={{ color: MUTED, fontSize: 12 }}>
-                          {' '}×{p.item?.quantity ?? 1}
+                      <div
+                        style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1, cursor: 'pointer', ...(done ? { textDecoration: 'line-through', opacity: 0.6 } : {}) }}
+                        onClick={() => onToggleCheck(key)}
+                      >
+                        {/* Nombre del ítem en la lista + cantidad pedida */}
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {p.item?.productName ?? '?'}
+                          <span style={{ color: MUTED, fontWeight: 400 }}>{' '}×{p.item?.quantity ?? 1}</span>
                         </span>
-                      </span>
+                        {/* Detalles del producto publicado (marca, variante, unidad) */}
+                        {(() => {
+                          const prod = p.publication?.product;
+                          if (!prod) return null;
+                          const unitDetail = [
+                            prod.base_quantity,
+                            prod.unit_type?.abbreviation ?? prod.unit_type?.name,
+                          ].filter(Boolean).join(' ');
+                          return (
+                            <>
+                              {prod.name && (
+                                <span style={{ fontSize: 11, color: MUTED }}>{prod.name}</span>
+                              )}
+                              {prod.brand?.name && (
+                                <span style={{ fontSize: 11, color: MUTED }}>{prod.brand.name}</span>
+                              )}
+                              {unitDetail && (
+                                <span style={{ fontSize: 11, color: MUTED }}>{unitDetail}</span>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                         <span style={{ fontSize: 12, color: MUTED }}>
                           ${Number(p.price ?? 0).toLocaleString('es-CO')}
