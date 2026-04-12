@@ -880,15 +880,17 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
           )}
         </div>
 
-        {/* Flujo PIN cuando llegó a la puerta y timer NO venció (RF-03) */}
-        {order.status === 'llegando' && !isExpired && (
+        {/* Flujo PIN — siempre visible en llegando (RF-03).
+            Cuando el timer vence, el PIN sigue disponible por si el cliente
+            llegó tarde pero sí está. El botón "no pagó" es la alternativa. */}
+        {order.status === 'llegando' && (
           <div style={{
             padding: '12px 14px',
             background: 'var(--bg-elevated)', border: '1px solid var(--border)',
             borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 8,
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: MUTED }}>
-              🔑 Pedile al cliente el PIN de entrega de 4 dígitos
+              🔑 {isExpired ? 'Si el cliente apareció, ingresá el PIN para cerrar el pedido' : 'Pedile al cliente el PIN de entrega de 4 dígitos'}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
