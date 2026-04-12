@@ -28,6 +28,7 @@ const STATUS_MAP = {
   llegando:               'llegando',
   entregado:              'entregado',
   cancelado:              'cancelled',
+  cancelado_no_pago:      'cancelado_no_pago',
   usuario_se_encarga:     'auto_gestionado',
 };
 

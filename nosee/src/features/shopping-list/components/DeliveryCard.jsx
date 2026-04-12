@@ -81,6 +81,14 @@ const STATUS_CONFIGS = {
     showCancel: false,
     step: 0,
   },
+  cancelado_no_pago: {
+    icon: '⚠️', bg: 'var(--error-soft, #fee2e2)', border: 'var(--error, #dc2626)',
+    color: 'var(--error, #dc2626)',
+    title: 'Pedido reportado por no pago',
+    desc: 'El repartidor reportó que no recibió el pago al momento de la entrega.',
+    showCancel: false,
+    step: 0,
+  },
   auto_gestionado: {
     icon: '🙋', bg: 'var(--bg-elevated)', border: 'var(--border)',
     color: 'var(--text-muted)',
@@ -111,6 +119,10 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
   const [mpError, setMpError]           = useState(null);
   const [mpCustomerId, setMpCustomerId] = useState(null);
   const [mpCustomerReady, setMpCustomerReady] = useState(false);
+  const [showCounterModal, setShowCounterModal] = useState(false);
+  const [counterNote, setCounterNote]           = useState('');
+  const [counterSubmitting, setCounterSubmitting] = useState(false);
+  const [counterDone, setCounterDone]             = useState(false);
   const userId = useAuthStore((s) => s.user?.id);
 
   // Timer de 10 min para el Caso D (cliente ausente) — solo activo en estado 'llegando'
@@ -235,6 +247,43 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
 
   const currentStep = cfg.step;
 
+  // Captura GPS del cliente y registra el contrareporte en reports
+  const handleCounterReport = async () => {
+    setCounterSubmitting(true);
+    let gpsEvidence = null;
+    try {
+      await new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            gpsEvidence = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+            resolve();
+          },
+          () => resolve(),
+          { timeout: 5000, maximumAge: 30_000 }
+        );
+      });
+    } catch { /* noop */ }
+
+    await supabase.from('reports').insert({
+      reported_type:    'counter_no_payment',
+      reported_id:      String(order.supabaseId),
+      reporter_user_id: userId,
+      reported_user_id: null,
+      reason:           'counter_dispute',
+      description:      JSON.stringify({
+        note:       counterNote || null,
+        gps_client: gpsEvidence,
+        timestamp:  new Date().toISOString(),
+      }),
+      status: 'pending',
+    });
+
+    setCounterSubmitting(false);
+    setCounterDone(true);
+    setShowCounterModal(false);
+    setCounterNote('');
+  };
+
   // Cancelled / auto_gestionado state — simple terminal banner
   if (deliveryStatus === 'cancelled' || deliveryStatus === 'auto_gestionado') {
     return (
@@ -249,6 +298,134 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{desc}</div>
         </div>
       </div>
+    );
+  }
+
+  // cancelado_no_pago — banner con opción de contrareporte
+  if (deliveryStatus === 'cancelado_no_pago') {
+    return (
+      <>
+        <div style={{
+          padding: '14px 16px', borderRadius: 'var(--radius-md)',
+          background: cfg.bg, border: `1px solid ${cfg.border}`,
+          display: 'flex', flexDirection: 'column', gap: '12px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <span style={{ fontSize: '20px', flexShrink: 0 }}>⚠️</span>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: cfg.color }}>{cfg.title}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.5 }}>{cfg.desc}</div>
+            </div>
+          </div>
+
+          {counterDone ? (
+            <div style={{
+              fontSize: '12px', fontWeight: 700, color: 'var(--success, #16a34a)',
+              padding: '10px 12px',
+              background: 'var(--success-soft, #dcfce7)',
+              border: '1px solid var(--success, #16a34a)',
+              borderRadius: '8px',
+            }}>
+              ✓ Contrareporte enviado — el equipo de NØSEE revisará ambas partes.
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowCounterModal(true)}
+              style={{
+                padding: '10px 14px', borderRadius: 'var(--radius-sm)',
+                border: `1px solid ${cfg.border}`,
+                background: 'transparent', color: cfg.color,
+                fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                alignSelf: 'flex-start',
+              }}
+            >
+              📋 Hacer contrareporte
+            </button>
+          )}
+        </div>
+
+        {showCounterModal && (
+          <div
+            style={{
+              position: 'fixed', inset: 0,
+              background: 'var(--overlay, rgba(0,0,0,0.55))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1000, padding: '16px',
+            }}
+            onClick={() => { setShowCounterModal(false); setCounterNote(''); }}
+          >
+            <div
+              style={{
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '24px',
+                width: 'min(440px, 100%)',
+                display: 'flex', flexDirection: 'column', gap: 16,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Título */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>
+                  📋 Contrareporte
+                </h2>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  Se registrará tu <strong>ubicación actual</strong> como evidencia.
+                  El equipo de NØSEE revisará el reporte del repartidor y el tuyo.
+                </p>
+              </div>
+
+              {/* Nota */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  ¿Qué pasó? (opcional)
+                </label>
+                <textarea
+                  value={counterNote}
+                  onChange={(e) => setCounterNote(e.target.value)}
+                  placeholder="Ej: sí realicé el pago, tengo comprobante de transferencia..."
+                  rows={3}
+                  style={{
+                    width: '100%', padding: '10px 12px', fontSize: 13,
+                    border: '1px solid var(--border)', borderRadius: 8,
+                    background: 'var(--bg-base)', color: 'var(--text-primary)',
+                    resize: 'vertical', outline: 'none', fontFamily: 'inherit',
+                    boxSizing: 'border-box', lineHeight: 1.5,
+                  }}
+                />
+              </div>
+
+              {/* Acciones */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => { setShowCounterModal(false); setCounterNote(''); }}
+                  style={{
+                    flex: 1, padding: '10px 14px', borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'transparent',
+                    color: 'var(--text-muted)', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCounterReport}
+                  disabled={counterSubmitting}
+                  style={{
+                    flex: 2, padding: '10px 14px', borderRadius: 8, border: 'none',
+                    background: 'var(--accent)', color: '#fff',
+                    fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    ...(counterSubmitting ? { opacity: 0.7 } : {}),
+                  }}
+                >
+                  {counterSubmitting ? 'Enviando...' : '✓ Enviar contrareporte'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 

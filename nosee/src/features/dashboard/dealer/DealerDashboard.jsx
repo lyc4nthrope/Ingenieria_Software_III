@@ -401,7 +401,7 @@ export default function DealerDashboard() {
 
     if (!error) {
       setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
-      setHistory((prev) => [{ ...order, status: 'cancelado' }, ...prev]);
+      setHistory((prev) => [{ ...order, status: 'cancelado_no_pago' }, ...prev]);
     }
   };
 
