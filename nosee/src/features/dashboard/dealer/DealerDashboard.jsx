@@ -39,6 +39,7 @@ import { useDeliveryTimer } from '@/features/orders/hooks/useDeliveryTimer';
 import { getDealerBankAccounts } from '@/services/api/bankAccounts.api';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { PriceReportInline } from '@/features/orders/components/PriceReportInline';
+import { parseStoreCoords } from '@/features/orders/utils/parseStoreCoords';
 
 // Etiquetas y próximo estado para cada transición
 const NEXT_LABEL = {
@@ -66,6 +67,18 @@ function extractItems(order) {
 function extractStores(order) {
   if (!Array.isArray(order.stores)) return [];
   return order.stores;
+}
+
+// Construye una URL de Google Maps con ruta multi-parada:
+// tiendas del pedido (en orden) → dirección de entrega.
+function buildGoogleMapsUrl(order) {
+  const stores   = extractStores(order);
+  const storePts = stores.map((s) => parseStoreCoords(s.store?.location)).filter(Boolean);
+  const dest     = order.delivery_coords ?? null;
+  const stops    = [...storePts, ...(dest ? [dest] : [])];
+  if (stops.length === 0) return null;
+  const path = stops.map((c) => `${c.lat},${c.lng}`).join('/');
+  return `https://www.google.com/maps/dir/${path}`;
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -1088,11 +1101,29 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
         <span style={{ fontSize: 12, color: MUTED }}>{expanded ? '▲' : '▼'}</span>
       </div>
 
-      {/* Dirección de entrega */}
-      <div style={r.orderAddress}>
-        📍 {order.delivery_address ?? 'Dirección no especificada'}
-        {order.delivery_apartment && (
-          <span style={{ color: MUTED, fontSize: 11 }}> · {order.delivery_apartment}</span>
+      {/* Dirección de entrega + botón Google Maps */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <div style={{ ...r.orderAddress, flex: 1, margin: 0 }}>
+          📍 {order.delivery_address ?? 'Dirección no especificada'}
+          {order.delivery_apartment && (
+            <span style={{ color: MUTED, fontSize: 11 }}> · {order.delivery_apartment}</span>
+          )}
+        </div>
+        {buildGoogleMapsUrl(order) && (
+          <a
+            href={buildGoogleMapsUrl(order)}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '5px 10px', borderRadius: 6, flexShrink: 0,
+              border: '1px solid var(--accent)', color: 'var(--accent)',
+              background: 'var(--accent-soft)', fontSize: 11, fontWeight: 700,
+              textDecoration: 'none', whiteSpace: 'nowrap',
+            }}
+          >
+            🗺 Maps
+          </a>
         )}
       </div>
 
