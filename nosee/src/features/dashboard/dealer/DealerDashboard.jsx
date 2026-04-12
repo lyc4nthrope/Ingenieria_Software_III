@@ -999,65 +999,96 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
           </div>
         )}
 
-        {/* Confirmación de reporte "El cliente no pagó" */}
-        {showNoPagoConfirm && (
-          <div style={{
-            padding: '12px 14px',
-            background: 'var(--error-soft, #fee2e2)', border: '1px solid var(--error, #dc2626)',
-            borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 10,
-          }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--error, #dc2626)' }}>
+      </div>
+    </article>
+
+    {/* ── Modal de confirmación "El cliente no pagó" ── */}
+    {showNoPagoConfirm && (
+      <div
+        style={{
+          position: 'fixed', inset: 0,
+          background: 'var(--overlay, rgba(0,0,0,0.55))',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '16px',
+        }}
+        onClick={() => { setShowNoPagoConfirm(false); setNoPagoNote(''); }}
+      >
+        <div
+          style={{
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--error, #dc2626)',
+            borderRadius: 'var(--radius-md)',
+            padding: '24px',
+            width: 'min(440px, 100%)',
+            display: 'flex', flexDirection: 'column', gap: 16,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Título */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--error, #dc2626)' }}>
               ⚠️ Reportar no pago
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              Se registrará tu <strong>ubicación actual</strong> como evidencia de que estabas en el punto de entrega.
-              Este reporte queda en el historial de la plataforma.
-            </div>
+            </h2>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Se registrará tu <strong>ubicación actual</strong> como evidencia de que
+              estabas en el punto de entrega. Este reporte queda en el historial de la plataforma.
+            </p>
+          </div>
+
+          {/* Nota opcional */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
+              Nota adicional (opcional)
+            </label>
             <textarea
               value={noPagoNote}
               onChange={(e) => setNoPagoNote(e.target.value)}
-              placeholder="Nota adicional (opcional): ej. no atendió el timbre, número no disponible..."
-              rows={2}
+              placeholder="Ej: no atendió el timbre, el número no estaba disponible..."
+              rows={3}
               style={{
-                width: '100%', padding: '8px 10px', fontSize: 12,
-                border: '1px solid var(--error, #dc2626)', borderRadius: 6,
+                width: '100%', padding: '10px 12px', fontSize: 13,
+                border: '1px solid var(--border)', borderRadius: 8,
                 background: 'var(--bg-base)', color: 'var(--text-primary)',
-                resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+                resize: 'vertical', outline: 'none', fontFamily: 'inherit',
+                boxSizing: 'border-box', lineHeight: 1.5,
               }}
             />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                style={{
-                  flex: 1, padding: '8px 12px', borderRadius: 6,
-                  border: '1px solid var(--border)', background: 'transparent',
-                  color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                }}
-                onClick={() => { setShowNoPagoConfirm(false); setNoPagoNote(''); }}
-                disabled={advancing}
-              >
-                Cancelar
-              </button>
-              <button
-                style={{
-                  flex: 2, padding: '8px 12px', borderRadius: 6, border: 'none',
-                  background: 'var(--error, #dc2626)', color: '#fff',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  ...(advancing ? { opacity: 0.7 } : {}),
-                }}
-                onClick={() => {
-                  onDeliveryFailed(noPagoNote);
-                  setShowNoPagoConfirm(false);
-                  setNoPagoNote('');
-                }}
-                disabled={advancing}
-              >
-                {advancing ? 'Procesando...' : '✗ Confirmar reporte'}
-              </button>
-            </div>
           </div>
-        )}
+
+          {/* Acciones */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              style={{
+                flex: 1, padding: '10px 14px', borderRadius: 8,
+                border: '1px solid var(--border)', background: 'transparent',
+                color: 'var(--text-muted)', fontSize: 13, fontWeight: 700,
+                cursor: 'pointer',
+              }}
+              onClick={() => { setShowNoPagoConfirm(false); setNoPagoNote(''); }}
+              disabled={advancing}
+            >
+              Cancelar
+            </button>
+            <button
+              style={{
+                flex: 2, padding: '10px 14px', borderRadius: 8, border: 'none',
+                background: 'var(--error, #dc2626)', color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                ...(advancing ? { opacity: 0.7 } : {}),
+              }}
+              onClick={() => {
+                onDeliveryFailed(noPagoNote);
+                setShowNoPagoConfirm(false);
+                setNoPagoNote('');
+              }}
+              disabled={advancing}
+            >
+              {advancing ? 'Procesando...' : '✗ Confirmar reporte'}
+            </button>
+          </div>
+        </div>
       </div>
-    </article>
+    )}
   );
 }
 
