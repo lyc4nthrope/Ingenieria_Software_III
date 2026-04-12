@@ -114,11 +114,11 @@ export default function DealerDashboard() {
   }, []);
 
   const loadHistory = useCallback(async () => {
-    // Pedidos entregados por este repartidor — RLS filtra dealer_id = auth.uid()
+    // Pedidos entregados o cancelados por no pago — RLS filtra dealer_id = auth.uid()
     const { data } = await supabase
       .from('orders')
-      .select('id, local_id, status, total_estimated, delivery_fee, created_at, delivery_address')
-      .eq('status', 'entregado')
+      .select('id, local_id, status, total_estimated, delivery_fee, created_at, delivery_address, checked_items, stores')
+      .in('status', ['entregado', 'cancelado_no_pago'])
       .order('created_at', { ascending: false })
       .limit(50);
     setHistory(data ?? []);
@@ -223,6 +223,10 @@ export default function DealerDashboard() {
         if (updated.status === 'entregado') {
           setActiveOrders((prev) => prev.filter((o) => o.id !== updated.id));
           setHistory((prev) => [updated, ...prev]);
+        } else if (updated.status === 'cancelado_no_pago') {
+          setActiveOrders((prev) => prev.filter((o) => o.id !== updated.id));
+          setHistory((prev) => [updated, ...prev]);
+          loadAvailable();
         } else if (updated.status === 'cancelado') {
           setActiveOrders((prev) => prev.filter((o) => o.id !== updated.id));
           loadAvailable(); // puede volver a estar disponible
@@ -641,19 +645,43 @@ export default function DealerDashboard() {
               </div>
             ) : (
               <div style={r.historyList}>
-                {history.map((h) => (
-                  <div key={h.id} style={r.historyRow}>
-                    <div style={r.histId}>{h.local_id ?? `#${h.id}`}</div>
-                    <div style={r.histClient}>{h.delivery_address ?? '—'}</div>
-                    <div style={r.histTotal}>+${Number(h.delivery_fee ?? 0).toLocaleString('es-CO')}</div>
-                    <span style={{ ...r.statusBadge, background: 'var(--success-soft)', color: 'var(--success)' }}>
-                      Entregado
-                    </span>
-                    <div style={r.histDate}>
-                      {new Date(h.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                {history.map((h) => {
+                  const isNoPago      = h.status === 'cancelado_no_pago';
+                  const checkedCount  = Object.values(h.checked_items ?? {}).filter(Boolean).length;
+                  const totalItems    = (h.stores ?? []).reduce((sum, s) => sum + (s.products?.length ?? 0), 0);
+                  return (
+                    <div key={h.id} style={r.historyRow}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={r.histId}>{h.local_id ?? `#${h.id}`}</div>
+                          <span style={{
+                            ...r.statusBadge,
+                            background: isNoPago ? 'var(--error-soft, #fee2e2)' : 'var(--success-soft)',
+                            color:      isNoPago ? 'var(--error, #dc2626)'      : 'var(--success)',
+                          }}>
+                            {isNoPago ? 'No pagó' : 'Entregado'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {h.delivery_address ?? '—'}
+                        </div>
+                        {totalItems > 0 && (
+                          <div style={{ fontSize: 11, color: checkedCount === totalItems ? 'var(--success)' : MUTED, fontWeight: 600 }}>
+                            {checkedCount}/{totalItems} productos tachados
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                        <div style={r.histTotal}>
+                          {isNoPago ? '—' : `+$${Number(h.delivery_fee ?? 0).toLocaleString('es-CO')}`}
+                        </div>
+                        <div style={r.histDate}>
+                          {new Date(h.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>
