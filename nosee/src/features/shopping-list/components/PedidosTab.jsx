@@ -26,6 +26,7 @@ const STATUS_MAP = {
   comprando:              'comprando',
   en_camino:              'en_camino',
   llegando:               'llegando',
+  comprobante_subido:     'comprobante_subido',
   entregado:              'entregado',
   cancelado:              'cancelled',
   cancelado_no_pago:      'cancelado_no_pago',
@@ -308,6 +309,27 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     return () => supabase.removeChannel(channel);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.supabaseId, selectedOrder?.id]);
+
+  // ── INFO DEL REPARTIDOR ───────────────────────────────────────────────────────
+  // Cuando se asigna un repartidor, fetchea su nombre y teléfono para mostrárselos al cliente.
+  useEffect(() => {
+    const dealerId = selectedOrder?.dealerId;
+    if (!dealerId) return;
+
+    supabase
+      .from('users')
+      .select('full_name, phone_number')
+      .eq('id', dealerId)
+      .single()
+      .then(({ data }) => {
+        if (!data) return;
+        updateOrderDeliveryRef.current(selectedOrder.id, {
+          ...(data.full_name    ? { dealerName:  data.full_name    } : {}),
+          ...(data.phone_number ? { dealerPhone: data.phone_number } : {}),
+        });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.dealerId, selectedOrder?.id]);
 
   // ── REALTIME: ubicación GPS del repartidor ─────────────────────────────────
   // Se activa cuando el repartidor es asignado (dealerId en el pedido).

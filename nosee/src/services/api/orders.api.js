@@ -128,7 +128,7 @@ export async function getOrderById(id) {
 export async function getAvailableOrders({ limit = 30 } = {}) {
   const { data, error } = await supabase
     .from('orders')
-    .select('id, local_id, status, delivery_address, delivery_coords, stores, items, total_estimated, delivery_fee, created_at, is_priority')
+    .select('id, local_id, status, delivery_address, delivery_coords, stores, items, total_estimated, delivery_fee, created_at, is_priority, payment_method')
     .eq('status', 'pendiente_repartidor')
     .order('is_priority', { ascending: false }) // prioritarios primero
     .order('created_at', { ascending: true })
@@ -144,7 +144,7 @@ export async function getDealerActiveOrders() {
   const { data, error } = await supabase
     .from('orders')
     .select('*')
-    .in('status', ['aceptado', 'pendiente_compromiso', 'comprando', 'en_camino', 'llegando'])
+    .in('status', ['aceptado', 'pendiente_compromiso', 'comprando', 'en_camino', 'llegando', 'comprobante_subido'])
     .order('created_at', { ascending: false });
 
   return { data: data ?? [], error };
@@ -478,6 +478,15 @@ export async function updateCheckedItems(orderId, checkedItems) {
  */
 export async function cancelOrderByUser(orderId) {
   const { error } = await supabase.rpc('cancel_order_by_user', { p_order_id: orderId });
+  return { error };
+}
+
+/**
+ * El usuario solicita cambiar de repartidor (solo disponible en pendiente_compromiso / aceptado).
+ * Desasigna al repartidor y vuelve el pedido al pool.
+ */
+export async function requestDealerChange(orderId) {
+  const { error } = await supabase.rpc('request_dealer_change', { p_order_id: orderId });
   return { error };
 }
 

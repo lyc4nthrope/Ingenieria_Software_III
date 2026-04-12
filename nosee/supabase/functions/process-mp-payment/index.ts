@@ -187,12 +187,14 @@ Deno.serve(async (req) => {
     }
   } else {
     // Pago final (llegando): avanza a comprobante_subido para que el repartidor confirme con PIN
-    const { error: rpcErr } = await anonClient.rpc("advance_order_status", {
-      p_order_id:   orderId,
-      p_new_status: "comprobante_subido",
-    });
+    // Se usa adminClient con update directo porque advance_order_status no incluye esta transición
+    const { error: rpcErr } = await adminClient
+      .from("orders")
+      .update({ status: "comprobante_subido" })
+      .eq("id", orderId)
+      .eq("status", "llegando");
     if (rpcErr) {
-      console.error("[process-mp-payment] advance_order_status failed:", rpcErr.message);
+      console.error("[process-mp-payment] status update failed:", rpcErr.message);
       return json(500, { error: "Payment approved but status update failed", detail: rpcErr.message });
     }
   }

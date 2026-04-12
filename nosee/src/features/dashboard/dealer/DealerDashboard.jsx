@@ -98,6 +98,8 @@ export default function DealerDashboard() {
   const [acceptError,     setAcceptError]     = useState(null);
   const [cancelingId,     setCancelingId]     = useState(null);  // id del pedido que se está cancelando
   const [noBankWarning,   setNoBankWarning]   = useState(false); // aviso sin cuentas bancarias
+  const [noPhoneWarning,  setNoPhoneWarning]  = useState(false); // aviso sin teléfono de contacto
+  const [dealerAccounts,  setDealerAccounts]  = useState([]);    // cuentas del repartidor (para filtrar pedidos)
   const [reportingOrder,  setReportingOrder]  = useState(null);
   const [reportNote,      setReportNote]      = useState('');
   const [reportSubmitting,setReportSubmitting]= useState(false);
@@ -150,6 +152,14 @@ export default function DealerDashboard() {
       initializedRef.current = true;
     });
   }, [loadAvailable, loadActive, loadHistory]);
+
+  // Cargar cuentas del repartidor para saber qué métodos de pago acepta (filtrar pedidos)
+  useEffect(() => {
+    if (!dealer?.id) return;
+    getDealerBankAccounts(dealer.id).then(({ data }) => {
+      setDealerAccounts(data ?? []);
+    });
+  }, [dealer?.id]);
 
   // Inicializar checklist desde Supabase al cargar pedidos activos.
   // Solo setea el estado si no hay datos locales previos (evita pisar cambios en vuelo).
@@ -268,10 +278,23 @@ export default function DealerDashboard() {
     setAcceptingId(orderId);
     setAcceptError(null);
     setNoBankWarning(false);
+    setNoPhoneWarning(false);
+
+    // Guard: verificar que el repartidor tenga teléfono de contacto configurado
+    if (!dealer?.phone_number) {
+      // Intento refrescar desde DB por si se acaba de guardar
+      const { data: userData } = await supabase.from('users').select('phone_number').eq('id', dealer.id).single();
+      if (!userData?.phone_number) {
+        setNoPhoneWarning(true);
+        setAcceptingId(null);
+        return;
+      }
+    }
 
     // Guard: verificar que el repartidor tenga al menos una cuenta bancaria
     if (dealer?.id) {
       const { data: accounts } = await getDealerBankAccounts(dealer.id);
+      setDealerAccounts(accounts ?? []);
       if (!accounts || accounts.length === 0) {
         setNoBankWarning(true);
         setAcceptingId(null);
@@ -451,6 +474,7 @@ export default function DealerDashboard() {
     comprando:            { label: 'Comprando',            color: 'var(--warning)',       bg: 'var(--warning-soft)' },
     en_camino:            { label: 'En camino',            color: 'var(--success)',       bg: 'var(--success-soft)' },
     llegando:             { label: 'En la puerta',         color: 'var(--accent)',        bg: 'var(--accent-soft)' },
+    comprobante_subido:   { label: 'Pago recibido',        color: 'var(--success)',       bg: 'var(--success-soft)' },
     entregado:            { label: 'Entregado',            color: 'var(--success)',       bg: 'var(--success-soft)' },
     cancelado:            { label: 'Cancelado',            color: 'var(--error)',         bg: 'var(--error-soft)' },
   };
@@ -599,34 +623,50 @@ export default function DealerDashboard() {
               <div style={r.errorBanner}>{loadAvailError}</div>
             )}
 
+            {noPhoneWarning && (
+              <div style={{ ...r.errorBanner, background: 'var(--warning-soft, #fef9c3)', borderColor: 'var(--warning, #ca8a04)', color: '#92400e' }}>
+                <strong>📞 Necesitás configurar tu teléfono de contacto.</strong>{' '}
+                Andá a tu <a href="/perfil" style={{ color: 'inherit', fontWeight: 700 }}>perfil</a> → sección "Teléfono de contacto" para habilitarte.
+              </div>
+            )}
             {noBankWarning && (
               <div style={{ ...r.errorBanner, background: 'var(--warning-soft, #fef9c3)', borderColor: 'var(--warning, #ca8a04)', color: '#92400e' }}>
-                <strong>⚠️ Configurá tus datos de cobro antes de aceptar pedidos.</strong>{' '}
-                Andá a tu <a href="/perfil" style={{ color: 'inherit', fontWeight: 700 }}>perfil</a> → sección "Métodos de cobro" y agregá al menos una cuenta bancaria.
+                <strong>⚠️ Configurá tus métodos de cobro antes de aceptar pedidos.</strong>{' '}
+                Andá a tu <a href="/perfil" style={{ color: 'inherit', fontWeight: 700 }}>perfil</a> → sección "Métodos de cobro" y agregá al menos un método (efectivo o cuenta bancaria).
               </div>
             )}
 
             {loadingAvail ? (
               <div style={r.empty}><span style={{ fontSize: 32 }}>⏳</span><p>Cargando pedidos...</p></div>
-            ) : available.length === 0 ? (
-              <div style={r.empty}>
-                <span style={{ fontSize: 40 }}>◎</span>
-                <p>No hay pedidos disponibles en este momento.</p>
-              </div>
-            ) : (
-              <div style={r.orderList}>
-                {available.map((order) => (
-                  <AvailableOrderCard
-                    key={order.id}
-                    order={order}
-                    accepting={acceptingId === order.id}
-                    canceling={cancelingId === order.id}
-                    onAccept={() => handleAccept(order.id)}
-                    onCancel={() => handleCancel(order.id)}
-                  />
-                ))}
-              </div>
-            )}
+            ) : (() => {
+              // Filtrar por métodos de pago del repartidor
+              const hasCash     = dealerAccounts.some((a) => a.method === 'efectivo');
+              const hasTransfer = dealerAccounts.some((a) => a.method !== 'efectivo');
+              const filtered = dealerAccounts.length === 0 ? available : available.filter((o) => {
+                if (o.payment_method === 'efectivo')      return hasCash;
+                if (o.payment_method === 'transferencia') return hasTransfer;
+                return true;
+              });
+              return filtered.length === 0 ? (
+                <div style={r.empty}>
+                  <span style={{ fontSize: 40 }}>◎</span>
+                  <p>No hay pedidos disponibles para tus métodos de cobro en este momento.</p>
+                </div>
+              ) : (
+                <div style={r.orderList}>
+                  {filtered.map((order) => (
+                    <AvailableOrderCard
+                      key={order.id}
+                      order={order}
+                      accepting={acceptingId === order.id}
+                      canceling={cancelingId === order.id}
+                      onAccept={() => handleAccept(order.id)}
+                      onCancel={() => handleCancel(order.id)}
+                    />
+                  ))}
+                </div>
+              );
+            })()}
           </>
         )}
 
@@ -981,6 +1021,18 @@ function AvailableOrderCard({ order, accepting, canceling, onAccept, onCancel })
         <span style={{ ...r.statusBadge, background: 'var(--warning-soft)', color: '#92400e' }}>
           Disponible
         </span>
+        <span style={{
+          ...r.statusBadge,
+          background: order.payment_method === 'efectivo' ? 'var(--success-soft, #dcfce7)' : 'var(--bg-elevated)',
+          color: order.payment_method === 'efectivo' ? 'var(--success, #15803d)' : 'var(--text-muted)',
+        }}>
+          {order.payment_method === 'efectivo' ? '💵 Efectivo' : '📲 Transferencia'}
+        </span>
+        {order.is_priority && (
+          <span style={{ ...r.statusBadge, background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 800 }}>
+            ⭐ Prioritario
+          </span>
+        )}
         <div style={{ marginLeft: 'auto', fontSize: 12, color: MUTED }}>
           {new Date(order.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
         </div>
@@ -1326,17 +1378,38 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
           </button>
         )}
 
-        {/* Flujo PIN — siempre visible en llegando (RF-03).
+        {/* Banner de pago confirmado por pasarela */}
+        {order.status === 'comprobante_subido' && (
+          <div style={{
+            padding: '10px 14px',
+            background: 'var(--success-soft, #dcfce7)',
+            border: '1px solid var(--success, #16a34a)',
+            borderRadius: 6,
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span style={{ fontSize: 16 }}>✅</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--success, #16a34a)' }}>
+                El cliente pagó por pasarela
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--success, #16a34a)' }}>
+                Pedile el PIN para confirmar la entrega
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Flujo PIN — visible en llegando y comprobante_subido (RF-03).
             Cuando el timer vence, el PIN sigue disponible por si el cliente
             llegó tarde pero sí está. El botón "no pagó" es la alternativa. */}
-        {order.status === 'llegando' && (
+        {(order.status === 'llegando' || order.status === 'comprobante_subido') && (
           <div style={{
             padding: '12px 14px',
             background: 'var(--bg-elevated)', border: '1px solid var(--border)',
             borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 8,
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: MUTED }}>
-              🔑 {isExpired ? 'Si el cliente apareció, ingresá el PIN para cerrar el pedido' : 'Pedile al cliente el PIN de entrega de 4 dígitos'}
+              🔑 {order.status === 'comprobante_subido' ? 'Ingresá el PIN para confirmar la entrega' : isExpired ? 'Si el cliente apareció, ingresá el PIN para cerrar el pedido' : 'Pedile al cliente el PIN de entrega de 4 dígitos'}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
