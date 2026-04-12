@@ -30,6 +30,7 @@ import {
   updateProductPrice,
   logPriceCorrection,
   requestPriceAdjustment,
+  updateCheckedItems,
   PRICE_ADJUSTMENT_THRESHOLD,
 } from '@/services/api/orders.api';
 import { useDeliveryTimer } from '@/features/orders/hooks/useDeliveryTimer';
@@ -127,6 +128,21 @@ export default function DealerDashboard() {
       initializedRef.current = true;
     });
   }, [loadAvailable, loadActive, loadHistory]);
+
+  // Inicializar checklist desde Supabase al cargar pedidos activos.
+  // Solo setea el estado si no hay datos locales previos (evita pisar cambios en vuelo).
+  useEffect(() => {
+    if (activeOrders.length === 0) return;
+    setChecklist((prev) => {
+      const next = { ...prev };
+      activeOrders.forEach((o) => {
+        if (!next[o.id] && o.checked_items && typeof o.checked_items === 'object') {
+          next[o.id] = o.checked_items;
+        }
+      });
+      return next;
+    });
+  }, [activeOrders]);
 
   // ── GPS tracking ─────────────────────────────────────────────────────────
   // Solo envía ubicación mientras haya un pedido activo (respeta batería y privacidad).
@@ -351,12 +367,14 @@ export default function DealerDashboard() {
     }
   };
 
-  // ── Toggle checklist ────────────────────────────────────────────────────
+  // ── Toggle checklist ──────────────────��────────────────────────────��────
+  // Actualiza estado local y persiste en Supabase (fire-and-forget).
   const toggleCheck = (orderId, key) => {
-    setChecklist((prev) => ({
-      ...prev,
-      [orderId]: { ...(prev[orderId] ?? {}), [key]: !(prev[orderId]?.[key]) },
-    }));
+    setChecklist((prev) => {
+      const updated = { ...(prev[orderId] ?? {}), [key]: !(prev[orderId]?.[key]) };
+      updateCheckedItems(orderId, updated);
+      return { ...prev, [orderId]: updated };
+    });
   };
 
   // ── Stats sidebar ────────────────────────────────────────────────────────

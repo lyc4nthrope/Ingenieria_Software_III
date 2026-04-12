@@ -419,6 +419,21 @@ export async function getPendingAdjustments(orderId) {
 }
 
 /**
+ * Persiste el mapa de ítems chequeados por el repartidor.
+ * Formato: { "si-pi": true } donde si = storeIdx, pi = productIdx.
+ *
+ * @param {number} orderId      - id INTEGER del pedido
+ * @param {object} checkedItems - { "0-1": true, "1-0": false, ... }
+ */
+export async function updateCheckedItems(orderId, checkedItems) {
+  const { error } = await supabase
+    .from('orders')
+    .update({ checked_items: checkedItems })
+    .eq('id', orderId);
+  return { error };
+}
+
+/**
  * Cancela un pedido desde el lado del cliente (ej: tras rechazar un ajuste de precio).
  * Funciona en cualquier estado excepto 'entregado' o ya 'cancelado'.
  */

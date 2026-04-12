@@ -63,7 +63,7 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
             <div style={resv.storeHeader}>
               <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {!readOnly && checked > 0 && (
+                {checked > 0 && (
                   <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
                     {checked}/{s.products.length} ✓
                   </span>
@@ -251,7 +251,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
     supabase
       .from('orders')
-      .select('status, dealer_id, compromiso_amount')
+      .select('status, dealer_id, compromiso_amount, checked_items')
       .eq('id', selectedOrder.supabaseId)
       .single()
       .then(({ data }) => {
@@ -264,6 +264,9 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
             ...(data.compromiso_amount ? { compromisoAmount: data.compromiso_amount } : {}),
           });
         }
+        if (data.checked_items && typeof data.checked_items === 'object') {
+          applyDealerCheckedItems(selectedOrder.id, data.checked_items);
+        }
       });
 
     const channel = supabase
@@ -273,14 +276,18 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${selectedOrder.supabaseId}` },
         (payload) => {
           const uiStatus = STATUS_MAP[payload.new?.status];
-          if (!uiStatus) return;
-          updateOrderDeliveryRef.current(selectedOrder.id, {
-            deliveryStatus: uiStatus,
-            ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : {}),
-            // Capturar el timestamp de llegando para el timer de 10 min (Caso D)
-            ...(payload.new.status === 'llegando' ? { llegandoAt: payload.new.updated_at ?? payload.new.llegando_at ?? new Date().toISOString() } : {}),
-            ...(payload.new.compromiso_amount ? { compromisoAmount: payload.new.compromiso_amount } : {}),
-          });
+          if (uiStatus) {
+            updateOrderDeliveryRef.current(selectedOrder.id, {
+              deliveryStatus: uiStatus,
+              ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : {}),
+              // Capturar el timestamp de llegando para el timer de 10 min (Caso D)
+              ...(payload.new.status === 'llegando' ? { llegandoAt: payload.new.updated_at ?? payload.new.llegando_at ?? new Date().toISOString() } : {}),
+              ...(payload.new.compromiso_amount ? { compromisoAmount: payload.new.compromiso_amount } : {}),
+            });
+          }
+          if (payload.new?.checked_items && typeof payload.new.checked_items === 'object') {
+            applyDealerCheckedItems(selectedOrder.id, payload.new.checked_items);
+          }
         }
       )
       .subscribe();
@@ -375,6 +382,22 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     removeOrder(id);
     setConfirmDeleteId(null);
     setSelectedIdx((prev) => Math.max(0, prev - 1));
+  };
+
+  // Convierte checked_items del repartidor ({ "si-pi": true }) al formato del checklist
+  // del cliente ({ "localOrderId-si-pi": true }) y actualiza el estado.
+  // Reconstruye desde cero para manejar correctamente los ítems desmarcados.
+  const applyDealerCheckedItems = (localOrderId, dealerItems) => {
+    setChecklist((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((k) => {
+        if (k.startsWith(`${localOrderId}-`)) delete next[k];
+      });
+      Object.entries(dealerItems).forEach(([key, val]) => {
+        if (val) next[`${localOrderId}-${key}`] = true;
+      });
+      return next;
+    });
   };
 
   const toggleCheck = (key) => {
