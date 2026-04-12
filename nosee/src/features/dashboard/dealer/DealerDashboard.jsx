@@ -32,6 +32,7 @@ import {
   requestPriceAdjustment,
   updateCheckedItems,
   cancelOrderNoPago,
+  dealerCancelOrder,
   PRICE_ADJUSTMENT_THRESHOLD,
 } from '@/services/api/orders.api';
 import { useDeliveryTimer } from '@/features/orders/hooks/useDeliveryTimer';
@@ -84,10 +85,12 @@ export default function DealerDashboard() {
   const [acceptError,     setAcceptError]     = useState(null);
   const [cancelingId,     setCancelingId]     = useState(null);  // id del pedido que se está cancelando
   const [noBankWarning,   setNoBankWarning]   = useState(false); // aviso sin cuentas bancarias
-  const [reportingOrder,  setReportingOrder]  = useState(null);  // pedido del historial que se está reportando
+  const [reportingOrder,  setReportingOrder]  = useState(null);
   const [reportNote,      setReportNote]      = useState('');
   const [reportSubmitting,setReportSubmitting]= useState(false);
   const [reportedIds,     setReportedIds]     = useState(() => new Set());
+  const [dismissedIds,    setDismissedIds]    = useState(() => new Set());  // historial descartado localmente
+  const [cancellingOrder, setCancellingOrder] = useState(null);  // pedido activo que se está cancelando
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
   const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
   const [loadAvailError,  setLoadAvailError]  = useState(null);  // error al cargar disponibles
@@ -122,7 +125,7 @@ export default function DealerDashboard() {
     // RLS filtra dealer_id = auth.uid() — solo pedidos asignados a este repartidor
     const { data } = await supabase
       .from('orders')
-      .select('id, local_id, status, total_estimated, delivery_fee, created_at, delivery_address, checked_items, stores, user_id')
+      .select('id, local_id, status, total_estimated, delivery_fee, created_at, delivery_address, delivery_name, checked_items, stores, user_id')
       .in('status', ['entregado', 'cancelado_no_pago', 'cancelado'])
       .order('created_at', { ascending: false })
       .limit(50);
@@ -439,6 +442,19 @@ export default function DealerDashboard() {
     cancelado:            { label: 'Cancelado',            color: 'var(--error)',         bg: 'var(--error-soft)' },
   };
 
+  // Repartidor cancela un pedido activo con justificación
+  const handleDealerCancelSubmit = async (type, reason) => {
+    if (!cancellingOrder) return;
+    setAdvancingId(cancellingOrder.id);
+    const { error } = await dealerCancelOrder(cancellingOrder.id, type, reason);
+    setAdvancingId(null);
+    setCancellingOrder(null);
+    if (!error) {
+      setActiveOrders((prev) => prev.filter((o) => o.id !== cancellingOrder.id));
+      loadAvailable();
+    }
+  };
+
   // Reporta un pedido cancelado por el usuario (desde el historial)
   const handleHistoryReport = async () => {
     if (!reportingOrder) return;
@@ -637,6 +653,7 @@ export default function DealerDashboard() {
                     onAdvance={() => handleAdvance(order)}
                     onVerifyPin={(pin) => handleVerifyPin(order, pin)}
                     onDeliveryFailed={(note) => handleReportNoPago(order, note)}
+                    onDealerCancel={() => setCancellingOrder(order)}
                     onPriceReport={(si, pi, newPrice) => handlePriceReport(order, si, pi, newPrice)}
                   />
                 ))}
@@ -690,7 +707,7 @@ export default function DealerDashboard() {
               </div>
             ) : (
               <div style={r.historyList}>
-                {history.map((h) => {
+                {history.filter((h) => !dismissedIds.has(h.id)).map((h) => {
                   const isNoPago     = h.status === 'cancelado_no_pago';
                   const isCancelado  = h.status === 'cancelado';
                   const checkedCount = Object.values(h.checked_items ?? {}).filter(Boolean).length;
@@ -713,6 +730,11 @@ export default function DealerDashboard() {
                             <div style={r.histId}>{h.local_id ?? `#${h.id}`}</div>
                             <span style={{ ...r.statusBadge, ...badgeStyle }}>{badgeLabel}</span>
                           </div>
+                          {h.delivery_name && (
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
+                              👤 {h.delivery_name}
+                            </div>
+                          )}
                           <div style={{ fontSize: 11, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {h.delivery_address ?? '—'}
                           </div>
@@ -723,8 +745,18 @@ export default function DealerDashboard() {
                           )}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
-                          <div style={r.histTotal}>
-                            {(isNoPago || isCancelado) ? '—' : `+$${Number(h.delivery_fee ?? 0).toLocaleString('es-CO')}`}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={r.histTotal}>
+                              {(isNoPago || isCancelado) ? '—' : `+$${Number(h.delivery_fee ?? 0).toLocaleString('es-CO')}`}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setDismissedIds((prev) => new Set([...prev, h.id]))}
+                              title="Quitar del historial"
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 14, padding: '2px 4px', lineHeight: 1 }}
+                            >
+                              ✕
+                            </button>
                           </div>
                           <div style={r.histDate}>
                             {new Date(h.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
@@ -812,6 +844,110 @@ export default function DealerDashboard() {
           </>
         )}
       </main>
+
+      {/* ── Modal: repartidor cancela pedido activo ─────────────────── */}
+      {cancellingOrder && (
+        <DealerCancelModal
+          order={cancellingOrder}
+          advancing={advancingId === cancellingOrder.id}
+          onConfirm={handleDealerCancelSubmit}
+          onClose={() => setCancellingOrder(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── DealerCancelModal ────────────────────────────────────────────────────────
+function DealerCancelModal({ order, advancing, onConfirm, onClose }) {
+  const [cancelType,   setCancelType]   = useState('minor');
+  const [cancelReason, setCancelReason] = useState('');
+
+  const TYPES = [
+    { value: 'minor',     label: '⚠️ Causa menor',   desc: 'Inconveniente puntual (transporte, tiempo, etc.)' },
+    { value: 'emergency', label: '🚨 Emergencia',     desc: 'Situación que requiere atención inmediata' },
+  ];
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'var(--overlay, rgba(0,0,0,0.55))', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: 'var(--bg-elevated)', border: '1px solid var(--error, #dc2626)', borderRadius: 'var(--radius-md)', padding: 24, width: 'min(460px, 100%)', display: 'flex', flexDirection: 'column', gap: 18 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Título */}
+        <div>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--error, #dc2626)' }}>
+            ✕ Cancelar pedido
+          </h2>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            Pedido <strong>{order.local_id ?? `#${order.id}`}</strong> — el cliente será notificado y el pedido
+            volverá al pool como <strong>prioritario</strong>.
+          </p>
+        </div>
+
+        {/* Tipo de cancelación */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Motivo</span>
+          {TYPES.map((t) => (
+            <label
+              key={t.value}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px',
+                border: `2px solid ${cancelType === t.value ? 'var(--error, #dc2626)' : 'var(--border)'}`,
+                borderRadius: 8, cursor: 'pointer',
+                background: cancelType === t.value ? 'var(--error-soft, #fee2e2)' : 'transparent',
+              }}
+            >
+              <input
+                type="radio"
+                name="cancelType"
+                value={t.value}
+                checked={cancelType === t.value}
+                onChange={() => setCancelType(t.value)}
+                style={{ marginTop: 2, flexShrink: 0 }}
+              />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{t.label}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.desc}</div>
+              </div>
+            </label>
+          ))}
+        </div>
+
+        {/* Nota adicional */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
+            Explicación para el cliente (opcional)
+          </label>
+          <textarea
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Ej: se me pinchó la llanta, tuve una emergencia familiar..."
+            rows={3}
+            style={{ width: '100%', padding: '10px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-base)', color: 'var(--text-primary)', resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.5 }}
+          />
+        </div>
+
+        {/* Acciones */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={onClose}
+            style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+          >
+            Volver
+          </button>
+          <button
+            onClick={() => onConfirm(cancelType, cancelReason)}
+            disabled={advancing}
+            style={{ flex: 2, padding: '10px 14px', borderRadius: 8, border: 'none', background: 'var(--error, #dc2626)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', ...(advancing ? { opacity: 0.7 } : {}) }}
+          >
+            {advancing ? 'Cancelando...' : '✕ Confirmar cancelación'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -903,7 +1039,7 @@ function AvailableOrderCard({ order, accepting, canceling, onAccept, onCancel })
 // ─── ActiveOrderCard ──────────────────────────────────────────────────────────
 // Tarjeta del pedido asignado al repartidor. Muestra checklist de productos
 // cuando está "comprando" y el botón para avanzar al siguiente estado.
-function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onVerifyPin, onDeliveryFailed, onPriceReport }) {
+function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancing, onAdvance, onVerifyPin, onDeliveryFailed, onDealerCancel, onPriceReport }) {
   const si     = statusInfo[order.status] ?? statusInfo.aceptado;
   const stores = extractStores(order);
   const [expanded, setExpanded] = useState(true);
@@ -1110,6 +1246,23 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
             </button>
           )}
         </div>
+
+        {/* Botón cancelar pedido — no disponible una vez que llegó a la puerta */}
+        {order.status !== 'llegando' && (
+          <button
+            type="button"
+            onClick={onDealerCancel}
+            disabled={advancing}
+            style={{
+              padding: '8px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+              border: '1px solid var(--error, #dc2626)', background: 'transparent',
+              color: 'var(--error, #dc2626)', cursor: 'pointer', alignSelf: 'flex-start',
+              ...(advancing ? { opacity: 0.5 } : {}),
+            }}
+          >
+            ✕ Cancelar pedido
+          </button>
+        )}
 
         {/* Flujo PIN — siempre visible en llegando (RF-03).
             Cuando el timer vence, el PIN sigue disponible por si el cliente

@@ -252,7 +252,7 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
     supabase
       .from('orders')
-      .select('status, dealer_id, compromiso_amount, checked_items, delivery_pin')
+      .select('status, dealer_id, compromiso_amount, checked_items, delivery_pin, dealer_cancel_type, dealer_cancel_reason')
       .eq('id', selectedOrder.supabaseId)
       .single()
       .then(({ data }) => {
@@ -264,10 +264,12 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         }
         if (data.dealer_id) updates.dealerId = data.dealer_id;
         if (data.compromiso_amount) updates.compromisoAmount = data.compromiso_amount;
-        // Siempre sincronizar el PIN desde Supabase — puede ser null en el store
-        // si el usuario limpió caché o viene desde otro dispositivo.
         if (data.delivery_pin && !selectedOrder.deliveryPin) {
           updates.deliveryPin = data.delivery_pin;
+        }
+        if (data.status === 'pendiente_repartidor' && data.dealer_cancel_reason) {
+          updates.dealerCancelInfo = { type: data.dealer_cancel_type, reason: data.dealer_cancel_reason };
+          updates.dealerId = null;
         }
         if (Object.keys(updates).length > 0) {
           updateOrderDeliveryRef.current(selectedOrder.id, updates);
@@ -287,10 +289,13 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
           if (uiStatus) {
             updateOrderDeliveryRef.current(selectedOrder.id, {
               deliveryStatus: uiStatus,
-              ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : {}),
-              // Capturar el timestamp de llegando para el timer de 10 min (Caso D)
+              ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : { dealerId: null }),
               ...(payload.new.status === 'llegando' ? { llegandoAt: payload.new.updated_at ?? payload.new.llegando_at ?? new Date().toISOString() } : {}),
               ...(payload.new.compromiso_amount ? { compromisoAmount: payload.new.compromiso_amount } : {}),
+              // Motivo de cancelación del repartidor — visible al cliente en estado "searching"
+              ...(payload.new.status === 'pendiente_repartidor' && payload.new.dealer_cancel_reason
+                ? { dealerCancelInfo: { type: payload.new.dealer_cancel_type, reason: payload.new.dealer_cancel_reason } }
+                : {}),
             });
           }
           if (payload.new?.checked_items && typeof payload.new.checked_items === 'object') {

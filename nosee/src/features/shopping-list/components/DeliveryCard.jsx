@@ -106,7 +106,7 @@ const STEPS = [
 ];
 
 export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
-  const { deliveryStatus, cancellationCharged, dealerId, deliveryFee: storedFee, result, userCoords, deliveryPin, llegandoAt, compromisoAmount } = order;
+  const { deliveryStatus, cancellationCharged, dealerId, deliveryFee: storedFee, result, userCoords, deliveryPin, llegandoAt, compromisoAmount, dealerCancelInfo } = order;
   const displayFee = storedFee ?? calculateDeliveryFee(result?.stores, userCoords);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentMode, setPaymentMode] = useState(null);
@@ -491,6 +491,29 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
             </div>
           )}
         </div>
+
+        {/* Banner: repartidor canceló — visible mientras buscamos uno nuevo */}
+        {deliveryStatus === 'searching' && dealerCancelInfo && (
+          <div style={{
+            padding: '10px 14px',
+            background: 'var(--warning-soft, #fef9c3)',
+            border: '1px solid var(--warning, #ca8a04)',
+            borderRadius: 'var(--radius-sm)',
+            display: 'flex', flexDirection: 'column', gap: 4,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#92400e' }}>
+              {dealerCancelInfo.type === 'emergency' ? '🚨 El repartidor tuvo una emergencia' : '⚠️ El repartidor canceló por una causa menor'}
+            </div>
+            {dealerCancelInfo.reason && (
+              <div style={{ fontSize: 11, color: '#92400e', lineHeight: 1.5 }}>
+                "{dealerCancelInfo.reason}"
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: '#92400e' }}>
+              Tu pedido quedó marcado como <strong>prioritario</strong> — lo verá el siguiente repartidor disponible primero.
+            </div>
+          </div>
+        )}
 
         {/* Dealer info (when assigned) */}
         {dealerId && deliveryStatus !== 'searching' && (

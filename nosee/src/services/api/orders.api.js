@@ -128,8 +128,9 @@ export async function getOrderById(id) {
 export async function getAvailableOrders({ limit = 30 } = {}) {
   const { data, error } = await supabase
     .from('orders')
-    .select('id, local_id, status, delivery_address, delivery_coords, stores, items, total_estimated, delivery_fee, created_at')
+    .select('id, local_id, status, delivery_address, delivery_coords, stores, items, total_estimated, delivery_fee, created_at, is_priority')
     .eq('status', 'pendiente_repartidor')
+    .order('is_priority', { ascending: false }) // prioritarios primero
     .order('created_at', { ascending: true })
     .limit(limit);
 
@@ -432,6 +433,23 @@ export async function getPendingAdjustments(orderId) {
  *
  * @param {number} orderId - id INTEGER del pedido
  */
+/**
+ * Cancela un pedido activo desde el lado del repartidor con justificación.
+ * El pedido vuelve al pool como prioritario y el cliente lo ve vía Realtime.
+ *
+ * @param {number} orderId
+ * @param {'minor'|'emergency'} cancelType
+ * @param {string|null} cancelReason
+ */
+export async function dealerCancelOrder(orderId, cancelType, cancelReason = null) {
+  const { error } = await supabase.rpc('dealer_cancel_order', {
+    p_order_id:     orderId,
+    p_cancel_type:  cancelType,
+    p_cancel_reason: cancelReason || null,
+  });
+  return { error };
+}
+
 export async function cancelOrderNoPago(orderId) {
   const { error } = await supabase.rpc('cancel_order_no_payment', {
     p_order_id: orderId,
