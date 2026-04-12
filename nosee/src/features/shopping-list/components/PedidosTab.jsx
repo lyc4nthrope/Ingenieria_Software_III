@@ -417,13 +417,16 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     setChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleCancelDelivery = () => {
-    if (!selectedOrder) return;
+  const handleCancelDelivery = async () => {
+    if (!selectedOrder?.supabaseId) return;
     const charged = selectedOrder.deliveryStatus !== 'searching';
-    updateOrderDelivery(selectedOrder.id, {
-      deliveryStatus: 'cancelled',
-      cancellationCharged: charged,
-    });
+    const { error } = await cancelOrderByUser(selectedOrder.supabaseId);
+    if (!error) {
+      updateOrderDelivery(selectedOrder.id, {
+        deliveryStatus: 'cancelled',
+        cancellationCharged: charged,
+      });
+    }
   };
 
   // Cuando el usuario sube el comprobante de pago al repartidor (estado 'llegando')
