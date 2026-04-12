@@ -84,6 +84,10 @@ export default function DealerDashboard() {
   const [acceptError,     setAcceptError]     = useState(null);
   const [cancelingId,     setCancelingId]     = useState(null);  // id del pedido que se está cancelando
   const [noBankWarning,   setNoBankWarning]   = useState(false); // aviso sin cuentas bancarias
+  const [reportingOrder,  setReportingOrder]  = useState(null);  // pedido del historial que se está reportando
+  const [reportNote,      setReportNote]      = useState('');
+  const [reportSubmitting,setReportSubmitting]= useState(false);
+  const [reportedIds,     setReportedIds]     = useState(() => new Set());
   const [advancingId,     setAdvancingId]     = useState(null);  // id del pedido que se está avanzando
   const [newOrderAlert,   setNewOrderAlert]   = useState(false); // banner de nuevo pedido disponible
   const [loadAvailError,  setLoadAvailError]  = useState(null);  // error al cargar disponibles
@@ -114,11 +118,12 @@ export default function DealerDashboard() {
   }, []);
 
   const loadHistory = useCallback(async () => {
-    // Pedidos entregados o cancelados por no pago — RLS filtra dealer_id = auth.uid()
+    // Pedidos entregados, cancelados por no pago o cancelados por el usuario (post-aceptación)
+    // RLS filtra dealer_id = auth.uid() — solo pedidos asignados a este repartidor
     const { data } = await supabase
       .from('orders')
-      .select('id, local_id, status, total_estimated, delivery_fee, created_at, delivery_address, checked_items, stores')
-      .in('status', ['entregado', 'cancelado_no_pago'])
+      .select('id, local_id, status, total_estimated, delivery_fee, created_at, delivery_address, checked_items, stores, user_id')
+      .in('status', ['entregado', 'cancelado_no_pago', 'cancelado'])
       .order('created_at', { ascending: false })
       .limit(50);
     setHistory(data ?? []);
@@ -229,7 +234,8 @@ export default function DealerDashboard() {
           loadAvailable();
         } else if (updated.status === 'cancelado') {
           setActiveOrders((prev) => prev.filter((o) => o.id !== updated.id));
-          loadAvailable(); // puede volver a estar disponible
+          setHistory((prev) => [updated, ...prev]);
+          loadAvailable();
         } else {
           setActiveOrders((prev) =>
             prev.map((o) => o.id === updated.id ? { ...o, ...updated } : o)
@@ -431,6 +437,45 @@ export default function DealerDashboard() {
     llegando:             { label: 'En la puerta',         color: 'var(--accent)',        bg: 'var(--accent-soft)' },
     entregado:            { label: 'Entregado',            color: 'var(--success)',       bg: 'var(--success-soft)' },
     cancelado:            { label: 'Cancelado',            color: 'var(--error)',         bg: 'var(--error-soft)' },
+  };
+
+  // Reporta un pedido cancelado por el usuario (desde el historial)
+  const handleHistoryReport = async () => {
+    if (!reportingOrder) return;
+    setReportSubmitting(true);
+    let gpsEvidence = null;
+    try {
+      await new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            gpsEvidence = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+            resolve();
+          },
+          () => resolve(),
+          { timeout: 5000, maximumAge: 30_000 }
+        );
+      });
+    } catch { /* noop */ }
+
+    await supabase.from('reports').insert({
+      reported_type:    'order_cancelled_by_user',
+      reported_id:      String(reportingOrder.id),
+      reporter_user_id: dealer?.id,
+      reported_user_id: reportingOrder.user_id ?? null,
+      reason:           'user_cancelled_after_acceptance',
+      description:      JSON.stringify({
+        note:             reportNote || null,
+        gps_dealer:       gpsEvidence,
+        delivery_address: reportingOrder.delivery_address ?? null,
+        timestamp:        new Date().toISOString(),
+      }),
+      status: 'pending',
+    });
+
+    setReportedIds((prev) => new Set([...prev, reportingOrder.id]));
+    setReportSubmitting(false);
+    setReportingOrder(null);
+    setReportNote('');
   };
 
   // Pedido activo para la tab "ruta"
@@ -635,53 +680,133 @@ export default function DealerDashboard() {
           <>
             <header style={r.header}>
               <h1 style={r.headerTitle}>{td.historyTitle}</h1>
-              <p style={r.headerSub}>{history.length} entregas completadas</p>
+              <p style={r.headerSub}>{history.length} pedidos en historial</p>
             </header>
 
             {history.length === 0 ? (
               <div style={r.empty}>
                 <span style={{ fontSize: 40 }}>◎</span>
-                <p>Aún no tenés entregas completadas.</p>
+                <p>Aún no tenés pedidos en tu historial.</p>
               </div>
             ) : (
               <div style={r.historyList}>
                 {history.map((h) => {
-                  const isNoPago      = h.status === 'cancelado_no_pago';
-                  const checkedCount  = Object.values(h.checked_items ?? {}).filter(Boolean).length;
-                  const totalItems    = (h.stores ?? []).reduce((sum, s) => sum + (s.products?.length ?? 0), 0);
+                  const isNoPago     = h.status === 'cancelado_no_pago';
+                  const isCancelado  = h.status === 'cancelado';
+                  const checkedCount = Object.values(h.checked_items ?? {}).filter(Boolean).length;
+                  const totalItems   = (h.stores ?? []).reduce((sum, s) => sum + (s.products?.length ?? 0), 0);
+                  const yaReportado  = reportedIds.has(h.id);
+
+                  const badgeStyle = isCancelado
+                    ? { background: 'var(--warning-soft, #fef9c3)', color: '#92400e' }
+                    : isNoPago
+                      ? { background: 'var(--error-soft, #fee2e2)', color: 'var(--error, #dc2626)' }
+                      : { background: 'var(--success-soft)',        color: 'var(--success)' };
+                  const badgeLabel = isCancelado ? 'Cancelado' : isNoPago ? 'No pagó' : 'Entregado';
+
                   return (
-                    <div key={h.id} style={r.historyRow}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={r.histId}>{h.local_id ?? `#${h.id}`}</div>
-                          <span style={{
-                            ...r.statusBadge,
-                            background: isNoPago ? 'var(--error-soft, #fee2e2)' : 'var(--success-soft)',
-                            color:      isNoPago ? 'var(--error, #dc2626)'      : 'var(--success)',
-                          }}>
-                            {isNoPago ? 'No pagó' : 'Entregado'}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: 11, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {h.delivery_address ?? '—'}
-                        </div>
-                        {totalItems > 0 && (
-                          <div style={{ fontSize: 11, color: checkedCount === totalItems ? 'var(--success)' : MUTED, fontWeight: 600 }}>
-                            {checkedCount}/{totalItems} productos tachados
+                    <div key={h.id} style={{ ...r.historyRow, flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                      {/* Fila principal */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={r.histId}>{h.local_id ?? `#${h.id}`}</div>
+                            <span style={{ ...r.statusBadge, ...badgeStyle }}>{badgeLabel}</span>
                           </div>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
-                        <div style={r.histTotal}>
-                          {isNoPago ? '—' : `+$${Number(h.delivery_fee ?? 0).toLocaleString('es-CO')}`}
+                          <div style={{ fontSize: 11, color: MUTED, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {h.delivery_address ?? '—'}
+                          </div>
+                          {totalItems > 0 && (
+                            <div style={{ fontSize: 11, color: checkedCount === totalItems ? 'var(--success)' : MUTED, fontWeight: 600 }}>
+                              {checkedCount}/{totalItems} productos tachados
+                            </div>
+                          )}
                         </div>
-                        <div style={r.histDate}>
-                          {new Date(h.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                          <div style={r.histTotal}>
+                            {(isNoPago || isCancelado) ? '—' : `+$${Number(h.delivery_fee ?? 0).toLocaleString('es-CO')}`}
+                          </div>
+                          <div style={r.histDate}>
+                            {new Date(h.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                          </div>
                         </div>
                       </div>
+
+                      {/* Botón de reporte — solo para cancelados por el usuario */}
+                      {isCancelado && (
+                        yaReportado ? (
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)', padding: '6px 10px', background: 'var(--success-soft)', borderRadius: 6 }}>
+                            ✓ Reporte enviado
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setReportingOrder(h)}
+                            style={{
+                              padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                              border: '1px solid var(--warning, #ca8a04)',
+                              background: 'transparent', color: '#92400e', alignSelf: 'flex-start',
+                            }}
+                          >
+                            📋 Reportar cancelación
+                          </button>
+                        )
+                      )}
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Modal de reporte de cancelación */}
+            {reportingOrder && (
+              <div
+                style={{ position: 'fixed', inset: 0, background: 'var(--overlay, rgba(0,0,0,0.55))', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}
+                onClick={() => { setReportingOrder(null); setReportNote(''); }}
+              >
+                <div
+                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--warning, #ca8a04)', borderRadius: 'var(--radius-md)', padding: 24, width: 'min(440px, 100%)', display: 'flex', flexDirection: 'column', gap: 16 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#92400e' }}>
+                      📋 Reportar cancelación
+                    </h2>
+                    <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      Pedido <strong>{reportingOrder.local_id ?? `#${reportingOrder.id}`}</strong> — se registrará tu
+                      <strong> ubicación actual</strong> como evidencia.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                      Nota adicional (opcional)
+                    </label>
+                    <textarea
+                      value={reportNote}
+                      onChange={(e) => setReportNote(e.target.value)}
+                      placeholder="Ej: ya había salido a comprar cuando el usuario canceló..."
+                      rows={3}
+                      style={{ width: '100%', padding: '10px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-base)', color: 'var(--text-primary)', resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.5 }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      onClick={() => { setReportingOrder(null); setReportNote(''); }}
+                      style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleHistoryReport}
+                      disabled={reportSubmitting}
+                      style={{ flex: 2, padding: '10px 14px', borderRadius: 8, border: 'none', background: 'var(--warning, #ca8a04)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', ...(reportSubmitting ? { opacity: 0.7 } : {}) }}
+                    >
+                      {reportSubmitting ? 'Enviando...' : '✓ Enviar reporte'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </>
