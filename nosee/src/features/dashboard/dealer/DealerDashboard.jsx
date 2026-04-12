@@ -1276,12 +1276,12 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
         <div style={r.orderFooter}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{ fontSize: 11, color: MUTED, display: 'flex', gap: 6 }}>
-              <span>🛒 ${Number(order.total_estimated ?? 0).toLocaleString('es-CO')}</span>
+              <span>🛒 ${(Number(order.total_estimated ?? 0) - Number(order.delivery_fee ?? 0)).toLocaleString('es-CO')}</span>
               <span style={{ color: 'var(--border)' }}>+</span>
               <span>🛵 ${Number(order.delivery_fee ?? 0).toLocaleString('es-CO')}</span>
             </div>
             <div style={r.orderTotal}>
-              ${(Number(order.total_estimated ?? 0) + Number(order.delivery_fee ?? 0)).toLocaleString('es-CO')}
+              ${Number(order.total_estimated ?? 0).toLocaleString('es-CO')}
             </div>
             <div style={{ fontSize: 11, color: MUTED }}>total a cobrar</div>
           </div>
