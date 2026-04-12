@@ -62,7 +62,7 @@ const STATUS_CONFIGS = {
     color: 'var(--success, #16a34a)',
     title: 'Comprobante enviado',
     desc: 'El repartidor está verificando tu pago.',
-    showCancel: false,
+    showCancel: false, showPin: true,
     step: 2,
   },
   entregado: {
@@ -370,7 +370,7 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
             <span style={{ fontSize: '16px' }}>{isExpired ? '⚠️' : '⏱'}</span>
             <span style={{ fontSize: '12px', color: isExpired ? 'var(--error, #dc2626)' : 'var(--text-muted)', fontWeight: isExpired ? 700 : 500 }}>
               {isExpired
-                ? 'El tiempo de espera venció. El repartidor puede marcar entrega fallida.'
+                ? 'El tiempo de espera venció. Si no recibís respuesta, el repartidor puede marcar que el cliente no pagó.'
                 : `El repartidor tiene ${formattedTime} de espera`}
             </span>
           </div>

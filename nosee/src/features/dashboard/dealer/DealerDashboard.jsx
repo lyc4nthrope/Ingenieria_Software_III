@@ -844,7 +844,7 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
           }}>
             <span>{isExpired ? '⚠️' : '⏱'}</span>
             <span style={{ fontSize: 12, color: isExpired ? 'var(--error, #dc2626)' : MUTED, fontWeight: isExpired ? 700 : 400 }}>
-              {isExpired ? 'Tiempo vencido' : `Tiempo de espera: ${formattedTime}`}
+              {isExpired ? 'Tiempo vencido — podés marcar que el cliente no pagó' : `Tiempo de espera: ${formattedTime}`}
             </span>
           </div>
         )}
@@ -868,14 +868,14 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
             </button>
           )}
 
-          {/* Botón entrega fallida cuando timer vence (Caso D) */}
+          {/* Botón "cliente no pagó" cuando timer vence (Caso D) */}
           {order.status === 'llegando' && isExpired && (
             <button
               style={{ ...r.advanceBtn, background: 'var(--error, #dc2626)', ...(advancing ? { opacity: 0.7 } : {}) }}
               onClick={onDeliveryFailed}
               disabled={advancing}
             >
-              {advancing ? 'Procesando...' : '✗ Entrega fallida'}
+              {advancing ? 'Procesando...' : '✗ El cliente no pagó'}
             </button>
           )}
         </div>
