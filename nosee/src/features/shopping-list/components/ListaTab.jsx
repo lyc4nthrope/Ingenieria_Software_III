@@ -240,18 +240,22 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
     let supabaseId = null;
     if (isDelivery) {
       const { data: saved, error } = await createOrder({
-        userId:          currentUserId,
+        userId:               currentUserId,
         localId,
-        deliveryMode:    true,
-        deliveryAddress: deliveryAddress.trim() || '',
-        deliveryCoords:  userCoords,
-        stores:          result.stores,
-        items:           items,
-        totalCost:       result.totalCost,
-        savings:         result.savings     ?? 0,
-        savingsPct:      result.savingsPct  ?? 0,
-        deliveryFee:     fee,
-        strategy:        'balanced',
+        deliveryMode:         true,
+        deliveryAddress:      deliveryAddress.trim() || '',
+        deliveryCoords:       userCoords,
+        deliveryName:         deliveryName.trim()         || null,
+        deliveryPhone:        deliveryPhone.trim()        || null,
+        deliveryApartment:    deliveryApartment.trim()    || null,
+        deliveryInstructions: deliveryInstructions.trim() || null,
+        stores:               result.stores,
+        items:                items,
+        totalCost:            result.totalCost,
+        savings:              result.savings     ?? 0,
+        savingsPct:           result.savingsPct  ?? 0,
+        deliveryFee:          fee,
+        strategy:             'balanced',
       });
 
       if (error) {

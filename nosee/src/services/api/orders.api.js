@@ -34,6 +34,10 @@ export async function createOrder({
   deliveryMode,
   deliveryAddress,
   deliveryCoords,
+  deliveryName,
+  deliveryPhone,
+  deliveryApartment,
+  deliveryInstructions,
   stores,
   items,
   totalCost,      // → total_estimated
@@ -58,8 +62,12 @@ export async function createOrder({
       status:                     deliveryMode ? 'pendiente_repartidor' : 'usuario_se_encarga',
       delivery_mode:              deliveryMode,
       // delivery_address es NOT NULL sin default — usar '' si el usuario no escribió dirección
-      delivery_address:           deliveryAddress || '',
-      delivery_coords:            deliveryCoords  || null,
+      delivery_address:           deliveryAddress       || '',
+      delivery_coords:            deliveryCoords        || null,
+      delivery_name:              deliveryName          || null,
+      delivery_phone:             deliveryPhone         || null,
+      delivery_apartment:         deliveryApartment     || null,
+      delivery_instructions:      deliveryInstructions  || null,
       stores:                     stores          ?? [],
       items:                      items           ?? [],
       // Columnas de costos que ya existían en el esquema
@@ -416,6 +424,19 @@ export async function getPendingAdjustments(orderId) {
     .eq('status', 'pending')
     .order('created_at', { ascending: true });
   return { data: data ?? [], error };
+}
+
+/**
+ * Cancela un pedido en estado 'llegando' por no pago del cliente.
+ * Solo el repartidor asignado puede llamarlo.
+ *
+ * @param {number} orderId - id INTEGER del pedido
+ */
+export async function cancelOrderNoPago(orderId) {
+  const { error } = await supabase.rpc('cancel_order_no_payment', {
+    p_order_id: orderId,
+  });
+  return { error };
 }
 
 /**

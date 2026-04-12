@@ -31,6 +31,7 @@ import {
   logPriceCorrection,
   requestPriceAdjustment,
   updateCheckedItems,
+  cancelOrderNoPago,
   PRICE_ADJUSTMENT_THRESHOLD,
 } from '@/services/api/orders.api';
 import { useDeliveryTimer } from '@/features/orders/hooks/useDeliveryTimer';
@@ -356,11 +357,48 @@ export default function DealerDashboard() {
     return { success: true };
   };
 
-  // ── Marcar entrega fallida (Caso D: timer vencido) ────────────────────────
-  const handleDeliveryFailed = async (order) => {
+  // ── Reportar no pago y cancelar pedido (Caso D: timer vencido) ────────────
+  // 1. Captura GPS del repartidor como evidencia de que estaba en la ubicación.
+  // 2. Inserta un reporte en la tabla reports con la evidencia.
+  // 3. Cancela el pedido via RPC cancel_order_no_payment.
+  const handleReportNoPago = async (order, note) => {
     setAdvancingId(order.id);
-    const { error } = await advanceOrderStatus(order.id, 'cancelado');
+
+    // Capturar ubicación actual del repartidor (evidencia)
+    let gpsEvidence = null;
+    try {
+      await new Promise((resolve) => {
+        navigator.geolocation?.getCurrentPosition(
+          (pos) => {
+            gpsEvidence = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+            resolve();
+          },
+          () => resolve(), // silencioso — GPS puede no estar disponible
+          { timeout: 5000, maximumAge: 30_000 }
+        );
+      });
+    } catch { /* noop */ }
+
+    // Insertar reporte de no pago con evidencia GPS
+    await supabase.from('reports').insert({
+      reported_type:    'order_no_payment',
+      reported_id:      String(order.id),
+      reporter_user_id: dealer?.id,
+      reported_user_id: order.user_id ?? null,
+      reason:           'client_no_payment',
+      description:      JSON.stringify({
+        note:             note || null,
+        gps_dealer:       gpsEvidence,
+        delivery_address: order.delivery_address ?? null,
+        timestamp:        new Date().toISOString(),
+      }),
+      status: 'pending',
+    });
+
+    // Cancelar el pedido via RPC
+    const { error } = await cancelOrderNoPago(order.id);
     setAdvancingId(null);
+
     if (!error) {
       setActiveOrders((prev) => prev.filter((o) => o.id !== order.id));
       setHistory((prev) => [{ ...order, status: 'cancelado' }, ...prev]);
@@ -549,7 +587,7 @@ export default function DealerDashboard() {
                     advancing={advancingId === order.id}
                     onAdvance={() => handleAdvance(order)}
                     onVerifyPin={(pin) => handleVerifyPin(order, pin)}
-                    onDeliveryFailed={() => handleDeliveryFailed(order)}
+                    onDeliveryFailed={(note) => handleReportNoPago(order, note)}
                     onPriceReport={(si, pi, newPrice) => handlePriceReport(order, si, pi, newPrice)}
                   />
                 ))}
@@ -719,6 +757,8 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(null);
   const [verifyingPin, setVerifyingPin] = useState(false);
+  const [showNoPagoConfirm, setShowNoPagoConfirm] = useState(false);
+  const [noPagoNote, setNoPagoNote] = useState('');
 
   // Timer de 10 min para el Caso D — solo activo cuando el repartidor llega a la puerta
   const timerStart = order.status === 'llegando' ? (order.llegando_at ?? order.updated_at ?? null) : null;
@@ -761,7 +801,44 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
       {/* Dirección de entrega */}
       <div style={r.orderAddress}>
         📍 {order.delivery_address ?? 'Dirección no especificada'}
+        {order.delivery_apartment && (
+          <span style={{ color: MUTED, fontSize: 11 }}> · {order.delivery_apartment}</span>
+        )}
       </div>
+
+      {/* Datos de contacto del cliente */}
+      {(order.delivery_name || order.delivery_phone || order.delivery_instructions) && (
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: 4,
+          padding: '8px 12px',
+          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+          borderRadius: 6, fontSize: 12,
+        }}>
+          {order.delivery_name && (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ color: MUTED }}>👤</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{order.delivery_name}</span>
+            </div>
+          )}
+          {order.delivery_phone && (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ color: MUTED }}>📞</span>
+              <a
+                href={`tel:${order.delivery_phone}`}
+                style={{ fontWeight: 700, color: 'var(--accent)', textDecoration: 'none' }}
+              >
+                {order.delivery_phone}
+              </a>
+            </div>
+          )}
+          {order.delivery_instructions && (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+              <span style={{ color: MUTED, flexShrink: 0 }}>📝</span>
+              <span style={{ color: 'var(--text-secondary)', lineHeight: 1.4 }}>{order.delivery_instructions}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Checklist por tienda (solo cuando expanded) */}
       {expanded && stores.length > 0 && (
@@ -869,13 +946,13 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
           )}
 
           {/* Botón "cliente no pagó" cuando timer vence (Caso D) */}
-          {order.status === 'llegando' && isExpired && (
+          {order.status === 'llegando' && isExpired && !showNoPagoConfirm && (
             <button
               style={{ ...r.advanceBtn, background: 'var(--error, #dc2626)', ...(advancing ? { opacity: 0.7 } : {}) }}
-              onClick={onDeliveryFailed}
+              onClick={() => setShowNoPagoConfirm(true)}
               disabled={advancing}
             >
-              {advancing ? 'Procesando...' : '✗ El cliente no pagó'}
+              ✗ El cliente no pagó
             </button>
           )}
         </div>
@@ -919,6 +996,64 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
             {pinError && (
               <div style={{ fontSize: 11, color: 'var(--error, #dc2626)', fontWeight: 600 }}>{pinError}</div>
             )}
+          </div>
+        )}
+
+        {/* Confirmación de reporte "El cliente no pagó" */}
+        {showNoPagoConfirm && (
+          <div style={{
+            padding: '12px 14px',
+            background: 'var(--error-soft, #fee2e2)', border: '1px solid var(--error, #dc2626)',
+            borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 10,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--error, #dc2626)' }}>
+              ⚠️ Reportar no pago
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Se registrará tu <strong>ubicación actual</strong> como evidencia de que estabas en el punto de entrega.
+              Este reporte queda en el historial de la plataforma.
+            </div>
+            <textarea
+              value={noPagoNote}
+              onChange={(e) => setNoPagoNote(e.target.value)}
+              placeholder="Nota adicional (opcional): ej. no atendió el timbre, número no disponible..."
+              rows={2}
+              style={{
+                width: '100%', padding: '8px 10px', fontSize: 12,
+                border: '1px solid var(--error, #dc2626)', borderRadius: 6,
+                background: 'var(--bg-base)', color: 'var(--text-primary)',
+                resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                style={{
+                  flex: 1, padding: '8px 12px', borderRadius: 6,
+                  border: '1px solid var(--border)', background: 'transparent',
+                  color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}
+                onClick={() => { setShowNoPagoConfirm(false); setNoPagoNote(''); }}
+                disabled={advancing}
+              >
+                Cancelar
+              </button>
+              <button
+                style={{
+                  flex: 2, padding: '8px 12px', borderRadius: 6, border: 'none',
+                  background: 'var(--error, #dc2626)', color: '#fff',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  ...(advancing ? { opacity: 0.7 } : {}),
+                }}
+                onClick={() => {
+                  onDeliveryFailed(noPagoNote);
+                  setShowNoPagoConfirm(false);
+                  setNoPagoNote('');
+                }}
+                disabled={advancing}
+              >
+                {advancing ? 'Procesando...' : '✗ Confirmar reporte'}
+              </button>
+            </div>
           </div>
         )}
       </div>
