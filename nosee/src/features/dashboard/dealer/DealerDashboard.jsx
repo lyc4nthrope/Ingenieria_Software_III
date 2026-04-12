@@ -783,6 +783,7 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
   };
 
   return (
+    <>
     <article style={{ ...r.orderCard, ...r.orderCardSelected }}>
       {/* Encabezado */}
       <div style={{ ...r.orderTop, cursor: 'pointer' }} onClick={() => setExpanded((v) => !v)}>
@@ -1089,6 +1090,7 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
         </div>
       </div>
     )}
+    </>
   );
 }
 
