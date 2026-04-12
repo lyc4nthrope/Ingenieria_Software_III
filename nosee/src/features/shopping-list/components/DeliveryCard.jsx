@@ -38,7 +38,7 @@ const STATUS_CONFIGS = {
     color: 'var(--accent)',
     title: 'Comprando tus productos',
     desc: 'El repartidor está comprando en las tiendas indicadas.',
-    showCancel: false,
+    showCancel: false, showPin: true,
     step: 1,
   },
   en_camino: {
@@ -46,7 +46,7 @@ const STATUS_CONFIGS = {
     color: 'var(--success, #16a34a)',
     title: 'En camino a tu ubicación',
     desc: 'Sigue su posición en tiempo real en el mapa →',
-    showCancel: false, showFee: true,
+    showCancel: false, showFee: true, showPin: true,
     step: 2,
   },
   llegando: {
@@ -340,17 +340,20 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
         {cfg.showPin && deliveryPin && (
           <div style={{
             padding: '14px 16px',
-            background: 'var(--bg-elevated)', border: '2px solid var(--accent)',
+            background: deliveryStatus === 'llegando' ? 'var(--bg-elevated)' : 'var(--bg-surface)',
+            border: `2px solid ${deliveryStatus === 'llegando' ? 'var(--accent)' : 'var(--border)'}`,
             borderRadius: 'var(--radius-sm)', textAlign: 'center',
           }}>
             <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Tu PIN de entrega
+              {deliveryStatus === 'llegando' ? '🔑 Tu PIN de entrega' : '🔑 Guardá este código'}
             </div>
             <div style={{ fontSize: '36px', fontWeight: 900, letterSpacing: '0.25em', color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>
               {deliveryPin}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Dictáselo al repartidor para confirmar la entrega
+              {deliveryStatus === 'llegando'
+                ? 'Dictáselo al repartidor para confirmar la entrega'
+                : 'Cuando el repartidor llegue, dictale este PIN para confirmar la entrega'}
             </div>
           </div>
         )}

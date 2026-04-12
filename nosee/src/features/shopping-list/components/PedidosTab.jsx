@@ -251,18 +251,25 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
     supabase
       .from('orders')
-      .select('status, dealer_id, compromiso_amount, checked_items')
+      .select('status, dealer_id, compromiso_amount, checked_items, delivery_pin')
       .eq('id', selectedOrder.supabaseId)
       .single()
       .then(({ data }) => {
         if (!data) return;
         const uiStatus = STATUS_MAP[data.status];
+        const updates = {};
         if (uiStatus && uiStatus !== selectedOrder.deliveryStatus) {
-          updateOrderDeliveryRef.current(selectedOrder.id, {
-            deliveryStatus: uiStatus,
-            ...(data.dealer_id ? { dealerId: data.dealer_id } : {}),
-            ...(data.compromiso_amount ? { compromisoAmount: data.compromiso_amount } : {}),
-          });
+          updates.deliveryStatus = uiStatus;
+        }
+        if (data.dealer_id) updates.dealerId = data.dealer_id;
+        if (data.compromiso_amount) updates.compromisoAmount = data.compromiso_amount;
+        // Siempre sincronizar el PIN desde Supabase — puede ser null en el store
+        // si el usuario limpió caché o viene desde otro dispositivo.
+        if (data.delivery_pin && !selectedOrder.deliveryPin) {
+          updates.deliveryPin = data.delivery_pin;
+        }
+        if (Object.keys(updates).length > 0) {
+          updateOrderDeliveryRef.current(selectedOrder.id, updates);
         }
         if (data.checked_items && typeof data.checked_items === 'object') {
           applyDealerCheckedItems(selectedOrder.id, data.checked_items);
