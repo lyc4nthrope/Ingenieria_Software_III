@@ -225,44 +225,63 @@ export function PublicationCard({
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
     >
-      {/* ── Header: tienda + menú ── */}
-      <div style={styles.header}>
-        <div style={styles.storeIconWrap}>
-          {isOnline
-            ? <span style={{ fontSize: '14px', lineHeight: 1 }}>🌐</span>
-            : <StoreIcon />
-          }
-        </div>
-        <span style={styles.storeName} title={storeName}>{storeName}</span>
-        {timeAgo && (
-          <span style={styles.timeAgo}>{timeAgo}</span>
+      {/* ── Imagen 4:3 con overlays ── */}
+      <div style={styles.imageContainer}>
+        {resolvedPhoto ? (
+          <img
+            src={resolvedPhoto}
+            alt={productName}
+            style={styles.image}
+            loading="lazy"
+            decoding="async"
+            onClick={() => setPhotoExpanded(true)}
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        ) : (
+          <div style={styles.imagePlaceholder} aria-hidden="true" />
         )}
 
-        <div style={styles.headerActions}>
+        {/* Precio — abajo a la derecha */}
+        <div style={styles.priceBadge}>
+          ${publication.price?.toLocaleString('es-CO')}
+        </div>
+
+        {/* Fecha — abajo a la izquierda */}
+        {timeAgo && (
+          <span style={styles.timeAgoOverlay}>{timeAgo}</span>
+        )}
+
+        {/* Acciones — arriba a la derecha */}
+        <div style={styles.imageActions}>
           <button
             type="button"
             aria-label={tc.reportLabel(productName)}
             title={tc.report}
-            style={styles.reportBtn}
+            style={styles.reportOverlayBtn}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(140,20,20,0.60)';
+              e.currentTarget.style.color = 'rgba(255,180,180,0.90)';
+              e.currentTarget.style.borderColor = 'rgba(255,160,160,0.40)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(0,0,0,0.45)';
+              e.currentTarget.style.color = 'rgba(255,160,160,0.65)';
+              e.currentTarget.style.borderColor = 'rgba(255,180,180,0.20)';
+            }}
             onClick={() => {
               if (isAuthenticated === false) { onRequireAuth?.(); return; }
               setShowReportModal(true);
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.35'; }}
           >
             ⚑
           </button>
-
           {canDelete && (
             <div style={{ position: 'relative' }} data-menu-container>
               <button
                 type="button"
                 aria-label="Opciones"
-                style={styles.menuBtn}
+                style={styles.overlayBtn}
                 onClick={() => setShowMenu((v) => !v)}
-                onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.35'; }}
               >
                 <DotsIcon />
               </button>
@@ -287,30 +306,21 @@ export function PublicationCard({
         </div>
       </div>
 
-      {/* ── Imagen 4:3 con badge de precio ── */}
-      <div style={styles.imageContainer}>
-        {resolvedPhoto ? (
-          <img
-            src={resolvedPhoto}
-            alt={productName}
-            style={styles.image}
-            loading="lazy"
-            decoding="async"
-            onClick={() => setPhotoExpanded(true)}
-            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          />
-        ) : (
-          <div style={styles.imagePlaceholder} aria-hidden="true" />
-        )}
-        <div style={styles.priceBadge}>
-          ${publication.price?.toLocaleString('es-CO')}
-        </div>
-      </div>
-
       {/* ── Info del producto ── */}
       <div style={styles.content}>
-        <div style={styles.productName}>{productName}</div>
-        <div style={styles.metaLine} title={metaParts}>{metaParts}</div>
+        <div
+          style={styles.productTitle}
+          title={`${productName} - ${productBrand} - ${storeName}`}
+        >
+          {productName}
+          <span style={styles.titleSep}> - </span>
+          <span style={styles.titleBrand}>{productBrand}</span>
+          <span style={styles.titleSep}> - </span>
+          <span style={styles.titleStore}>{storeName}</span>
+        </div>
+        {unitValue !== tc.noUnit && (
+          <div style={styles.metaLine}>{unitValue}</div>
+        )}
         {publication.description && (
           <div style={styles.description}>{publication.description}</div>
         )}
@@ -416,88 +426,70 @@ export function PublicationCard({
 const styles = {
   card: {
     background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
+    border: '2px solid var(--border)',
     borderRadius: 'var(--radius-lg)',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
     transition: 'box-shadow 0.2s ease',
-    boxShadow: 'none',
+    boxShadow: '0 1px 6px rgba(0,0,0,0.10)',
     height: '100%',
   },
 
-  header: {
+  imageActions: {
+    position: 'absolute',
+    top: '8px',
+    right: '8px',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    padding: '12px 14px 10px',
+    gap: '4px',
   },
 
-  storeIconWrap: {
-    width: '28px',
-    height: '28px',
-    background: 'var(--accent-soft)',
+  overlayBtn: {
+    width: '32px',
+    height: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,0,0,0.50)',
+    border: '1px solid rgba(255,255,255,0.15)',
     borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    color: 'rgba(255,255,255,0.85)',
+    backdropFilter: 'blur(4px)',
+    transition: 'background 0.15s',
+    outline: 'none',  /* el focus-visible lo maneja el navegador; no suprimir con tabIndex */
+  },
+
+  reportOverlayBtn: {
+    width: '32px',
+    height: '32px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: 'var(--accent)',
-    flexShrink: 0,
-  },
-
-  storeName: {
+    background: 'rgba(0,0,0,0.45)',
+    border: '1px solid rgba(255,180,180,0.20)',
+    borderRadius: '6px',
+    cursor: 'pointer',
     fontSize: '13px',
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-    flex: 1,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    color: 'rgba(255,160,160,0.65)',
+    backdropFilter: 'blur(4px)',
+    transition: 'background 0.15s, color 0.15s, border-color 0.15s',
   },
 
-  timeAgo: {
+  timeAgoOverlay: {
+    position: 'absolute',
+    bottom: '10px',
+    left: '10px',
     fontSize: '11px',
-    color: 'var(--text-muted)',
-    whiteSpace: 'nowrap',
-    flexShrink: 0,
-  },
-
-  headerActions: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '2px',
-    flexShrink: 0,
-  },
-
-  reportBtn: {
-    width: '32px',
-    height: '32px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '16px',
-    color: 'var(--text-muted)',
-    opacity: 0.35,
-    transition: 'opacity 0.15s',
-    borderRadius: 'var(--radius-sm)',
-  },
-
-  menuBtn: {
-    width: '32px',
-    height: '32px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--text-muted)',
-    opacity: 0.35,
-    transition: 'opacity 0.15s',
-    borderRadius: 'var(--radius-sm)',
+    fontWeight: 600,
+    color: 'rgba(255,255,255,0.9)',
+    background: 'rgba(0,0,0,0.45)',
+    padding: '3px 8px',
+    borderRadius: '999px',
+    backdropFilter: 'blur(4px)',
+    lineHeight: 1.4,
   },
 
   dropdownMenu: {
@@ -571,11 +563,29 @@ const styles = {
     flex: 1,
   },
 
-  productName: {
-    fontSize: '15px',
+  productTitle: {
+    fontSize: '14px',
     fontWeight: 700,
     color: 'var(--text-primary)',
     lineHeight: 1.3,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+
+  titleSep: {
+    color: 'var(--text-muted)',
+    fontWeight: 400,
+  },
+
+  titleBrand: {
+    color: 'var(--text-secondary)',
+    fontWeight: 500,
+  },
+
+  titleStore: {
+    color: 'var(--text-muted)',
+    fontWeight: 400,
   },
 
   metaLine: {
@@ -601,14 +611,14 @@ const styles = {
     alignItems: 'center',
     padding: '8px 14px 12px',
     gap: '6px',
-    borderTop: '1px solid var(--border)',
+    borderTop: '2px solid var(--border)',
   },
 
   voteGroup: {
     display: 'flex',
     borderRadius: 'var(--radius-md)',
     overflow: 'hidden',
-    border: '1px solid var(--border)',
+    border: '1.5px solid var(--border)',
     flex: 1,
   },
 
@@ -628,7 +638,7 @@ const styles = {
   },
 
   voteBtnLeft: {
-    borderRight: '1px solid var(--border)',
+    borderRight: '1.5px solid var(--border)',
     flex: 1,
     justifyContent: 'center',
   },
@@ -663,11 +673,11 @@ const styles = {
   },
 
   addBtn: {
-    width: '34px',
-    height: '34px',
+    width: '36px',
+    height: '36px',
     borderRadius: 'var(--radius-sm)',
     background: 'var(--bg-elevated)',
-    border: '1px solid var(--border)',
+    border: '1.5px solid var(--border)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

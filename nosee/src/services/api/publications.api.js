@@ -320,25 +320,31 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
         ? clamp(((stats.total / Math.max(stats.count, 1)) - Number(publication.price)) / Math.max(stats.total / Math.max(stats.count, 1), 1) + 0.5, 0, 1)
         : 0.5;
 
-      const productTextScore = normalizedProductQuery
-        ? normalizedProductText === normalizedProductQuery
-          ? 1
-          : normalizedProductText.startsWith(normalizedProductQuery)
-            ? 0.92
-            : normalizedProductText.includes(normalizedProductQuery)
-              ? 0.78
-              : 0
-        : 0.5;
+      // Token-based text scoring: evalúa cada palabra de la query por separado
+      const scoreToken = (token, text) => {
+        if (!text || !token) return 0;
+        if (text === token) return 1;
+        if (text.startsWith(token)) return 0.92;
+        const words = text.split(/\s+/);
+        if (words.some((w) => w === token)) return 0.88;
+        if (words.some((w) => w.startsWith(token))) return 0.75;
+        if (text.includes(token)) return 0.65;
+        if (words.some((w) => w.includes(token))) return 0.5;
+        return 0;
+      };
+      const scoreQuery = (query, text) => {
+        if (!query) return 0.5;
+        const tokens = query.split(/\s+/).filter(Boolean);
+        if (tokens.length === 0) return 0.5;
+        const scores = tokens.map((t) => scoreToken(t, text));
+        const avg = scores.reduce((a, b) => a + b, 0) / tokens.length;
+        // Bonus si todos los tokens hacen match (query completa cubierta)
+        const allHit = scores.every((s) => s > 0) ? 0.08 : 0;
+        return clamp(avg + allHit, 0, 1);
+      };
 
-      const storeTextScore = normalizedStoreQuery
-        ? normalizedStoreText === normalizedStoreQuery
-          ? 1
-          : normalizedStoreText.startsWith(normalizedStoreQuery)
-            ? 0.9
-            : normalizedStoreText.includes(normalizedStoreQuery)
-              ? 0.72
-              : 0
-        : 0.5;
+      const productTextScore = normalizedProductQuery ? scoreQuery(normalizedProductQuery, normalizedProductText) : 0.5;
+      const storeTextScore   = normalizedStoreQuery   ? scoreQuery(normalizedStoreQuery,   normalizedStoreText)   : 0.5;
 
       const textScore =
         normalizedProductQuery || normalizedStoreQuery
@@ -350,14 +356,19 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
             )
           : 0.5;
 
+      // Recency: publicaciones más recientes reciben mayor score (decae linealmente en 52 semanas)
+      const ageWeeks = (Date.now() - new Date(publication.created_at || 0).getTime()) / 604_800_000;
+      const recencyScore = clamp(1 - ageWeeks / 52, 0, 1);
+
       const searchScore =
-        0.45 * textScore +
-        0.2 * priceScore +
+        0.40 * textScore +
+        0.18 * priceScore +
         0.14 * distanceScore +
-        0.1 * voteScore +
+        0.10 * voteScore +
         0.06 * reportScore +
-        0.03 * reputationScore +
-        0.02 * evidenceScore;
+        0.05 * recencyScore +
+        0.04 * reputationScore +
+        0.03 * evidenceScore;
 
       return {
         ...publication,
@@ -367,6 +378,7 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
           reports_with_evidence: reportSignals.evidences,
           store_evidences: storeEvidences,
           text_score: Number(textScore.toFixed(4)),
+          recency_score: Number(recencyScore.toFixed(4)),
           user_reputation_points: userReputation,
           product_avg_price: stats ? stats.total / Math.max(stats.count, 1) : null,
           product_min_price: stats ? stats.min : null,

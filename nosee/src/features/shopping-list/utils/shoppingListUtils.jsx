@@ -31,7 +31,7 @@ export const GearIcon = () => (
 
 // ─── Tarifas de domicilio ─────────────────────────────────────────────────────
 const STORE_FEE_PER = 3_000; // COP por tienda
-const KM_FEE = 3_000;        // COP por km por tienda
+const KM_FEE = 3_000;        // COP por km de ruta total
 
 function haversineKm({ lat: lat1, lng: lng1 }, { lat: lat2, lng: lng2 }) {
   const R = 6371;
@@ -47,21 +47,36 @@ function haversineKm({ lat: lat1, lng: lng1 }, { lat: lat2, lng: lng2 }) {
 /**
  * Calcula el costo total de domicilio:
  *  - $3.000 COP por tienda
- *  - $3.000 COP × km entre userCoords y cada tienda
+ *  - $3.000 COP × km de ruta total (greedy nearest-neighbor):
+ *    entrega → tienda más cercana → siguiente más cercana → ...
  * Si no hay coordenadas de usuario, solo se cobra por cantidad de tiendas.
  */
 export function calculateDeliveryFee(stores, userCoords) {
   if (!stores?.length) return 0;
   const storeFee = stores.length * STORE_FEE_PER;
   if (!userCoords?.lat || !userCoords?.lng) return storeFee;
-  let distanceFee = 0;
-  for (const s of stores) {
-    const storeCoords = parseStoreCoords(s.store?.location);
-    if (storeCoords) {
-      distanceFee += haversineKm(userCoords, storeCoords) * KM_FEE;
+
+  const nodes = stores.map((s) => parseStoreCoords(s.store?.location)).filter(Boolean);
+  if (nodes.length === 0) return storeFee;
+
+  // Greedy nearest-neighbor: entrega → tienda más cercana → siguiente más cercana → ...
+  let totalKm = 0;
+  let current = userCoords;
+  const unvisited = [...nodes];
+
+  while (unvisited.length > 0) {
+    let nearestIdx = 0;
+    let nearestDist = haversineKm(current, unvisited[0]);
+    for (let i = 1; i < unvisited.length; i++) {
+      const d = haversineKm(current, unvisited[i]);
+      if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
     }
+    totalKm += nearestDist;
+    current = unvisited[nearestIdx];
+    unvisited.splice(nearestIdx, 1);
   }
-  return Math.round(storeFee + distanceFee);
+
+  return Math.round(storeFee + totalKm * KM_FEE);
 }
 
 // ─── Preferencias de optimización ────────────────────────────────────────────

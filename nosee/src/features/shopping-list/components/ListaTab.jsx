@@ -150,64 +150,55 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
   const calcRequestRef = useRef(0);
 
-  const handleCalculate = useCallback(async () => {
+  const handleCalculate = useCallback(() => {
     if (items.length === 0) return;
 
     const requestId = ++calcRequestRef.current;
 
     setCalculating(true);
     setCalcError(null);
-    setCalcResults(null);
+    setDeliveryMode(null);  // limpiar modo anterior al re-optimizar
+    // Primera vez: inicializar para activar la vista optimizada.
+    // Re-optimización: mantener resultados y selecciones actuales visibles mientras se actualizan.
+    setCalcResults((prev) => prev ?? {});
     setExpandedId(null);
 
-    // Mapear sortMode a parámetros del API
+    // Marcar todos los ítems como "optimizando" — el precio/tienda anterior sigue visible
+    setOptimizingItems(Object.fromEntries(items.map((item) => [item.id, true])));
+
     const needsCoords = prefs.sortMode === 'nearest' || prefs.sortMode === 'balanced';
-    const apiSortBy = prefs.validatedOnly ? 'validated' : 'cheapest';
+    const apiSortBy   = prefs.validatedOnly ? 'validated' : 'cheapest';
     const distanceParams = needsCoords && hasLocation
       ? { maxDistance: prefs.maxDistance, latitude, longitude }
       : {};
 
-    try {
-      const results = await Promise.all(
-        items.map(async (item) => {
-          const res = await publicationsApi.getPublications({
-            productName: item.productName,
-            sortBy: apiSortBy,
-            limit: 30,
-            ...distanceParams,
-          });
+    // Cada ítem se resuelve de forma independiente — el UI se actualiza a medida que llegan
+    let remaining = items.length;
+
+    items.forEach((item) => {
+      publicationsApi
+        .getPublications({ productName: item.productName, sortBy: apiSortBy, limit: 30, ...distanceParams })
+        .then((res) => {
+          if (requestId !== calcRequestRef.current) return;
+
           let pubs = res.success ? (res.data ?? []) : [];
-
-          // Filtrar por tipo de tienda en cliente
-          if (prefs.storeType === 'physical') {
-            pubs = pubs.filter((p) => Number(p.store?.store_type_id) !== 2);
-          } else if (prefs.storeType === 'online') {
-            pubs = pubs.filter((p) => Number(p.store?.store_type_id) === 2);
-          }
-
-          // Ordenar: balanced/cheapest → precio; nearest con coords → por distancia (el backend ya filtra)
+          if (prefs.storeType === 'physical') pubs = pubs.filter((p) => Number(p.store?.store_type_id) !== 2);
+          else if (prefs.storeType === 'online')  pubs = pubs.filter((p) => Number(p.store?.store_type_id) === 2);
           const sorted = [...pubs].sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
-          return [item.id, sorted];
+
+          setCalcResults((prev) => (prev ? { ...prev, [item.id]: sorted } : { [item.id]: sorted }));
+          if (sorted.length > 0) setSelectedPubs((prev) => ({ ...prev, [item.id]: sorted[0] }));
         })
-      );
-
-      // Descartar resultados de requests obsoletas
-      if (requestId !== calcRequestRef.current) return;
-
-      const resultsMap = Object.fromEntries(results);
-      setCalcResults(resultsMap);
-      // Pre-seleccionar la mejor opción (índice 0) para cada ítem
-      const defaults = {};
-      for (const [id, pubs] of results) {
-        if (pubs.length > 0) defaults[id] = pubs[0];
-      }
-      setSelectedPubs(defaults);
-    } catch {
-      if (requestId !== calcRequestRef.current) return;
-      setCalcError('Error al calcular la canasta. Intentá nuevamente.');
-    } finally {
-      if (requestId === calcRequestRef.current) setCalculating(false);
-    }
+        .catch(() => {
+          if (requestId !== calcRequestRef.current) return;
+          setCalcResults((prev) => (prev ? { ...prev, [item.id]: [] } : { [item.id]: [] }));
+        })
+        .finally(() => {
+          setOptimizingItems((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
+          remaining -= 1;
+          if (remaining === 0 && requestId === calcRequestRef.current) setCalculating(false);
+        });
+    });
   }, [items, prefs, hasLocation, latitude, longitude]);
 
   const toggleExpand = (id) => {
@@ -301,13 +292,6 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
       setDeliveryMode(null);
       onConfirmedPickup?.();
     }
-  };
-
-  const handleChangeMode = () => {
-    setDeliveryMode(null);
-    setCalcResults(null);
-    setSelectedPubs({});
-    setExpandedId(null);
   };
 
   // ── Fase "delivery-form" — formulario completo de domicilio ──────────────
@@ -621,17 +605,6 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
   return (
     <div style={lista.root}>
-      {/* ── Badge de modo activo (post-optimización) ─────────────── */}
-      {isCalculated && deliveryMode && (
-        <div style={lista.modeBadgeBar}>
-          <span style={lista.modeBadgeText}>
-            {deliveryMode === 'delivery' ? '🛵 Domicilio' : '🚶 Voy yo'}
-          </span>
-          <button type="button" onClick={handleChangeMode} style={lista.modeBadgeChange}>
-            Cambiar modo
-          </button>
-        </div>
-      )}
 
       {/* ── Input para agregar ─────────────────────────────────── */}
       <div style={lista.inputRow}>
@@ -785,19 +758,22 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                         cursor: hasPubs ? 'pointer' : 'default',
                       }}
                     >
-                      {/* Avatar circular — imagen de la publicación o inicial */}
-                      <div style={lista.optimItemAvatar}>
-                        {chosenPub?.photo_url ? (
+                      {/* Avatar circular — letra de fallback siempre visible, imagen fadea encima al cargar */}
+                      <div style={{ ...lista.optimItemAvatar, position: 'relative' }}>
+                        <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {item.productName.charAt(0)}
+                        </span>
+                        {chosenPub?.photo_url && (
                           <img
                             src={chosenPub.photo_url}
                             alt={item.productName}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
-                            onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
+                            loading="lazy"
+                            decoding="async"
+                            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', opacity: 0, transition: 'opacity 0.25s' }}
+                            onLoad={(e) => { e.currentTarget.style.opacity = '1'; }}
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
                           />
-                        ) : null}
-                        <span style={{ display: chosenPub?.photo_url ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-                          {item.productName.charAt(0)}
-                        </span>
+                        )}
                       </div>
 
                       {/* Cuerpo */}
@@ -920,32 +896,6 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
             })}
           </ul>
 
-          {/* ── Dirección de entrega (solo domicilio) ────────────── */}
-          {isCalculated && hasSelections && deliveryMode === 'delivery' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Dirección de entrega
-              </label>
-              <input
-                type="text"
-                value={deliveryAddress}
-                onChange={(e) => setDeliveryAddress(e.target.value)}
-                placeholder="Ej: Calle 10 # 5-30, Quibdó"
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border)',
-                  fontSize: 14,
-                  background: 'var(--bg-base)',
-                  color: 'var(--text-primary)',
-                  outline: 'none',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-          )}
-
           {/* ── Error al guardar ─────────────────────────────────── */}
           {saveError && (
             <p style={{ ...lista.errorMsg, background: 'var(--error-soft)', color: 'var(--error)', padding: '10px 14px', borderRadius: 'var(--radius-sm)', margin: 0, fontSize: 13 }}>
@@ -961,22 +911,6 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
               style={lista.proceedBtn}
             >
               ✦ Elegir cómo recibir mi pedido
-            </button>
-          )}
-
-          {/* ── Botón de confirmación (cuando ya hay modo elegido) ── */}
-          {isCalculated && hasSelections && deliveryMode && (
-            <button
-              type="button"
-              onClick={handleConfirmOrder}
-              disabled={saving}
-              style={{ ...lista.confirmBtn, opacity: saving ? 0.7 : 1 }}
-            >
-              {saving
-                ? 'Guardando pedido...'
-                : deliveryMode === 'delivery'
-                  ? `🛵 Confirmar pedido — $${total.toLocaleString('es-CO')} COP`
-                  : `🚶 Ver ruta de compra — $${total.toLocaleString('es-CO')} COP`}
             </button>
           )}
 
