@@ -128,6 +128,7 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
   const [reportNote,        setReportNote]        = useState('');
   const [reportSubmitting,  setReportSubmitting]  = useState(false);
   const [reportDone,        setReportDone]        = useState(false);
+  const [reportSubmitted,   setReportSubmitted]   = useState(false);
   const [showCancelModal,   setShowCancelModal]   = useState(false);
   const [changingDealer,    setChangingDealer]    = useState(false);
   const userId = useAuthStore((s) => s.user?.id);
@@ -160,6 +161,20 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
       setLoadingBank(false);
     });
   }, [deliveryStatus, dealerId]);
+
+  // Verifica si el usuario ya reportó este pedido (persiste entre recargas)
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (!userId || !order.supabaseId) return;
+    supabase
+      .from('reports')
+      .select('id')
+      .eq('reported_type', 'dealer_issue')
+      .eq('reported_id', String(order.supabaseId))
+      .eq('reporter_user_id', userId)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setReportDone(true); });
+  }, [userId, order.supabaseId]);
 
   if (!deliveryStatus) return null;
 
@@ -281,9 +296,7 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
 
     setReportSubmitting(false);
     setReportDone(true);
-    setShowReportModal(false);
-    setReportNote('');
-    setReportReason('');
+    setReportSubmitted(true);
   };
 
   // Solicita cambiar de repartidor (solo en pendiente_compromiso)
@@ -293,6 +306,20 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
     setChangingDealer(false);
     if (!error) {
       setShowCancelModal(false);
+      onCancel?.();
+    }
+  };
+
+  // Cambiar de repartidor desde el flujo post-reporte
+  const handleChangeDealerFromReport = async () => {
+    setChangingDealer(true);
+    const { error } = await requestDealerChange(order.supabaseId);
+    setChangingDealer(false);
+    if (!error) {
+      setShowReportModal(false);
+      setReportSubmitted(false);
+      setReportNote('');
+      setReportReason('');
       onCancel?.();
     }
   };
@@ -842,59 +869,101 @@ export function DeliveryCard({ order, onCancel, onPaymentSubmitted }) {
       {showReportModal && (
         <div
           style={{ position: 'fixed', inset: 0, background: 'var(--overlay, rgba(0,0,0,0.55))', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}
-          onClick={() => { setShowReportModal(false); setReportReason(''); setReportNote(''); }}
+          onClick={() => { if (!reportSubmitted) { setShowReportModal(false); setReportReason(''); setReportNote(''); } }}
         >
           <div
             style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '24px', width: 'min(440px, 100%)', display: 'flex', flexDirection: 'column', gap: 16 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>⚠️ Reportar problema</h2>
-              <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                El equipo de NØSEE revisará tu reporte. Tu ubicación se registra como evidencia.
-              </p>
-            </div>
+            {!reportSubmitted ? (
+              <>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>⚠️ Reportar problema</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    El equipo de NØSEE revisará tu reporte. Tu ubicación se registra como evidencia.
+                  </p>
+                </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Motivo</label>
-              {['no_llega', 'no_contesta', 'actitud_grosera', 'problema_pedido', 'otro'].map((r) => (
-                <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-                  <input type="radio" name="reportReason" value={r} checked={reportReason === r} onChange={() => setReportReason(r)} />
-                  {r === 'no_llega' && 'El repartidor no llega'}
-                  {r === 'no_contesta' && 'El repartidor no contesta'}
-                  {r === 'actitud_grosera' && 'Actitud grosera o inapropiada'}
-                  {r === 'problema_pedido' && 'Problema con el pedido'}
-                  {r === 'otro' && 'Otro motivo'}
-                </label>
-              ))}
-            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Motivo</label>
+                  {['no_llega', 'no_contesta', 'actitud_grosera', 'problema_pedido', 'otro'].map((r) => (
+                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                      <input type="radio" name="reportReason" value={r} checked={reportReason === r} onChange={() => setReportReason(r)} />
+                      {r === 'no_llega' && 'El repartidor no llega'}
+                      {r === 'no_contesta' && 'El repartidor no contesta'}
+                      {r === 'actitud_grosera' && 'Actitud grosera o inapropiada'}
+                      {r === 'problema_pedido' && 'Problema con el pedido'}
+                      {r === 'otro' && 'Otro motivo'}
+                    </label>
+                  ))}
+                </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Descripción (opcional)</label>
-              <textarea
-                value={reportNote}
-                onChange={(e) => setReportNote(e.target.value)}
-                placeholder="Detallá lo que pasó..."
-                rows={3}
-                style={{ width: '100%', padding: '10px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-base)', color: 'var(--text-primary)', resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.5 }}
-              />
-            </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>Descripción (opcional)</label>
+                  <textarea
+                    value={reportNote}
+                    onChange={(e) => setReportNote(e.target.value)}
+                    placeholder="Detallá lo que pasó..."
+                    rows={3}
+                    style={{ width: '100%', padding: '10px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-base)', color: 'var(--text-primary)', resize: 'vertical', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.5 }}
+                  />
+                </div>
 
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => { setShowReportModal(false); setReportReason(''); setReportNote(''); }}
-                style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDealerReport}
-                disabled={!reportReason || reportSubmitting}
-                style={{ flex: 2, padding: '10px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (!reportReason || reportSubmitting) ? 0.5 : 1 }}
-              >
-                {reportSubmitting ? 'Enviando...' : '✓ Enviar reporte'}
-              </button>
-            </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => { setShowReportModal(false); setReportReason(''); setReportNote(''); }}
+                    style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-muted)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleDealerReport}
+                    disabled={!reportReason || reportSubmitting}
+                    style={{ flex: 2, padding: '10px 14px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: (!reportReason || reportSubmitting) ? 0.5 : 1 }}
+                  >
+                    {reportSubmitting ? 'Enviando...' : '✓ Enviar reporte'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>Reporte enviado</h2>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    El equipo de NØSEE revisará el problema. ¿Qué querés hacer con tu pedido?
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleChangeDealerFromReport}
+                  disabled={changingDealer}
+                  style={{ padding: '14px 18px', borderRadius: 8, border: '2px solid var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 14, fontWeight: 800, cursor: 'pointer', textAlign: 'left', opacity: changingDealer ? 0.6 : 1 }}
+                >
+                  <div>↺ Cambiar de repartidor</div>
+                  <div style={{ fontSize: 11, fontWeight: 500, marginTop: 2, color: 'var(--text-muted)' }}>
+                    Tu pedido vuelve al pool — otro repartidor lo aceptará
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => { setShowReportModal(false); setReportSubmitted(false); setReportNote(''); setReportReason(''); onCancel?.(); }}
+                  style={{ padding: '14px 18px', borderRadius: 8, border: '1px solid var(--error, #dc2626)', background: 'transparent', color: 'var(--error, #dc2626)', fontSize: 14, fontWeight: 800, cursor: 'pointer', textAlign: 'left' }}
+                >
+                  <div>✕ Cancelar pedido</div>
+                  <div style={{ fontSize: 11, fontWeight: 500, marginTop: 2, color: 'var(--text-muted)' }}>
+                    Se cobrará el costo del domicilio
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => { setShowReportModal(false); setReportSubmitted(false); setReportNote(''); setReportReason(''); }}
+                  style={{ padding: '12px 14px', borderRadius: 8, border: '2px solid var(--border-soft, #6b7280)', background: 'var(--bg-surface)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Mantener repartidor actual
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -397,7 +397,11 @@ export default function DealerDashboard() {
     const { data: ok, error } = await verifyDeliveryPin(order.id, pin);
     setAdvancingId(null);
 
-    if (error || !ok) {
+    if (error) {
+      console.error('[handleVerifyPin] RPC error:', error.message);
+      return { success: false, serverError: error.message };
+    }
+    if (!ok) {
       return { success: false };
     }
 
@@ -1128,10 +1132,13 @@ function ActiveOrderCard({ order, statusInfo, checklist, onToggleCheck, advancin
     if (pinInput.length !== 4) { setPinError('El PIN debe tener 4 dígitos'); return; }
     setPinError(null);
     setVerifyingPin(true);
-    const { success } = await onVerifyPin(pinInput);
+    const result = await onVerifyPin(pinInput);
     setVerifyingPin(false);
-    if (!success) {
-      setPinError('PIN incorrecto. Pedile al cliente el PIN correcto.');
+    if (!result.success) {
+      setPinError(result.serverError
+        ? 'Error al verificar el PIN. Intentá de nuevo.'
+        : 'PIN incorrecto. Pedile al cliente que te lo muestre.'
+      );
       setPinInput('');
     }
   };
