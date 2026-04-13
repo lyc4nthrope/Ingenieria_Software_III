@@ -222,8 +222,18 @@ export function PublicationCard({
   return (
     <article
       style={styles.card}
-      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-6px)';
+        e.currentTarget.style.boxShadow = '0 24px 48px rgba(0,0,0,0.60)';
+        const img = e.currentTarget.querySelector('[data-pub-img]');
+        if (img) img.style.transform = 'scale(1.08)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
+        const img = e.currentTarget.querySelector('[data-pub-img]');
+        if (img) img.style.transform = 'scale(1)';
+      }}
     >
       {/* ── Imagen 4:3 con overlays ── */}
       <div style={styles.imageContainer}>
@@ -231,7 +241,8 @@ export function PublicationCard({
           <img
             src={resolvedPhoto}
             alt={productName}
-            style={styles.image}
+            data-pub-img=""
+            style={{ ...styles.image, transform: 'scale(1)', transition: 'transform 0.5s ease' }}
             loading="lazy"
             decoding="async"
             onClick={() => setPhotoExpanded(true)}
@@ -241,8 +252,8 @@ export function PublicationCard({
           <div style={styles.imagePlaceholder} aria-hidden="true" />
         )}
 
-        {/* Precio — abajo a la derecha */}
-        <div style={styles.priceBadge}>
+        {/* Precio — arriba a la izquierda */}
+        <div style={styles.priceBadge} aria-label={`Precio: $${publication.price?.toLocaleString('es-CO')} COP`}>
           ${publication.price?.toLocaleString('es-CO')}
         </div>
 
@@ -308,15 +319,20 @@ export function PublicationCard({
 
       {/* ── Info del producto ── */}
       <div style={styles.content}>
-        <div
-          style={styles.productTitle}
-          title={`${productName} - ${productBrand} - ${storeName}`}
-        >
-          {productName}
-          <span style={styles.titleSep}> - </span>
-          <span style={styles.titleBrand}>{productBrand}</span>
-          <span style={styles.titleSep}> - </span>
-          <span style={styles.titleStore}>{storeName}</span>
+        {/* Título + tag de tienda */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '4px' }}>
+          <div
+            style={styles.productTitle}
+            title={`${productName} - ${productBrand}`}
+          >
+            {productName}
+            {productBrand !== tc.noBrand && (
+              <><span style={styles.titleSep}> · </span><span style={styles.titleBrand}>{productBrand}</span></>
+            )}
+          </div>
+          <span style={styles.storeTag} title={storeName}>
+            {isOnline ? '🌐' : '🏪'} <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '72px', display: 'inline-block', verticalAlign: 'bottom' }}>{storeName}</span>
+          </span>
         </div>
         {unitValue !== tc.noUnit && (
           <div style={styles.metaLine}>{unitValue}</div>
@@ -426,20 +442,20 @@ export function PublicationCard({
 const styles = {
   card: {
     background: 'var(--bg-surface)',
-    border: '2px solid var(--border)',
-    borderRadius: 'var(--radius-lg)',
+    border: 'none',
+    borderRadius: '12px',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    transition: 'box-shadow 0.2s ease',
-    boxShadow: '0 1px 6px rgba(0,0,0,0.10)',
+    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+    boxShadow: 'none',
     height: '100%',
   },
 
   imageActions: {
     position: 'absolute',
-    top: '8px',
-    right: '8px',
+    top: '10px',
+    right: '10px',
     display: 'flex',
     alignItems: 'center',
     gap: '4px',
@@ -452,14 +468,13 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     background: 'rgba(0,0,0,0.50)',
-    border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: '6px',
+    border: '1px solid rgba(255,255,255,0.12)',
+    borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '14px',
-    color: 'rgba(255,255,255,0.85)',
-    backdropFilter: 'blur(4px)',
+    color: 'rgba(255,255,255,0.80)',
+    backdropFilter: 'blur(6px)',
     transition: 'background 0.15s',
-    outline: 'none',  /* el focus-visible lo maneja el navegador; no suprimir con tabIndex */
   },
 
   reportOverlayBtn: {
@@ -469,12 +484,12 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     background: 'rgba(0,0,0,0.45)',
-    border: '1px solid rgba(255,180,180,0.20)',
-    borderRadius: '6px',
+    border: '1px solid rgba(255,160,160,0.18)',
+    borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '13px',
-    color: 'rgba(255,160,160,0.65)',
-    backdropFilter: 'blur(4px)',
+    color: 'rgba(255,150,150,0.60)',
+    backdropFilter: 'blur(6px)',
     transition: 'background 0.15s, color 0.15s, border-color 0.15s',
   },
 
@@ -484,11 +499,11 @@ const styles = {
     left: '10px',
     fontSize: '11px',
     fontWeight: 600,
-    color: 'rgba(255,255,255,0.9)',
-    background: 'rgba(0,0,0,0.45)',
-    padding: '3px 8px',
+    color: 'rgba(255,255,255,0.85)',
+    background: 'rgba(0,0,0,0.50)',
+    padding: '3px 9px',
     borderRadius: '999px',
-    backdropFilter: 'blur(4px)',
+    backdropFilter: 'blur(6px)',
     lineHeight: 1.4,
   },
 
@@ -497,9 +512,9 @@ const styles = {
     top: '100%',
     right: 0,
     background: 'var(--bg-elevated)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-md)',
-    boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '10px',
+    boxShadow: '0 12px 32px rgba(0,0,0,0.50)',
     zIndex: 10,
     minWidth: '140px',
     overflow: 'hidden',
@@ -521,9 +536,10 @@ const styles = {
 
   imageContainer: {
     position: 'relative',
-    aspectRatio: '4 / 3',
+    height: '200px',
     overflow: 'hidden',
     background: 'var(--bg-elevated)',
+    flexShrink: 0,
   },
 
   image: {
@@ -532,6 +548,8 @@ const styles = {
     objectFit: 'cover',
     display: 'block',
     cursor: 'zoom-in',
+    transform: 'scale(1)',
+    transition: 'transform 0.5s ease',
   },
 
   imagePlaceholder: {
@@ -542,21 +560,21 @@ const styles = {
 
   priceBadge: {
     position: 'absolute',
-    bottom: '10px',
-    right: '10px',
-    background: 'var(--accent)',
-    color: '#0a1628',
-    padding: '5px 12px',
-    borderRadius: 'var(--radius-md)',
-    fontSize: '16px',
-    fontWeight: '800',
-    letterSpacing: '-0.02em',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-    lineHeight: 1.2,
+    top: '10px',
+    left: '10px',
+    background: 'rgba(59, 191, 250, 0.92)',
+    backdropFilter: 'blur(8px)',
+    color: '#002b3d',
+    padding: '4px 11px',
+    borderRadius: '999px',
+    fontSize: '14px',
+    fontWeight: '700',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.35)',
+    lineHeight: 1.5,
   },
 
   content: {
-    padding: '12px 14px 8px',
+    padding: '14px 16px 10px',
     display: 'flex',
     flexDirection: 'column',
     gap: '4px',
@@ -564,13 +582,15 @@ const styles = {
   },
 
   productTitle: {
-    fontSize: '14px',
+    fontSize: '15px',
     fontWeight: 700,
     color: 'var(--text-primary)',
     lineHeight: 1.3,
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    flex: 1,
+    minWidth: 0,
   },
 
   titleSep: {
@@ -583,9 +603,23 @@ const styles = {
     fontWeight: 500,
   },
 
-  titleStore: {
+  storeTag: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '3px',
+    fontSize: '10px',
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+    textTransform: 'uppercase',
     color: 'var(--text-muted)',
-    fontWeight: 400,
+    background: 'var(--bg-elevated)',
+    padding: '2px 7px',
+    borderRadius: '4px',
+    flexShrink: 0,
+    maxWidth: '100px',
+    overflow: 'hidden',
+    whiteSpace: 'nowrap',
+    textOverflow: 'ellipsis',
   },
 
   metaLine: {
@@ -604,21 +638,22 @@ const styles = {
     WebkitBoxOrient: 'vertical',
     overflow: 'hidden',
     lineHeight: 1.5,
+    marginTop: '2px',
   },
 
   actionsBar: {
     display: 'flex',
     alignItems: 'center',
-    padding: '8px 14px 12px',
+    padding: '8px 16px 12px',
     gap: '6px',
-    borderTop: '2px solid var(--border)',
+    marginTop: 'auto',
   },
 
   voteGroup: {
     display: 'flex',
-    borderRadius: 'var(--radius-md)',
+    borderRadius: '8px',
     overflow: 'hidden',
-    border: '1.5px solid var(--border)',
+    background: 'var(--bg-elevated)',
     flex: 1,
   },
 
@@ -628,7 +663,7 @@ const styles = {
     gap: '5px',
     padding: '6px 10px',
     border: 'none',
-    background: 'var(--bg-surface)',
+    background: 'transparent',
     cursor: 'pointer',
     fontSize: '13px',
     fontWeight: 600,
@@ -638,7 +673,7 @@ const styles = {
   },
 
   voteBtnLeft: {
-    borderRight: '1.5px solid var(--border)',
+    borderRight: '1px solid rgba(255,255,255,0.06)',
     flex: 1,
     justifyContent: 'center',
   },
@@ -675,22 +710,21 @@ const styles = {
   addBtn: {
     width: '36px',
     height: '36px',
-    borderRadius: 'var(--radius-sm)',
+    borderRadius: '8px',
     background: 'var(--bg-elevated)',
-    border: '1.5px solid var(--border)',
+    border: 'none',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
     color: 'var(--text-muted)',
-    transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+    transition: 'background 0.15s, color 0.15s',
     flexShrink: 0,
   },
 
   addBtnActive: {
     background: 'var(--success-soft)',
     color: 'var(--success)',
-    borderColor: 'var(--success)',
   },
 
   viewMoreBtn: {
@@ -700,7 +734,7 @@ const styles = {
     background: 'transparent',
     border: 'none',
     cursor: 'pointer',
-    fontWeight: 500,
+    fontWeight: 600,
     display: 'flex',
     gap: '2px',
     alignItems: 'center',

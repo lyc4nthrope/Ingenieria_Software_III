@@ -449,6 +449,7 @@ export default function PublicationsPage() {
     >
       <style>{`
         @media(max-width:900px){.pub-page-main{padding:16px 20px 28px!important}}
+        @media(max-width:1280px){.pub-grid{grid-template-columns:repeat(3,1fr)!important}}
         @media(max-width:900px){.pub-grid{grid-template-columns:repeat(2,1fr)!important}}
         @media(max-width:560px){.pub-grid{grid-template-columns:1fr!important}}
       `}</style>
@@ -462,25 +463,41 @@ export default function PublicationsPage() {
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-end",
             justifyContent: "space-between",
             flexWrap: "wrap",
             gap: "12px",
             marginBottom: "4px",
           }}
         >
-          <h1
-            style={{
-              fontSize: "32px",
-              fontWeight: "800",
-              color: "var(--text-primary)",
-              letterSpacing: "-0.02em",
-              margin: 0,
-            }}
-          >
-            {tp.title}
-          </h1>
-
+          <div>
+            <p style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'var(--accent)',
+              marginBottom: '6px',
+              opacity: 0.85,
+            }}>
+              Precios en tiempo real
+            </p>
+            <h1
+              style={{
+                fontSize: 'clamp(26px, 4vw, 40px)',
+                fontWeight: '800',
+                letterSpacing: '-0.02em',
+                margin: 0,
+                lineHeight: 1.1,
+                background: 'linear-gradient(135deg, var(--text-primary) 40%, var(--accent))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              {tp.title}
+            </h1>
+          </div>
           <Button
             size="sm"
             onClick={handlePublish}
@@ -550,8 +567,9 @@ export default function PublicationsPage() {
             style={{
               position: "relative",
               flex: 1,
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border)",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              backdropFilter: "blur(10px)",
               borderRadius: "var(--radius-lg)",
               padding: "12px 16px",
               display: "flex",
@@ -780,7 +798,7 @@ export default function PublicationsPage() {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(3, 1fr)",
-              gap: "20px",
+              gap: "24px",
             }}
           >
             {normalizedPublications.map((publication) => (
