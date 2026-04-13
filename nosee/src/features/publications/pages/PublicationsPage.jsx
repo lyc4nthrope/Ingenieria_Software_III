@@ -22,9 +22,6 @@ import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
 import { isAdmin } from "@/types";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-// Componentes UI compartidos
-import Button from "@/components/ui/Button";
-
 // Componentes de publicaciones
 import PriceSearchFilter from "@/features/publications/components/PriceSearchFilter";
 import PublicationCard from "@/features/publications/components/PublicationCard";
@@ -43,16 +40,17 @@ const SearchIcon = () => (
   </svg>
 );
 
-const PlusIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="5" x2="12" y2="19" />
-    <line x1="5" y1="12" x2="19" y2="12" />
-  </svg>
-);
-
 const FilterIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+  </svg>
+);
+
+const SortIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="12" x2="15" y2="12" />
+    <line x1="3" y1="18" x2="9" y2="18" />
   </svg>
 );
 
@@ -438,35 +436,37 @@ export default function PublicationsPage() {
 
   return (
     <main
-      className="pub-page-main"
+      className="pub-page-main publications-page"
       style={{
         flex: 1,
-        padding: "28px 42px 40px",
-        maxWidth: "1600px",
+        padding: "96px 24px 80px",
+        maxWidth: "1280px",
         margin: "0 auto",
         width: "100%",
       }}
     >
       <style>{`
-        @media(max-width:900px){.pub-page-main{padding:16px 20px 28px!important}}
+        @media(max-width:900px){.pub-page-main{padding:80px 20px 28px!important}}
+        @media(min-width:1280px){.pub-grid{grid-template-columns:repeat(4,1fr)!important}}
         @media(max-width:1280px){.pub-grid{grid-template-columns:repeat(3,1fr)!important}}
         @media(max-width:900px){.pub-grid{grid-template-columns:repeat(2,1fr)!important}}
         @media(max-width:560px){.pub-grid{grid-template-columns:1fr!important}}
+        @media(hover:none){.pub-card-menu-trigger{opacity:1!important}}
       `}</style>
       {/* ─────────── SECCIÓN: Encabezado ─────────── */}
       <section
         style={{
-          marginBottom: "28px",
+          marginBottom: "48px",
         }}
       >
-        {/* Título + botón en la misma línea */}
+        {/* Título + botones hero */}
         <div
           style={{
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "space-between",
             flexWrap: "wrap",
-            gap: "12px",
+            gap: "24px",
             marginBottom: "4px",
           }}
         >
@@ -477,7 +477,7 @@ export default function PublicationsPage() {
               letterSpacing: '0.14em',
               textTransform: 'uppercase',
               color: 'var(--accent)',
-              marginBottom: '6px',
+              marginBottom: '8px',
               opacity: 0.85,
             }}>
               Precios en tiempo real
@@ -489,7 +489,7 @@ export default function PublicationsPage() {
                 letterSpacing: '-0.02em',
                 margin: 0,
                 lineHeight: 1.1,
-                background: 'linear-gradient(135deg, var(--text-primary) 40%, var(--accent))',
+                background: 'linear-gradient(to right, var(--accent), var(--primary-container, #22b1ec))',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -498,15 +498,57 @@ export default function PublicationsPage() {
               {tp.title}
             </h1>
           </div>
-          <Button
-            size="sm"
-            onClick={handlePublish}
-            disabled={!user?.isVerified}
-            title={!user?.isVerified ? tp.verifyEmailTitle : ""}
-          >
-            <PlusIcon style={{ marginRight: "6px" }} />
-            {tp.createBtn}
-          </Button>
+
+          {/* Filtrar + Sort buttons */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setShowFilters((prev) => !prev)}
+              style={{
+                background: showFilters ? 'var(--accent)' : 'var(--surface-container-high, #141f38)',
+                color: showFilters ? '#002b3d' : 'var(--text-primary)',
+                border: '1px solid rgba(64,72,93,0.3)',
+                borderRadius: '12px',
+                padding: '12px 24px',
+                fontWeight: 600,
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background 0.15s, color 0.15s',
+                minHeight: '44px',
+              }}
+              onMouseEnter={(e) => { if (!showFilters) e.currentTarget.style.background = 'var(--bg-hover, #1f2b49)'; }}
+              onMouseLeave={(e) => { if (!showFilters) e.currentTarget.style.background = 'var(--surface-container-high, #141f38)'; }}
+            >
+              <FilterIcon aria-hidden="true" />
+              Filtrar
+            </button>
+
+            <button
+              onClick={() => handleFilterChange({ ...filters, sortBy: filters.sortBy === 'recent' ? 'best_match' : 'recent' })}
+              style={{
+                background: 'var(--surface-container-high, #141f38)',
+                color: 'var(--text-primary)',
+                border: '1px solid rgba(64,72,93,0.3)',
+                borderRadius: '12px',
+                padding: '12px 24px',
+                fontWeight: 600,
+                fontSize: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background 0.15s',
+                minHeight: '44px',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover, #1f2b49)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-container-high, #141f38)'; }}
+            >
+              <SortIcon aria-hidden="true" />
+              {filters.sortBy === 'recent' ? 'Más reciente' : 'Más relevante'}
+            </button>
+          </div>
         </div>
 
         <p
@@ -654,42 +696,6 @@ export default function PublicationsPage() {
             )}
           </div>
 
-          {/* Botón filtros */}
-          <button
-            onClick={() => setShowFilters((prev) => !prev)}
-            title="Filtros"
-            style={{
-              position: "relative",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "44px",
-              height: "44px",
-              flexShrink: 0,
-              background: showFilters ? "var(--accent)" : "var(--bg-surface)",
-              border: "1px solid",
-              borderColor: showFilters ? "var(--accent)" : "var(--border)",
-              borderRadius: "var(--radius-lg)",
-              color: showFilters ? "#fff" : "var(--text-muted)",
-              cursor: "pointer",
-              transition: "background-color 0.15s, border-color 0.15s, color 0.15s",
-            }}
-          >
-            <FilterIcon />
-            {Object.values(filters).filter((v) => v !== null && v !== "" && v !== "recent").length > 0 && (
-              <span
-                style={{
-                  position: "absolute",
-                  top: "5px",
-                  right: "5px",
-                  width: "7px",
-                  height: "7px",
-                  background: showFilters ? "#fff" : "var(--accent)",
-                  borderRadius: "50%",
-                }}
-              />
-            )}
-          </button>
         </div>
 
         {/* Filtros activos como tags + panel expandible */}
@@ -797,7 +803,7 @@ export default function PublicationsPage() {
             className="pub-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
+              gridTemplateColumns: "repeat(4, 1fr)",
               gap: "24px",
             }}
           >
@@ -835,7 +841,11 @@ export default function PublicationsPage() {
                 {tp.loading}
               </span>
             )}
-            {!hasMore && !loading && <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>•</span>}
+            {!hasMore && !loading && (
+              <span style={{ color: "var(--text-secondary)", fontSize: "14px", fontWeight: 500 }}>
+                — Sin más resultados —
+              </span>
+            )}
           </div>
         )}
       </section>
@@ -853,13 +863,71 @@ export default function PublicationsPage() {
         />
       )}
 
+      {/* ── FAB: Crear publicación ── */}
+      <button
+        type="button"
+        className="pub-create-fab"
+        onClick={handlePublish}
+        disabled={!user?.isVerified}
+        aria-label="Crear publicación"
+        title={!user?.isVerified ? tp.verifyEmailTitle : 'Crear publicación'}
+        style={{
+          position: 'fixed',
+          bottom: '32px',
+          right: '32px',
+          zIndex: 50,
+          background: 'linear-gradient(135deg, var(--accent, #3bbffa), var(--primary-container, #22b1ec))',
+          color: '#002b3d',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          paddingLeft: '20px',
+          paddingRight: '24px',
+          paddingTop: '16px',
+          paddingBottom: '16px',
+          borderRadius: '16px',
+          border: 'none',
+          cursor: !user?.isVerified ? 'not-allowed' : 'pointer',
+          boxShadow: '0 8px 32px rgba(59,191,250,0.30)',
+          fontWeight: 700,
+          fontSize: '15px',
+          letterSpacing: '-0.01em',
+          opacity: !user?.isVerified ? 0.5 : 1,
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        }}
+        onMouseEnter={(e) => {
+          if (!user?.isVerified) return;
+          e.currentTarget.style.transform = 'scale(1.05)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+        onMouseDown={(e) => {
+          if (!user?.isVerified) return;
+          e.currentTarget.style.transform = 'scale(0.95)';
+        }}
+        onMouseUp={(e) => {
+          if (!user?.isVerified) return;
+          e.currentTarget.style.transform = 'scale(1.05)';
+        }}
+      >
+        <span
+          className="material-symbols-outlined"
+          style={{ fontSize: '22px', fontVariationSettings: "'FILL' 1" }}
+          aria-hidden="true"
+        >
+          add_circle
+        </span>
+        <span>Contribuir</span>
+      </button>
+
       {/* Feedback Toast */}
       {feedback && (
         <div
           style={{
             position: 'fixed',
-            bottom: '20px',
-            right: '20px',
+            bottom: '96px',
+            right: '32px',
             padding: '16px 20px',
             borderRadius: '8px',
             background: feedback.type === 'success' ? 'var(--success)' : 'var(--error)',

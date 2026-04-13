@@ -508,6 +508,8 @@ const esMX = {
       expand: "Expandir",
       collapse: "Contraer",
       closePhotoLabel: "Cerrar foto ampliada",
+      addToList: "Agregar a lista",
+      removeFromList: "Quitar de lista",
       validateLabel: (name) => `Validar publicación de ${name}`,
       reportLabel: (name) => `Reportar publicación de ${name}`,
       deleteLabel: (name) => `Eliminar publicación de ${name}`,

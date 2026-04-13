@@ -508,6 +508,8 @@ const enUS = {
       expand: "Expand",
       collapse: "Collapse",
       closePhotoLabel: "Close enlarged photo",
+      addToList: "Add to list",
+      removeFromList: "Remove from list",
       validateLabel: (name) => `Validate publication of ${name}`,
       reportLabel: (name) => `Report publication of ${name}`,
       deleteLabel: (name) => `Delete publication of ${name}`,
