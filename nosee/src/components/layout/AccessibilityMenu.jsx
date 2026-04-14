@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage, LANG_OPTIONS } from "@/contexts/LanguageContext";
 import { useLocation } from "react-router-dom";
+import useDraggable from "@/hooks/useDraggable";
 
 const STORAGE_KEY = "nosee-accessibility-settings";
 const FONT_STEP = 0.1;
@@ -145,6 +146,11 @@ export default function AccessibilityMenu() {
   const [langOpen, setLangOpen] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
   const langRef = useRef(null);
+
+  const { pos, wasDragged, elementRef, dragHandleProps, wrapperStyle } = useDraggable({
+    storageKey: 'nosee-a11y-widget-pos',
+    defaultPos: (w, h) => ({ x: w - 12 - 40, y: h - 12 - 40 }),
+  });
 
   // Persistir ajustes y aplicarlos al DOM
   useEffect(() => {
@@ -331,14 +337,21 @@ export default function AccessibilityMenu() {
   ];
 
   return (
-    <div className="a11y-widget" role="complementary" aria-label={ta.panelLabel}>
+    <div
+      ref={elementRef}
+      className="a11y-widget"
+      role="complementary"
+      aria-label={ta.panelLabel}
+      style={{ ...wrapperStyle, zIndex: 2000 }}
+    >
       <button
         type="button"
         className="a11y-logo-trigger"
         aria-expanded={isOpen}
         aria-controls="a11y-panel"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => { if (!wasDragged()) setIsOpen((prev) => !prev); }}
         title={ta.triggerTitle}
+        {...dragHandleProps}
       >
         <AccessibilityIcon />
         <span className="sr-only">{ta.triggerLabel}</span>

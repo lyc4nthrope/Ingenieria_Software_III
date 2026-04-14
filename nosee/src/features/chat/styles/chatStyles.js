@@ -10,9 +10,6 @@
 const styles = {
   // ─── Botón flotante ─────────────────────────────────────────────────────
   floatingButton: {
-    position: 'fixed',
-    bottom: '24px',
-    left: '24px',
     width: '56px',
     height: '56px',
     borderRadius: '50%',
@@ -35,9 +32,6 @@ const styles = {
 
   // ─── Panel del chat ─────────────────────────────────────────────────────
   panel: {
-    position: 'fixed',
-    bottom: '90px',
-    left: '24px',
     width: '380px',
     maxWidth: 'calc(100vw - 48px)',
     height: '520px',

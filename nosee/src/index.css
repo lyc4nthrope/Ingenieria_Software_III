@@ -666,10 +666,7 @@ html {
 }
 
 .a11y-widget {
-  position: fixed;
-  right: 12px;
-  bottom: 12px;
-  z-index: 2000;
+  /* positioning handled by useDraggable hook via inline style */
 }
 
 .a11y-logo-trigger {

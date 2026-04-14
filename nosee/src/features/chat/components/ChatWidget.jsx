@@ -11,6 +11,7 @@ import { useState, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import useChat from '@/features/chat/hooks/useChat';
 import styles from '@/features/chat/styles/chatStyles';
+import useDraggable from '@/hooks/useDraggable';
 
 // ─── Íconos SVG inline ──────────────────────────────────────────────────────
 
@@ -73,6 +74,11 @@ export default function ChatWidget({ userId }) {
   const [btnHover, setBtnHover] = useState(false);
   const inputRef = useRef(null);
 
+  const { pos, wasDragged, elementRef, dragHandleProps, wrapperStyle } = useDraggable({
+    storageKey: 'nosee-chat-widget-pos',
+    defaultPos: (w, h) => ({ x: 24, y: h - 24 - 48 }),
+  });
+
   const {
     messages,
     isOpen,
@@ -98,31 +104,52 @@ export default function ChatWidget({ userId }) {
     }
   };
 
-  // ─── Botón flotante ─────────────────────────────────────────────────────
-  if (!isOpen) {
-    return (
-      <button
-        type="button"
-        aria-label="Abrir chat de asistencia"
-        onClick={openChat}
-        onMouseEnter={() => setBtnHover(true)}
-        onMouseLeave={() => setBtnHover(false)}
-        className="chat-widget-button"
-        style={{
-          ...styles.floatingButton,
-          ...(btnHover ? styles.floatingButtonHover : {}),
-        }}
-      >
-        <ChatIcon />
-      </button>
-    );
-  }
+  // Determina si el panel debe abrirse hacia arriba o hacia abajo
+  const panelGoesUp = pos.y > window.innerHeight / 2;
 
-  // ─── Panel del chat ─────────────────────────────────────────────────────
+  // ─── Wrapper arrastrable ─────────────────────────────────────────────────
   return (
-    <div className="chat-widget-panel" style={styles.panel}>
-      {/* Header */}
-      <div style={styles.header}>
+    <div
+      ref={elementRef}
+      style={{ ...wrapperStyle, zIndex: 9999 }}
+      aria-label="Widget de chat (arrastrable)"
+    >
+      {/* Botón flotante */}
+      {!isOpen && (
+        <button
+          type="button"
+          aria-label="Abrir chat de asistencia — arrastrá para mover"
+          aria-grabbed={false}
+          onClick={() => { if (!wasDragged()) openChat(); }}
+          onMouseEnter={() => setBtnHover(true)}
+          onMouseLeave={() => setBtnHover(false)}
+          className="chat-widget-button"
+          style={{
+            ...styles.floatingButton,
+            ...(btnHover ? styles.floatingButtonHover : {}),
+          }}
+          {...dragHandleProps}
+        >
+          <ChatIcon />
+        </button>
+      )}
+
+      {/* Panel del chat */}
+      {isOpen && (
+    <div className="chat-widget-panel" style={{
+      ...styles.panel,
+      position: 'absolute',
+      bottom: panelGoesUp ? 'calc(100% + 10px)' : 'auto',
+      top: panelGoesUp ? 'auto' : 'calc(100% + 10px)',
+      left: 0,
+    }}>
+      {/* Header — drag handle cuando el panel está abierto */}
+      <div
+        style={{ ...styles.header, cursor: 'grab' }}
+        {...dragHandleProps}
+        aria-label="Arrastrá para mover el chat"
+        title="Arrastrá para mover"
+      >
         <div>
           <h3 style={styles.headerTitle}>Asistente Nosee</h3>
           <p style={styles.headerSubtitle}>Consultá sobre productos y precios</p>
@@ -131,6 +158,7 @@ export default function ChatWidget({ userId }) {
           type="button"
           aria-label="Cerrar chat"
           onClick={closeChat}
+          onMouseDown={(e) => e.stopPropagation()}
           style={styles.closeBtn}
         >
           <CloseIcon />
@@ -211,6 +239,8 @@ export default function ChatWidget({ userId }) {
           <SendIcon />
         </button>
       </div>
+    </div>
+      )}
     </div>
   );
 }
