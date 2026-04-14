@@ -300,40 +300,44 @@ export function PublicationCard({
 
       {/* ── CONTENT SECTION ── */}
       <div style={styles.content}>
-        {/* Header: product name + category tag */}
-        <div style={styles.contentHeader}>
-          <div
-            style={{
-              ...styles.productTitle,
-              color: cardHovered ? 'var(--accent)' : 'var(--text-primary)',
-              cursor: onViewMore ? 'pointer' : 'default',
-            }}
-            title={`${productName} - ${productBrand}`}
-            role={onViewMore ? 'button' : undefined}
-            tabIndex={onViewMore ? 0 : undefined}
-            onClick={() => onViewMore?.(publication.id)}
-            onKeyDown={(e) => {
-              if ((e.key === 'Enter' || e.key === ' ') && onViewMore) {
-                onViewMore(publication.id);
-              }
-            }}
-          >
-            {productName}
-            {productBrand !== tc.noBrand && (
-              <><span style={styles.titleSep}> · </span><span style={styles.titleBrand}>{productBrand}</span></>
-            )}
+        {/* Clickable area: title, brand, unit, description */}
+        <div
+          style={{ cursor: onViewMore ? 'pointer' : 'default' }}
+          onClick={() => onViewMore?.(publication.id)}
+          onKeyDown={(e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && onViewMore) {
+              onViewMore(publication.id);
+            }
+          }}
+          role={onViewMore ? 'button' : undefined}
+          tabIndex={onViewMore ? 0 : undefined}
+          title={`${productName} - ${productBrand}`}
+        >
+          {/* Header: product name + category tag */}
+          <div style={styles.contentHeader}>
+            <div
+              style={{
+                ...styles.productTitle,
+                color: cardHovered ? 'var(--accent)' : 'var(--text-primary)',
+              }}
+            >
+              {productName}
+              {productBrand !== tc.noBrand && (
+                <><span style={styles.titleSep}> · </span><span style={styles.titleBrand}>{productBrand}</span></>
+              )}
+            </div>
+            <span style={styles.categoryTag} title={storeName}>
+              {publication.product?.category?.name || storeName}
+            </span>
           </div>
-          <span style={styles.categoryTag} title={storeName}>
-            {publication.product?.category?.name || storeName}
-          </span>
-        </div>
 
-        {unitValue !== tc.noUnit && (
-          <div style={styles.metaLine}>{unitValue}</div>
-        )}
-        {publication.description && (
-          <p style={styles.description}>{publication.description}</p>
-        )}
+          {unitValue !== tc.noUnit && (
+            <div style={styles.metaLine}>{unitValue}</div>
+          )}
+          {publication.description && (
+            <p style={styles.description}>{publication.description}</p>
+          )}
+        </div>
 
         {/* ── FOOTER ROW ── */}
         <div style={styles.footer}>
@@ -450,7 +454,7 @@ export function PublicationCard({
 const styles = {
   // ── CARD ─────────────────────────────────────────────
   card: {
-    background: 'var(--surface-container, #0f1930)',
+    background: 'var(--bg-surface)',
     border: 'none',
     borderRadius: '12px',
     overflow: 'hidden',
@@ -601,7 +605,7 @@ const styles = {
 
   // ── CONTENT SECTION ───────────────────────────────────
   content: {
-    padding: '20px',
+    padding: '20px 20px 0',
     display: 'flex',
     flexDirection: 'column',
     gap: '0',
@@ -658,12 +662,11 @@ const styles = {
   description: {
     fontSize: '14px',
     color: 'var(--text-secondary)',
-    display: '-webkit-box',
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical',
     overflow: 'hidden',
+    whiteSpace: 'nowrap',
+    textOverflow: 'ellipsis',
     lineHeight: 1.5,
-    marginBottom: '24px',
+    marginBottom: '8px',
   },
 
   metaLine: {
@@ -682,6 +685,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: '8px',
+    paddingBottom: '16px',
   },
 
   timestamp: {

@@ -81,7 +81,7 @@ const enUS = {
       login: "Sign in",
       register: "Sign up",
       myProfile: "My profile",
-      accountDetails: "Account details",
+      accountDetails: "Profile",
       logout: "Sign out",
       ranking: "Ranking",
       closeMenu: "Close menu",

@@ -381,7 +381,7 @@ const Navbar = memo(function Navbar() {
                     top: "calc(100% + 8px)",
                     right: 0,
                     minWidth: "200px",
-                    background: "var(--bg-elevated)",
+                    background: "var(--bg-surface)",
                     border: "1px solid var(--border)",
                     borderRadius: "var(--radius)",
                     boxShadow: "0 4px 16px rgba(0,0,0,0.12)",

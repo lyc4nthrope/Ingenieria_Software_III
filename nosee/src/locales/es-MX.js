@@ -81,7 +81,7 @@ const esMX = {
       login: "Iniciar sesión",
       register: "Registrarse",
       myProfile: "Mi perfil",
-      accountDetails: "Detalles de cuenta",
+      accountDetails: "Perfil",
       logout: "Cerrar sesión",
       ranking: "Ranking",
       closeMenu: "Cerrar menú",

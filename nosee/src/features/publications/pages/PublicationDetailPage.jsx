@@ -232,6 +232,8 @@ const styles = {
     background: "var(--surface-container-high, #262a31)",
     transition: "background 0.2s",
     cursor: "default",
+    minWidth: 0,
+    overflow: "hidden",
   },
 
   infoCardIconWrap: {
@@ -311,7 +313,7 @@ const styles = {
   mapContainer: {
     position: "relative",
     width: "100%",
-    height: "110px",
+    height: "180px",
     borderRadius: "var(--radius-md)",
     overflow: "hidden",
   },
