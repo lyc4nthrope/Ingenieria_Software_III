@@ -224,9 +224,9 @@ export function PublicationCard({
           </div>
         )}
 
-        {/* Dots menu — hover-reveal, top-right below price badge */}
+        {/* Dots menu — top-left, semitransparente */}
         <div
-          style={{ ...styles.imageActionsRow, opacity: cardHovered ? 1 : 0 }}
+          style={{ ...styles.imageActionsRow, opacity: cardHovered ? 1 : 0.4 }}
           data-menu-container
           className="pub-card-menu-trigger"
         >
@@ -517,11 +517,11 @@ const styles = {
     zIndex: 1,
   },
 
-  // Price Drop badge — top-LEFT (conditional)
+  // Price Drop badge — top-LEFT below dots button (conditional)
   priceDropBadge: {
     position: 'absolute',
-    top: '16px',
-    left: '16px',
+    top: '52px',
+    left: '8px',
     background: '#9f0519',
     color: '#ffa8a3',
     padding: '3px 8px',
@@ -533,11 +533,11 @@ const styles = {
     zIndex: 1,
   },
 
-  // Dots menu row — hover-reveal, top-right below price badge
+  // Dots menu row — top-left, semitransparente
   imageActionsRow: {
     position: 'absolute',
-    top: '52px',
-    right: '10px',
+    top: '8px',
+    left: '8px',
     display: 'flex',
     alignItems: 'center',
     gap: '4px',
@@ -546,21 +546,19 @@ const styles = {
   },
 
   dotsBtn: {
-    width: '36px',
-    height: '36px',
+    width: '28px',
+    height: '28px',
     minWidth: '44px',
     minHeight: '44px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(0,0,0,0.55)',
-    border: '1px solid rgba(255,255,255,0.12)',
+    background: 'transparent',
+    border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '14px',
-    color: 'rgba(255,255,255,0.85)',
-    backdropFilter: 'blur(6px)',
-    WebkitBackdropFilter: 'blur(6px)',
+    color: 'rgba(255,255,255,0.9)',
     transition: 'background 0.15s',
   },
 
@@ -568,7 +566,7 @@ const styles = {
   dropdownMenu: {
     position: 'absolute',
     top: 'calc(100% + 4px)',
-    right: 0,
+    left: 0,
     background: 'var(--surface-container-high, #141f38)',
     border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: '10px',
