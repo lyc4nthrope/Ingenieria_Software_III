@@ -337,13 +337,21 @@ export default function AccessibilityMenu() {
   ];
 
   return (
-    <div
-      ref={elementRef}
-      className="a11y-widget"
-      role="complementary"
-      aria-label={ta.panelLabel}
-      style={{ ...wrapperStyle, zIndex: 2000 }}
-    >
+    <>
+      {isOpen && (
+        <div
+          aria-hidden="true"
+          onClick={() => setIsOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1999 }}
+        />
+      )}
+      <div
+        ref={elementRef}
+        className="a11y-widget"
+        role="complementary"
+        aria-label={ta.panelLabel}
+        style={{ ...wrapperStyle, zIndex: 2000 }}
+      >
       <button
         type="button"
         className="a11y-logo-trigger"
@@ -362,6 +370,7 @@ export default function AccessibilityMenu() {
           id="a11y-panel"
           className="a11y-panel"
           aria-label={ta.panelLabel}
+          onClick={(e) => e.stopPropagation()}
           style={{
             bottom: pos.y > window.innerHeight / 2 ? '62px' : 'auto',
             top: pos.y > window.innerHeight / 2 ? 'auto' : '62px',
@@ -494,5 +503,6 @@ export default function AccessibilityMenu() {
 
       <p id="a11y-live-region" className="sr-only" aria-live="polite" />
     </div>
+    </>
   );
 }
