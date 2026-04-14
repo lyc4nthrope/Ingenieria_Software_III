@@ -684,8 +684,8 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: '8px',
-    paddingBottom: '16px',
+    paddingTop: '6px',
+    paddingBottom: '8px',
   },
 
   timestamp: {
@@ -705,7 +705,7 @@ const styles = {
   socialChips: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '10px',
   },
 
   chip: {
@@ -720,8 +720,8 @@ const styles = {
     fontWeight: 500,
     padding: '2px 0',
     transition: 'color 0.15s',
-    minHeight: '44px',
-    minWidth: '44px',
+    minHeight: '32px',
+    minWidth: '32px',
   },
 
   chipIcon: {
