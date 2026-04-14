@@ -104,8 +104,31 @@ export default function ChatWidget({ userId }) {
     }
   };
 
-  // Determina si el panel debe abrirse hacia arriba o hacia abajo
+  // Posicionamiento del panel según dónde esté el botón y el tamaño de pantalla
+  const isMobile = window.innerWidth <= 520;
   const panelGoesUp = pos.y > window.innerHeight / 2;
+  const panelGoesLeft = pos.x > window.innerWidth / 2;
+
+  const panelPositionStyle = isMobile
+    ? {
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        top: 'auto',
+        width: '100%',
+        maxWidth: '100%',
+        height: '75vh',
+        maxHeight: '75vh',
+        borderRadius: '16px 16px 0 0',
+      }
+    : {
+        position: 'absolute',
+        bottom: panelGoesUp ? 'calc(100% + 10px)' : 'auto',
+        top: panelGoesUp ? 'auto' : 'calc(100% + 10px)',
+        left: panelGoesLeft ? 'auto' : 0,
+        right: panelGoesLeft ? 0 : 'auto',
+      };
 
   // ─── Wrapper arrastrable ─────────────────────────────────────────────────
   return (
@@ -139,10 +162,7 @@ export default function ChatWidget({ userId }) {
       {isOpen && (
     <div className="chat-widget-panel" style={{
       ...styles.panel,
-      position: 'absolute',
-      bottom: panelGoesUp ? 'calc(100% + 10px)' : 'auto',
-      top: panelGoesUp ? 'auto' : 'calc(100% + 10px)',
-      left: 0,
+      ...panelPositionStyle,
     }}>
       {/* Header — drag handle cuando el panel está abierto */}
       <div
