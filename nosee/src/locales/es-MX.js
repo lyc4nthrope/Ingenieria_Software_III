@@ -695,6 +695,7 @@ const esMX = {
       publishedOn: "Publicado el",
       sellerLabel: "PUBLICADO POR",
       vendedorLabel: "Vendedor",
+      publicadorLabel: "Publicador",
       storeCardLabel: "TIENDA",
       storeLabel: "Tienda",
       reputationLabel: "pts reputación",

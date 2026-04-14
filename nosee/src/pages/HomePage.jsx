@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   useAuthStore,
@@ -7,7 +8,6 @@ import {
 
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
-import PublicationDetailModal from "@/features/publications/components/PublicationDetailModal";
 import PublicationCard from "@/features/publications/components/PublicationCard";
 import { useLanguage, translateDbValue } from "@/contexts/LanguageContext";
 import { isAdmin } from "@/types";
@@ -37,7 +37,7 @@ export default function HomePage() {
 
   const { latitude, longitude } = useGeoLocation({ autoFetch: true });
 
-  const [detailPublication, setDetailPublication] = useState(null);
+  const navigate = useNavigate();
   const [feedback, setFeedback] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -113,13 +113,9 @@ export default function HomePage() {
     [publications],
   );
 
-  const handleOpenDetail = useCallback(async (publicationId) => {
-    const detailResult =
-      await publicationsApi.getPublicationDetail(publicationId);
-    if (detailResult.success) {
-      setDetailPublication(detailResult.data);
-    }
-  }, []);
+  const handleOpenDetail = useCallback((publicationId) => {
+    navigate(`/publicaciones/${publicationId}`);
+  }, [navigate]);
 
   const handleValidate = useCallback(async (publicationId, userVote) => {
     if (userVote === 1) {
@@ -308,13 +304,6 @@ export default function HomePage() {
           </div>
         )}
       </div>
-
-      {detailPublication && (
-        <PublicationDetailModal
-          publication={detailPublication}
-          onClose={() => setDetailPublication(null)}
-        />
-      )}
 
       {/* Feedback Toast */}
       {feedback && (

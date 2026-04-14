@@ -695,6 +695,7 @@ const enUS = {
       publishedOn: "Published on",
       sellerLabel: "PUBLISHED BY",
       vendedorLabel: "Seller",
+      publicadorLabel: "Publisher",
       storeCardLabel: "STORE",
       storeLabel: "Store",
       reputationLabel: "pts reputation",

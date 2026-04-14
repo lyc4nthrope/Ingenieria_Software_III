@@ -94,10 +94,10 @@ const styles = {
     flexShrink: 0,
     background: "var(--surface-container-lowest, #0a0e14)",
     display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "stretch",
+    justifyContent: "stretch",
     overflow: "hidden",
-    padding: "48px",
+    padding: 0,
   },
 
   leftGradient: {
@@ -111,8 +111,6 @@ const styles = {
     position: "relative",
     width: "100%",
     height: "100%",
-    clipPath: "polygon(0 0, 100% 5%, 100% 100%, 0 95%)",
-    borderRadius: "var(--radius-lg)",
     overflow: "hidden",
   },
 
@@ -120,6 +118,7 @@ const styles = {
     width: "100%",
     height: "100%",
     objectFit: "cover",
+    objectPosition: "center",
     display: "block",
     transition: "transform 0.7s ease",
   },
@@ -151,18 +150,25 @@ const styles = {
     flex: 1,
     display: "flex",
     flexDirection: "column",
+    overflow: "hidden",
+    minWidth: 0,
+  },
+
+  rightScrollable: {
+    flex: 1,
     overflowY: "auto",
+    overflowX: "hidden",
   },
 
   rightHeader: {
-    padding: "48px 48px 0",
+    padding: "20px 24px 0",
   },
 
   badgesRow: {
     display: "flex",
     alignItems: "center",
-    gap: "12px",
-    marginBottom: "16px",
+    gap: "8px",
+    marginBottom: "8px",
     flexWrap: "wrap",
   },
 
@@ -191,33 +197,33 @@ const styles = {
   heroTitle: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontWeight: 900,
-    fontSize: "clamp(32px, 4vw, 48px)",
+    fontSize: "clamp(18px, 2.5vw, 28px)",
     color: "#dfe2eb",
-    lineHeight: 1.1,
-    marginBottom: "8px",
+    lineHeight: 1.15,
+    marginBottom: "4px",
     letterSpacing: "-0.02em",
     outline: "none",
   },
 
   heroBrand: {
-    fontSize: "16px",
+    fontSize: "13px",
     fontWeight: 500,
     color: "var(--text-secondary)",
-    marginBottom: "32px",
+    marginBottom: "12px",
   },
 
   infoGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
-    gap: "16px",
-    marginBottom: "32px",
+    gap: "8px",
+    marginBottom: "12px",
   },
 
   infoCard: {
     display: "flex",
     alignItems: "center",
-    gap: "16px",
-    padding: "16px",
+    gap: "10px",
+    padding: "10px 12px",
     borderRadius: "var(--radius-md)",
     background: "var(--surface-container-high, #262a31)",
     transition: "background 0.2s",
@@ -225,36 +231,36 @@ const styles = {
   },
 
   infoCardIconWrap: {
-    width: "48px",
-    height: "48px",
+    width: "32px",
+    height: "32px",
     borderRadius: "9999px",
     background: "var(--surface-container-lowest, #0a0e14)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-    border: "2px solid rgba(121,209,255,0.2)",
+    border: "1px solid rgba(121,209,255,0.2)",
   },
 
   infoCardInitials: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontWeight: 800,
-    fontSize: "16px",
+    fontSize: "12px",
     color: "var(--primary-container, #22b1ec)",
   },
 
   infoCardLabel: {
-    fontSize: "10px",
+    fontSize: "9px",
     fontWeight: 700,
     color: "rgba(255,255,255,0.4)",
     textTransform: "uppercase",
-    letterSpacing: "0.2em",
-    marginBottom: "2px",
+    letterSpacing: "0.12em",
+    marginBottom: "1px",
   },
 
   infoCardValue: {
-    fontWeight: 700,
-    fontSize: "14px",
+    fontWeight: 600,
+    fontSize: "12px",
     color: "#dfe2eb",
     lineHeight: 1.3,
     whiteSpace: "nowrap",
@@ -264,20 +270,20 @@ const styles = {
 
   // MAP SECTION
   mapSection: {
-    padding: "0 48px 40px",
+    padding: "0 24px 12px",
   },
 
   mapHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: "12px",
+    marginBottom: "8px",
   },
 
   mapSectionTitle: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontWeight: 700,
-    fontSize: "14px",
+    fontSize: "11px",
     textTransform: "uppercase",
     letterSpacing: "0.15em",
     color: "#dfe2eb",
@@ -301,7 +307,7 @@ const styles = {
   mapContainer: {
     position: "relative",
     width: "100%",
-    height: "160px",
+    height: "110px",
     borderRadius: "var(--radius-md)",
     overflow: "hidden",
   },
@@ -334,7 +340,7 @@ const styles = {
 
   // COMMUNITY FEED
   feedSection: {
-    padding: "0 48px 100px",
+    padding: "0 24px 16px",
     flexGrow: 1,
   },
 
@@ -342,29 +348,28 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: "24px",
+    marginBottom: "12px",
   },
 
   feedTitle: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontWeight: 700,
-    fontSize: "18px",
+    fontSize: "11px",
     textTransform: "uppercase",
-    letterSpacing: "0.1em",
+    letterSpacing: "0.15em",
     color: "#dfe2eb",
   },
 
   feedCount: {
-    fontSize: "12px",
+    fontSize: "11px",
     color: "rgba(255,255,255,0.4)",
     fontWeight: 500,
   },
 
-  // STICKY FOOTER
+  // STICKY FOOTER — always visible at bottom of right column
   stickyFooter: {
-    position: "sticky",
-    bottom: 0,
-    padding: "20px 32px",
+    flexShrink: 0,
+    padding: "12px 24px",
     backdropFilter: "blur(24px)",
     WebkitBackdropFilter: "blur(24px)",
     background: "rgba(16,20,26,0.7)",
@@ -834,7 +839,8 @@ export default function PublicationDetailPage() {
           </div>
 
           {/* ── RIGHT COLUMN ── */}
-          <div style={styles.rightCol} className="detail-scrollbar">
+          <div style={styles.rightCol}>
+          <div style={styles.rightScrollable} className="detail-scrollbar">
             {/* HEADER: badges + title + info grid */}
             <div style={styles.rightHeader}>
               <div style={styles.badgesRow}>
@@ -879,7 +885,7 @@ export default function PublicationDetailPage() {
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <p style={styles.infoCardLabel}>
-                      {td?.vendedorLabel ?? "Vendedor"}
+                      {td?.publicadorLabel ?? "Publicador"}
                     </p>
                     <p style={styles.infoCardValue}>{sellerName}</p>
                     <p style={{ ...styles.infoCardLabel, marginTop: "2px" }}>
@@ -911,7 +917,7 @@ export default function PublicationDetailPage() {
                       className="material-symbols-outlined"
                       style={{
                         color: "#5cde94",
-                        fontSize: "22px",
+                        fontSize: "16px",
                         fontVariationSettings: "'FILL' 1",
                       }}
                       aria-hidden="true"
@@ -939,7 +945,7 @@ export default function PublicationDetailPage() {
                       className="material-symbols-outlined"
                       style={{
                         color: "#ebc33e",
-                        fontSize: "22px",
+                        fontSize: "16px",
                         fontVariationSettings: "'FILL' 1",
                       }}
                       aria-hidden="true"
@@ -969,7 +975,7 @@ export default function PublicationDetailPage() {
                       className="material-symbols-outlined"
                       style={{
                         color: "var(--text-secondary)",
-                        fontSize: "22px",
+                        fontSize: "16px",
                       }}
                       aria-hidden="true"
                     >
@@ -1057,9 +1063,6 @@ export default function PublicationDetailPage() {
                       td={td}
                     />
                   </div>
-                  <div style={styles.mapAddressOverlay} aria-hidden="true">
-                    {publication.store?.address ?? storeName}
-                  </div>
                 </div>
               ) : (
                 <p style={{ color: "var(--text-muted)", fontSize: "13px" }}>
@@ -1069,7 +1072,7 @@ export default function PublicationDetailPage() {
             </div>
 
             {/* COMMUNITY FEED */}
-            <div style={styles.feedSection}>
+            <div style={styles.feedSection} id="community-feed">
               <div style={styles.feedHeader}>
                 <h2 style={styles.feedTitle}>
                   {td?.communityTitle ?? "Comunidad"}
@@ -1085,6 +1088,7 @@ export default function PublicationDetailPage() {
                 td={td}
               />
             </div>
+          </div>{/* end rightScrollable */}
 
             {/* STICKY FOOTER */}
             <div style={styles.stickyFooter}>
@@ -1180,7 +1184,7 @@ export default function PublicationDetailPage() {
                 </span>
               </button>
             </div>
-          </div>
+          </div>{/* end rightCol */}
         </div>
       )}
 
