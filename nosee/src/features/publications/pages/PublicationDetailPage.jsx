@@ -583,13 +583,11 @@ function LoadingSkeleton() {
 function ErrorState({ message, onBack, td }) {
   return (
     <div style={styles.errorBox}>
-      <span
-        className="material-symbols-outlined"
-        style={{ fontSize: "48px", color: "var(--error, #f87171)" }}
-        aria-hidden="true"
-      >
-        error
-      </span>
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--error, #f87171)" }} aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
       <p role="alert">{message || td?.loadError || "No se pudo cargar esta publicación."}</p>
       <button
         type="button"
@@ -815,13 +813,10 @@ export default function PublicationDetailPage() {
 
       {/* Back button */}
       <button type="button" style={styles.backBtn} onClick={handleBack}>
-        <span
-          className="material-symbols-outlined"
-          style={{ fontSize: "18px" }}
-          aria-hidden="true"
-        >
-          arrow_back
-        </span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12"/>
+          <polyline points="12 19 5 12 12 5"/>
+        </svg>
         {td?.backLabel ?? "Volver"}
       </button>
 
@@ -945,17 +940,9 @@ export default function PublicationDetailPage() {
                       borderColor: "rgba(92,222,148,0.2)",
                     }}
                   >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{
-                        color: "#5cde94",
-                        fontSize: "16px",
-                        fontVariationSettings: "'FILL' 1",
-                      }}
-                      aria-hidden="true"
-                    >
-                      storefront
-                    </span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" style={{ color: "#5cde94" }} aria-hidden="true">
+                      <path d="M20 4H4v2l-1 6h18l-1-6V4zm-1 8H5l.67 4h12.66L19 12zM4 20h16v-2H4v2z"/>
+                    </svg>
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <p style={styles.infoCardLabel}>
@@ -973,17 +960,9 @@ export default function PublicationDetailPage() {
                       borderColor: "rgba(235,195,62,0.2)",
                     }}
                   >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{
-                        color: "#ebc33e",
-                        fontSize: "16px",
-                        fontVariationSettings: "'FILL' 1",
-                      }}
-                      aria-hidden="true"
-                    >
-                      sell
-                    </span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" style={{ color: "#ebc33e" }} aria-hidden="true">
+                      <path d="M21.41 11.58l-9-9A2 2 0 0011 2H4a2 2 0 00-2 2v7a2 2 0 00.59 1.42l9 9A2 2 0 0013 22a2 2 0 001.41-.59l7-7A2 2 0 0022 13a2 2 0 00-.59-1.42zM5.5 7A1.5 1.5 0 117 5.5 1.5 1.5 0 015.5 7z"/>
+                    </svg>
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <p style={styles.infoCardLabel}>
@@ -1003,16 +982,12 @@ export default function PublicationDetailPage() {
                       borderColor: "rgba(255,255,255,0.1)",
                     }}
                   >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{
-                        color: "var(--text-secondary)",
-                        fontSize: "16px",
-                      }}
-                      aria-hidden="true"
-                    >
-                      calendar_today
-                    </span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-secondary)" }} aria-hidden="true">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/>
+                      <line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <p style={styles.infoCardLabel}>
@@ -1043,13 +1018,9 @@ export default function PublicationDetailPage() {
                     rel="noreferrer"
                     style={styles.mapGmapsLink}
                   >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ fontSize: "14px" }}
-                      aria-hidden="true"
-                    >
-                      directions
-                    </span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                    </svg>
                     {td?.openInGoogleMaps ?? "Cómo llegar"}
                   </a>
                 )}
@@ -1071,13 +1042,11 @@ export default function PublicationDetailPage() {
                       minHeight: "44px",
                     }}
                   >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ fontSize: "16px" }}
-                      aria-hidden="true"
-                    >
-                      open_in_new
-                    </span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
                     {td?.virtualStoreLink ?? "Visitar tienda"}
                   </a>
                 ) : (
@@ -1119,13 +1088,9 @@ export default function PublicationDetailPage() {
                     {publication.comments?.length ?? 0}{" "}
                     {td?.reviewsLabel ?? "comentarios"}
                   </span>
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: "18px", color: "rgba(255,255,255,0.4)", transition: "transform 0.2s", transform: commentsOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-                    aria-hidden="true"
-                  >
-                    expand_more
-                  </span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "rgba(255,255,255,0.4)", transition: "transform 0.2s", transform: commentsOpen ? "rotate(180deg)" : "rotate(0deg)" }} aria-hidden="true">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
                 </div>
               </button>
               {commentsOpen && (
@@ -1156,16 +1121,10 @@ export default function PublicationDetailPage() {
                 aria-pressed={upActive}
                 aria-label={`${td?.upvoteLabel ?? "Votar positivo"} (${positiveVotes})`}
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{
-                    fontSize: "18px",
-                    fontVariationSettings: upActive ? "'FILL' 1" : "'FILL' 0",
-                  }}
-                  aria-hidden="true"
-                >
-                  thumb_up
-                </span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill={upActive ? "currentColor" : "none"} stroke={upActive ? "none" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/>
+                  <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/>
+                </svg>
                 <span>{positiveVotes}</span>
               </button>
 
@@ -1183,13 +1142,10 @@ export default function PublicationDetailPage() {
                 aria-pressed={downActive}
                 aria-label={`${td?.downvoteLabel ?? "Votar negativo"} (${negativeVotes})`}
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: "18px" }}
-                  aria-hidden="true"
-                >
-                  thumb_down
-                </span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/>
+                  <path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/>
+                </svg>
                 <span>{negativeVotes}</span>
               </button>
 
@@ -1225,13 +1181,13 @@ export default function PublicationDetailPage() {
                   e.currentTarget.style.background = "transparent";
                 }}
               >
-                <span
-                  className="material-symbols-outlined"
-                  style={{ fontSize: "22px" }}
-                  aria-hidden="true"
-                >
-                  share
-                </span>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="18" cy="5" r="3"/>
+                  <circle cx="6" cy="12" r="3"/>
+                  <circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
               </button>
             </div>
           </div>{/* end rightCol */}

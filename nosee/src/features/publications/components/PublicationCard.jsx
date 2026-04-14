@@ -340,13 +340,10 @@ export function PublicationCard({
           {/* Timestamp — left */}
           {timeAgo && (
             <div style={styles.timestamp}>
-              <span
-                className="material-symbols-outlined"
-                style={styles.timestampIcon}
-                aria-hidden="true"
-              >
-                schedule
-              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
               {timeAgo}
             </div>
           )}
@@ -369,13 +366,10 @@ export function PublicationCard({
                 e.currentTarget.style.color = upActive ? 'var(--success)' : 'var(--text-secondary)';
               }}
             >
-              <span
-                className="material-symbols-outlined"
-                style={upActive ? styles.chipIconActive : styles.chipIcon}
-                aria-hidden="true"
-              >
-                thumb_up
-              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={upActive ? "currentColor" : "none"} stroke={upActive ? "none" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={upActive ? styles.chipIconActive : styles.chipIcon} aria-hidden="true">
+                <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/>
+                <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/>
+              </svg>
               <span>{publication.validated_count || 0}</span>
             </button>
 
@@ -395,13 +389,10 @@ export function PublicationCard({
                 e.currentTarget.style.color = downActive ? 'var(--error)' : 'var(--text-secondary)';
               }}
             >
-              <span
-                className="material-symbols-outlined"
-                style={downActive ? styles.chipIconActive : styles.chipIcon}
-                aria-hidden="true"
-              >
-                thumb_down
-              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={downActive ? "currentColor" : "none"} stroke={downActive ? "none" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={downActive ? styles.chipIconActive : styles.chipIcon} aria-hidden="true">
+                <path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/>
+                <path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/>
+              </svg>
               <span>{publication.downvoted_count || 0}</span>
             </button>
 
@@ -410,13 +401,9 @@ export function PublicationCard({
               style={{ ...styles.chip, cursor: 'default' }}
               aria-label={`${publication.comment_count || 0} comentarios`}
             >
-              <span
-                className="material-symbols-outlined"
-                style={styles.chipIcon}
-                aria-hidden="true"
-              >
-                chat_bubble
-              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={styles.chipIcon} aria-hidden="true">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+              </svg>
               <span>{publication.comment_count || 0}</span>
             </div>
           </div>

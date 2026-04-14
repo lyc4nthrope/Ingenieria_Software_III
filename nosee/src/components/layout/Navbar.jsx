@@ -254,28 +254,10 @@ const Navbar = memo(function Navbar() {
             </Link>
           </div>
 
-          <button
-            type="button"
-            className="nav-hamburger"
-            onClick={() => setMobileMenuOpen((v) => !v)}
-            aria-expanded={mobileMenuOpen}
-            aria-label={mobileMenuOpen ? tn.closeMenu : tn.openMenu}
-          >
-            <MenuIcon open={mobileMenuOpen} />
-          </button>
-
-          {mobileMenuOpen && (
-            <div
-              style={{ position: "fixed", inset: 0, top: "60px", zIndex: 98 }}
-              onClick={() => setMobileMenuOpen(false)}
-              aria-hidden="true"
-            />
-          )}
-
           {/* Nav links — center column */}
           <div
             className={`nav-links${mobileMenuOpen ? " nav-links--open" : ""}`}
-            style={{ flex: 1, display: "flex", justifyContent: "center", gap: "4px" }}
+            style={{ flex: 1, justifyContent: "center", gap: "4px" }}
           >
             <Link
               to="/"
@@ -343,7 +325,26 @@ const Navbar = memo(function Navbar() {
           </div>
 
           {/* Avatar/hamburger — right column */}
-          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "8px" }}>
+
+          {mobileMenuOpen && (
+            <div
+              style={{ position: "fixed", inset: 0, top: "60px", zIndex: 98 }}
+              onClick={() => setMobileMenuOpen(false)}
+              aria-hidden="true"
+            />
+          )}
+
+          <button
+            type="button"
+            className="nav-hamburger"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            aria-expanded={mobileMenuOpen}
+            aria-label={mobileMenuOpen ? tn.closeMenu : tn.openMenu}
+          >
+            <MenuIcon open={mobileMenuOpen} />
+          </button>
+
           <div style={{ position: "relative" }}>
             <button
               type="button"

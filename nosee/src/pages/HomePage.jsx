@@ -358,9 +358,9 @@ export default function HomePage() {
     <div className="home-wrapper">
       {/* ── 4.7: Grid CSS with media queries ── */}
       <style>{`
-        @media(min-width:1280px){ .home-pub-grid{grid-template-columns:repeat(3,1fr)!important} }
-        @media(max-width:1280px){ .home-pub-grid{grid-template-columns:repeat(2,1fr)!important} }
-        @media(max-width:560px){  .home-pub-grid{grid-template-columns:1fr!important} }
+        .home-pub-grid{grid-template-columns:repeat(3,1fr)}
+        @media(max-width:1023px){ .home-pub-grid{grid-template-columns:repeat(2,1fr)} }
+        @media(max-width:560px){  .home-pub-grid{grid-template-columns:1fr} }
         @keyframes spin { to { transform: rotate(360deg); } }
         @media(hover:none){.pub-card-menu-trigger{opacity:1!important}}
       `}</style>
@@ -616,7 +616,6 @@ export default function HomePage() {
               className="home-pub-grid"
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
                 gap: "24px",
               }}
             >
@@ -713,13 +712,10 @@ export default function HomePage() {
           e.currentTarget.style.transform = 'scale(1.05)';
         }}
       >
-        <span
-          className="material-symbols-outlined"
-          style={{ fontSize: '22px', fontVariationSettings: "'FILL' 1" }}
-          aria-hidden="true"
-        >
-          add_circle
-        </span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
         <span>{th.contribuir || "Contribuir"}</span>
       </button>
 
