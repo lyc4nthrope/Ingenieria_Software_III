@@ -108,7 +108,7 @@ export default function ChatWidget({ userId }) {
   const getPanelStyle = () => {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const PANEL_W = Math.min(380, vw - 16);
+    const PANEL_W = Math.min(420, vw - 16);
     const PANEL_H = Math.min(520, vh - 80);
 
     if (vw <= 520) {
@@ -194,8 +194,8 @@ export default function ChatWidget({ userId }) {
     >
       {/* Header — drag handle cuando el panel está abierto */}
       <div
-        style={{ ...styles.header, cursor: 'grab' }}
         {...dragHandleProps}
+        style={{ ...styles.header, cursor: 'grab', touchAction: 'none' }}
         aria-label="Arrastrá para mover el chat"
         title="Arrastrá para mover"
       >

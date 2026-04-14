@@ -32,8 +32,8 @@ const styles = {
 
   // ─── Panel del chat ─────────────────────────────────────────────────────
   panel: {
-    width: '380px',
-    maxWidth: 'calc(100vw - 48px)',
+    width: '420px',
+    maxWidth: 'calc(100vw - 16px)',
     height: '520px',
     maxHeight: 'calc(100vh - 120px)',
     background: 'var(--bg-surface)',
