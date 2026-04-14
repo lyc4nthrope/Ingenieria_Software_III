@@ -367,6 +367,9 @@ export default function AccessibilityMenu() {
             top: pos.y > window.innerHeight / 2 ? 'auto' : '62px',
             right: pos.x > window.innerWidth / 2 ? 0 : 'auto',
             left: pos.x > window.innerWidth / 2 ? 'auto' : 0,
+            maxHeight: Math.max(200, pos.y > window.innerHeight / 2
+              ? pos.y - 18
+              : window.innerHeight - pos.y - 40 - 18),
           }}
         >
           <header className="a11y-panel-header">

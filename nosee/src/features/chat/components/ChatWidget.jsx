@@ -107,6 +107,9 @@ export default function ChatWidget({ userId }) {
   // ─── Dirección del panel (igual que AccessibilityMenu) ──────────────────
   const panelGoesUp = pos.y > window.innerHeight / 2;
   const panelGoesLeft = pos.x > window.innerWidth / 2;
+  const availableH = panelGoesUp
+    ? pos.y - 18
+    : window.innerHeight - pos.y - 40 - 18;
 
   // ─── Wrapper arrastrable ─────────────────────────────────────────────────
   return (
@@ -122,7 +125,7 @@ export default function ChatWidget({ userId }) {
 
       <div
         ref={elementRef}
-        style={{ ...wrapperStyle, zIndex: 9999 }}
+        style={{ ...wrapperStyle, zIndex: 9999, width: 40, height: 40 }}
         aria-label="Widget de chat (arrastrable)"
       >
         {/* Botón flotante */}
@@ -157,6 +160,7 @@ export default function ChatWidget({ userId }) {
         top: panelGoesUp ? 'auto' : 'calc(100% + 10px)',
         left: panelGoesLeft ? 'auto' : 0,
         right: panelGoesLeft ? 0 : 'auto',
+        maxHeight: Math.max(200, availableH),
         zIndex: 9998,
       }}
       onClick={(e) => e.stopPropagation()}
