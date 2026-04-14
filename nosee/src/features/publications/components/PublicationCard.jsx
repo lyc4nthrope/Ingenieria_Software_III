@@ -226,7 +226,7 @@ export function PublicationCard({
 
         {/* Dots menu — top-left, semitransparente */}
         <div
-          style={{ ...styles.imageActionsRow, opacity: cardHovered ? 1 : 0.4 }}
+          style={{ ...styles.imageActionsRow, opacity: cardHovered ? 1 : 0.8 }}
           data-menu-container
           className="pub-card-menu-trigger"
         >
@@ -553,8 +553,10 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'transparent',
-    border: 'none',
+    background: 'rgba(0,0,0,0.45)',
+    backdropFilter: 'blur(6px)',
+    WebkitBackdropFilter: 'blur(6px)',
+    border: '1px solid rgba(255,255,255,0.10)',
     borderRadius: '8px',
     cursor: 'pointer',
     fontSize: '14px',
