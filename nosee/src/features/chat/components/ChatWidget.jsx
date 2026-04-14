@@ -104,48 +104,9 @@ export default function ChatWidget({ userId }) {
     }
   };
 
-  // ─── Posicionamiento del panel (siempre position:fixed, coords explícitas) ──
-  const getPanelStyle = () => {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const PANEL_W = Math.min(420, vw - 16);
-    const PANEL_H = Math.min(520, vh - 80);
-
-    if (vw <= 520) {
-      const w = Math.round(vw * 0.75);
-      const h = Math.round(vh * 0.90);
-      return {
-        position: 'fixed',
-        left: Math.round((vw - w) / 2),
-        top: Math.round((vh - h) / 2),
-        width: w,
-        maxWidth: w,
-        height: h,
-        maxHeight: h,
-      };
-    }
-
-    // Desktop: abrir junto al botón
-    const btnLeft = pos.x;
-    const btnRight = pos.x + 40;
-    const btnTop = pos.y;
-    const btnBottom = pos.y + 40;
-
-    const left = btnLeft + PANEL_W <= vw - 8 ? btnLeft : Math.max(8, btnRight - PANEL_W);
-    const top = btnTop > vh / 2
-      ? Math.max(8, btnTop - PANEL_H - 10)
-      : Math.min(vh - PANEL_H - 8, btnBottom + 10);
-
-    return {
-      position: 'fixed',
-      left,
-      top,
-      width: PANEL_W,
-      maxWidth: PANEL_W,
-      height: PANEL_H,
-      maxHeight: PANEL_H,
-    };
-  };
+  // ─── Dirección del panel (igual que AccessibilityMenu) ──────────────────
+  const panelGoesUp = pos.y > window.innerHeight / 2;
+  const panelGoesLeft = pos.x > window.innerWidth / 2;
 
   // ─── Wrapper arrastrable ─────────────────────────────────────────────────
   return (
@@ -189,7 +150,15 @@ export default function ChatWidget({ userId }) {
       {isOpen && (
     <div
       className="chat-widget-panel"
-      style={{ ...styles.panel, ...getPanelStyle(), zIndex: 9998 }}
+      style={{
+        ...styles.panel,
+        position: 'absolute',
+        bottom: panelGoesUp ? 'calc(100% + 10px)' : 'auto',
+        top: panelGoesUp ? 'auto' : 'calc(100% + 10px)',
+        left: panelGoesLeft ? 'auto' : 0,
+        right: panelGoesLeft ? 0 : 'auto',
+        zIndex: 9998,
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Header — drag handle cuando el panel está abierto */}
