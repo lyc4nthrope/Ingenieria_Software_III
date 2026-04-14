@@ -358,7 +358,17 @@ export default function AccessibilityMenu() {
       </button>
 
       {isOpen && (
-        <section id="a11y-panel" className="a11y-panel" aria-label={ta.panelLabel}>
+        <section
+          id="a11y-panel"
+          className="a11y-panel"
+          aria-label={ta.panelLabel}
+          style={{
+            bottom: pos.y > window.innerHeight / 2 ? '62px' : 'auto',
+            top: pos.y > window.innerHeight / 2 ? 'auto' : '62px',
+            right: pos.x > window.innerWidth / 2 ? 0 : 'auto',
+            left: pos.x > window.innerWidth / 2 ? 'auto' : 0,
+          }}
+        >
           <header className="a11y-panel-header">
             <h2>{ta.title}</h2>
             <button type="button" onClick={() => setIsOpen(false)} aria-label={ta.closeLabel}>

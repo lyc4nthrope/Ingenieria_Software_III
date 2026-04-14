@@ -1419,19 +1419,11 @@ html {
 }
 
 /* ── Chat Widget responsive ─────────────────────── */
-@media (max-width: 480px) {
+@media (max-width: 520px) {
   .chat-widget-panel {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    height: 100vh !important;
-    max-height: 100vh !important;
-    border-radius: 0 !important;
-  }
-
-  .chat-widget-button {
-    bottom: 16px !important;
-    right: 16px !important;
+    width: 75vw;
+    max-width: 75vw;
+    height: 90vh;
+    max-height: 90vh;
   }
 }
