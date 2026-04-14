@@ -53,7 +53,7 @@ const styles = {
     zIndex: 1,
     width: "100%",
     maxWidth: "1152px",
-    maxHeight: "calc(100vh - 32px)",
+    height: "calc(100vh - 32px)",
     background: "var(--surface-container-low, #181c22)",
     borderRadius: "var(--radius-xl)",
     border: "1px solid rgba(255,255,255,0.05)",
@@ -351,6 +351,19 @@ const styles = {
     marginBottom: "12px",
   },
 
+  feedToggleBtn: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: "8px 0",
+    marginBottom: "4px",
+    borderRadius: "8px",
+  },
+
   feedTitle: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontWeight: 700,
@@ -610,6 +623,7 @@ export default function PublicationDetailPage() {
   const [voting, setVoting] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [imageHovered, setImageHovered] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
 
   const pageTitleRef = useRef(null);
@@ -1071,22 +1085,38 @@ export default function PublicationDetailPage() {
               )}
             </div>
 
-            {/* COMMUNITY FEED */}
+            {/* COMMUNITY FEED — colapsable */}
             <div style={styles.feedSection} id="community-feed">
-              <div style={styles.feedHeader}>
+              <button
+                type="button"
+                style={styles.feedToggleBtn}
+                onClick={() => setCommentsOpen((v) => !v)}
+                aria-expanded={commentsOpen}
+              >
                 <h2 style={styles.feedTitle}>
                   {td?.communityTitle ?? "Comunidad"}
                 </h2>
-                <span style={styles.feedCount}>
-                  {publication.comments?.length ?? 0}{" "}
-                  {td?.reviewsLabel ?? "comentarios"}
-                </span>
-              </div>
-              <CommentsSection
-                publicationId={publication.id}
-                initialComments={publication.comments || []}
-                td={td}
-              />
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={styles.feedCount}>
+                    {publication.comments?.length ?? 0}{" "}
+                    {td?.reviewsLabel ?? "comentarios"}
+                  </span>
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: "18px", color: "rgba(255,255,255,0.4)", transition: "transform 0.2s", transform: commentsOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                    aria-hidden="true"
+                  >
+                    expand_more
+                  </span>
+                </div>
+              </button>
+              {commentsOpen && (
+                <CommentsSection
+                  publicationId={publication.id}
+                  initialComments={publication.comments || []}
+                  td={td}
+                />
+              )}
             </div>
           </div>{/* end rightScrollable */}
 
