@@ -1418,12 +1418,3 @@ html {
   }
 }
 
-/* ── Chat Widget responsive ─────────────────────── */
-@media (max-width: 520px) {
-  .chat-widget-panel {
-    width: 75vw;
-    max-width: 75vw;
-    height: 90vh;
-    max-height: 90vh;
-  }
-}

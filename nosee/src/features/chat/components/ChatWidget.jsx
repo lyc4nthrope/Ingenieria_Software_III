@@ -104,64 +104,94 @@ export default function ChatWidget({ userId }) {
     }
   };
 
-  // Posicionamiento del panel según dónde esté el botón y el tamaño de pantalla
-  const isMobile = window.innerWidth <= 520;
-  const panelGoesUp = pos.y > window.innerHeight / 2;
-  const panelGoesLeft = pos.x > window.innerWidth / 2;
+  // ─── Posicionamiento del panel (siempre position:fixed, coords explícitas) ──
+  const getPanelStyle = () => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const PANEL_W = Math.min(380, vw - 16);
+    const PANEL_H = Math.min(520, vh - 80);
 
-  const panelPositionStyle = isMobile
-    ? {
+    if (vw <= 520) {
+      const w = Math.round(vw * 0.75);
+      const h = Math.round(vh * 0.90);
+      return {
         position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '75vw',
-        maxWidth: '75vw',
-        height: '90vh',
-        maxHeight: '90vh',
-      }
-    : {
-        position: 'absolute',
-        bottom: panelGoesUp ? 'calc(100% + 10px)' : 'auto',
-        top: panelGoesUp ? 'auto' : 'calc(100% + 10px)',
-        left: panelGoesLeft ? 'auto' : 0,
-        right: panelGoesLeft ? 0 : 'auto',
+        left: Math.round((vw - w) / 2),
+        top: Math.round((vh - h) / 2),
+        width: w,
+        maxWidth: w,
+        height: h,
+        maxHeight: h,
       };
+    }
+
+    // Desktop: abrir junto al botón
+    const btnLeft = pos.x;
+    const btnRight = pos.x + 40;
+    const btnTop = pos.y;
+    const btnBottom = pos.y + 40;
+
+    const left = btnLeft + PANEL_W <= vw - 8 ? btnLeft : Math.max(8, btnRight - PANEL_W);
+    const top = btnTop > vh / 2
+      ? Math.max(8, btnTop - PANEL_H - 10)
+      : Math.min(vh - PANEL_H - 8, btnBottom + 10);
+
+    return {
+      position: 'fixed',
+      left,
+      top,
+      width: PANEL_W,
+      maxWidth: PANEL_W,
+      height: PANEL_H,
+      maxHeight: PANEL_H,
+    };
+  };
 
   // ─── Wrapper arrastrable ─────────────────────────────────────────────────
   return (
-    <div
-      ref={elementRef}
-      style={{ ...wrapperStyle, zIndex: 9999 }}
-      aria-label="Widget de chat (arrastrable)"
-    >
-      {/* Botón flotante */}
-      {!isOpen && (
-        <button
-          {...dragHandleProps}
-          type="button"
-          aria-label="Abrir chat de asistencia — arrastrá para mover"
-          aria-grabbed={false}
-          onClick={() => { if (!wasDragged()) openChat(); }}
-          onMouseEnter={() => setBtnHover(true)}
-          onMouseLeave={() => setBtnHover(false)}
-          className="chat-widget-button"
-          style={{
-            ...styles.floatingButton,
-            ...(btnHover ? styles.floatingButtonHover : {}),
-            touchAction: 'none',
-          }}
-        >
-          <ChatIcon />
-        </button>
+    <>
+      {/* Backdrop — cierra el panel al hacer clic afuera */}
+      {isOpen && (
+        <div
+          aria-hidden="true"
+          onClick={closeChat}
+          style={{ position: 'fixed', inset: 0, zIndex: 9996 }}
+        />
       )}
+
+      <div
+        ref={elementRef}
+        style={{ ...wrapperStyle, zIndex: 9999 }}
+        aria-label="Widget de chat (arrastrable)"
+      >
+        {/* Botón flotante */}
+        {!isOpen && (
+          <button
+            {...dragHandleProps}
+            type="button"
+            aria-label="Abrir chat de asistencia — arrastrá para mover"
+            aria-grabbed={false}
+            onClick={() => { if (!wasDragged()) openChat(); }}
+            onMouseEnter={() => setBtnHover(true)}
+            onMouseLeave={() => setBtnHover(false)}
+            className="chat-widget-button"
+            style={{
+              ...styles.floatingButton,
+              ...(btnHover ? styles.floatingButtonHover : {}),
+              touchAction: 'none',
+            }}
+          >
+            <ChatIcon />
+          </button>
+        )}
 
       {/* Panel del chat */}
       {isOpen && (
-    <div className="chat-widget-panel" style={{
-      ...styles.panel,
-      ...panelPositionStyle,
-    }}>
+    <div
+      className="chat-widget-panel"
+      style={{ ...styles.panel, ...getPanelStyle(), zIndex: 9998 }}
+      onClick={(e) => e.stopPropagation()}
+    >
       {/* Header — drag handle cuando el panel está abierto */}
       <div
         style={{ ...styles.header, cursor: 'grab' }}
@@ -260,6 +290,7 @@ export default function ChatWidget({ userId }) {
       </div>
     </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
