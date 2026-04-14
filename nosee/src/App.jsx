@@ -53,6 +53,9 @@ const CreatePublicationPage = lazy(
 const EditPublicationPage = lazy(
   () => import("@/features/publications/pages/EditPublicationPage")
 );
+const PublicationDetailPage = lazy(
+  () => import("@/features/publications/pages/PublicationDetailPage")
+);
 const CreateStorePage = lazy(
   () => import("@/features/stores/pages/CreateStorePage")
 );
@@ -190,6 +193,14 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <EditPublicationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/publicaciones/:id"
+          element={
+            <ProtectedRoute>
+              <PublicationDetailPage />
             </ProtectedRoute>
           }
         />

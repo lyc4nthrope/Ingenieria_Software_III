@@ -1,0 +1,1194 @@
+/**
+ * PublicationDetailPage.jsx
+ *
+ * Full-page publication detail view at /publicaciones/:id.
+ * Stitch dark-glassmorphic two-column layout with hero image,
+ * info cards, Leaflet map, threaded comments, and sticky footer.
+ */
+
+import { useEffect, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
+import {
+  getPublicationDetail,
+  validatePublication,
+  downvotePublication,
+  unvotePublication,
+} from "@/services/api/publications.api";
+import { parseStoreLocation } from "../utils/parseStoreLocation";
+import { useShoppingListStore } from "@/features/shopping-list/store/shoppingListStore";
+import PublicationLocationMap from "../components/PublicationLocationMap";
+import CommentsSection from "../components/CommentsSection";
+import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = {
+  // PAGE WRAPPER
+  page: {
+    minHeight: "100vh",
+    background: "var(--bg-base)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "16px",
+    position: "relative",
+    overflow: "hidden",
+  },
+
+  bgBlur: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 0,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    filter: "blur(24px) brightness(0.25)",
+    transform: "scale(1.05)",
+    pointerEvents: "none",
+  },
+
+  container: {
+    position: "relative",
+    zIndex: 1,
+    width: "100%",
+    maxWidth: "1152px",
+    maxHeight: "calc(100vh - 32px)",
+    background: "var(--surface-container-low, #181c22)",
+    borderRadius: "var(--radius-xl)",
+    border: "1px solid rgba(255,255,255,0.05)",
+    boxShadow: "0 40px 80px -15px rgba(0,0,0,0.8)",
+    display: "flex",
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+
+  // BACK BUTTON
+  backBtn: {
+    position: "absolute",
+    top: "24px",
+    left: "24px",
+    zIndex: 10,
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "8px 14px",
+    background: "rgba(8,12,20,0.5)",
+    backdropFilter: "blur(24px)",
+    WebkitBackdropFilter: "blur(24px)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "9999px",
+    color: "var(--text-primary)",
+    fontSize: "13px",
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "background 0.2s",
+    minWidth: 44,
+    minHeight: 44,
+  },
+
+  // LEFT COLUMN
+  leftCol: {
+    position: "relative",
+    width: "45%",
+    flexShrink: 0,
+    background: "var(--surface-container-lowest, #0a0e14)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    padding: "48px",
+  },
+
+  leftGradient: {
+    position: "absolute",
+    inset: 0,
+    background: "linear-gradient(135deg, rgba(121,209,255,0.05) 0%, transparent 100%)",
+    pointerEvents: "none",
+  },
+
+  imageWrapper: {
+    position: "relative",
+    width: "100%",
+    height: "100%",
+    clipPath: "polygon(0 0, 100% 5%, 100% 100%, 0 95%)",
+    borderRadius: "var(--radius-lg)",
+    overflow: "hidden",
+  },
+
+  heroImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+    transition: "transform 0.7s ease",
+  },
+
+  pricePill: {
+    position: "absolute",
+    bottom: "64px",
+    right: "32px",
+    backdropFilter: "blur(24px)",
+    WebkitBackdropFilter: "blur(24px)",
+    background: "rgba(16,20,26,0.7)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "9999px",
+    padding: "16px 32px",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+  },
+
+  priceText: {
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    fontWeight: 800,
+    fontSize: "clamp(28px, 4vw, 40px)",
+    color: "var(--primary-container, #22b1ec)",
+    letterSpacing: "-0.02em",
+    lineHeight: 1,
+  },
+
+  // RIGHT COLUMN
+  rightCol: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    overflowY: "auto",
+  },
+
+  rightHeader: {
+    padding: "48px 48px 0",
+  },
+
+  badgesRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "16px",
+    flexWrap: "wrap",
+  },
+
+  badgeCategory: {
+    background: "rgba(92,222,148,0.1)",
+    color: "#5cde94",
+    padding: "4px 12px",
+    borderRadius: "9999px",
+    fontSize: "10px",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.15em",
+  },
+
+  badgeStatus: {
+    background: "rgba(121,209,255,0.1)",
+    color: "var(--primary-container, #22b1ec)",
+    padding: "4px 12px",
+    borderRadius: "9999px",
+    fontSize: "10px",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.15em",
+  },
+
+  heroTitle: {
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    fontWeight: 900,
+    fontSize: "clamp(32px, 4vw, 48px)",
+    color: "#dfe2eb",
+    lineHeight: 1.1,
+    marginBottom: "8px",
+    letterSpacing: "-0.02em",
+    outline: "none",
+  },
+
+  heroBrand: {
+    fontSize: "16px",
+    fontWeight: 500,
+    color: "var(--text-secondary)",
+    marginBottom: "32px",
+  },
+
+  infoGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "16px",
+    marginBottom: "32px",
+  },
+
+  infoCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    padding: "16px",
+    borderRadius: "var(--radius-md)",
+    background: "var(--surface-container-high, #262a31)",
+    transition: "background 0.2s",
+    cursor: "default",
+  },
+
+  infoCardIconWrap: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "9999px",
+    background: "var(--surface-container-lowest, #0a0e14)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    border: "2px solid rgba(121,209,255,0.2)",
+  },
+
+  infoCardInitials: {
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    fontWeight: 800,
+    fontSize: "16px",
+    color: "var(--primary-container, #22b1ec)",
+  },
+
+  infoCardLabel: {
+    fontSize: "10px",
+    fontWeight: 700,
+    color: "rgba(255,255,255,0.4)",
+    textTransform: "uppercase",
+    letterSpacing: "0.2em",
+    marginBottom: "2px",
+  },
+
+  infoCardValue: {
+    fontWeight: 700,
+    fontSize: "14px",
+    color: "#dfe2eb",
+    lineHeight: 1.3,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+
+  // MAP SECTION
+  mapSection: {
+    padding: "0 48px 40px",
+  },
+
+  mapHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "12px",
+  },
+
+  mapSectionTitle: {
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    fontWeight: 700,
+    fontSize: "14px",
+    textTransform: "uppercase",
+    letterSpacing: "0.15em",
+    color: "#dfe2eb",
+  },
+
+  mapGmapsLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
+    fontSize: "11px",
+    fontWeight: 600,
+    color: "var(--primary-container, #22b1ec)",
+    textDecoration: "none",
+    padding: "4px 10px",
+    borderRadius: "9999px",
+    border: "1px solid rgba(121,209,255,0.2)",
+    transition: "background 0.2s",
+    minHeight: "44px",
+  },
+
+  mapContainer: {
+    position: "relative",
+    width: "100%",
+    height: "160px",
+    borderRadius: "var(--radius-md)",
+    overflow: "hidden",
+  },
+
+  mapFilter: {
+    filter: "brightness(0.5) contrast(1.25) saturate(0.3)",
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+  },
+
+  mapAddressOverlay: {
+    position: "absolute",
+    bottom: "12px",
+    left: "16px",
+    backdropFilter: "blur(24px)",
+    WebkitBackdropFilter: "blur(24px)",
+    background: "rgba(16,20,26,0.7)",
+    border: "1px solid rgba(255,255,255,0.05)",
+    borderRadius: "var(--radius-sm)",
+    padding: "6px 12px",
+    fontSize: "10px",
+    fontWeight: 700,
+    color: "#dfe2eb",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    pointerEvents: "none",
+  },
+
+  // COMMUNITY FEED
+  feedSection: {
+    padding: "0 48px 100px",
+    flexGrow: 1,
+  },
+
+  feedHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "24px",
+  },
+
+  feedTitle: {
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    fontWeight: 700,
+    fontSize: "18px",
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    color: "#dfe2eb",
+  },
+
+  feedCount: {
+    fontSize: "12px",
+    color: "rgba(255,255,255,0.4)",
+    fontWeight: 500,
+  },
+
+  // STICKY FOOTER
+  stickyFooter: {
+    position: "sticky",
+    bottom: 0,
+    padding: "20px 32px",
+    backdropFilter: "blur(24px)",
+    WebkitBackdropFilter: "blur(24px)",
+    background: "rgba(16,20,26,0.7)",
+    borderTop: "1px solid rgba(255,255,255,0.05)",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    zIndex: 5,
+  },
+
+  addToListBtn: {
+    flex: 1,
+    padding: "16px 24px",
+    borderRadius: "9999px",
+    border: "none",
+    background: "linear-gradient(135deg, #22b1ec 0%, #1d96c7 100%)",
+    color: "#002b3d",
+    fontFamily: "'Plus Jakarta Sans', sans-serif",
+    fontWeight: 900,
+    fontSize: "13px",
+    textTransform: "uppercase",
+    letterSpacing: "0.2em",
+    cursor: "pointer",
+    boxShadow: "0 8px 24px rgba(121,209,255,0.2)",
+    transition: "transform 0.15s, box-shadow 0.15s",
+    minHeight: "44px",
+  },
+
+  voteChipUp: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "12px 16px",
+    borderRadius: "9999px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(74,222,128,0.08)",
+    color: "var(--success, #4ade80)",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    transition: "background 0.2s",
+    minWidth: "56px",
+    justifyContent: "center",
+    minHeight: "44px",
+  },
+
+  voteChipDown: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "12px 16px",
+    borderRadius: "9999px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "rgba(248,113,113,0.08)",
+    color: "var(--error, #f87171)",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+    transition: "background 0.2s",
+    minWidth: "56px",
+    justifyContent: "center",
+    minHeight: "44px",
+  },
+
+  shareBtn: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "52px",
+    height: "52px",
+    borderRadius: "9999px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    background: "transparent",
+    color: "#dfe2eb",
+    cursor: "pointer",
+    flexShrink: 0,
+    transition: "background 0.2s",
+  },
+
+  skeletonLine: {
+    height: "16px",
+    borderRadius: "8px",
+    background:
+      "linear-gradient(90deg, var(--surface-container-high, #262a31) 25%, var(--surface-container-highest, #31353c) 50%, var(--surface-container-high, #262a31) 75%)",
+    backgroundSize: "200% 100%",
+    animation: "shimmer 1.4s infinite",
+  },
+
+  errorBox: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "16px",
+    padding: "48px 24px",
+    textAlign: "center",
+    color: "var(--error, #f87171)",
+    minHeight: "300px",
+  },
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function LoadingSkeleton() {
+  return (
+    <div style={{ ...styles.container, pointerEvents: "none" }}>
+      <div
+        style={{
+          ...styles.leftCol,
+          background: "var(--surface-container-high, #262a31)",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            borderRadius: "var(--radius-lg)",
+            background: "var(--surface-container-highest, #31353c)",
+            animation: "shimmer 1.4s infinite",
+          }}
+        />
+      </div>
+      <div
+        style={{
+          ...styles.rightCol,
+          padding: "48px",
+          gap: "16px",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+          <div style={{ ...styles.skeletonLine, width: "80px", height: "20px" }} />
+          <div style={{ ...styles.skeletonLine, width: "100px", height: "20px" }} />
+        </div>
+        <div
+          style={{
+            ...styles.skeletonLine,
+            height: "48px",
+            width: "75%",
+            marginBottom: "8px",
+          }}
+        />
+        <div
+          style={{
+            ...styles.skeletonLine,
+            height: "20px",
+            width: "40%",
+            marginBottom: "32px",
+          }}
+        />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "16px",
+            marginBottom: "32px",
+          }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              style={{
+                ...styles.skeletonLine,
+                height: "72px",
+                borderRadius: "var(--radius-md)",
+              }}
+            />
+          ))}
+        </div>
+        <div
+          style={{
+            ...styles.skeletonLine,
+            height: "160px",
+            borderRadius: "var(--radius-md)",
+            marginBottom: "32px",
+          }}
+        />
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            style={{
+              ...styles.skeletonLine,
+              height: "80px",
+              borderRadius: "var(--radius-lg)",
+              marginBottom: "16px",
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ErrorState({ message, onBack, td }) {
+  return (
+    <div style={styles.errorBox}>
+      <span
+        className="material-symbols-outlined"
+        style={{ fontSize: "48px", color: "var(--error, #f87171)" }}
+        aria-hidden="true"
+      >
+        error
+      </span>
+      <p role="alert">{message || td?.loadError || "No se pudo cargar esta publicación."}</p>
+      <button
+        type="button"
+        onClick={onBack}
+        style={{
+          padding: "10px 24px",
+          borderRadius: "9999px",
+          border: "1px solid rgba(255,255,255,0.1)",
+          background: "transparent",
+          color: "var(--text-primary)",
+          cursor: "pointer",
+          fontWeight: 600,
+          fontSize: "14px",
+          minHeight: "44px",
+        }}
+      >
+        {td?.backButton || "Volver"}
+      </button>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function PublicationDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { t } = useLanguage();
+  const td = t.publicationDetail;
+  const currentUser = useAuthStore(selectAuthUser);
+
+  const [publication, setPublication] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [voting, setVoting] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [imageHovered, setImageHovered] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+
+  const pageTitleRef = useRef(null);
+
+  // Shopping list
+  const addItem = useShoppingListStore((s) => s.addItem);
+  const isInList = useShoppingListStore((s) =>
+    s.items.some((i) => i.publicationId === publication?.id)
+  );
+
+  // Responsive resize listener
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
+  // Fetch publication
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setPublication(null);
+
+    getPublicationDetail(id).then((result) => {
+      if (cancelled) return;
+      if (!result.success) {
+        const isPgrst116 =
+          result.error?.includes?.("PGRST116") ||
+          result.error?.includes?.("Row not found");
+        setError(
+          isPgrst116
+            ? (td?.notFound ?? "Esta publicación no existe o fue eliminada.")
+            : (result.error || td?.loadError || "No se pudo cargar esta publicación.")
+        );
+        setLoading(false);
+        return;
+      }
+      setPublication(result.data);
+      setLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Focus title for a11y on load
+  useEffect(() => {
+    if (publication && pageTitleRef.current) {
+      pageTitleRef.current.focus();
+    }
+  }, [publication]);
+
+  // ─── Derived values ───────────────────────────────────────────
+  const votes = publication?.votes || [];
+  const positiveVotes = votes.filter((v) => Number(v.vote_type) === 1).length;
+  const negativeVotes = votes.filter((v) => Number(v.vote_type) === -1).length;
+  const userVote = currentUser
+    ? (votes.find((v) => v.user_id === currentUser.id)?.vote_type ?? null)
+    : null;
+  const upActive = Number(userVote) === 1;
+  const downActive = Number(userVote) === -1;
+
+  const isVirtualStore = Number(publication?.store?.store_type_id) === 2;
+  const mainImage =
+    publication?.photo_url ||
+    "https://via.placeholder.com/1200x800?text=Tienda+virtual";
+
+  const { latitude, longitude } = parseStoreLocation(
+    publication?.store?.location ?? null
+  );
+  const hasCoordinates =
+    Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+
+  const categoryName = publication?.product?.category?.name ?? "";
+  const brandName = publication?.product?.brand?.name ?? "";
+  const sellerName =
+    publication?.user?.full_name ?? td?.unknownUser ?? "Usuario";
+  const storeName = publication?.store?.name ?? "-";
+  const sellerInitials = sellerName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  // ─── Handlers ─────────────────────────────────────────────────
+
+  const handleBack = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate("/publicaciones");
+  };
+
+  const handleVote = async (voteType) => {
+    if (!currentUser || voting) return;
+    setVoting(true);
+    try {
+      const isSame = Number(userVote) === voteType;
+      if (isSame) {
+        const r = await unvotePublication(publication.id);
+        if (r.success) {
+          setPublication((prev) => ({
+            ...prev,
+            votes: prev.votes.filter((v) => v.user_id !== currentUser.id),
+          }));
+        }
+      } else {
+        const fn = voteType === 1 ? validatePublication : downvotePublication;
+        const r = await fn(publication.id);
+        if (r.success) {
+          setPublication((prev) => ({
+            ...prev,
+            votes: [
+              ...prev.votes.filter((v) => v.user_id !== currentUser.id),
+              { id: Date.now(), vote_type: voteType, user_id: currentUser.id },
+            ],
+          }));
+          setShowCelebration(true);
+        }
+      }
+    } finally {
+      setVoting(false);
+    }
+  };
+
+  const handleAddToList = () => {
+    if (!isInList && publication) {
+      addItem(publication.product?.name ?? "Producto", 1, {
+        storeName,
+        price: publication.price,
+        publicationId: publication.id,
+      });
+    }
+  };
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/publicaciones/${publication.id}`;
+    const data = {
+      title: publication.product?.name ?? "Publicación NØSEE",
+      text: `${publication.product?.name ?? "Producto"} - $${Number(
+        publication.price || 0
+      ).toLocaleString("es-CO")} COP`,
+      url,
+    };
+    if (navigator.share && navigator.canShare?.(data)) {
+      try {
+        await navigator.share(data);
+      } catch (e) {
+        if (e.name !== "AbortError") {
+          await navigator.clipboard.writeText(url);
+        }
+      }
+    } else {
+      await navigator.clipboard.writeText(url);
+    }
+  };
+
+  // ─── Render ───────────────────────────────────────────────────
+
+  return (
+    <div style={styles.page}>
+      {/* Blurred background image */}
+      {publication?.photo_url && (
+        <div
+          style={{
+            ...styles.bgBlur,
+            backgroundImage: `url(${publication.photo_url})`,
+          }}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Back button */}
+      <button type="button" style={styles.backBtn} onClick={handleBack}>
+        <span
+          className="material-symbols-outlined"
+          style={{ fontSize: "18px" }}
+          aria-hidden="true"
+        >
+          arrow_back
+        </span>
+        {td?.backLabel ?? "Volver"}
+      </button>
+
+      {loading && <LoadingSkeleton />}
+      {error && !loading && (
+        <ErrorState message={error} onBack={handleBack} td={td} />
+      )}
+
+      {!loading && !error && publication && (
+        <div
+          style={{
+            ...styles.container,
+            flexDirection: isMobile ? "column" : "row",
+            maxHeight: isMobile ? "none" : "calc(100vh - 32px)",
+            overflowY: isMobile ? "auto" : "hidden",
+          }}
+        >
+          {/* ── LEFT COLUMN ── */}
+          <div
+            style={{
+              ...styles.leftCol,
+              width: isMobile ? "100%" : "45%",
+              height: isMobile ? "280px" : "100%",
+              position: isMobile ? "relative" : "sticky",
+              top: isMobile ? undefined : 0,
+            }}
+            onMouseEnter={() => setImageHovered(true)}
+            onMouseLeave={() => setImageHovered(false)}
+          >
+            <div style={styles.leftGradient} aria-hidden="true" />
+            <div style={styles.imageWrapper}>
+              <img
+                src={mainImage}
+                alt={publication.product?.name ?? td?.noName ?? "Producto"}
+                style={{
+                  ...styles.heroImage,
+                  transform: imageHovered ? "scale(1.10)" : "scale(1)",
+                }}
+              />
+            </div>
+            {/* Price pill */}
+            <div style={styles.pricePill}>
+              <span style={styles.priceText}>
+                ${Number(publication.price || 0).toLocaleString("es-CO")}
+              </span>
+            </div>
+          </div>
+
+          {/* ── RIGHT COLUMN ── */}
+          <div style={styles.rightCol} className="detail-scrollbar">
+            {/* HEADER: badges + title + info grid */}
+            <div style={styles.rightHeader}>
+              <div style={styles.badgesRow}>
+                {categoryName && (
+                  <span style={styles.badgeCategory}>{categoryName}</span>
+                )}
+                <span style={styles.badgeStatus}>
+                  {isVirtualStore
+                    ? (td?.virtualStore ?? "Tienda Virtual")
+                    : (td?.physicalStore ?? "Tienda Física")}
+                </span>
+              </div>
+
+              <h1
+                ref={pageTitleRef}
+                style={styles.heroTitle}
+                tabIndex={-1}
+              >
+                {publication.product?.name ?? td?.noName ?? "Producto"}
+              </h1>
+
+              {brandName && (
+                <p style={styles.heroBrand}>{brandName}</p>
+              )}
+
+              {/* 2x2 info grid */}
+              <div style={styles.infoGrid}>
+                {/* Seller card */}
+                <div
+                  style={styles.infoCard}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "var(--surface-container-highest, #31353c)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "var(--surface-container-high, #262a31)";
+                  }}
+                >
+                  <div style={styles.infoCardIconWrap}>
+                    <span style={styles.infoCardInitials}>{sellerInitials}</span>
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={styles.infoCardLabel}>
+                      {td?.vendedorLabel ?? "Vendedor"}
+                    </p>
+                    <p style={styles.infoCardValue}>{sellerName}</p>
+                    <p style={{ ...styles.infoCardLabel, marginTop: "2px" }}>
+                      {publication.user?.reputation_points ?? 0}{" "}
+                      {td?.reputationLabel ?? "pts reputación"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Store card */}
+                <div
+                  style={styles.infoCard}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "var(--surface-container-highest, #31353c)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "var(--surface-container-high, #262a31)";
+                  }}
+                >
+                  <div
+                    style={{
+                      ...styles.infoCardIconWrap,
+                      borderColor: "rgba(92,222,148,0.2)",
+                    }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      style={{
+                        color: "#5cde94",
+                        fontSize: "22px",
+                        fontVariationSettings: "'FILL' 1",
+                      }}
+                      aria-hidden="true"
+                    >
+                      storefront
+                    </span>
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={styles.infoCardLabel}>
+                      {td?.storeLabel ?? "Tienda"}
+                    </p>
+                    <p style={styles.infoCardValue}>{storeName}</p>
+                  </div>
+                </div>
+
+                {/* Price card */}
+                <div style={styles.infoCard}>
+                  <div
+                    style={{
+                      ...styles.infoCardIconWrap,
+                      borderColor: "rgba(235,195,62,0.2)",
+                    }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      style={{
+                        color: "#ebc33e",
+                        fontSize: "22px",
+                        fontVariationSettings: "'FILL' 1",
+                      }}
+                      aria-hidden="true"
+                    >
+                      sell
+                    </span>
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={styles.infoCardLabel}>
+                      {td?.priceLabel ?? "Precio"}
+                    </p>
+                    <p style={styles.infoCardValue}>
+                      ${Number(publication.price || 0).toLocaleString("es-CO")}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Date card */}
+                <div style={styles.infoCard}>
+                  <div
+                    style={{
+                      ...styles.infoCardIconWrap,
+                      borderColor: "rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      style={{
+                        color: "var(--text-secondary)",
+                        fontSize: "22px",
+                      }}
+                      aria-hidden="true"
+                    >
+                      calendar_today
+                    </span>
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={styles.infoCardLabel}>
+                      {td?.dateLabel ?? "Publicado"}
+                    </p>
+                    <p style={styles.infoCardValue}>
+                      {publication.created_at
+                        ? new Date(publication.created_at).toLocaleDateString(
+                            "es-CO"
+                          )
+                        : "-"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* MAP SECTION */}
+            <div style={styles.mapSection}>
+              <div style={styles.mapHeader}>
+                <h2 style={styles.mapSectionTitle}>
+                  {td?.storeLocation ?? "Ubicación"}
+                </h2>
+                {!isVirtualStore && hasCoordinates && (
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={styles.mapGmapsLink}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ fontSize: "14px" }}
+                      aria-hidden="true"
+                    >
+                      directions
+                    </span>
+                    {td?.openInGoogleMaps ?? "Cómo llegar"}
+                  </a>
+                )}
+              </div>
+
+              {isVirtualStore ? (
+                publication.store?.website_url ? (
+                  <a
+                    href={publication.store.website_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      ...styles.badgeStatus,
+                      textDecoration: "none",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px 16px",
+                      minHeight: "44px",
+                    }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ fontSize: "16px" }}
+                      aria-hidden="true"
+                    >
+                      open_in_new
+                    </span>
+                    {td?.virtualStoreLink ?? "Visitar tienda"}
+                  </a>
+                ) : (
+                  <p style={{ color: "var(--text-muted)", fontSize: "13px" }}>
+                    {td?.noCoordinates ?? "Ubicación no disponible"}
+                  </p>
+                )
+              ) : hasCoordinates ? (
+                <div style={styles.mapContainer}>
+                  <div style={styles.mapFilter}>
+                    <PublicationLocationMap
+                      latitude={latitude}
+                      longitude={longitude}
+                      storeName={storeName}
+                      td={td}
+                    />
+                  </div>
+                  <div style={styles.mapAddressOverlay} aria-hidden="true">
+                    {publication.store?.address ?? storeName}
+                  </div>
+                </div>
+              ) : (
+                <p style={{ color: "var(--text-muted)", fontSize: "13px" }}>
+                  {td?.noCoordinates ?? "Ubicación no disponible"}
+                </p>
+              )}
+            </div>
+
+            {/* COMMUNITY FEED */}
+            <div style={styles.feedSection}>
+              <div style={styles.feedHeader}>
+                <h2 style={styles.feedTitle}>
+                  {td?.communityTitle ?? "Comunidad"}
+                </h2>
+                <span style={styles.feedCount}>
+                  {publication.comments?.length ?? 0}{" "}
+                  {td?.reviewsLabel ?? "comentarios"}
+                </span>
+              </div>
+              <CommentsSection
+                publicationId={publication.id}
+                initialComments={publication.comments || []}
+                td={td}
+              />
+            </div>
+
+            {/* STICKY FOOTER */}
+            <div style={styles.stickyFooter}>
+              {/* Upvote chip */}
+              <button
+                type="button"
+                style={{
+                  ...styles.voteChipUp,
+                  background: upActive
+                    ? "rgba(74,222,128,0.2)"
+                    : "rgba(74,222,128,0.08)",
+                }}
+                onClick={() => handleVote(1)}
+                disabled={voting || !currentUser}
+                aria-pressed={upActive}
+                aria-label={`${td?.upvoteLabel ?? "Votar positivo"} (${positiveVotes})`}
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{
+                    fontSize: "18px",
+                    fontVariationSettings: upActive ? "'FILL' 1" : "'FILL' 0",
+                  }}
+                  aria-hidden="true"
+                >
+                  thumb_up
+                </span>
+                <span>{positiveVotes}</span>
+              </button>
+
+              {/* Downvote chip */}
+              <button
+                type="button"
+                style={{
+                  ...styles.voteChipDown,
+                  background: downActive
+                    ? "rgba(248,113,113,0.2)"
+                    : "rgba(248,113,113,0.08)",
+                }}
+                onClick={() => handleVote(-1)}
+                disabled={voting || !currentUser}
+                aria-pressed={downActive}
+                aria-label={`${td?.downvoteLabel ?? "Votar negativo"} (${negativeVotes})`}
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontSize: "18px" }}
+                  aria-hidden="true"
+                >
+                  thumb_down
+                </span>
+                <span>{negativeVotes}</span>
+              </button>
+
+              {/* Add to list — primary CTA */}
+              <button
+                type="button"
+                style={{
+                  ...styles.addToListBtn,
+                  opacity: isInList ? 0.6 : 1,
+                }}
+                onClick={handleAddToList}
+                aria-label={
+                  isInList
+                    ? (td?.alreadyInList ?? "En lista")
+                    : (td?.addToListBtn ?? "Agregar a lista")
+                }
+              >
+                {isInList
+                  ? (td?.alreadyInList ?? "En lista")
+                  : (td?.addToListBtn ?? "Agregar a lista")}
+              </button>
+
+              {/* Share */}
+              <button
+                type="button"
+                style={styles.shareBtn}
+                onClick={handleShare}
+                aria-label={td?.shareLabel ?? "Compartir publicación"}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontSize: "22px" }}
+                  aria-hidden="true"
+                >
+                  share
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <CelebrationOverlay
+        visible={showCelebration}
+        message={t.celebration?.vote ?? "¡Voto registrado!"}
+        onDone={() => setShowCelebration(false)}
+      />
+    </div>
+  );
+}

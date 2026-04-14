@@ -25,7 +25,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 // Componentes de publicaciones
 import PriceSearchFilter from "@/features/publications/components/PriceSearchFilter";
 import PublicationCard from "@/features/publications/components/PublicationCard";
-import PublicationDetailModal from "@/features/publications/components/PublicationDetailModal";
 
 import { usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
@@ -105,8 +104,6 @@ export default function PublicationsPage() {
   const [error, setError] = useState(null);
   const [geolocationLoading, setGeolocationLoading] = useState(false);
   const cachedLocationRef = useRef(null);
-  const [selectedPublication, setSelectedPublication] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [categories, setCategories] = useState([]);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -320,21 +317,9 @@ export default function PublicationsPage() {
     setError(result.error || tbi(tr => tr.publications.errorDelete));
   };
 
-  const handleViewMore = useCallback(async (publicationId) => {
-    if (detailLoading) return;
-    setDetailLoading(true);
-    setError(null);
-
-    const result = await publicationsApi.getPublicationDetail(publicationId);
-    if (!result.success) {
-      setError(result.error || tbi(tr => tr.publications.errorDetail));
-      setDetailLoading(false);
-      return;
-    }
-
-    setSelectedPublication(result.data);
-    setDetailLoading(false);
-  }, [detailLoading, tbi]);
+  const handleViewMore = useCallback((publicationId) => {
+    navigate(`/publicaciones/${publicationId}`);
+  }, [navigate]);
 
   // Abre el modal de detalle si la URL tiene ?pub=<id>
   useEffect(() => {
@@ -368,15 +353,8 @@ export default function PublicationsPage() {
   useEffect(() => {
     const pubId = searchParams.get("pub");
     if (!pubId) return;
-
-    handleViewMore(pubId).then(() => {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.delete("pub");
-        return next;
-      });
-    });
-  }, [handleViewMore, searchParams, setSearchParams]);
+    navigate(`/publicaciones/${pubId}`, { replace: true });
+  }, [searchParams, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
@@ -405,29 +383,6 @@ export default function PublicationsPage() {
     return () => document.removeEventListener("mousedown", closeOnOutsideClick);
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleStoreUpdated = (event) => {
-      const updatedStore = event?.detail?.updatedStore;
-      const updatedStoreId = updatedStore?.id || event?.detail?.storeId;
-      if (!updatedStoreId) return;
-
-      setSelectedPublication((prev) => {
-        if (!prev?.store?.id || prev.store.id !== updatedStoreId) return prev;
-        return {
-          ...prev,
-          store: {
-            ...prev.store,
-            ...updatedStore,
-          },
-        };
-      });
-    };
-
-    window.addEventListener("nosee:store-updated", handleStoreUpdated);
-    return () => window.removeEventListener("nosee:store-updated", handleStoreUpdated);
-  }, []);
 
 
   // ─────────────────────────────────────────────────────────────
@@ -849,19 +804,6 @@ export default function PublicationsPage() {
           </div>
         )}
       </section>
-
-      {detailLoading && (
-        <div style={{ marginTop: "16px", color: "var(--text-muted)", fontSize: "14px" }}>
-          {tp.loadingDetail}
-        </div>
-      )}
-
-      {selectedPublication && (
-        <PublicationDetailModal
-          publication={selectedPublication}
-          onClose={() => setSelectedPublication(null)}
-        />
-      )}
 
       {/* ── FAB: Crear publicación ── */}
       <button

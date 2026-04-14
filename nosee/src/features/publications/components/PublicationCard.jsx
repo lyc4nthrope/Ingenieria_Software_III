@@ -306,8 +306,17 @@ export function PublicationCard({
             style={{
               ...styles.productTitle,
               color: cardHovered ? 'var(--accent)' : 'var(--text-primary)',
+              cursor: onViewMore ? 'pointer' : 'default',
             }}
             title={`${productName} - ${productBrand}`}
+            role={onViewMore ? 'button' : undefined}
+            tabIndex={onViewMore ? 0 : undefined}
+            onClick={() => onViewMore?.(publication.id)}
+            onKeyDown={(e) => {
+              if ((e.key === 'Enter' || e.key === ' ') && onViewMore) {
+                onViewMore(publication.id);
+              }
+            }}
           >
             {productName}
             {productBrand !== tc.noBrand && (

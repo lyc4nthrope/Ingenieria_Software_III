@@ -1018,6 +1018,16 @@ html {
   }
 }
 
+/* ── Publication Detail Page ─────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.detail-scrollbar::-webkit-scrollbar       { width: 4px; }
+.detail-scrollbar::-webkit-scrollbar-track { background: #10141a; }
+.detail-scrollbar::-webkit-scrollbar-thumb { background: #31353c; border-radius: 10px; }
+
 /* ── Dropdown de selección de idioma ─────────────────── */
 .a11y-lang-wrapper {
   position: relative;

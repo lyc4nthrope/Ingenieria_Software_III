@@ -1,3 +1,6 @@
+// @deprecated — replaced by PublicationDetailPage at /publicaciones/:id.
+// Do NOT add new features here. This file is kept for reference only.
+
 import { useEffect, useId, useRef, useState } from "react";
 import { useLanguage, translateDbValue } from "@/contexts/LanguageContext";
 import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
