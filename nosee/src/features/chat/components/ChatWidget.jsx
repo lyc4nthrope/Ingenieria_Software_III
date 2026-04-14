@@ -76,7 +76,7 @@ export default function ChatWidget({ userId }) {
 
   const { pos, wasDragged, elementRef, dragHandleProps, wrapperStyle } = useDraggable({
     storageKey: 'nosee-chat-widget-pos',
-    defaultPos: (w, h) => ({ x: 24, y: h - 24 - 48 }),
+    defaultPos: (w, h) => ({ x: 24, y: h - 12 - 40 }),
   });
 
   const {
@@ -117,6 +117,7 @@ export default function ChatWidget({ userId }) {
       {/* Botón flotante */}
       {!isOpen && (
         <button
+          {...dragHandleProps}
           type="button"
           aria-label="Abrir chat de asistencia — arrastrá para mover"
           aria-grabbed={false}
@@ -127,8 +128,8 @@ export default function ChatWidget({ userId }) {
           style={{
             ...styles.floatingButton,
             ...(btnHover ? styles.floatingButtonHover : {}),
+            touchAction: 'none',
           }}
-          {...dragHandleProps}
         >
           <ChatIcon />
         </button>

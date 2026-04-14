@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const DRAG_THRESHOLD = 5;
 const KEYBOARD_STEP = 10;
 const EDGE_MARGIN = 8;
+const SNAP_ANIMATION_MS = 180;
 
 /**
  * @param {object} opts
@@ -37,6 +38,15 @@ export default function useDraggable({ storageKey, defaultPos }) {
     };
   }, []);
 
+  // Snap al borde izquierdo o derecho según dónde quede el centro del widget
+  const snapToEdge = useCallback((x, y) => {
+    const el = elementRef.current;
+    const w = el ? el.getBoundingClientRect().width || el.offsetWidth : 60;
+    const midX = x + w / 2;
+    const snappedX = midX < window.innerWidth / 2 ? EDGE_MARGIN : window.innerWidth - w - EDGE_MARGIN;
+    return clamp(snappedX, y);
+  }, [clamp]);
+
   const getInitialPos = useCallback(() => {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -52,10 +62,20 @@ export default function useDraggable({ storageKey, defaultPos }) {
   }, [storageKey, defaultPos]);
 
   const [pos, setPos] = useState(getInitialPos);
+  const [isSnapping, setIsSnapping] = useState(false);
+  const snapTimerRef = useRef(null);
 
   const savePos = useCallback((p) => {
     try { localStorage.setItem(storageKey, JSON.stringify(p)); } catch { /* ignore */ }
   }, [storageKey]);
+
+  const setSnappedPos = useCallback((next) => {
+    setIsSnapping(true);
+    setPos(next);
+    savePos(next);
+    clearTimeout(snapTimerRef.current);
+    snapTimerRef.current = setTimeout(() => setIsSnapping(false), SNAP_ANIMATION_MS + 20);
+  }, [savePos]);
 
   // Re-clampear al redimensionar la ventana
   useEffect(() => {
@@ -97,15 +117,14 @@ export default function useDraggable({ storageKey, defaultPos }) {
       if (wasDraggedRef.current) {
         const dx = ev.clientX - dragState.current.startX;
         const dy = ev.clientY - dragState.current.startY;
-        const next = clamp(dragState.current.startPosX + dx, dragState.current.startPosY + dy);
-        setPos(next);
-        savePos(next);
+        const next = snapToEdge(dragState.current.startPosX + dx, dragState.current.startPosY + dy);
+        setSnappedPos(next);
       }
     };
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }, [pos, clamp, savePos]);
+  }, [pos, clamp, snapToEdge, setSnappedPos]);
 
   // ── Touch drag ───────────────────────────────────────────────────────────
   const onTouchStart = useCallback((e) => {
@@ -137,15 +156,14 @@ export default function useDraggable({ storageKey, defaultPos }) {
         const touch = ev.changedTouches[0];
         const dx = touch.clientX - dragState.current.startX;
         const dy = touch.clientY - dragState.current.startY;
-        const next = clamp(dragState.current.startPosX + dx, dragState.current.startPosY + dy);
-        setPos(next);
-        savePos(next);
+        const next = snapToEdge(dragState.current.startPosX + dx, dragState.current.startPosY + dy);
+        setSnappedPos(next);
       }
     };
 
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('touchend', onEnd);
-  }, [pos, clamp, savePos]);
+  }, [pos, clamp, snapToEdge, setSnappedPos]);
 
   // ── Keyboard nudge ────────────────────────────────────────────────────────
   const onKeyDown = useCallback((e) => {
@@ -186,6 +204,7 @@ export default function useDraggable({ storageKey, defaultPos }) {
       top: pos.y,
       zIndex: 9998,
       userSelect: 'none',
+      transition: isSnapping ? `left ${SNAP_ANIMATION_MS}ms cubic-bezier(0.34, 1.56, 0.64, 1)` : undefined,
     },
   };
 }

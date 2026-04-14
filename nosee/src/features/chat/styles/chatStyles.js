@@ -10,8 +10,8 @@
 const styles = {
   // ─── Botón flotante ─────────────────────────────────────────────────────
   floatingButton: {
-    width: '56px',
-    height: '56px',
+    width: '40px',
+    height: '40px',
     borderRadius: '50%',
     background: 'var(--accent)',
     color: 'var(--bg-base)',
