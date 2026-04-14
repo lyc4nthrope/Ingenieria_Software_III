@@ -81,6 +81,7 @@ const esMX = {
       login: "Iniciar sesión",
       register: "Registrarse",
       myProfile: "Mi perfil",
+      accountDetails: "Detalles de cuenta",
       logout: "Cerrar sesión",
       ranking: "Ranking",
       closeMenu: "Cerrar menú",
@@ -229,6 +230,17 @@ const esMX = {
       moreCategories: "Más categorías",
       reportSuccess: "✅ Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE.",
       reportError: "❌ Hubo un error al enviar el reporte. Intenta de nuevo.",
+      searchPlaceholder: "Buscar producto, tienda o precio...",
+      verifyEmailError: "Debes verificar tu email antes de publicar",
+      verifyEmailWarning: "⚠️ Verifica tu email para publicar precios. Revisa tu bandeja de entrada.",
+      verifyEmailTitle: "Verifica tu email primero",
+      noPublicationsTitle: "No hay publicaciones",
+      noPublicationsDesc: "No encontramos publicaciones que coincidan con tus filtros. Intenta con otros términos o",
+      beFirst: "sé el primero en publicar",
+      errorValidate: "No se pudo validar la publicación",
+      errorReport: "No se pudo reportar la publicación",
+      errorDelete: "No se pudo eliminar la publicación",
+      contribuir: "Contribuir",
     },
 
     // ── Login ─────────────────────────────────────────────────────────────────
@@ -459,6 +471,7 @@ const esMX = {
     },
 
     // ── Publicaciones ─────────────────────────────────────────────────────────
+    // DEPRECATED — kept until PublicationsPage is removed
     publications: {
       title: "Productos",
       subtitle: "Busca y compara los mejores precios de productos en la región. Ayuda a la comunidad compartiendo publicaciones útiles.",

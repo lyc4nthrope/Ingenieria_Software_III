@@ -52,23 +52,6 @@ const LogoutIcon = () => (
   </svg>
 );
 
-const TagIcon = () => (
-  <svg
-    aria-hidden="true"
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" />
-    <line x1="7" y1="7" x2="7.01" y2="7" />
-  </svg>
-);
-
 const StoreIcon = () => (
   <svg
     aria-hidden="true"
@@ -174,9 +157,11 @@ const Navbar = memo(function Navbar() {
   const cartCount = useShoppingListStore((s) => s.items.length);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   useEffect(() => {
     setMobileMenuOpen(false);
+    setProfileMenuOpen(false);
   }, [location.pathname]);
 
   const isActive = (path) => location.pathname === path;
@@ -211,7 +196,6 @@ const Navbar = memo(function Navbar() {
     letterSpacing: "-0.04em",
     color: "var(--accent)",
     textDecoration: "none",
-    marginRight: "auto",
   };
 
   const navLinkStyle = (active) => ({
@@ -255,12 +239,21 @@ const Navbar = memo(function Navbar() {
 
   return (
     <nav style={navStyle} className="main-nav" aria-label={tn.label}>
-      <Link to="/" style={logoStyle}>
-        NØ<span style={{ color: "var(--text-secondary)" }}>SEE</span>
-      </Link>
-
-      {!isInitialized ? null : isAuthenticated ? (
+      {!isInitialized ? (
+        <div style={{ flex: 1, display: "flex", justifyContent: "flex-start" }}>
+          <Link to="/" style={logoStyle}>
+            NØ<span style={{ color: "var(--text-secondary)" }}>SEE</span>
+          </Link>
+        </div>
+      ) : isAuthenticated ? (
         <>
+          {/* Logo — left column */}
+          <div style={{ flex: 1, display: "flex", justifyContent: "flex-start" }}>
+            <Link to="/" style={logoStyle}>
+              NØ<span style={{ color: "var(--text-secondary)" }}>SEE</span>
+            </Link>
+          </div>
+
           <button
             type="button"
             className="nav-hamburger"
@@ -279,7 +272,11 @@ const Navbar = memo(function Navbar() {
             />
           )}
 
-          <div className={`nav-links${mobileMenuOpen ? " nav-links--open" : ""}`}>
+          {/* Nav links — center column */}
+          <div
+            className={`nav-links${mobileMenuOpen ? " nav-links--open" : ""}`}
+            style={{ flex: 1, display: "flex", justifyContent: "center", gap: "4px" }}
+          >
             <Link
               to="/"
               style={navLinkStyle(isActive("/"))}
@@ -288,16 +285,6 @@ const Navbar = memo(function Navbar() {
             >
               <HomeIcon />
               <span className="nav-label">{tn.home}</span>
-            </Link>
-
-            <Link
-              to="/publicaciones"
-              style={navLinkStyle(isActive("/publicaciones"))}
-              aria-current={isActive("/publicaciones") ? "page" : undefined}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <TagIcon />
-              <span className="nav-label">{tn.products}</span>
             </Link>
 
             <Link
@@ -353,91 +340,196 @@ const Navbar = memo(function Navbar() {
                 </span>
               )}
             </Link>
-
-            {dashboardConfig && (
-              <Link
-                to={dashboardConfig.path}
-                style={navLinkStyle(isActive(dashboardConfig.path))}
-                aria-current={isActive(dashboardConfig.path) ? "page" : undefined}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {dashboardConfig.label}
-              </Link>
-            )}
           </div>
 
-          <Link
-            to="/perfil"
-            style={avatarStyle}
-            title={tn.myProfile}
-            aria-label={tn.myProfile}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.fullName || "Avatar"}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                loading="lazy"
-                decoding="async"
-              />
-            ) : (
-              initials
-            )}
-          </Link>
+          {/* Avatar/hamburger — right column */}
+          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setProfileMenuOpen((v) => !v)}
+              style={avatarStyle}
+              aria-expanded={profileMenuOpen}
+              aria-haspopup="true"
+              aria-label={tn.myProfile}
+              title={tn.myProfile}
+            >
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.fullName || "Avatar"}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : (
+                initials
+              )}
+            </button>
 
-          <button
-            onClick={handleLogout}
-            title={tn.logout}
-            aria-label={tn.logout}
-            type="button"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "36px",
-              height: "36px",
-              borderRadius: "var(--radius-sm)",
-              color: "var(--text-muted)",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              transition: "color 0.18s ease, background-color 0.18s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "var(--error)";
-              e.currentTarget.style.background = "var(--error-soft)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "var(--text-muted)";
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <LogoutIcon />
-            <span className="sr-only">{tn.logout}</span>
-          </button>
+            {profileMenuOpen && (
+              <>
+                <div
+                  style={{ position: "fixed", inset: 0, zIndex: 98 }}
+                  onClick={() => setProfileMenuOpen(false)}
+                  aria-hidden="true"
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 8px)",
+                    right: 0,
+                    minWidth: "200px",
+                    background: "var(--bg-elevated)",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius)",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                    overflow: "hidden",
+                    zIndex: 99,
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    {user?.fullName && (
+                      <div
+                        style={{
+                          fontWeight: "600",
+                          fontSize: "0.875rem",
+                          color: "var(--text-primary)",
+                          marginBottom: "2px",
+                        }}
+                      >
+                        {user.fullName}
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      {user?.email}
+                    </div>
+                  </div>
+
+                  <Link
+                    to="/perfil"
+                    onClick={() => setProfileMenuOpen(false)}
+                    style={{
+                      display: "block",
+                      padding: "10px 16px",
+                      fontSize: "0.875rem",
+                      color: "var(--text-secondary)",
+                      textDecoration: "none",
+                      transition: "background-color 0.15s ease, color 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "var(--bg-hover)";
+                      e.currentTarget.style.color = "var(--text-primary)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.color = "var(--text-secondary)";
+                    }}
+                  >
+                    {tn.accountDetails}
+                  </Link>
+
+                  {dashboardConfig && (
+                    <Link
+                      to={dashboardConfig.path}
+                      onClick={() => setProfileMenuOpen(false)}
+                      style={{
+                        display: "block",
+                        padding: "10px 16px",
+                        fontSize: "0.875rem",
+                        color: "var(--text-secondary)",
+                        textDecoration: "none",
+                        transition: "background-color 0.15s ease, color 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "var(--bg-hover)";
+                        e.currentTarget.style.color = "var(--text-primary)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.color = "var(--text-secondary)";
+                      }}
+                    >
+                      {dashboardConfig.label}
+                    </Link>
+                  )}
+
+                  <div style={{ height: "1px", background: "var(--border)", margin: "4px 0" }} />
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      padding: "10px 16px",
+                      textAlign: "left",
+                      fontSize: "0.875rem",
+                      color: "var(--error)",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      transition: "background-color 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "var(--error-soft)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    {tn.logout}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          </div>
         </>
       ) : (
         <>
-          <Link to="/ranking" style={navLinkStyle(isActive("/ranking"))}>
-            <TrophyIcon />
-            <span className="nav-label">{tn.ranking}</span>
-          </Link>
-          <Link to="/login" style={navLinkStyle(isActive("/login"))}>
-            {tn.login}
-          </Link>
-          <Link
-            to="/registro"
-            style={{
-              ...navLinkStyle(false),
-              background: "var(--accent)",
-              color: "var(--bg-base)",
-              fontWeight: "600",
-              padding: "6px 16px",
-            }}
-          >
-            {tn.register}
-          </Link>
+          {/* Logo — left column */}
+          <div style={{ flex: 1, display: "flex", justifyContent: "flex-start" }}>
+            <Link to="/" style={logoStyle}>
+              NØ<span style={{ color: "var(--text-secondary)" }}>SEE</span>
+            </Link>
+          </div>
+
+          {/* Center — empty spacer */}
+          <div style={{ flex: 1 }} />
+
+          {/* Right side — ranking + login + register */}
+          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "4px" }}>
+            <Link to="/ranking" style={navLinkStyle(isActive("/ranking"))}>
+              <TrophyIcon />
+              <span className="nav-label">{tn.ranking}</span>
+            </Link>
+            <Link to="/login" style={navLinkStyle(isActive("/login"))}>
+              {tn.login}
+            </Link>
+            <Link
+              to="/registro"
+              style={{
+                ...navLinkStyle(false),
+                background: "var(--accent)",
+                color: "var(--bg-base)",
+                fontWeight: "600",
+                padding: "6px 16px",
+              }}
+            >
+              {tn.register}
+            </Link>
+          </div>
         </>
       )}
     </nav>

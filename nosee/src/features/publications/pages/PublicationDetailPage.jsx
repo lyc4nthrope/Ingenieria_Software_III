@@ -27,14 +27,18 @@ import CelebrationOverlay from "@/components/ui/CelebrationOverlay";
 const styles = {
   // PAGE WRAPPER
   page: {
-    minHeight: "100vh",
+    position: "fixed",
+    top: "60px",
+    left: 0,
+    right: 0,
+    bottom: 0,
     background: "var(--bg-base)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: "16px",
-    position: "relative",
     overflow: "hidden",
+    zIndex: 1,
   },
 
   bgBlur: {
@@ -53,7 +57,7 @@ const styles = {
     zIndex: 1,
     width: "100%",
     maxWidth: "1152px",
-    height: "calc(100vh - 32px)",
+    height: "calc(100% - 32px)",
     background: "var(--surface-container-low, #181c22)",
     borderRadius: "var(--radius-xl)",
     border: "1px solid rgba(255,255,255,0.05)",
@@ -132,14 +136,14 @@ const styles = {
     background: "rgba(16,20,26,0.7)",
     border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: "9999px",
-    padding: "16px 32px",
+    padding: "10px 20px",
     boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
   },
 
   priceText: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontWeight: 800,
-    fontSize: "clamp(28px, 4vw, 40px)",
+    fontSize: "clamp(20px, 2.5vw, 28px)",
     color: "var(--primary-container, #22b1ec)",
     letterSpacing: "-0.02em",
     lineHeight: 1,
@@ -717,32 +721,46 @@ export default function PublicationDetailPage() {
   };
 
   const handleVote = async (voteType) => {
-    if (!currentUser || voting) return;
+    if (!currentUser) { navigate('/login'); return; }
+    if (voting) return;
     setVoting(true);
+
+    const prevVotes = publication.votes;
+    const isSame = Number(userVote) === voteType;
+
+    // Optimistic update — el usuario ve el cambio instantáneo
+    if (isSame) {
+      setPublication((prev) => ({
+        ...prev,
+        votes: prev.votes.filter((v) => v.user_id !== currentUser.id),
+      }));
+    } else {
+      setPublication((prev) => ({
+        ...prev,
+        votes: [
+          ...prev.votes.filter((v) => v.user_id !== currentUser.id),
+          { id: Date.now(), vote_type: voteType, user_id: currentUser.id },
+        ],
+      }));
+    }
+
     try {
-      const isSame = Number(userVote) === voteType;
       if (isSame) {
         const r = await unvotePublication(publication.id);
-        if (r.success) {
-          setPublication((prev) => ({
-            ...prev,
-            votes: prev.votes.filter((v) => v.user_id !== currentUser.id),
-          }));
+        if (!r.success) {
+          setPublication((prev) => ({ ...prev, votes: prevVotes }));
         }
       } else {
         const fn = voteType === 1 ? validatePublication : downvotePublication;
         const r = await fn(publication.id);
         if (r.success) {
-          setPublication((prev) => ({
-            ...prev,
-            votes: [
-              ...prev.votes.filter((v) => v.user_id !== currentUser.id),
-              { id: Date.now(), vote_type: voteType, user_id: currentUser.id },
-            ],
-          }));
           setShowCelebration(true);
+        } else {
+          setPublication((prev) => ({ ...prev, votes: prevVotes }));
         }
       }
+    } catch {
+      setPublication((prev) => ({ ...prev, votes: prevVotes }));
     } finally {
       setVoting(false);
     }
@@ -1111,6 +1129,8 @@ export default function PublicationDetailPage() {
                 </div>
               </button>
               {commentsOpen && (
+                // CommentsSection reads auth state internally via useAuthStore —
+                // the comment form is already hidden for guests without extra props.
                 <CommentsSection
                   publicationId={publication.id}
                   initialComments={publication.comments || []}

@@ -305,7 +305,7 @@ img {
 /* ───────────────── HOME LAYOUT ───────────────── */
 
 .home-wrapper {
-  padding: 28px 42px 40px;
+  padding: 28px 80px 40px;
   display: flex;
   flex-direction: column;
   gap: 20px;

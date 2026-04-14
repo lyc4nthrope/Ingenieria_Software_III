@@ -81,6 +81,7 @@ const enUS = {
       login: "Sign in",
       register: "Sign up",
       myProfile: "My profile",
+      accountDetails: "Account details",
       logout: "Sign out",
       ranking: "Ranking",
       closeMenu: "Close menu",
@@ -229,6 +230,17 @@ const enUS = {
       moreCategories: "More categories",
       reportSuccess: "✅ Report sent successfully. Thank you for helping us improve NØSEE.",
       reportError: "❌ There was an error sending the report. Please try again.",
+      searchPlaceholder: "Search product, store or price...",
+      verifyEmailError: "You must verify your email before publishing",
+      verifyEmailWarning: "⚠️ Verify your email to publish prices. Check your inbox.",
+      verifyEmailTitle: "Verify your email first",
+      noPublicationsTitle: "No publications",
+      noPublicationsDesc: "No publications matched your filters. Try different terms or",
+      beFirst: "be the first to publish",
+      errorValidate: "Could not validate the publication",
+      errorReport: "Could not report the publication",
+      errorDelete: "Could not delete the publication",
+      contribuir: "Contribute",
     },
 
     // ── Login ─────────────────────────────────────────────────────────────────
@@ -459,6 +471,7 @@ const enUS = {
     },
 
     // ── Publications ──────────────────────────────────────────────────────────
+    // DEPRECATED — kept until PublicationsPage is removed
     publications: {
       title: "Products",
       subtitle: "Search and compare the best product prices in the region. Help the community by sharing useful publications.",

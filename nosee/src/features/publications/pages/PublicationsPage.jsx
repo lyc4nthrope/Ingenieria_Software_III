@@ -1,3 +1,4 @@
+// DEPRECATED — route removed, kept for reference
 /**
  * PublicationsPage - Listado de publicaciones de precios
  *
