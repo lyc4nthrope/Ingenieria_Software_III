@@ -597,6 +597,7 @@ export default function PublicationDetailModal({ publication, onClose }) {
   const priceLabel = td?.price || "Precio";
   const storeLabel = td?.storeLabel || "Tienda";
   const titleId = useId();
+  const [commentsOpen, setCommentsOpen] = useState(false);
 
   const votes = publication?.votes || [];
   const positiveVotes = votes.filter((vote) => Number(vote.vote_type) === 1).length;
@@ -717,11 +718,39 @@ export default function PublicationDetailModal({ publication, onClose }) {
           )}
         </div>
 
-        <CommentsSection
-          publicationId={publication?.id}
-          initialComments={initialComments}
-          td={td}
-        />
+        {/* Comentarios colapsables */}
+        <div style={{ borderTop: "1px solid var(--border)", marginTop: 12 }}>
+          <button
+            type="button"
+            onClick={() => setCommentsOpen((v) => !v)}
+            aria-expanded={commentsOpen}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "12px 0",
+              color: "var(--text-primary)",
+            }}
+          >
+            <span style={{ fontWeight: 700, fontSize: 14 }}>
+              {td?.communityTitle ?? "Comunidad"} · {initialComments.length} {td?.reviewsLabel ?? "comentarios"}
+            </span>
+            <span style={{ fontSize: 18, transition: "transform 0.2s", transform: commentsOpen ? "rotate(180deg)" : "rotate(0deg)", display: "inline-block" }}>
+              ▾
+            </span>
+          </button>
+          {commentsOpen && (
+            <CommentsSection
+              publicationId={publication?.id}
+              initialComments={initialComments}
+              td={td}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
