@@ -112,15 +112,13 @@ export default function ChatWidget({ userId }) {
   const panelPositionStyle = isMobile
     ? {
         position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        top: 'auto',
-        width: '100%',
-        maxWidth: '100%',
-        height: '75vh',
-        maxHeight: '75vh',
-        borderRadius: '16px 16px 0 0',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '75vw',
+        maxWidth: '75vw',
+        height: '90vh',
+        maxHeight: '90vh',
       }
     : {
         position: 'absolute',
