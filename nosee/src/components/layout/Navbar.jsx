@@ -198,19 +198,17 @@ const Navbar = memo(function Navbar() {
     textDecoration: "none",
   };
 
-  const navLinkStyle = (active) => ({
+  const navLinkStyle = {
     display: "flex",
     alignItems: "center",
     gap: "6px",
     padding: "6px 12px",
-    borderRadius: "var(--radius-sm)",
     fontSize: "0.8125rem",
-    fontWeight: "500",
-    color: active ? "var(--accent)" : "var(--text-secondary)",
-    background: active ? "var(--accent-soft)" : "transparent",
-    transition: "color 0.18s ease, background-color 0.18s ease",
     textDecoration: "none",
-  });
+  };
+
+  const navLinkClass = (active) =>
+    `nav-link${active ? " nav-link--active" : ""}`;
 
   const avatarStyle = {
     width: "32px",
@@ -261,7 +259,8 @@ const Navbar = memo(function Navbar() {
           >
             <Link
               to="/"
-              style={navLinkStyle(isActive("/"))}
+              style={navLinkStyle}
+              className={navLinkClass(isActive("/"))}
               aria-current={isActive("/") ? "page" : undefined}
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -271,7 +270,8 @@ const Navbar = memo(function Navbar() {
 
             <Link
               to="/tiendas"
-              style={navLinkStyle(isActive("/tiendas"))}
+              style={navLinkStyle}
+              className={navLinkClass(isActive("/tiendas"))}
               aria-current={isActive("/tiendas") ? "page" : undefined}
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -281,7 +281,8 @@ const Navbar = memo(function Navbar() {
 
             <Link
               to="/ranking"
-              style={navLinkStyle(isActive("/ranking"))}
+              style={navLinkStyle}
+              className={navLinkClass(isActive("/ranking"))}
               aria-current={isActive("/ranking") ? "page" : undefined}
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -291,7 +292,8 @@ const Navbar = memo(function Navbar() {
 
             <Link
               to="/lista"
-              style={{ ...navLinkStyle(isActive("/lista")), position: "relative" }}
+              style={{ ...navLinkStyle, position: "relative" }}
+              className={navLinkClass(isActive("/lista"))}
               aria-current={isActive("/lista") ? "page" : undefined}
               onClick={() => setMobileMenuOpen(false)}
               aria-label={`${tn.shoppingList}${cartCount > 0 ? ` (${cartCount})` : ""}`}
@@ -511,21 +513,22 @@ const Navbar = memo(function Navbar() {
 
           {/* Right side — ranking + login + register */}
           <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "4px" }}>
-            <Link to="/ranking" style={navLinkStyle(isActive("/ranking"))}>
+            <Link to="/ranking" style={navLinkStyle} className={navLinkClass(isActive("/ranking"))}>
               <TrophyIcon />
               <span className="nav-label">{tn.ranking}</span>
             </Link>
-            <Link to="/login" style={navLinkStyle(isActive("/login"))}>
+            <Link to="/login" style={navLinkStyle} className={navLinkClass(isActive("/login"))}>
               {tn.login}
             </Link>
             <Link
               to="/registro"
               style={{
-                ...navLinkStyle(false),
+                ...navLinkStyle,
                 background: "var(--accent)",
                 color: "var(--bg-base)",
                 fontWeight: "600",
                 padding: "6px 16px",
+                borderRadius: "var(--radius-sm)",
               }}
             >
               {tn.register}

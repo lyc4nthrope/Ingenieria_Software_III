@@ -58,9 +58,9 @@ const styles = {
     width: "100%",
     maxWidth: "1152px",
     height: "calc(100% - 32px)",
-    background: "var(--surface-container-low, #181c22)",
+    background: "var(--bg-surface)",
     borderRadius: "var(--radius-xl)",
-    border: "1px solid rgba(255,255,255,0.05)",
+    border: "1px solid var(--border)",
     boxShadow: "0 40px 80px -15px rgba(0,0,0,0.8)",
     display: "flex",
     flexDirection: "row",
@@ -77,10 +77,10 @@ const styles = {
     alignItems: "center",
     gap: "6px",
     padding: "8px 14px",
-    background: "rgba(8,12,20,0.5)",
+    background: "var(--glass-bg)",
     backdropFilter: "blur(24px)",
     WebkitBackdropFilter: "blur(24px)",
-    border: "1px solid rgba(255,255,255,0.1)",
+    border: "1px solid var(--glass-border)",
     borderRadius: "9999px",
     color: "var(--text-primary)",
     fontSize: "13px",
@@ -96,7 +96,7 @@ const styles = {
     position: "relative",
     width: "45%",
     flexShrink: 0,
-    background: "var(--surface-container-lowest, #0a0e14)",
+    background: "var(--bg-base)",
     display: "flex",
     alignItems: "stretch",
     justifyContent: "stretch",
@@ -107,7 +107,7 @@ const styles = {
   leftGradient: {
     position: "absolute",
     inset: 0,
-    background: "linear-gradient(135deg, rgba(121,209,255,0.05) 0%, transparent 100%)",
+    background: "linear-gradient(135deg, var(--accent-soft) 0%, transparent 100%)",
     pointerEvents: "none",
   },
 
@@ -131,20 +131,17 @@ const styles = {
     position: "absolute",
     bottom: "64px",
     right: "32px",
-    backdropFilter: "blur(24px)",
-    WebkitBackdropFilter: "blur(24px)",
-    background: "rgba(16,20,26,0.7)",
-    border: "1px solid rgba(255,255,255,0.1)",
+    background: "var(--accent)",
     borderRadius: "9999px",
     padding: "10px 20px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
   },
 
   priceText: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontWeight: 800,
     fontSize: "clamp(20px, 2.5vw, 28px)",
-    color: "var(--primary-container, #22b1ec)",
+    color: "#ffffff",
     letterSpacing: "-0.02em",
     lineHeight: 1,
   },
@@ -202,7 +199,7 @@ const styles = {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontWeight: 900,
     fontSize: "clamp(18px, 2.5vw, 28px)",
-    color: "#dfe2eb",
+    color: "var(--text-primary)",
     lineHeight: 1.15,
     marginBottom: "4px",
     letterSpacing: "-0.02em",
@@ -229,7 +226,7 @@ const styles = {
     gap: "10px",
     padding: "10px 12px",
     borderRadius: "var(--radius-md)",
-    background: "var(--surface-container-high, #262a31)",
+    background: "var(--bg-elevated)",
     transition: "background 0.2s",
     cursor: "default",
     minWidth: 0,
@@ -240,25 +237,25 @@ const styles = {
     width: "32px",
     height: "32px",
     borderRadius: "9999px",
-    background: "var(--surface-container-lowest, #0a0e14)",
+    background: "var(--bg-base)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-    border: "1px solid rgba(121,209,255,0.2)",
+    border: "1px solid var(--border)",
   },
 
   infoCardInitials: {
     fontFamily: "'Plus Jakarta Sans', sans-serif",
     fontWeight: 800,
     fontSize: "12px",
-    color: "var(--primary-container, #22b1ec)",
+    color: "var(--accent)",
   },
 
   infoCardLabel: {
     fontSize: "9px",
     fontWeight: 700,
-    color: "rgba(255,255,255,0.4)",
+    color: "var(--text-muted)",
     textTransform: "uppercase",
     letterSpacing: "0.12em",
     marginBottom: "1px",
@@ -267,7 +264,7 @@ const styles = {
   infoCardValue: {
     fontWeight: 600,
     fontSize: "12px",
-    color: "#dfe2eb",
+    color: "var(--text-primary)",
     lineHeight: 1.3,
     whiteSpace: "nowrap",
     overflow: "hidden",
@@ -292,7 +289,7 @@ const styles = {
     fontSize: "11px",
     textTransform: "uppercase",
     letterSpacing: "0.15em",
-    color: "#dfe2eb",
+    color: "var(--text-primary)",
   },
 
   mapGmapsLink: {
@@ -301,11 +298,11 @@ const styles = {
     gap: "4px",
     fontSize: "11px",
     fontWeight: 600,
-    color: "var(--primary-container, #22b1ec)",
+    color: "var(--accent)",
     textDecoration: "none",
     padding: "4px 10px",
     borderRadius: "9999px",
-    border: "1px solid rgba(121,209,255,0.2)",
+    border: "1px solid var(--border)",
     transition: "background 0.2s",
     minHeight: "44px",
   },
@@ -319,7 +316,6 @@ const styles = {
   },
 
   mapFilter: {
-    filter: "brightness(0.5) contrast(1.25) saturate(0.3)",
     position: "absolute",
     inset: 0,
     width: "100%",
@@ -332,13 +328,13 @@ const styles = {
     left: "16px",
     backdropFilter: "blur(24px)",
     WebkitBackdropFilter: "blur(24px)",
-    background: "rgba(16,20,26,0.7)",
-    border: "1px solid rgba(255,255,255,0.05)",
+    background: "var(--glass-bg)",
+    border: "1px solid var(--glass-border)",
     borderRadius: "var(--radius-sm)",
     padding: "6px 12px",
     fontSize: "10px",
     fontWeight: 700,
-    color: "#dfe2eb",
+    color: "var(--text-primary)",
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     pointerEvents: "none",
@@ -368,6 +364,7 @@ const styles = {
     padding: "8px 0",
     marginBottom: "4px",
     borderRadius: "8px",
+    color: "var(--text-primary)",
   },
 
   feedTitle: {
@@ -376,12 +373,12 @@ const styles = {
     fontSize: "11px",
     textTransform: "uppercase",
     letterSpacing: "0.15em",
-    color: "#dfe2eb",
+    color: "var(--text-primary)",
   },
 
   feedCount: {
     fontSize: "11px",
-    color: "rgba(255,255,255,0.4)",
+    color: "var(--text-muted)",
     fontWeight: 500,
   },
 
@@ -391,8 +388,8 @@ const styles = {
     padding: "8px 16px",
     backdropFilter: "blur(24px)",
     WebkitBackdropFilter: "blur(24px)",
-    background: "rgba(16,20,26,0.7)",
-    borderTop: "1px solid rgba(255,255,255,0.05)",
+    background: "var(--glass-bg)",
+    borderTop: "1px solid var(--glass-border)",
     display: "flex",
     alignItems: "center",
     gap: "8px",
@@ -423,8 +420,8 @@ const styles = {
     gap: "4px",
     padding: "6px 10px",
     borderRadius: "9999px",
-    border: "1px solid rgba(255,255,255,0.1)",
-    background: "rgba(74,222,128,0.08)",
+    border: "1px solid var(--border)",
+    background: "rgba(74,222,128,0.18)",
     color: "var(--success, #4ade80)",
     fontSize: "12px",
     fontWeight: 700,
@@ -441,8 +438,8 @@ const styles = {
     gap: "4px",
     padding: "6px 10px",
     borderRadius: "9999px",
-    border: "1px solid rgba(255,255,255,0.1)",
-    background: "rgba(248,113,113,0.08)",
+    border: "1px solid var(--border)",
+    background: "rgba(248,113,113,0.18)",
     color: "var(--error, #f87171)",
     fontSize: "12px",
     fontWeight: 700,
@@ -460,9 +457,9 @@ const styles = {
     width: "36px",
     height: "36px",
     borderRadius: "9999px",
-    border: "1px solid rgba(255,255,255,0.1)",
+    border: "1px solid var(--border)",
     background: "transparent",
-    color: "#dfe2eb",
+    color: "var(--text-primary)",
     cursor: "pointer",
     flexShrink: 0,
     transition: "background 0.2s",
@@ -472,7 +469,7 @@ const styles = {
     height: "16px",
     borderRadius: "8px",
     background:
-      "linear-gradient(90deg, var(--surface-container-high, #262a31) 25%, var(--surface-container-highest, #31353c) 50%, var(--surface-container-high, #262a31) 75%)",
+      "linear-gradient(90deg, var(--bg-elevated) 25%, var(--bg-hover) 50%, var(--bg-elevated) 75%)",
     backgroundSize: "200% 100%",
     animation: "shimmer 1.4s infinite",
   },
@@ -498,7 +495,7 @@ function LoadingSkeleton() {
       <div
         style={{
           ...styles.leftCol,
-          background: "var(--surface-container-high, #262a31)",
+          background: "var(--bg-elevated)",
         }}
       >
         <div
@@ -506,7 +503,7 @@ function LoadingSkeleton() {
             width: "100%",
             height: "100%",
             borderRadius: "var(--radius-lg)",
-            background: "var(--surface-container-highest, #31353c)",
+            background: "var(--bg-hover)",
             animation: "shimmer 1.4s infinite",
           }}
         />
@@ -801,7 +798,7 @@ export default function PublicationDetailPage() {
   // ─── Render ───────────────────────────────────────────────────
 
   return (
-    <div style={styles.page}>
+    <main style={styles.page} aria-label={publication?.product?.name ?? td?.pageLabel ?? "Detalle de publicación"}>
       {/* Blurred background image */}
       {publication?.photo_url && (
         <div
@@ -814,12 +811,17 @@ export default function PublicationDetailPage() {
       )}
 
       {/* Back button */}
-      <button type="button" style={styles.backBtn} onClick={handleBack}>
+      <button
+        type="button"
+        style={styles.backBtn}
+        onClick={handleBack}
+        aria-label={td?.backLabel ?? "Volver"}
+      >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <line x1="19" y1="12" x2="5" y2="12"/>
           <polyline points="12 19 5 12 12 5"/>
         </svg>
-        {td?.backLabel ?? "Volver"}
+        <span aria-hidden="true">{td?.backLabel ?? "Volver"}</span>
       </button>
 
       {loading && <LoadingSkeleton />}
@@ -828,7 +830,9 @@ export default function PublicationDetailPage() {
       )}
 
       {!loading && !error && publication && (
-        <div
+        <article
+          role="article"
+          aria-labelledby="pub-detail-title"
           style={{
             ...styles.container,
             flexDirection: isMobile ? "column" : "row",
@@ -884,6 +888,7 @@ export default function PublicationDetailPage() {
               </div>
 
               <h1
+                id="pub-detail-title"
                 ref={pageTitleRef}
                 style={styles.heroTitle}
                 tabIndex={-1}
@@ -900,13 +905,12 @@ export default function PublicationDetailPage() {
                 {/* Seller card */}
                 <div
                   style={styles.infoCard}
+                  aria-label={`${td?.publicadorLabel ?? "Publicador"}: ${sellerName}`}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background =
-                      "var(--surface-container-highest, #31353c)";
+                    e.currentTarget.style.background = "var(--bg-hover)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background =
-                      "var(--surface-container-high, #262a31)";
+                    e.currentTarget.style.background = "var(--bg-elevated)";
                   }}
                 >
                   <div style={styles.infoCardIconWrap}>
@@ -927,13 +931,12 @@ export default function PublicationDetailPage() {
                 {/* Store card */}
                 <div
                   style={styles.infoCard}
+                  aria-label={`${td?.storeLabel ?? "Tienda"}: ${storeName}`}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background =
-                      "var(--surface-container-highest, #31353c)";
+                    e.currentTarget.style.background = "var(--bg-hover)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background =
-                      "var(--surface-container-high, #262a31)";
+                    e.currentTarget.style.background = "var(--bg-elevated)";
                   }}
                 >
                   <div
@@ -955,7 +958,7 @@ export default function PublicationDetailPage() {
                 </div>
 
                 {/* Price card */}
-                <div style={styles.infoCard}>
+                <div style={styles.infoCard} aria-label={`${td?.priceLabel ?? "Precio"}: $${Number(publication.price || 0).toLocaleString("es-CO")} COP`}>
                   <div
                     style={{
                       ...styles.infoCardIconWrap,
@@ -977,7 +980,7 @@ export default function PublicationDetailPage() {
                 </div>
 
                 {/* Date card */}
-                <div style={styles.infoCard}>
+                <div style={styles.infoCard} aria-label={`${td?.dateLabel ?? "Publicado"}: ${publication.created_at ? new Date(publication.created_at).toLocaleDateString("es-CO") : "-"}`}>
                   <div
                     style={{
                       ...styles.infoCardIconWrap,
@@ -1010,7 +1013,7 @@ export default function PublicationDetailPage() {
             {/* MAP SECTION */}
             <div style={styles.mapSection}>
               <div style={styles.mapHeader}>
-                <h2 style={styles.mapSectionTitle}>
+                <h2 style={styles.mapSectionTitle} id="map-section-title">
                   {td?.storeLocation ?? "Ubicación"}
                 </h2>
                 {!isVirtualStore && hasCoordinates && (
@@ -1019,6 +1022,7 @@ export default function PublicationDetailPage() {
                     target="_blank"
                     rel="noreferrer"
                     style={styles.mapGmapsLink}
+                    aria-label={`${td?.openInGoogleMaps ?? "Cómo llegar"} a ${storeName}`}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <polygon points="3 11 22 2 13 21 11 13 3 11"/>
@@ -1076,25 +1080,26 @@ export default function PublicationDetailPage() {
 
             {/* COMMUNITY FEED — colapsable */}
             <div style={styles.feedSection} id="community-feed">
-              <button
-                type="button"
-                style={styles.feedToggleBtn}
-                onClick={() => setCommentsOpen((v) => !v)}
-                aria-expanded={commentsOpen}
-              >
-                <h2 style={styles.feedTitle}>
-                  {td?.communityTitle ?? "Comunidad"}
-                </h2>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={styles.feedCount}>
-                    {publication.comments?.length ?? 0}{" "}
-                    {td?.reviewsLabel ?? "comentarios"}
-                  </span>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "rgba(255,255,255,0.4)", transition: "transform 0.2s", transform: commentsOpen ? "rotate(180deg)" : "rotate(0deg)" }} aria-hidden="true">
-                    <polyline points="6 9 12 15 18 9"/>
-                  </svg>
-                </div>
-              </button>
+              <h2 style={{ ...styles.feedTitle, margin: 0 }}>
+                <button
+                  type="button"
+                  style={styles.feedToggleBtn}
+                  onClick={() => setCommentsOpen((v) => !v)}
+                  aria-expanded={commentsOpen}
+                  aria-controls="community-feed"
+                >
+                  <span>{td?.communityTitle ?? "Comunidad"}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={styles.feedCount} aria-live="polite">
+                      {publication.comments?.length ?? 0}{" "}
+                      {td?.reviewsLabel ?? "comentarios"}
+                    </span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-muted)", transition: "transform 0.2s", transform: commentsOpen ? "rotate(180deg)" : "rotate(0deg)" }} aria-hidden="true">
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </div>
+                </button>
+              </h2>
               {commentsOpen && (
                 // CommentsSection reads auth state internally via useAuthStore —
                 // the comment form is already hidden for guests without extra props.
@@ -1115,8 +1120,8 @@ export default function PublicationDetailPage() {
                 style={{
                   ...styles.voteChipUp,
                   background: upActive
-                    ? "rgba(74,222,128,0.2)"
-                    : "rgba(74,222,128,0.08)",
+                    ? "rgba(74,222,128,0.28)"
+                    : "rgba(74,222,128,0.18)",
                 }}
                 onClick={() => handleVote(1)}
                 disabled={voting || !currentUser}
@@ -1136,8 +1141,8 @@ export default function PublicationDetailPage() {
                 style={{
                   ...styles.voteChipDown,
                   background: downActive
-                    ? "rgba(248,113,113,0.2)"
-                    : "rgba(248,113,113,0.08)",
+                    ? "rgba(248,113,113,0.28)"
+                    : "rgba(248,113,113,0.18)",
                 }}
                 onClick={() => handleVote(-1)}
                 disabled={voting || !currentUser}
@@ -1193,7 +1198,7 @@ export default function PublicationDetailPage() {
               </button>
             </div>
           </div>{/* end rightCol */}
-        </div>
+        </article>
       )}
 
       <CelebrationOverlay
@@ -1201,6 +1206,6 @@ export default function PublicationDetailPage() {
         message={t.celebration?.vote ?? "¡Voto registrado!"}
         onDone={() => setShowCelebration(false)}
       />
-    </div>
+    </main>
   );
 }

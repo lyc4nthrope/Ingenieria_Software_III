@@ -1285,17 +1285,13 @@ export const getPublicationDetail = async (publicationId) => {
 /**
  * Registrar voto sobre una publicación (upvote/downvote)
  *
- * Usar la tabla publication_votes:
- * - Cada usuario solo puede votar 1 vez por publicación
- * - Soporta vote_type = 1 (upvote) y vote_type = -1 (downvote)
- * - Actualiza reputación del autor de forma explícita como respaldo
+ * - vote_type = 1 (upvote) | -1 (downvote)
+ * - Unicidad garantizada por constraint unique_vote_per_publication
+ * - Reputación del autor gestionada por trigger trg_publication_votes_rep
  *
  * @param {number} publicationId - ID de la publicación
- *
+ * @param {number} voteType - 1 o -1
  * @returns {Promise} { success, data, error }
- *
- * @example
- * const result = await validatePublication(123);
  */
 export const validatePublication = async (publicationId, voteType = 1) => {
   try {
@@ -1307,81 +1303,24 @@ export const validatePublication = async (publicationId, voteType = 1) => {
       return { success: false, error: "Tipo de voto inválido" };
     }
 
-    // Obtener usuario actual
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return { success: false, error: "Usuario no autenticado" };
     }
 
-    // Verificar si ya votó
-    const { data: existingVote } = await supabase
-      .from("publication_votes")
-      .select("id")
-      .eq("publication_id", publicationId)
-      .eq("user_id", user.id)
-      .single();
-
-    if (existingVote) {
-      recordVoteDuplicateRejected();
-      return { success: false, error: "Ya votaste esta publicación" };
-    }
-
-    // Crear el voto
     const { data: vote, error } = await supabase
       .from("publication_votes")
-      .insert({
-        publication_id: publicationId,
-        user_id: user.id,
-        vote_type: voteType,
-      })
+      .insert({ publication_id: publicationId, user_id: user.id, vote_type: voteType })
       .select()
       .single();
 
     if (error) {
-      console.error("Error validando publicación:", error);
-      return { success: false, error: error.message };
-    }
-
-    // Actualizar reputación explícitamente como respaldo (si no existe trigger)
-    const { data: publicationData, error: publicationError } = await supabase
-      .from("price_publications")
-      .select("user_id")
-      .eq("id", publicationId)
-      .single();
-
-    if (publicationError) {
-      return { success: false, error: publicationError.message };
-    }
-
-    if (publicationData?.user_id) {
-      const reputationDelta = voteType === 1 ? 1 : -1;
-      const { error: reputationError } = await supabase.rpc(
-        "increment_user_reputation",
-        {
-          target_user_id: publicationData.user_id,
-          reputation_delta: reputationDelta,
-        },
-      );
-
-      if (reputationError) {
-        const { data: authorData, error: authorError } = await supabase
-          .from("users")
-          .select("reputation_points")
-          .eq("id", publicationData.user_id)
-          .single();
-
-        if (!authorError) {
-          await supabase
-            .from("users")
-            .update({
-              reputation_points:
-                (authorData?.reputation_points || 0) + reputationDelta,
-            })
-            .eq("id", publicationData.user_id);
-        }
+      if (error.code === '23505') {
+        recordVoteDuplicateRejected();
+        return { success: false, error: "Ya votaste esta publicación" };
       }
+      console.error("Error registrando voto:", error);
+      return { success: false, error: error.message };
     }
 
     recordVote(voteType === 1 ? 'upvote' : 'downvote');

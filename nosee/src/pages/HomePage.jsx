@@ -213,6 +213,13 @@ export default function HomePage() {
     const shouldUseBestMatch = String(newFilters.sortBy || '') === 'best_match';
 
     const requestGeolocationAndApply = () => {
+      // Si el hook ya tiene ubicación (stored o reciente), usarla directamente
+      if (latitude && longitude) {
+        cachedLocationRef.current = { latitude, longitude };
+        setPublicationFilters({ ...newFilters, latitude, longitude });
+        return;
+      }
+
       if (!navigator.geolocation) {
         setError("Tu navegador no soporta geolocalización. No se puede aplicar el filtro de distancia.\nYour browser does not support geolocation. Distance filter cannot be applied.");
         setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
@@ -232,8 +239,14 @@ export default function HomePage() {
         },
         () => {
           setGeolocationLoading(false);
-          setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.\nCould not get your location. The distance filter requires location permission in the browser.");
-          setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+          // Fallback: usar la ubicación que ya tiene el hook (stored o IP)
+          if (latitude && longitude) {
+            cachedLocationRef.current = { latitude, longitude };
+            setPublicationFilters({ ...newFilters, latitude, longitude });
+          } else {
+            setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.\nCould not get your location. The distance filter requires location permission in the browser.");
+            setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+          }
         },
         { timeout: 10000 },
       );
@@ -362,6 +375,10 @@ export default function HomePage() {
         @media(max-width:1023px){ .home-pub-grid{grid-template-columns:repeat(2,1fr)} }
         @media(max-width:560px){  .home-pub-grid{grid-template-columns:1fr} }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pubFadeIn {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
         @media(hover:none){.pub-card-menu-trigger{opacity:1!important}}
       `}</style>
 
@@ -619,20 +636,27 @@ export default function HomePage() {
                 gap: "24px",
               }}
             >
-              {normalizedPublications.map((pub) => (
-                <PublicationCard
+              {normalizedPublications.map((pub, index) => (
+                <div
                   key={pub.id}
-                  publication={pub}
-                  isAuthenticated={isAuthenticated}
-                  isAuthor={user?.id === pub.user_id || user?.id === pub.user?.id}
-                  isAdmin={isAdmin(user?.role)}
-                  onRequireAuth={handleRequireAuth}
-                  onValidate={handleValidate}
-                  onDownvote={handleDownvote}
-                  onReport={handleReport}
-                  onDelete={handleDelete}
-                  onViewMore={handleOpenDetail}
-                />
+                  style={{
+                    animation: 'pubFadeIn 0.32s ease both',
+                    animationDelay: `${Math.min(index * 35, 350)}ms`,
+                  }}
+                >
+                  <PublicationCard
+                    publication={pub}
+                    isAuthenticated={isAuthenticated}
+                    isAuthor={user?.id === pub.user_id || user?.id === pub.user?.id}
+                    isAdmin={isAdmin(user?.role)}
+                    onRequireAuth={handleRequireAuth}
+                    onValidate={handleValidate}
+                    onDownvote={handleDownvote}
+                    onReport={handleReport}
+                    onDelete={handleDelete}
+                    onViewMore={handleOpenDetail}
+                  />
+                </div>
               ))}
             </div>
           )}

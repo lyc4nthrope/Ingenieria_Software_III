@@ -25,6 +25,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { ReportPublicationModal } from '@/features/publications/components/ReportPublicationModal';
 import { optimizeCloudinaryUrl } from '@/services/cloudinary';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
+import CelebrationOverlay from '@/components/ui/CelebrationOverlay';
 
 const DotsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -60,6 +61,7 @@ export function PublicationCard({
   const [isDownvoting, setIsDownvoting] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const photoModalId = useId();
 
@@ -77,9 +79,11 @@ export function PublicationCard({
   const handleValidate = async () => {
     if (isValidating || isDownvoting) return;
     if (isAuthenticated === false) { onRequireAuth?.(); return; }
+    const wasAlreadyUpvoted = publication.user_vote === 1;
     setIsValidating(true);
     try {
       await onValidate?.(publication.id, publication.user_vote);
+      if (!wasAlreadyUpvoted) setShowCelebration(true);
     } finally {
       setIsValidating(false);
     }
@@ -88,9 +92,11 @@ export function PublicationCard({
   const handleDownvote = async () => {
     if (isDownvoting || isValidating) return;
     if (isAuthenticated === false) { onRequireAuth?.(); return; }
+    const wasAlreadyDownvoted = publication.user_vote === -1;
     setIsDownvoting(true);
     try {
       await onDownvote?.(publication.id, publication.user_vote);
+      if (!wasAlreadyDownvoted) setShowCelebration(true);
     } finally {
       setIsDownvoting(false);
     }
@@ -212,9 +218,9 @@ export function PublicationCard({
           <div style={styles.imagePlaceholder} aria-hidden="true" />
         )}
 
-        {/* Price badge — top-right */}
-        <div style={styles.priceBadge} aria-label={`Precio: $${publication.price?.toLocaleString('es-CO')} COP`}>
-          ${publication.price?.toLocaleString('es-CO')}
+        {/* Store name badge — top-right */}
+        <div style={styles.priceBadge} aria-label={`Tienda: ${storeName}`}>
+          {storeName}
         </div>
 
         {/* Price Drop badge — top-left (conditional) */}
@@ -326,8 +332,8 @@ export function PublicationCard({
                 <><span style={styles.titleSep}> · </span><span style={styles.titleBrand}>{productBrand}</span></>
               )}
             </div>
-            <span style={styles.categoryTag} title={storeName}>
-              {publication.product?.category?.name || storeName}
+            <span style={styles.priceTag} aria-label={`Precio: $${publication.price?.toLocaleString('es-CO')} COP`}>
+              ${publication.price?.toLocaleString('es-CO')}
             </span>
           </div>
 
@@ -414,6 +420,12 @@ export function PublicationCard({
         </div>
       </div>
 
+      <CelebrationOverlay
+        visible={showCelebration}
+        message={t.celebration?.vote ?? "¡Voto registrado!"}
+        onDone={() => setShowCelebration(false)}
+      />
+
       {showReportModal && (
         <ReportPublicationModal
           publication={publication}
@@ -490,22 +502,40 @@ const styles = {
     background: 'var(--surface-container-highest, #192540)',
   },
 
-  // Price badge — top-RIGHT
+  // Store name badge — top-RIGHT (sobre la imagen)
   priceBadge: {
     position: 'absolute',
     top: '16px',
     right: '16px',
-    background: 'rgba(34, 177, 236, 0.90)',
+    background: 'rgba(0,0,0,0.55)',
     backdropFilter: 'blur(12px)',
     WebkitBackdropFilter: 'blur(12px)',
-    color: '#002b3d',
-    padding: '4px 12px',
+    color: 'rgba(255,255,255,0.95)',
+    padding: '4px 10px',
     borderRadius: '999px',
-    fontSize: '14px',
-    fontWeight: '700',
+    fontSize: '12px',
+    fontWeight: '600',
     boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
     lineHeight: 1.5,
     zIndex: 1,
+    maxWidth: '140px',
+    overflow: 'hidden',
+    whiteSpace: 'nowrap',
+    textOverflow: 'ellipsis',
+  },
+
+  // Price tag — en el content header (reemplaza categoryTag)
+  priceTag: {
+    display: 'inline-block',
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#ffffff',
+    background: 'var(--accent)',
+    padding: '2px 10px',
+    borderRadius: '6px',
+    flexShrink: 0,
+    whiteSpace: 'nowrap',
+    letterSpacing: '-0.01em',
   },
 
   // Price Drop badge — top-LEFT below dots button (conditional)
@@ -640,23 +670,6 @@ const styles = {
     fontSize: '14px',
     color: 'var(--text-secondary)',
     fontWeight: 500,
-  },
-
-  categoryTag: {
-    display: 'inline-block',
-    fontSize: '10px',
-    fontWeight: 700,
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-    color: 'var(--text-secondary)',
-    background: 'var(--surface-container-highest, #192540)',
-    padding: '3px 7px',
-    borderRadius: '4px',
-    flexShrink: 0,
-    maxWidth: '100px',
-    overflow: 'hidden',
-    whiteSpace: 'nowrap',
-    textOverflow: 'ellipsis',
   },
 
   description: {
