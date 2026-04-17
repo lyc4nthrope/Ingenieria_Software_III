@@ -101,8 +101,15 @@ const hydrateRelatedPublicationData = async (publications = []) => {
       .map((publication) => publication.store_id),
   )];
 
+  const missingProductIds = [...new Set(
+    publications
+      .filter((publication) => !publication?.product && publication?.product_id)
+      .map((publication) => publication.product_id),
+  )];
+
   const usersById = {};
   const storesById = {};
+  const productsById = {};
 
    const hydrationTasks = [];
 
@@ -157,6 +164,31 @@ const hydrateRelatedPublicationData = async (publications = []) => {
         }),
       );
     }
+  if (missingProductIds.length > 0) {
+    hydrationTasks.push(
+      withTimeout(
+        supabase
+          .from("products")
+          .select("id, name, category_id, base_quantity, brand:brands(id, name), unit_type:unit_types(id, name, abbreviation)")
+          .in("id", missingProductIds),
+        HYDRATION_TIMEOUT_MS,
+        "Tiempo de espera agotado hidratando productos de publicaciones",
+      )
+        .then(({ data: productsData, error: productsError }) => {
+          if (productsError) {
+            console.error("Error hidratando productos de publicaciones:", productsError);
+            return;
+          }
+          (productsData || []).forEach((productRow) => {
+            productsById[productRow.id] = productRow;
+          });
+        })
+        .catch((hydrateProductError) => {
+          console.error("Timeout/exception hidratando productos de publicaciones:", hydrateProductError);
+        }),
+    );
+  }
+
     if (hydrationTasks.length > 0) {
       await Promise.allSettled(hydrationTasks);
     }
@@ -167,6 +199,7 @@ const hydrateRelatedPublicationData = async (publications = []) => {
 
     return {
       ...publication,
+      product: publication?.product || productsById[publication.product_id] || null,
       user: hasUserIdentity(embeddedUser)
         ? embeddedUser
         : usersById[publication.user_id] || null,
@@ -184,49 +217,21 @@ const enrichPublicationsWithVoteCounts = async (publications) => {
 
   const publicationIds = publications.map((p) => p.id);
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const currentUserId = user?.id || null;
-
-  const [votesResult, reportsResult, userVotesResult] = await Promise.all([
-    supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds),
-    supabase
-      .from("reports")
-      .select("reported_id, status")
-      .eq("reported_type", "publication")
-      .in("reported_id", publicationIds.map(String)),
-    currentUserId
-      ? supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds).eq("user_id", currentUserId)
-      : Promise.resolve({ data: [] }),
-  ]);
-
-  const voteCountByPublication = {};
-  (votesResult.data || []).forEach((row) => {
-    const current = voteCountByPublication[row.publication_id] || { positive: 0, negative: 0 };
-    if (row.vote_type === 1) current.positive += 1;
-    if (row.vote_type === -1) current.negative += 1;
-    voteCountByPublication[row.publication_id] = current;
+  const { data: enrichmentData } = await supabase.rpc("get_publications_enrichment", {
+    p_publication_ids: publicationIds,
   });
 
-  const reportCountByPublication = {};
-  (reportsResult.data || []).forEach((row) => {
-    const publicationId = Number(row.reported_id);
-    if (!Number.isFinite(publicationId)) return;
-    if (String(row.status || "").toLowerCase() !== "rejected") {
-      reportCountByPublication[publicationId] = (reportCountByPublication[publicationId] || 0) + 1;
-    }
-  });
-
-  const userVoteByPublication = {};
-  (userVotesResult.data || []).forEach((row) => {
-    userVoteByPublication[row.publication_id] = row.vote_type;
+  const enrichmentByPublication = {};
+  (enrichmentData || []).forEach((row) => {
+    enrichmentByPublication[row.publication_id] = row;
   });
 
   return publications.map((pub) => ({
     ...pub,
-    validated_count: (voteCountByPublication[pub.id]?.positive || 0),
-    downvoted_count: (voteCountByPublication[pub.id]?.negative || 0),
-    reported_count: (reportCountByPublication[pub.id] || 0),
-    user_vote: userVoteByPublication[pub.id] ?? null,
+    validated_count: pub.validated_count ?? 0,
+    downvoted_count: pub.downvoted_count ?? 0,
+    reported_count: enrichmentByPublication[pub.id]?.report_count ?? 0,
+    user_vote: enrichmentByPublication[pub.id]?.user_vote ?? null,
   }));
 };
 
@@ -235,53 +240,17 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
     return publications;
   }
 
-  const publicationIds = publications.map((publication) => publication.id);
-  const storeIds = [...new Set(publications.map((publication) => publication.store_id).filter(Boolean))];
-  const productIds = [...new Set(publications.map((publication) => publication.product_id).filter(Boolean))];
-
-  const [votesResult, reportsResult, evidenceResult, productStatsResult] = await Promise.all([
-    supabase.from("publication_votes").select("publication_id, vote_type").in("publication_id", publicationIds),
-    supabase
-      .from("reports")
-      .select("reported_id, status, evidence_url")
-      .eq("reported_type", "publication")
-      .in("reported_id", publicationIds.map(String)),
-    supabase.from("store_evidences").select("store_id").in("store_id", storeIds),
-    supabase.from("price_publications").select("product_id, price").in("product_id", productIds),
-  ]);
-
-  const votesByPublication = {};
-  (votesResult.data || []).forEach((row) => {
-    const current = votesByPublication[row.publication_id] || { positive: 0, negative: 0 };
-    if (row.vote_type === 1) current.positive += 1;
-    if (row.vote_type === -1) current.negative += 1;
-    votesByPublication[row.publication_id] = current;
-  });
-
-  const reportsByPublication = {};
-  (reportsResult.data || []).forEach((row) => {
-    const publicationId = Number(row.reported_id);
-    if (!Number.isFinite(publicationId)) return;
-    const current = reportsByPublication[publicationId] || { active: 0, evidences: 0 };
-    if (String(row.status || "").toLowerCase() !== "rejected") {
-      current.active += 1;
-      if (row.evidence_url) current.evidences += 1;
-    }
-    reportsByPublication[publicationId] = current;
-  });
-
-  const evidencesByStore = {};
-  (evidenceResult.data || []).forEach((row) => {
-    evidencesByStore[row.store_id] = (evidencesByStore[row.store_id] || 0) + 1;
-  });
-
+  // Build product price stats in-memory from the already-fetched publications array
+  // (replaces the old price_publications sub-query — no extra round-trip needed)
   const productPriceStats = {};
-  (productStatsResult.data || []).forEach((row) => {
-    if (!productPriceStats[row.product_id]) {
-      productPriceStats[row.product_id] = { min: Number(row.price), total: 0, count: 0 };
+  publications.forEach((pub) => {
+    const pid = pub.product_id;
+    const price = Number(pub.price);
+    if (!pid || !Number.isFinite(price)) return;
+    if (!productPriceStats[pid]) {
+      productPriceStats[pid] = { min: price, total: 0, count: 0 };
     }
-    const stat = productPriceStats[row.product_id];
-    const price = Number(row.price);
+    const stat = productPriceStats[pid];
     if (price < stat.min) stat.min = price;
     stat.total += price;
     stat.count += 1;
@@ -297,10 +266,14 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
 
   return publications
     .map((publication) => {
-      const voteSignals = votesByPublication[publication.id] || { positive: 0, negative: 0 };
-      const reportSignals = reportsByPublication[publication.id] || { active: 0, evidences: 0 };
-      const userReputation = Number(publication?.user?.reputation_points || 0);
-      const storeEvidences = Number(evidencesByStore[publication.store_id] || 0);
+      // Votes: read from denormalized columns (validated_count / downvoted_count on the row)
+      const validatedCount  = Number(publication.validated_count  ?? 0);
+      const downvotedCount  = Number(publication.downvoted_count  ?? 0);
+      // Reports: read from denormalized column (active_reports_count on price_publications)
+      const activeReports   = Number(publication.active_reports_count ?? 0);
+      // Store evidences: read from denormalized column (evidence_count on stores, joined via store relation)
+      const storeEvidences  = Number(publication?.store?.evidence_count ?? 0);
+      const userReputation  = Number(publication?.user?.reputation_points || 0);
       const stats = productPriceStats[publication.product_id] || null;
       const productName = publication?.product?.name || publication?.products?.name || "";
       const productBrand = publication?.product?.brand?.name || publication?.products?.brand?.name || "";
@@ -311,11 +284,11 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
       const distanceScore = Number.isFinite(publication.distance_km)
         ? clamp(1 - publication.distance_km / 50, 0, 1)
         : 0.45;
-      const voteBalance = voteSignals.positive - voteSignals.negative;
+      const voteBalance = validatedCount - downvotedCount;
       const voteScore = clamp((voteBalance + 5) / 10, 0, 1);
-      const reportScore = clamp(1 - reportSignals.active / 5, 0, 1);
+      const reportScore = clamp(1 - activeReports / 5, 0, 1);
       const reputationScore = clamp(userReputation / 500, 0, 1);
-      const evidenceScore = clamp((storeEvidences + reportSignals.evidences) / 8, 0, 1);
+      const evidenceScore = clamp(storeEvidences / 8, 0, 1);
       const priceScore = stats
         ? clamp(((stats.total / Math.max(stats.count, 1)) - Number(publication.price)) / Math.max(stats.total / Math.max(stats.count, 1), 1) + 0.5, 0, 1)
         : 0.5;
@@ -373,9 +346,9 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
       return {
         ...publication,
         search_signals: {
-          ...voteSignals,
-          reports_active: reportSignals.active,
-          reports_with_evidence: reportSignals.evidences,
+          positive: validatedCount,
+          negative: downvotedCount,
+          reports_active: activeReports,
           store_evidences: storeEvidences,
           text_score: Number(textScore.toFixed(4)),
           recency_score: Number(recencyScore.toFixed(4)),
@@ -898,26 +871,16 @@ export const getPublications = async (filters = {}) => {
       "confidence_score",
       "is_active",
       "created_at",
+      "validated_count",
+      "downvoted_count",
+      "active_reports_count",
       "user_id",
       "user:users!price_publications_user_id_fkey (id, full_name, reputation_points)",
       "product_id",
       "product:products (id, name, category_id, base_quantity, brand:brands (id, name), unit_type:unit_types (id, name, abbreviation))",
       "store_id",
-      "store:stores!price_publications_store_id_fkey (id, name, address, location, store_type_id, website_url)",
+      "store:stores!price_publications_store_id_fkey (id, name, address, location, store_type_id, website_url, evidence_count)",
     ].join(",");
-
-    const requiresClientSort =
-      sortBy === SORT_OPTIONS.VALIDATED || sortBy === SORT_OPTIONS.BEST_MATCH;
-
-    const prefetchedRows =
-      sortBy === SORT_OPTIONS.VALIDATED
-        ? Math.min(Math.max(offset + limit * 20, 500), 2500)
-        : requiresClientSort
-          ? Math.min(offset + limit * 5, 500)
-          : limit;
-
-    const queryRangeStart = requiresClientSort ? 0 : offset;
-    const queryRangeEnd = queryRangeStart + prefetchedRows - 1;
 
     const buildPublicationsQuery = (nearbyStoreIds, { withCount = true } = {}) => {
       let query = supabase
@@ -957,10 +920,7 @@ export const getPublications = async (filters = {}) => {
           query = query.order("price", { ascending: true });
           break;
         case "validated":
-          query = query.order("created_at", { ascending: false });
-          break;
-        case "best_match":
-          query = query.order("created_at", { ascending: false });
+          query = query.order("validated_count", { ascending: false }).order("created_at", { ascending: false });
           break;
         case "recent":
         default:
@@ -968,7 +928,7 @@ export const getPublications = async (filters = {}) => {
           break;
       }
 
-      return query.range(queryRangeStart, queryRangeEnd);
+      return query.range(offset, offset + limit - 1);
     };
 
     let nearbyStoreIds = [];
@@ -1035,6 +995,46 @@ export const getPublications = async (filters = {}) => {
     }
 
      const nearbyStoreIdsForQuery = shouldApplyDistanceFilter ? nearbyStoreIds : null;
+
+    // ─── BEST_MATCH: delegate entirely to server-side RPC ─────────────────────
+    if (sortBy === SORT_OPTIONS.BEST_MATCH) {
+      // p_store_ids: prefer distance-filtered store ids; fall back to name-filter ids
+      const rpcStoreIds =
+        nearbyStoreIds.length > 0
+          ? nearbyStoreIds
+          : storeNameFilter !== null
+            ? storeNameFilter
+            : null;
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "search_publications_ranked",
+        {
+          p_product_ids:  productIdFilter ?? null,
+          p_store_ids:    rpcStoreIds,
+          p_min_price:    Number.isFinite(normalizedMinPrice) ? normalizedMinPrice : null,
+          p_max_price:    Number.isFinite(normalizedMaxPrice) ? normalizedMaxPrice : null,
+          p_search_query: normalizeSearchText(productName || "") || null,
+          p_offset:       offset,
+          p_limit:        limit,
+        },
+      );
+
+      if (rpcError) {
+        console.error("[NØSEE:publications.api] search_publications_ranked RPC error:", rpcError);
+        return { success: false, error: rpcError.message };
+      }
+
+      const hydrated = await hydrateRelatedPublicationData(rpcData || []);
+      const enriched = await enrichPublicationsWithVoteCounts(hydrated);
+
+      return {
+        success: true,
+        data: enriched,
+        count: null,
+        hasMore: (rpcData || []).length === limit,
+      };
+    }
+    // ──────────────────────────────────────────────────────────────────────────
 
     const adaptiveTimeoutMs = getAdaptiveRequestTimeout();
     console.info("[NØSEE:publications.api] publications-query:attempt", {
@@ -1121,9 +1121,9 @@ export const getPublications = async (filters = {}) => {
     const hasSearchTerm =
       String(productName || "").trim().length > 0 ||
       String(storeName || "").trim().length > 0;
+    // BEST_MATCH returns early via RPC branch above; only RECENT+search uses client scoring
     const shouldUseBestMatch =
-      SEARCH_SORT_FIELDS.has(sortBy) &&
-      (sortBy === SORT_OPTIONS.BEST_MATCH || (sortBy === SORT_OPTIONS.RECENT && hasSearchTerm));
+      sortBy === SORT_OPTIONS.RECENT && hasSearchTerm;
 
     const rankedPublications = shouldUseBestMatch
       ? await enrichSearchRankingSignals(publicationsWithCoordinates, {
@@ -1135,35 +1135,7 @@ export const getPublications = async (filters = {}) => {
 
     const enrichedPublications = await enrichPublicationsWithVoteCounts(rankedPublications);
 
-    const fullySortedPublications = (() => {
-      const cloned = [...enrichedPublications];
-      if (sortBy === SORT_OPTIONS.VALIDATED) {
-        return cloned.sort((a, b) => {
-          const byVotes = (Number(b.validated_count || 0) - Number(a.validated_count || 0));
-          if (byVotes !== 0) return byVotes;
-          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-        });
-      }
-      if (sortBy === SORT_OPTIONS.BEST_MATCH) {
-        return cloned.sort((a, b) => {
-          // Mejor opción prioriza score compuesto: texto + precio + distancia + votos + reputación.
-          const byScore = Number(b.search_score || 0) - Number(a.search_score || 0);
-          if (byScore !== 0) return byScore;
-
-          const byValidated = Number(b.validated_count || 0) - Number(a.validated_count || 0);
-          if (byValidated !== 0) return byValidated;
-
-          const byDistance = Number(a.distance_km || 1e12) - Number(b.distance_km || 1e12);
-          if (byDistance !== 0) return byDistance;
-
-          const byPrice = Number(a.price || 0) - Number(b.price || 0);
-          if (byPrice !== 0) return byPrice;
-
-          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-        });
-      }
-      return cloned;
-    })();
+    const fullySortedPublications = enrichedPublications;
 
     // Filtro de seguridad en cliente para evitar inconsistencias por tipos/queries.
     // Garantiza que min/max price siempre se respeten antes de paginar.
@@ -1175,19 +1147,15 @@ export const getPublications = async (filters = {}) => {
       return true;
     });
 
-    const paginatedData = requiresClientSort
-      ? priceGuardedPublications.slice(offset, offset + limit)
-      : priceGuardedPublications;
+    const paginatedData = priceGuardedPublications;
 
     const hasServerCount = Number.isFinite(count);
     const effectiveCount = hasServerCount
       ? count
-      : (requiresClientSort ? priceGuardedPublications.length : offset + paginatedData.length);
-    const effectiveHasMore = requiresClientSort
-      ? offset + limit < priceGuardedPublications.length
-      : hasServerCount
-        ? paginatedData.length === limit && offset + paginatedData.length < Number(count)
-        : paginatedData.length === limit;
+      : offset + paginatedData.length;
+    const effectiveHasMore = hasServerCount
+      ? paginatedData.length === limit && offset + paginatedData.length < Number(count)
+      : paginatedData.length === limit;
 
     return {
       success: true,

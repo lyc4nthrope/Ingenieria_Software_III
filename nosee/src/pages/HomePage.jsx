@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import {
   useAuthStore,
@@ -42,6 +43,25 @@ const EmptyIcon = () => (
     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
   </svg>
 );
+
+// ─── useColumnCount — sincroniza con los breakpoints del grid CSS ─────────────
+function useColumnCount() {
+  const [cols, setCols] = useState(() => {
+    if (window.innerWidth <= 560) return 1;
+    if (window.innerWidth <= 1023) return 2;
+    return 3;
+  });
+  useEffect(() => {
+    const handler = () => {
+      if (window.innerWidth <= 560) setCols(1);
+      else if (window.innerWidth <= 1023) setCols(2);
+      else setCols(3);
+    };
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return cols;
+}
 
 // ─── HomePage ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
@@ -103,6 +123,10 @@ export default function HomePage() {
 
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
+
+  // ── Virtualización ────────────────────────────────────────────────────────
+  const columnCount = useColumnCount();
+  const seenIdsRef = useRef(new Set());
 
   // ── Load categories ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -208,6 +232,7 @@ export default function HomePage() {
 
   // ── 4.3: handleFilterChange (copied from PublicationsPage) ───────────────
   const handleFilterChange = (newFilters) => {
+    seenIdsRef.current = new Set();
     setFilters(newFilters);
 
     const shouldUseBestMatch = String(newFilters.sortBy || '') === 'best_match';
@@ -367,6 +392,21 @@ export default function HomePage() {
     cooldownMs: INFINITE_SCROLL_CONFIG.cooldownMs,
   });
 
+  const rows = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < normalizedPublications.length; i += columnCount) {
+      result.push(normalizedPublications.slice(i, i + columnCount));
+    }
+    return result;
+  }, [normalizedPublications, columnCount]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => document.getElementById('main-content'),
+    estimateSize: () => 504, // ~480px card + 24px gap
+    overscan: 3,
+  });
+
   return (
     <div className="home-wrapper">
       {/* ── 4.7: Grid CSS with media queries ── */}
@@ -415,6 +455,7 @@ export default function HomePage() {
             ref={searchBoxRef}
             style={{
               position: "relative",
+              zIndex: 1,
               flex: 1,
               background: "rgba(255,255,255,0.04)",
               border: "1px solid rgba(255,255,255,0.09)",
@@ -552,6 +593,7 @@ export default function HomePage() {
               sortBy: "recent",
             }));
             setSearchQuery("");
+            seenIdsRef.current = new Set();
             clearFilters();
           }}
         />
@@ -628,34 +670,47 @@ export default function HomePage() {
               </p>
             </div>
           ) : (
-            // ── 4.7: Grid with home-pub-grid class ──
-            <div
-              className="home-pub-grid"
-              style={{
-                display: "grid",
-                gap: "24px",
-              }}
-            >
-              {normalizedPublications.map((pub, index) => (
+            // ── 4.7: Grid virtualizado por filas ──
+            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => (
                 <div
-                  key={pub.id}
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
                   style={{
-                    animation: 'pubFadeIn 0.32s ease both',
-                    animationDelay: `${Math.min(index * 35, 350)}ms`,
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                    paddingBottom: '24px',
                   }}
                 >
-                  <PublicationCard
-                    publication={pub}
-                    isAuthenticated={isAuthenticated}
-                    isAuthor={user?.id === pub.user_id || user?.id === pub.user?.id}
-                    isAdmin={isAdmin(user?.role)}
-                    onRequireAuth={handleRequireAuth}
-                    onValidate={handleValidate}
-                    onDownvote={handleDownvote}
-                    onReport={handleReport}
-                    onDelete={handleDelete}
-                    onViewMore={handleOpenDetail}
-                  />
+                  <div className="home-pub-grid" style={{ display: 'grid', gap: '24px' }}>
+                    {rows[virtualRow.index].map((pub) => {
+                      const isNew = !seenIdsRef.current.has(pub.id);
+                      if (isNew) seenIdsRef.current.add(pub.id);
+                      return (
+                        <div
+                          key={pub.id}
+                          style={isNew ? { animation: 'pubFadeIn 0.32s ease both' } : undefined}
+                        >
+                          <PublicationCard
+                            publication={pub}
+                            isAuthenticated={isAuthenticated}
+                            isAuthor={user?.id === pub.user_id || user?.id === pub.user?.id}
+                            isAdmin={isAdmin(user?.role)}
+                            onRequireAuth={handleRequireAuth}
+                            onValidate={handleValidate}
+                            onDownvote={handleDownvote}
+                            onReport={handleReport}
+                            onDelete={handleDelete}
+                            onViewMore={handleOpenDetail}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
