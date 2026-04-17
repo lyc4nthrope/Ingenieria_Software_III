@@ -703,100 +703,21 @@ export const getPublications = async (filters = {}) => {
       hasCoordinates(latitude, longitude);
     const shouldComputeDistanceSignals = hasCoordinates(latitude, longitude);
 
-    // Pre-filtro: IDs de productos cuyo nombre O cuya marca coincide con productName
+    // Pre-filtro: IDs de productos cuyo nombre O marca coincide con productName (FTS tsvector)
     let productIdFilter = null;
     const normalizedProductId = Number(productId);
 
     if (Number.isFinite(normalizedProductId) && normalizedProductId > 0) {
       productIdFilter = [normalizedProductId];
     } else if (productName) {
-      const productSearchTerm = String(productName).trim();
-      const normalizedProductSearchTerm = normalizeSearchText(productSearchTerm);
-      const seedTerm = productSearchTerm.length >= 3 ? productSearchTerm.slice(0, 3) : productSearchTerm;
-
-      const [{ data: rawProducts, error: productSearchError }, { data: rawBrands }] = await Promise.all([
-        supabase
-          .from("products")
-          .select("id, name, brand:brands(id, name)")
-          .ilike("name", `%${seedTerm}%`)
-          .limit(400),
-        supabase
-          .from("brands")
-          .select("id, name")
-          .ilike("name", `%${seedTerm}%`)
-          .limit(120),
-      ]);
-
-      if (productSearchError) {
-        return { success: false, error: productSearchError.message };
-      }
-
-      const matchingProducts = (rawProducts || []).filter((product) => {
-        const normalizedName = normalizeSearchText(product.name);
-        const normalizedBrandName = normalizeSearchText(product?.brand?.name || "");
-        return (
-          normalizedName.includes(normalizedProductSearchTerm) ||
-          normalizedBrandName.includes(normalizedProductSearchTerm)
-        );
+      const { data: searchResults, error: searchError } = await supabase.rpc("search_products", {
+        p_query: normalizeSearchText(productName),
       });
-
-      const matchingBrands = (rawBrands || []).filter((brand) =>
-        normalizeSearchText(brand.name).includes(normalizedProductSearchTerm),
-      );
-
-      const productIdsByName = matchingProducts.map((p) => p.id);
-
-      let productIdsByBrand = [];
-      if (matchingBrands.length > 0) {
-        const brandIds = matchingBrands.map((b) => b.id);
-        const { data: brandProducts } = await supabase
-          .from("products")
-          .select("id")
-          .in("brand_id", brandIds);
-        productIdsByBrand = (brandProducts || []).map((p) => p.id);
+      if (searchError) {
+        console.error("[NØSEE:publications.api] search_products RPC error:", searchError);
+        return { success: false, error: searchError.message };
       }
-
-      productIdFilter = [...new Set([...productIdsByName, ...productIdsByBrand])];
-
-      if (productIdFilter.length === 0) {
-        const [{ data: broadProducts }, { data: broadBrands }] = await Promise.all([
-          supabase
-            .from("products")
-            .select("id, name, brand:brands(id, name)")
-            .limit(2000),
-          supabase
-            .from("brands")
-            .select("id, name")
-            .limit(800),
-        ]);
-
-        const fallbackMatchingProducts = (broadProducts || []).filter((product) => {
-          const normalizedName = normalizeSearchText(product.name);
-          const normalizedBrandName = normalizeSearchText(product?.brand?.name || "");
-          return (
-            normalizedName.includes(normalizedProductSearchTerm) ||
-            normalizedBrandName.includes(normalizedProductSearchTerm)
-          );
-        });
-
-        const fallbackMatchingBrands = (broadBrands || []).filter((brand) =>
-          normalizeSearchText(brand.name).includes(normalizedProductSearchTerm),
-        );
-
-        const fallbackProductIdsByName = fallbackMatchingProducts.map((p) => p.id);
-        let fallbackProductIdsByBrand = [];
-        if (fallbackMatchingBrands.length > 0) {
-          const fallbackBrandIds = fallbackMatchingBrands.map((b) => b.id);
-          const { data: fallbackBrandProducts } = await supabase
-            .from("products")
-            .select("id")
-            .in("brand_id", fallbackBrandIds);
-          fallbackProductIdsByBrand = (fallbackBrandProducts || []).map((p) => p.id);
-        }
-
-        productIdFilter = [...new Set([...fallbackProductIdsByName, ...fallbackProductIdsByBrand])];
-      }
-
+      productIdFilter = (searchResults || []).map((r) => r.product_id);
       if (productIdFilter.length === 0) {
         return { success: true, data: [], count: 0, hasMore: false };
       }
