@@ -23,7 +23,7 @@ import { memo, useState, useEffect, useId } from 'react';
 import { formatDistanceToNow } from '@/features/publications/utils/dateUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ReportPublicationModal } from '@/features/publications/components/ReportPublicationModal';
-import { optimizeCloudinaryUrl } from '@/services/cloudinary';
+import { optimizeCloudinaryUrl, buildCloudinarySrcSet } from '@/services/cloudinary';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import CelebrationOverlay from '@/components/ui/CelebrationOverlay';
 
@@ -206,6 +206,8 @@ export function PublicationCard({
         {resolvedPhoto ? (
           <img
             src={resolvedPhoto}
+            srcSet={buildCloudinarySrcSet(photoUrl, [400, 600, 900]) || undefined}
+            sizes="(max-width: 560px) calc(100vw - 40px), (max-width: 1023px) calc(50vw - 68px), calc(33vw - 72px)"
             alt={productName}
             data-pub-img=""
             style={styles.image}

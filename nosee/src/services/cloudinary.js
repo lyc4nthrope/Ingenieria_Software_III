@@ -43,6 +43,21 @@ export function optimizeCloudinaryUrl(url, { width = 800 } = {}) {
 }
 
 /**
+ * Genera un srcset de Cloudinary para múltiples anchos.
+ * Usa `optimizeCloudinaryUrl` internamente para cada ancho.
+ *
+ * @param {string} url    - URL de Cloudinary original (sin transformaciones)
+ * @param {number[]} widths - Array de anchos (ej: [400, 600, 900])
+ * @returns {string|null}  - Cadena srcset o null si la URL no es válida
+ */
+export function buildCloudinarySrcSet(url, widths = [400, 600, 900]) {
+  if (!url || !url.includes('res.cloudinary.com')) return null;
+  return widths
+    .map((w) => `${optimizeCloudinaryUrl(url, { width: w })} ${w}w`)
+    .join(', ');
+}
+
+/**
  * Comprime una imagen en el cliente usando Canvas antes de subirla.
  * Reduce imágenes grandes a máx 1600px de ancho a JPEG 85% de calidad.
  * Devuelve el archivo original si la compresión falla.
