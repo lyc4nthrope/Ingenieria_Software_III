@@ -862,6 +862,16 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                               ${(chosenPrice * item.quantity).toLocaleString('es-CO')}
                             </div>
                             <div style={lista.optimItemPriceSub}>{item.quantity > 1 ? `${item.quantity} × $${chosenPrice.toLocaleString('es-CO')}` : 'COP'}</div>
+                            {(() => {
+                              const avg = chosenPub?.search_signals?.product_avg_price;
+                              if (!avg || avg <= chosenPrice) return null;
+                              const saved = Math.round((avg - chosenPrice) * item.quantity);
+                              return (
+                                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--success, #16a34a)', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                                  Ahorrás ${saved.toLocaleString('es-CO')}
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                         <div style={lista.optimItemActions}>
