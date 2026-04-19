@@ -125,6 +125,11 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
                       <span style={{ ...resv.prodTotal, ...(done ? { textDecoration: 'line-through' } : {}) }}>
                         ${((p.price || 0) * (p.item?.quantity || 1)).toLocaleString('es-CO')}
                       </span>
+                      {(p.item?.quantity || 1) > 1 && (
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                          ${(p.price || 0).toLocaleString('es-CO')} c/u × {p.item.quantity}
+                        </span>
+                      )}
                       {onPriceReport && (
                         <PriceReportInline
                           currentPrice={p.price}
