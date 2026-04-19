@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOptimPrefs } from '../hooks/useOptimPrefs';
 import { useOptimizeSingleItem } from '../hooks/useOptimizeSingleItem';
 import { useGeoLocation } from '@/features/publications/hooks/useGeoLocation';
@@ -7,7 +8,7 @@ import { OptimSettingsPanel } from './OptimSettingsPanel';
 import { InfiniteHorizontalCarousel } from './InfiniteHorizontalCarousel';
 import { TrashIcon, PlusIcon, GearIcon, ChevronDownIcon, calculateDeliveryFee, buildResultFromSelections } from '../utils/shoppingListUtils';
 import { lista, modeSelection, delivForm } from '../styles/shoppingListStyles';
-import { useAuthStore } from '@/features/auth/store/authStore';
+import { useAuthStore, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import { createOrder } from '@/services/api/orders.api';
 import { DeliveryMapPicker } from './DeliveryMapPicker';
@@ -75,6 +76,8 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   const [saveError, setSaveError] = useState(null);
 
   const currentUserId = useAuthStore((s) => s.user?.id);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const navigate = useNavigate();
   const updateItem = useShoppingListStore((s) => s.updateItem);
 
   // Ítem expandido (muestra carrusel)
@@ -932,7 +935,13 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
           <div style={lista.calcRow}>
             <button
               type="button"
-              onClick={handleCalculate}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  navigate('/login', { state: { from: '/lista' } });
+                  return;
+                }
+                handleCalculate();
+              }}
               disabled={calculating || items.length === 0}
               style={{
                 ...lista.calcBtn,

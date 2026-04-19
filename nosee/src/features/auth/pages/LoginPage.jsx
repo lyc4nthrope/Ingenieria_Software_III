@@ -5,7 +5,7 @@
  * Redirige a la homepage pública "/" después del login exitoso.
  */
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   useAuthStore,
   selectIsAuthenticated,
@@ -32,6 +32,7 @@ import {
 export default function LoginPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const login = useAuthStore((s) => s.login);
   const clearError = useAuthStore((s) => s.clearError);
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
@@ -59,9 +60,10 @@ export default function LoginPage() {
   useEffect(() => {
     if (isInitialized && isAuthenticated) {
       const user = useAuthStore.getState().user;
-      navigate(getRolePath(user?.role), { replace: true });
+      const redirectTo = location.state?.from || getRolePath(user?.role);
+      navigate(redirectTo, { replace: true });
     }
-  }, [isInitialized, isAuthenticated, navigate]);
+  }, [isInitialized, isAuthenticated, navigate, location.state]);
 
   const handleLogin = async (email, password) => {
     clearError();
@@ -77,7 +79,8 @@ export default function LoginPage() {
       trackLoginSuccess('email', durationMs);
       recordLoginAttempt('success', durationMs);
       const user = useAuthStore.getState().user;
-      navigate(getRolePath(user?.role), { replace: true });
+      const redirectTo = location.state?.from || getRolePath(user?.role);
+      navigate(redirectTo, { replace: true });
     } else {
       trackLoginFailure('email', result.error?.code ?? 'unknown');
       recordLoginAttempt('failure', durationMs);

@@ -508,15 +508,52 @@ const Navbar = memo(function Navbar() {
             </Link>
           </div>
 
-          {/* Center — empty spacer */}
-          <div style={{ flex: 1 }} />
+          {/* Nav links — center column */}
+          <div style={{ flex: 1, display: "flex", justifyContent: "center", gap: "4px" }}>
+            <Link
+              to="/"
+              style={navLinkStyle}
+              className={navLinkClass(isActive("/"))}
+              aria-current={isActive("/") ? "page" : undefined}
+            >
+              <HomeIcon />
+              <span className="nav-label">{tn.home}</span>
+            </Link>
 
-          {/* Right side — ranking + login + register */}
-          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "4px" }}>
-            <Link to="/ranking" style={navLinkStyle} className={navLinkClass(isActive("/ranking"))}>
+            <Link
+              to="/tiendas"
+              style={navLinkStyle}
+              className={navLinkClass(isActive("/tiendas"))}
+              aria-current={isActive("/tiendas") ? "page" : undefined}
+            >
+              <StoreIcon />
+              <span className="nav-label">{tn.stores}</span>
+            </Link>
+
+            <Link
+              to="/ranking"
+              style={navLinkStyle}
+              className={navLinkClass(isActive("/ranking"))}
+              aria-current={isActive("/ranking") ? "page" : undefined}
+            >
               <TrophyIcon />
               <span className="nav-label">{tn.ranking}</span>
             </Link>
+
+            <Link
+              to="/lista"
+              style={navLinkStyle}
+              className={navLinkClass(isActive("/lista"))}
+              aria-current={isActive("/lista") ? "page" : undefined}
+              aria-label={tn.shoppingList}
+            >
+              <CartIcon />
+              <span className="nav-label">{tn.shoppingList}</span>
+            </Link>
+          </div>
+
+          {/* Right side — login + register */}
+          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "4px" }}>
             <Link to="/login" style={navLinkStyle} className={navLinkClass(isActive("/login"))}>
               {tn.login}
             </Link>

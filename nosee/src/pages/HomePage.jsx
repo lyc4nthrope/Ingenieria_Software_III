@@ -367,7 +367,7 @@ export default function HomePage() {
 
   // ── 4.9: handleRequireAuth — navigate to /login instead of alert ──────────
   const handleRequireAuth = useCallback(() => {
-    navigate('/login');
+    navigate('/login', { state: { from: '/' } });
   }, [navigate]);
 
   const handleDelete = useCallback(async (publicationId) => {

@@ -221,11 +221,7 @@ function AppContent() {
 
         <Route
           path="/tiendas"
-          element={
-            <ProtectedRoute>
-              <StoresPage />
-            </ProtectedRoute>
-          }
+          element={<StoresPage />}
         />
 
         <Route
@@ -454,7 +450,7 @@ function AppShell() {
       <Footer />
       <AccessibilityMenu />
       <RoleChangeToast />
-      {isAuthenticated && user?.id && <ChatWidget userId={user.id} />}
+      <ChatWidget userId={user?.id} isAuthenticated={isAuthenticated} />
     </div>
   );
 }

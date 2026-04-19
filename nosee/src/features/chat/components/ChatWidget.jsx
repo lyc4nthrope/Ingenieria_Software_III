@@ -8,6 +8,7 @@
  */
 
 import { useState, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import useChat from '@/features/chat/hooks/useChat';
 import styles from '@/features/chat/styles/chatStyles';
@@ -67,8 +68,10 @@ const SendIcon = () => (
 
 // ─── Componente ─────────────────────────────────────────────────────────────
 
-export default function ChatWidget({ userId }) {
+export default function ChatWidget({ userId, isAuthenticated }) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [inputValue, setInputValue] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
   const [btnHover, setBtnHover] = useState(false);
@@ -135,7 +138,14 @@ export default function ChatWidget({ userId }) {
             type="button"
             aria-label="Abrir chat de asistencia — arrastrá para mover"
             aria-grabbed={false}
-            onClick={() => { if (!wasDragged()) openChat(); }}
+            onClick={() => {
+              if (wasDragged()) return;
+              if (!isAuthenticated) {
+                navigate('/login', { state: { from: location.pathname } });
+                return;
+              }
+              openChat();
+            }}
             onMouseEnter={() => setBtnHover(true)}
             onMouseLeave={() => setBtnHover(false)}
             className="chat-widget-button"

@@ -66,6 +66,10 @@ export function PublicationCard({
   const photoModalId = useId();
 
   const handleAddToList = () => {
+    if (isAuthenticated === false) {
+      onRequireAuth?.();
+      return;
+    }
     if (!isInList) {
       const name = publication.product?.name || tc.unknownProduct;
       addItem(name, 1, {
