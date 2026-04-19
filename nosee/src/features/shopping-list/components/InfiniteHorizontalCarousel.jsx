@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CarouselCard } from './CarouselCard';
-import PublicationDetailModal from '@/features/publications/components/PublicationDetailModal';
 
 const MAX_HEIGHT  = 280; // px — altura máxima del contenedor scrolleable
 const SCROLL_STEP = 90;  // px — cuánto mueve cada flecha
@@ -9,10 +8,9 @@ const SCROLL_STEP = 90;  // px — cuánto mueve cada flecha
 // El contenedor tiene scroll libre + flechas ▲/▼ como atajo de scroll.
 // Las flechas se muestran solo cuando hay contenido arriba/abajo.
 // La tarjeta seleccionada hace scrollIntoView automáticamente.
-export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect }) {
-  const [detailPub, setDetailPub] = useState(null);
-  const [canUp,     setCanUp]     = useState(false);
-  const [canDown,   setCanDown]   = useState(false);
+export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect, onDetail }) {
+  const [canUp,   setCanUp]   = useState(false);
+  const [canDown, setCanDown] = useState(false);
   const scrollRef  = useRef(null);
   const selectedRef = useRef(null);
 
@@ -73,7 +71,7 @@ export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect 
                   globalIdx={idx}
                   isSelected={isSelected}
                   onSelect={onSelect}
-                  onDetail={setDetailPub}
+                  onDetail={onDetail}
                 />
               </div>
             );
@@ -97,12 +95,6 @@ export function InfiniteHorizontalCarousel({ publications, selectedId, onSelect 
         )}
       </div>
 
-      {detailPub && (
-        <PublicationDetailModal
-          publication={detailPub}
-          onClose={() => setDetailPub(null)}
-        />
-      )}
     </>
   );
 }

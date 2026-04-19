@@ -13,7 +13,6 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import * as publicationsApi from '@/services/api/publications.api';
-import PublicationDetailModal from '@/features/publications/components/PublicationDetailModal';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
 import {
   optimizeByPrice,
@@ -80,7 +79,6 @@ export default function CreateOrderPage() {
   const [result, setResult] = useState(null);
   const [calculating, setCalculating] = useState(false);
   const [calcError, setCalcError] = useState(null);
-  const [selectedPublication, setSelectedPublication] = useState(null);
 
   // ── Confirmación ──────────────────────────────────────────────────────────
   const [orderId] = useState(() => `NSE-${Date.now().toString(36).toUpperCase()}`);
@@ -536,10 +534,10 @@ export default function CreateOrderPage() {
                       <li
                         key={pi}
                         style={{ ...styles.productItem, cursor: 'pointer' }}
-                        onClick={() => setSelectedPublication(p.publication)}
+                        onClick={() => navigate(`/publicaciones/${p.publication.id}`)}
                         role="button"
                         tabIndex={0}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedPublication(p.publication); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(`/publicaciones/${p.publication.id}`); }}
                         title="Ver publicación"
                       >
                         <div style={styles.productItemLeft}>
@@ -576,12 +574,6 @@ export default function CreateOrderPage() {
           </button>
         </div>
 
-        {selectedPublication && (
-          <PublicationDetailModal
-            publication={selectedPublication}
-            onClose={() => setSelectedPublication(null)}
-          />
-        )}
       </div>
     );
   }

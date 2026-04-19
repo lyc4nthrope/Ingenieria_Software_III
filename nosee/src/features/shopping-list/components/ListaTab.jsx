@@ -89,6 +89,42 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   // Limpieza del timer al desmontar
   useEffect(() => () => clearTimeout(saveTimerRef.current), []);
 
+  // ── Draft de resultado: persiste solo al navegar al detalle ───────────────
+  const DRAFT_KEY = 'nosee_lista_draft';
+
+  // Restaurar al montar si hay un draft válido para estos ítems
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      const itemsKey = items.map((i) => i.id).join(',');
+      if (draft.itemsKey !== itemsKey) { sessionStorage.removeItem(DRAFT_KEY); return; }
+      setPhase(draft.phase);
+      setCalcResults(draft.calcResults);
+      setSelectedPubs(draft.selectedPubs ?? {});
+      setExpandedId(draft.expandedId ?? null);
+      sessionStorage.removeItem(DRAFT_KEY);
+    } catch {
+      sessionStorage.removeItem(DRAFT_KEY);
+    }
+  // Solo al montar — items viene de Zustand y es estable
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleViewDetail = useCallback((pub) => {
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+        itemsKey:     items.map((i) => i.id).join(','),
+        phase,
+        calcResults,
+        selectedPubs,
+        expandedId,
+      }));
+    } catch { /* storage lleno — navegar igual */ }
+    navigate(`/publicaciones/${pub.id}`);
+  }, [items, phase, calcResults, selectedPubs, expandedId, navigate]);
+
   const handleAdd = () => {
     const trimmed = inputValue.trim();
     if (!trimmed) return;
@@ -276,6 +312,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
 
     setSaving(false);
 
+    sessionStorage.removeItem(DRAFT_KEY);
     if (isDelivery) {
       setPhase('list');
       setCalcResults(null);
@@ -857,6 +894,7 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                           publications={pubs}
                           selectedId={chosenPub?.id ?? (pubs[0]?.id ?? 0)}
                           onSelect={(pub) => handleSelectPub(item.id, pub)}
+                          onDetail={handleViewDetail}
                         />
                       </div>
                     )}
