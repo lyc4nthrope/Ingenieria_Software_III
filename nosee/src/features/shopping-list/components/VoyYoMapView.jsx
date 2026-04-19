@@ -63,7 +63,7 @@ export function VoyYoMapView({ result, userCoords, onAddProduct, onRemoveOrder, 
   const truncated   = stores.length > MAX_GMAPS_WAYPOINTS;
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '500px' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '500px', zIndex: 0 }}>
       {/* ── Mapa full-screen ── */}
       <StoreOnlyMap stores={stores} userCoords={userCoords} />
 
