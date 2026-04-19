@@ -253,7 +253,10 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
   const hasSelections = Object.keys(selectedPubs).length > 0;
 
   const total = isCalculated
-    ? Object.values(selectedPubs).reduce((sum, pub) => sum + (pub?.price ?? 0), 0)
+    ? items.reduce((sum, item) => {
+        const pub = selectedPubs[item.id];
+        return sum + (pub?.price ?? 0) * (item.quantity || 1);
+      }, 0)
     : 0;
 
   const handleConfirmOrder = async (modeOverride) => {
