@@ -508,13 +508,17 @@ const Navbar = memo(function Navbar() {
             </Link>
           </div>
 
-          {/* Nav links — center column */}
-          <div style={{ flex: 1, display: "flex", justifyContent: "center", gap: "4px" }}>
+          {/* Nav links — center column (responsive: se oculta en mobile) */}
+          <div
+            className={`nav-links${mobileMenuOpen ? " nav-links--open" : ""}`}
+            style={{ flex: 1, justifyContent: "center", gap: "4px" }}
+          >
             <Link
               to="/"
               style={navLinkStyle}
               className={navLinkClass(isActive("/"))}
               aria-current={isActive("/") ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
             >
               <HomeIcon />
               <span className="nav-label">{tn.home}</span>
@@ -525,6 +529,7 @@ const Navbar = memo(function Navbar() {
               style={navLinkStyle}
               className={navLinkClass(isActive("/tiendas"))}
               aria-current={isActive("/tiendas") ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
             >
               <StoreIcon />
               <span className="nav-label">{tn.stores}</span>
@@ -535,6 +540,7 @@ const Navbar = memo(function Navbar() {
               style={navLinkStyle}
               className={navLinkClass(isActive("/ranking"))}
               aria-current={isActive("/ranking") ? "page" : undefined}
+              onClick={() => setMobileMenuOpen(false)}
             >
               <TrophyIcon />
               <span className="nav-label">{tn.ranking}</span>
@@ -546,15 +552,37 @@ const Navbar = memo(function Navbar() {
               className={navLinkClass(isActive("/lista"))}
               aria-current={isActive("/lista") ? "page" : undefined}
               aria-label={tn.shoppingList}
+              onClick={() => setMobileMenuOpen(false)}
             >
               <CartIcon />
               <span className="nav-label">{tn.shoppingList}</span>
             </Link>
+
           </div>
 
-          {/* Right side — login + register */}
+          {/* Right side — hamburger (mobile) + login + register (desktop) */}
           <div style={{ flex: 1, display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "4px" }}>
-            <Link to="/login" style={navLinkStyle} className={navLinkClass(isActive("/login"))}>
+            {mobileMenuOpen && (
+              <div
+                style={{ position: "fixed", inset: 0, top: "60px", zIndex: 98 }}
+                onClick={() => setMobileMenuOpen(false)}
+                aria-hidden="true"
+              />
+            )}
+            <button
+              type="button"
+              className="nav-hamburger"
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-expanded={mobileMenuOpen}
+              aria-label={mobileMenuOpen ? tn.closeMenu : tn.openMenu}
+            >
+              <MenuIcon open={mobileMenuOpen} />
+            </button>
+            <Link
+              to="/login"
+              style={navLinkStyle}
+              className={`${navLinkClass(isActive("/login"))} nav-desktop-auth`}
+            >
               {tn.login}
             </Link>
             <Link
@@ -567,6 +595,7 @@ const Navbar = memo(function Navbar() {
                 padding: "6px 16px",
                 borderRadius: "var(--radius-sm)",
               }}
+              className="nav-desktop-auth"
             >
               {tn.register}
             </Link>

@@ -772,6 +772,7 @@ export const getPublications = async (filters = {}) => {
       "validated_count",
       "downvoted_count",
       "active_reports_count",
+      "comments_count",
       "user_id",
       "user:users!price_publications_user_id_fkey (id, full_name, reputation_points)",
       "product_id",

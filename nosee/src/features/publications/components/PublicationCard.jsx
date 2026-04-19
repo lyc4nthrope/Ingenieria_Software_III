@@ -415,12 +415,12 @@ export function PublicationCard({
             {/* Comment count chip — read-only */}
             <div
               style={{ ...styles.chip, cursor: 'default' }}
-              aria-label={`${publication.comment_count || 0} comentarios`}
+              aria-label={`${publication.comments_count || 0} comentarios`}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={styles.chipIcon} aria-hidden="true">
                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
               </svg>
-              <span>{publication.comment_count || 0}</span>
+              <span>{publication.comments_count || 0}</span>
             </div>
           </div>
         </div>

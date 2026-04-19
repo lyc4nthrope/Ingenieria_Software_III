@@ -76,7 +76,7 @@ export default function LoginForm({ onSubmit, onGoogleLogin, loading = false, er
     <form
       onSubmit={handleSubmit}
       noValidate
-      style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
+      style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
     >
       {error && (
         <div

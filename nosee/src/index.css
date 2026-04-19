@@ -972,7 +972,7 @@ html {
   gap: 16px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .main-nav {
     padding: 0 10px;
     gap: 6px;
@@ -1251,7 +1251,7 @@ html {
   border-color: var(--accent);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .nav-hamburger {
     display: flex;
   }
@@ -1288,6 +1288,30 @@ html {
 
   .nav-links--open .nav-label {
     display: inline !important;
+  }
+
+  /* Login/register visibles dentro del dropdown mobile */
+  .nav-links--open .nav-mobile-only {
+    display: flex !important;
+  }
+
+  /* Botones de auth más compactos en mobile/tablet */
+  .nav-desktop-auth {
+    padding: 5px 10px !important;
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Login/register del dropdown ocultos en desktop (!important gana al inline style display:flex) */
+.nav-mobile-only {
+  display: none !important;
+}
+
+/* Pantallas muy angostas: login/register ultra compactos */
+@media (max-width: 380px) {
+  .nav-desktop-auth {
+    padding: 4px 7px !important;
+    font-size: 0.6875rem !important;
   }
 }
 
