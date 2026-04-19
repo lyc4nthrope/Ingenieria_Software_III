@@ -783,6 +783,9 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
               const hasPubs             = pubs && pubs.length > 0;
               const chosenPub           = selectedPubs[item.id];
               const chosenPrice         = chosenPub?.price ?? null;
+              const avgPrice            = pubs && pubs.length > 1
+                ? pubs.reduce((sum, p) => sum + (p.price ?? 0), 0) / pubs.length
+                : null;
 
               if (isCalculated) {
                 return (
@@ -862,16 +865,11 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
                               ${(chosenPrice * item.quantity).toLocaleString('es-CO')}
                             </div>
                             <div style={lista.optimItemPriceSub}>{item.quantity > 1 ? `${item.quantity} × $${chosenPrice.toLocaleString('es-CO')}` : 'COP'}</div>
-                            {(() => {
-                              const avg = chosenPub?.search_signals?.product_avg_price;
-                              if (!avg || avg <= chosenPrice) return null;
-                              const saved = Math.round((avg - chosenPrice) * item.quantity);
-                              return (
-                                <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--success, #16a34a)', whiteSpace: 'nowrap', marginTop: '2px' }}>
-                                  Ahorrás ${saved.toLocaleString('es-CO')}
-                                </div>
-                              );
-                            })()}
+                            {avgPrice && chosenPrice !== null && avgPrice > chosenPrice && (
+                              <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--success, #16a34a)', whiteSpace: 'nowrap', marginTop: '2px' }}>
+                                Ahorrás ${Math.round((avgPrice - chosenPrice) * item.quantity).toLocaleString('es-CO')}
+                              </div>
+                            )}
                           </div>
                         )}
                         <div style={lista.optimItemActions}>
