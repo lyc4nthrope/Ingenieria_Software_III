@@ -785,9 +785,9 @@ export function ListaTab({ items, addItem, removeItem, clearList, saveList, addO
               const chosenPrice         = chosenPub?.price ?? null;
               const avgPrice            = (() => {
                 if (!pubs || !chosenPub?.product_id) return null;
-                const sameProd = pubs.filter((p) => p.product_id === chosenPub.product_id);
-                if (sameProd.length < 2) return null;
-                return sameProd.reduce((sum, p) => sum + (p.price ?? 0), 0) / sameProd.length;
+                const others = pubs.filter((p) => p.product_id === chosenPub.product_id && p.id !== chosenPub.id);
+                if (others.length === 0) return null;
+                return others.reduce((sum, p) => sum + (p.price ?? 0), 0) / others.length;
               })();
 
               if (isCalculated) {
