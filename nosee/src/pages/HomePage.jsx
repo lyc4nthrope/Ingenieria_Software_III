@@ -1,4 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 import {
   useAuthStore,
@@ -7,451 +9,59 @@ import {
 
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
-import PublicationDetailModal from "@/features/publications/components/PublicationDetailModal";
-import { useLanguage, translateDbValue } from "@/contexts/LanguageContext";
+import PublicationCard from "@/features/publications/components/PublicationCard";
+import PriceSearchFilter from "@/features/publications/components/PriceSearchFilter";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { isAdmin } from "@/types";
-import { ReportPublicationModal } from "@/features/publications/components/ReportPublicationModal";
-import { optimizeCloudinaryUrl } from "@/services/cloudinary";
 import { INFINITE_SCROLL_CONFIG } from "@/config/infiniteScroll";
 import { useInfiniteScrollTrigger } from "@/hooks/useInfiniteScrollTrigger";
 
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-const FALLBACK_IMAGE = "https://via.placeholder.com/400x300?text=Sin+foto";
+// ─── Iconos SVG inline ────────────────────────────────────────────────────────
+const SearchIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
 
-const buildCloudinaryImageUrl = (publicId) => {
-  if (!publicId || !CLOUDINARY_CLOUD_NAME) return null;
-  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/f_auto,q_auto,w_800,c_limit/${publicId}`;
-};
+const FilterIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+  </svg>
+);
 
-const resolvePublicationPhoto = (publication) => {
-  const candidate =
-    publication?.photo ||
-    publication?.photo_url ||
-    publication?.cloudinary_public_id;
+const EmptyIcon = () => (
+  <svg
+    width="48"
+    height="48"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1"
+    opacity="0.6"
+  >
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" />
+  </svg>
+);
 
-  if (!candidate) return FALLBACK_IMAGE;
-
-  if (candidate.includes('res.cloudinary.com')) {
-    return optimizeCloudinaryUrl(candidate, { width: 800 });
-  }
-  if (/^https?:\/\//i.test(candidate)) return candidate;
-  return buildCloudinaryImageUrl(candidate) || FALLBACK_IMAGE;
-};
-
-// ─── ReportModal ─────────────────────────────────────
-
-function ReportModal({ onClose, onSubmit }) {
-  const { t } = useLanguage();
-  const th = t.home;
-  const [reportType, setReportType] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const selectId = useId();
-  const titleId = useId();
-  const descriptionId = useId();
-
-  const handleSubmit = async () => {
-    if (!reportType || submitting) return;
-    setSubmitting(true);
-    await onSubmit(reportType);
-    setSubmitting(false);
-  };
-
+// ─── useColumnCount — sincroniza con los breakpoints del grid CSS ─────────────
+function useColumnCount() {
+  const [cols, setCols] = useState(() => {
+    if (window.innerWidth <= 560) return 1;
+    if (window.innerWidth <= 1023) return 2;
+    return 3;
+  });
   useEffect(() => {
-    const handleEscape = (event) => {
-      if (event.key === "Escape") onClose();
+    const handler = () => {
+      if (window.innerWidth <= 560) setCols(1);
+      else if (window.innerWidth <= 1023) setCols(2);
+      else setCols(3);
     };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [onClose]);
-
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      aria-describedby={descriptionId}
-      onClick={onClose}
-      onKeyDown={(e) => { if (e.key === 'Escape') onClose(e); }}
-      className="bg-app-overlay fixed inset-0 z-[1000] flex items-center justify-center p-4"
-    >
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-        className="bg-app-elevated border-app-border w-full max-w-[400px] rounded-xl border p-6"
-      >
-        <h3 id={titleId} className="text-app-text mb-4 text-base font-semibold">
-          {th.reportPublication}
-        </h3>
-        <p
-          id={descriptionId}
-          className="text-app-text-secondary mb-3 text-[13px]"
-        >
-          {th.reportDescription}
-        </p>
-        <label
-          htmlFor={selectId}
-          className="text-app-text-secondary mb-1.5 block text-[13px]"
-        >
-          {th.reportReason}
-        </label>
-        <select
-          id={selectId}
-          name="reportType"
-          required
-          value={reportType}
-          onChange={(e) => setReportType(e.target.value)}
-          className="bg-app-surface border-app-border text-app-text mb-4 w-full rounded-md border px-3 py-2 text-sm"
-        >
-          <option value="">{th.selectReason}</option>
-          <option value="fake_price">{th.fakePrice}</option>
-          <option value="wrong_photo">{th.wrongPhoto}</option>
-          <option value="spam">{th.spam}</option>
-          <option value="offensive">{th.offensive}</option>
-        </select>
-        <div className="flex justify-end gap-2">
-          <button type="button" className="card-action-button" onClick={onClose}>
-            {th.cancel}
-          </button>
-          <button
-            type="button"
-            className="card-action-button"
-            onClick={handleSubmit}
-            disabled={!reportType || submitting}
-          >
-            {submitting ? th.sending : th.report}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return cols;
 }
-
-const HappyFaceIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-    <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3" strokeLinecap="round" />
-    <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3" strokeLinecap="round" />
-  </svg>
-);
-
-const SadFaceIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
-    <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3" strokeLinecap="round" />
-    <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3" strokeLinecap="round" />
-  </svg>
-);
-
-// ─── PublicationCard ────────────────────────────────────────
-
-const PublicationCard = memo(function PublicationCard({
-  pub,
-  isAuthenticated,
-  currentUserId,
-  userIsAdmin,
-  onRequireAuth,
-  onValidate,
-  onDownvote,
-  onReport,
-  onDelete,
-  onOpenDetail,
-}) {
-  const { t } = useLanguage();
-  const th = t.home;
-  const publicationImage = resolvePublicationPhoto(pub);
-  const [isVoting, setIsVoting] = useState(false);
-  const [photoExpanded, setPhotoExpanded] = useState(false);
-
-  const handleImageError = (event) => {
-    event.currentTarget.src = FALLBACK_IMAGE;
-  };
-
-  const isAuthor =
-    currentUserId &&
-    (pub.user_id === currentUserId || pub.user?.id === currentUserId);
-
-  const pubName = pub.product?.name || th.product;
-  const brandName =
-    pub.product?.brand?.name ||
-    pub.product?.brands?.name ||
-    th.noBrand;
-  const unitValue =
-    pub.product?.base_quantity != null &&
-    (pub.product?.unit_type?.abbreviation || pub.product?.unit_type?.name)
-      ? `${pub.product.base_quantity} ${pub.product.unit_type?.abbreviation || pub.product.unit_type?.name}`
-      : pub.product?.unit_type?.abbreviation ||
-        pub.product?.unit_type?.name ||
-        th.noUnit;
-
-  const handleVote = async (action) => {
-    if (isVoting) return;
-    if (!isAuthenticated) {
-      onRequireAuth?.();
-      return;
-    }
-    setIsVoting(true);
-    try {
-      await action();
-    } finally {
-      setIsVoting(false);
-    }
-  };
-
-  const upActive = pub.user_vote === 1;
-  const downActive = pub.user_vote === -1;
-
-  useEffect(() => {
-    if (!photoExpanded) return undefined;
-
-    const handleEscape = (event) => {
-      if (event.key === "Escape") setPhotoExpanded(false);
-    };
-
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [photoExpanded]);
-
-  return (
-    <>
-      <article className="card">
-      <div className="card-image-wrap" style={{ position: 'relative' }}>
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label={th.expandPhotoLabel(pubName)}
-          onClick={() => setPhotoExpanded(true)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              setPhotoExpanded(true);
-            }
-          }}
-          style={{ cursor: "zoom-in", width: '100%', height: '100%' }}
-        >
-          <img
-            src={publicationImage}
-            alt={pubName}
-            className="card-image"
-            loading="lazy"
-            decoding="async"
-            fetchPriority="low"
-            onError={handleImageError}
-          />
-        </div>
-        <button
-          className="card-report-button"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!isAuthenticated) { onRequireAuth?.(); return; }
-            onReport(pub);
-          }}
-          aria-label={th.reportLabel(pubName)}
-          title={!isAuthenticated ? th.loginToReport : th.report}
-          disabled={false}
-        >
-          !
-        </button>
-      </div>
-
-      <div className="card-body">
-        <p className="card-title">{pubName}</p>
-        <p className="card-price">${pub.price.toLocaleString()}</p>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "6px 10px",
-            fontSize: "12px",
-            color: "var(--text-muted)",
-            marginTop: "4px",
-          }}
-        >
-          <span>
-            <strong style={{ color: "var(--text-secondary)" }}>{th.brandLabel}</strong> {brandName}
-          </span>
-          <span>
-            <strong style={{ color: "var(--text-secondary)" }}>{th.unitLabel}</strong> {unitValue}
-          </span>
-        </div>
-        <span style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "6px", display: "block" }}>
-          <strong style={{ color: "var(--text-secondary)" }}>{th.storeLabel}</strong> {pub.store?.name || th.store}
-        </span>
-      </div>
-
-      <div className="card-divider" />
-
-      <div className="card-actions-row" style={{ flexDirection: "column", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <button
-            className="card-action-button"
-            onClick={() => onOpenDetail(pub.id)}
-            aria-label={th.detailLabel(pubName)}
-          >
-            {th.viewMore}
-          </button>
-
-          {(isAuthor || userIsAdmin) && (
-            <button
-              className="card-action-button"
-              onClick={() => onDelete(pub.id)}
-              aria-label={th.deleteLabel(pubName)}
-              title={th.deleteBtn}
-            >
-              {th.deleteBtn}
-            </button>
-          )}
-
-          {/* Grupo de votos al final */}
-          <div style={{ ...homeVoteStyles.group, marginLeft: "auto" }}>
-            <button
-              type="button"
-              aria-label={th.validateLabel(pubName)}
-              aria-pressed={upActive}
-              aria-disabled={isVoting || !isAuthenticated}
-              disabled={isVoting}
-              title={!isAuthenticated ? th.loginToVote : undefined}
-              onClick={() => handleVote(() => onValidate(pub.id, pub.user_vote))}
-              style={{
-                ...homeVoteStyles.btn,
-                ...homeVoteStyles.btnLeft,
-                ...(!isAuthenticated ? homeVoteStyles.btnDisabled : {}),
-                ...(upActive ? homeVoteStyles.btnUpActive : {}),
-              }}
-            >
-              <HappyFaceIcon />
-              <span style={homeVoteStyles.count}>{pub.validated_count || 0}</span>
-            </button>
-            <button
-              type="button"
-              aria-label={th.downvoteLabel(pubName)}
-              aria-pressed={downActive}
-              aria-disabled={isVoting || !isAuthenticated}
-              disabled={isVoting}
-              title={!isAuthenticated ? th.loginToVote : undefined}
-              onClick={() => handleVote(() => onDownvote(pub.id, pub.user_vote))}
-              style={{
-                ...homeVoteStyles.btn,
-                ...homeVoteStyles.btnRight,
-                ...(!isAuthenticated ? homeVoteStyles.btnDisabled : {}),
-                ...(downActive ? homeVoteStyles.btnDownActive : {}),
-              }}
-            >
-              <SadFaceIcon />
-              <span style={homeVoteStyles.count}>{pub.downvoted_count || 0}</span>
-            </button>
-          </div>
-
-
-        </div>
-      </div>
-      </article>
-
-      {photoExpanded && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={th.expandedPhotoLabel(pubName)}
-          onClick={() => setPhotoExpanded(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1200,
-            background: "rgba(0, 0, 0, 0.88)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "24px",
-          }}
-        >
-          <button
-            type="button"
-            aria-label={th.close}
-            onClick={() => setPhotoExpanded(false)}
-            style={{
-              position: "absolute",
-              top: "16px",
-              right: "16px",
-              width: "38px",
-              height: "38px",
-              borderRadius: "50%",
-              border: "2px solid rgba(255,255,255,0.7)",
-              background: "rgba(0,0,0,0.75)",
-              color: "#fff",
-              fontWeight: 800,
-              fontSize: "20px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              lineHeight: 1,
-            }}
-          >
-            ✕
-          </button>
-          <img
-            src={publicationImage}
-            alt={pubName}
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "min(1100px, 100%)",
-              maxHeight: "85vh",
-              objectFit: "contain",
-              borderRadius: "10px",
-              boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
-            }}
-          />
-        </div>
-      )}
-    </>
-  );
-});
-
-const homeVoteStyles = {
-  group: {
-    display: "flex",
-    borderRadius: "8px",
-    overflow: "hidden",
-    border: "1px solid var(--border)",
-    flexShrink: 0,
-  },
-  btn: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "5px 12px",
-    border: "none",
-    background: "var(--bg-surface)",
-    cursor: "pointer",
-    color: "var(--text-muted)",
-    transition: "background 0.15s, color 0.15s",
-  },
-  btnLeft: {
-    borderRight: "1px solid var(--border)",
-  },
-  btnRight: {},
-  btnDisabled: {
-    opacity: 0.6,
-    cursor: "not-allowed",
-  },
-  btnUpActive: {
-    background: "var(--success-soft)",
-    color: "#10b981",
-  },
-  btnDownActive: {
-    background: "rgba(239,68,68,0.10)",
-    color: "#ef4444",
-  },
-  count: {
-    fontSize: "13px",
-    fontWeight: 700,
-    minWidth: "14px",
-    textAlign: "center",
-  },
-};
 
 // ─── HomePage ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
@@ -461,31 +71,64 @@ export default function HomePage() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const user = useAuthStore((s) => s.user);
 
+  // ── 4.2: Filter state — full shape (matches PublicationsPage pattern) ──────
+  const [filters, setFilters] = useState({
+    productId: null,
+    productName: "",
+    storeName: "",
+    categoryId: null,
+    minPrice: null,
+    maxPrice: null,
+    maxDistance: null,
+    sortBy: "recent",
+    limit: INFINITE_SCROLL_CONFIG.homePageSize,
+  });
+
   const {
     publications,
     loading,
     hasMore,
     loadMore,
-    setFilters,
+    setFilters: setPublicationFilters,
+    clearFilters,
     validatePublication,
     downvotePublication,
     unvotePublication,
     reportPublication,
     removePublication,
-  } = usePublications({ limit: INFINITE_SCROLL_CONFIG.homePageSize });
+  } = usePublications(filters);
 
   const { latitude, longitude } = useGeoLocation({ autoFetch: true });
 
-  const [detailPublication, setDetailPublication] = useState(null);
-  const [reportingPublication, setReportingPublication] = useState(null);
+  const navigate = useNavigate();
+
+  // ── 4.5: useSearchParams for ?pub=<id> legacy redirect ───────────────────
+  const [searchParams] = useSearchParams();
+
+  // ── 4.4: Search state ─────────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchBoxRef = useRef(null);
+
+  // ── Misc state ────────────────────────────────────────────────────────────
+  const [showFilters, setShowFilters] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [error, setError] = useState(null);
+  const [geolocationLoading, setGeolocationLoading] = useState(false);
   const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [categoryPage, setCategoryPage] = useState(0);
-  const CATS_PER_PAGE = 8;
+
+  // ── 4.3: cachedLocationRef for on-demand geolocation ─────────────────────
+  const cachedLocationRef = useRef(null);
+
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
 
+  // ── Virtualización ────────────────────────────────────────────────────────
+  const columnCount = useColumnCount();
+  const seenIdsRef = useRef(new Set());
+
+  // ── Load categories ───────────────────────────────────────────────────────
   useEffect(() => {
     let active = true;
 
@@ -513,22 +156,20 @@ export default function HomePage() {
     };
   }, []);
 
-  const handleCategorySelect = (catId) => {
-    const next = selectedCategory === catId ? null : catId;
-    setSelectedCategory(next);
-    setFilters({ categoryId: next });
-  };
-
+  // ── Initialize filters with geolocation on first render ──────────────────
   useEffect(() => {
     if (hasInitializedRef.current) return;
     hasInitializedRef.current = true;
-    setFilters({
+    setPublicationFilters({
+      ...filters,
       latitude: latitude || null,
       longitude: longitude || null,
       sortBy: "recent",
     });
-  }, [latitude, longitude, setFilters]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latitude, longitude]);
 
+  // ── Update filters when geolocation changes ───────────────────────────────
   useEffect(() => {
     if (!hasInitializedRef.current) return;
     const coordsKey =
@@ -536,9 +177,45 @@ export default function HomePage() {
     if (lastLocationCoordsRef.current === coordsKey) return;
     lastLocationCoordsRef.current = coordsKey;
     if (latitude && longitude) {
-      setFilters({ latitude, longitude, sortBy: "recent" });
+      setPublicationFilters((prev) => ({ ...prev, latitude, longitude, sortBy: "recent" }));
     }
-  }, [latitude, longitude, setFilters]);
+  }, [latitude, longitude, setPublicationFilters]);
+
+  // ── 4.5: ?pub=<id> legacy redirect ───────────────────────────────────────
+  useEffect(() => {
+    const pubId = searchParams.get("pub");
+    if (!pubId) return;
+    navigate(`/publicaciones/${pubId}`, { replace: true });
+  }, [searchParams, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 4.4: Debounced search suggestions (200ms) ─────────────────────────────
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSearchSuggestions([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      const result = await publicationsApi.searchProductsAndBrands(searchQuery, 8);
+      if (result.success) {
+        setSearchSuggestions(result.data || []);
+      }
+    }, 200);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  // ── Close suggestions on outside click ───────────────────────────────────
+  useEffect(() => {
+    const closeOnOutsideClick = (event) => {
+      if (!searchBoxRef.current?.contains(event.target)) {
+        setSearchFocused(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, []);
 
   const normalizedPublications = useMemo(
     () =>
@@ -553,13 +230,103 @@ export default function HomePage() {
     [publications],
   );
 
-  const handleOpenDetail = useCallback(async (publicationId) => {
-    const detailResult =
-      await publicationsApi.getPublicationDetail(publicationId);
-    if (detailResult.success) {
-      setDetailPublication(detailResult.data);
+  // ── 4.3: handleFilterChange (copied from PublicationsPage) ───────────────
+  const handleFilterChange = (newFilters) => {
+    seenIdsRef.current = new Set();
+    setFilters(newFilters);
+
+    const shouldUseBestMatch = String(newFilters.sortBy || '') === 'best_match';
+
+    const requestGeolocationAndApply = () => {
+      // Si el hook ya tiene ubicación (stored o reciente), usarla directamente
+      if (latitude && longitude) {
+        cachedLocationRef.current = { latitude, longitude };
+        setPublicationFilters({ ...newFilters, latitude, longitude });
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        setError("Tu navegador no soporta geolocalización. No se puede aplicar el filtro de distancia.\nYour browser does not support geolocation. Distance filter cannot be applied.");
+        setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+        return;
+      }
+
+      setGeolocationLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          cachedLocationRef.current = { latitude: coords.latitude, longitude: coords.longitude };
+          setGeolocationLoading(false);
+          setPublicationFilters({
+            ...newFilters,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          });
+        },
+        () => {
+          setGeolocationLoading(false);
+          // Fallback: usar la ubicación que ya tiene el hook (stored o IP)
+          if (latitude && longitude) {
+            cachedLocationRef.current = { latitude, longitude };
+            setPublicationFilters({ ...newFilters, latitude, longitude });
+          } else {
+            setError("No se pudo obtener tu ubicación. El filtro de distancia requiere permiso de ubicación en el navegador.\nCould not get your location. The distance filter requires location permission in the browser.");
+            setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+          }
+        },
+        { timeout: 10000 },
+      );
+    };
+
+    if (newFilters.maxDistance) {
+      if (cachedLocationRef.current) {
+        setPublicationFilters({
+          ...newFilters,
+          latitude: cachedLocationRef.current.latitude,
+          longitude: cachedLocationRef.current.longitude,
+        });
+      } else if (!geolocationLoading) {
+        requestGeolocationAndApply();
+      } else {
+        setPublicationFilters({ ...newFilters });
+      }
+    } else if (!newFilters.maxDistance && filters.maxDistance) {
+      cachedLocationRef.current = null;
+      setPublicationFilters({ ...newFilters, latitude: null, longitude: null });
+    } else {
+      if (shouldUseBestMatch) {
+        if (cachedLocationRef.current) {
+          setPublicationFilters({
+            ...newFilters,
+            latitude: cachedLocationRef.current.latitude,
+            longitude: cachedLocationRef.current.longitude,
+          });
+        } else if (!geolocationLoading) {
+          requestGeolocationAndApply();
+        } else {
+          setPublicationFilters(newFilters);
+        }
+      } else {
+        setPublicationFilters(newFilters);
+      }
     }
-  }, []);
+  };
+
+  // ── Search handler ────────────────────────────────────────────────────────
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    setFilters((prev) => {
+      const merged = { ...prev, productId: null, productName: query };
+      setPublicationFilters({
+        ...merged,
+        sortBy: query?.trim() ? "best_match" : (merged.sortBy || "recent"),
+      });
+      return merged;
+    });
+  };
+
+  const handleOpenDetail = useCallback((publicationId) => {
+    navigate(`/publicaciones/${publicationId}`);
+  }, [navigate]);
 
   const handleValidate = useCallback(async (publicationId, userVote) => {
     if (userVote === 1) {
@@ -579,70 +346,43 @@ export default function HomePage() {
     }
   }, [downvotePublication, unvotePublication]);
 
-  const handleReport = useCallback((publication) => {
-    if (!isAuthenticated) return;
-    setReportingPublication(publication);
-  }, [isAuthenticated]);
+  const handleReport = useCallback(async (publicationId, reportPayload) => {
+    const result = await reportPublication(publicationId, reportPayload);
 
-  const handleRequireAuth = () => {
-    alert(th.loginRequiredAction || "Debes iniciar sesión para interactuar.");
-  };
-
-  const handleReportSubmit = useCallback(async (reportPayload) => {
-    if (!reportingPublication) return;
-
-    const result = await reportPublication(reportingPublication.id, reportPayload);
-
-    setReportingPublication(null);
-    
-    // Mostrar feedback al usuario
     if (result.success) {
       setFeedback({
         type: 'success',
-        message: result.message || th.reportSuccess
+        message: result.message || th.reportSuccess,
       });
     } else {
       setFeedback({
         type: 'error',
-        message: result.message || result.error || th.reportError
+        message: result.message || result.error || th.reportError,
       });
     }
-    
-    // Auto-cerrar el feedback después de 5 segundos
+
     setTimeout(() => setFeedback(null), 5000);
-  }, [reportPublication, reportingPublication, th.reportError, th.reportSuccess]);
+    return result;
+  }, [reportPublication, th.reportSuccess, th.reportError]);
+
+  // ── 4.9: handleRequireAuth — navigate to /login instead of alert ──────────
+  const handleRequireAuth = useCallback(() => {
+    navigate('/login', { state: { from: '/' } });
+  }, [navigate]);
 
   const handleDelete = useCallback(async (publicationId) => {
-    if (!confirm(th.confirmDelete)) return;
     const result = await publicationsApi.deletePublication(publicationId);
     if (result.success) {
       removePublication(publicationId);
     }
-  }, [removePublication, th.confirmDelete]);
+  }, [removePublication]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleStoreUpdated = (event) => {
-      const updatedStore = event?.detail?.updatedStore;
-      const updatedStoreId = updatedStore?.id || event?.detail?.storeId;
-      if (!updatedStoreId) return;
-
-      setDetailPublication((prev) => {
-        if (!prev?.store?.id || prev.store.id !== updatedStoreId) return prev;
-        return {
-          ...prev,
-          store: {
-            ...prev.store,
-            ...updatedStore,
-          },
-        };
-      });
-    };
-
-    window.addEventListener("nosee:store-updated", handleStoreUpdated);
-    return () => window.removeEventListener("nosee:store-updated", handleStoreUpdated);
-  }, []);
+  // ── 4.8: handlePublish — FAB click handler ────────────────────────────────
+  const handlePublish = () => {
+    if (!isAuthenticated) { navigate('/login'); return; }
+    if (!user?.isVerified) return; // disabled state handles this visually
+    navigate('/publicaciones/nueva');
+  };
 
   useInfiniteScrollTrigger({
     hasMore,
@@ -652,85 +392,328 @@ export default function HomePage() {
     cooldownMs: INFINITE_SCROLL_CONFIG.cooldownMs,
   });
 
+  const rows = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < normalizedPublications.length; i += columnCount) {
+      result.push(normalizedPublications.slice(i, i + columnCount));
+    }
+    return result;
+  }, [normalizedPublications, columnCount]);
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => document.getElementById('main-content'),
+    estimateSize: () => 504, // ~480px card + 24px gap
+    overscan: 3,
+  });
+
   return (
     <div className="home-wrapper">
+      {/* ── 4.7: Grid CSS with media queries ── */}
+      <style>{`
+        .home-pub-grid{grid-template-columns:repeat(3,1fr)}
+        @media(max-width:1023px){ .home-pub-grid{grid-template-columns:repeat(2,1fr)} }
+        @media(max-width:560px){  .home-pub-grid{grid-template-columns:1fr} }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pubFadeIn {
+          from { opacity: 0; transform: translateY(14px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @media(hover:none){.pub-card-menu-trigger{opacity:1!important}}
+      `}</style>
+
       <section className="banner">
         <h1>{th.title}</h1>
         <p>{th.subtitle}</p>
       </section>
 
-      {categories.length > 0 && (() => {
-        const totalPages = Math.ceil(categories.length / CATS_PER_PAGE);
-        const visible = categories.slice(categoryPage * CATS_PER_PAGE, (categoryPage + 1) * CATS_PER_PAGE);
-        return (
-          <nav className="categories-carousel" aria-label={th.filterByCategoryLabel}>
-            <button
-              type="button"
-              className="categories-arrow"
-              onClick={() => setCategoryPage((p) => p - 1)}
-              disabled={categoryPage === 0}
-              aria-label={th.prevCategories}
-            >
-              ‹
-            </button>
+      {/* ── 4.6: Search bar + PriceSearchFilter (replaces category carousel) ── */}
+      <section style={{ width: "100%" }}>
+        {/* Error message */}
+        {error && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            style={{
+              padding: "12px 16px",
+              background: "var(--error-soft)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              borderRadius: "var(--radius-md)",
+              color: "var(--error)",
+              fontSize: "13px",
+              marginBottom: "16px",
+              whiteSpace: "pre-line",
+            }}
+          >
+            {error}
+          </div>
+        )}
 
-            <div className="categories-track">
-              <button
-                type="button"
-                className={`categories-btn${selectedCategory === null ? " active" : ""}`}
-                onClick={() => handleCategorySelect(null)}
+        {/* Barra de búsqueda + botón Filtrar */}
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
+          <div
+            ref={searchBoxRef}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              flex: 1,
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.09)",
+              backdropFilter: "blur(10px)",
+              borderRadius: "var(--radius-lg)",
+              padding: "12px 16px",
+              display: "flex",
+              gap: "12px",
+              alignItems: "center",
+            }}
+          >
+            <SearchIcon aria-hidden="true" />
+            <input
+              type="search"
+              aria-label={th.searchPlaceholder}
+              placeholder={th.searchPlaceholder}
+              value={searchQuery}
+              onFocus={() => setSearchFocused(true)}
+              onChange={(e) => handleSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleSearch(searchQuery);
+                }
+              }}
+              style={{
+                flex: 1,
+                background: "transparent",
+                border: "none",
+                color: "var(--text-primary)",
+                fontSize: "14px",
+                outline: "none",
+                fontFamily: "inherit",
+              }}
+            />
+            {searchFocused && searchSuggestions.length > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  left: 0,
+                  right: 0,
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-md)",
+                  background: "var(--bg-surface)",
+                  zIndex: 20,
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                  overflow: "hidden",
+                }}
               >
-                {th.allCategories}
-              </button>
-              {visible.map((cat) => (
+                {searchSuggestions.map((item) => (
+                  <button
+                    key={`${item.type}-${item.id}`}
+                    type="button"
+                    onClick={() => {
+                      const nextQuery = item.value;
+                      setSearchQuery(nextQuery);
+                      setFilters((prev) => {
+                        const nextFilters = {
+                          ...prev,
+                          productId: item.type === "product" ? item.id : null,
+                          productName: nextQuery,
+                          sortBy: "best_match",
+                        };
+                        setPublicationFilters(nextFilters);
+                        return nextFilters;
+                      });
+                      setSearchSuggestions([]);
+                      setSearchFocused(false);
+                    }}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      border: "none",
+                      background: "transparent",
+                      color: "var(--text-primary)",
+                      cursor: "pointer",
+                      borderBottom: "1px solid var(--border)",
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Botón Filtrar */}
+          <button
+            onClick={() => setShowFilters((prev) => !prev)}
+            style={{
+              background: showFilters ? 'var(--accent)' : 'var(--surface-container-high, #141f38)',
+              color: showFilters ? '#002b3d' : 'var(--text-primary)',
+              border: '1px solid rgba(64,72,93,0.3)',
+              borderRadius: '12px',
+              padding: '12px 24px',
+              fontWeight: 600,
+              fontSize: '14px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'background 0.15s, color 0.15s',
+              minHeight: '44px',
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { if (!showFilters) e.currentTarget.style.background = 'var(--bg-hover, #1f2b49)'; }}
+            onMouseLeave={(e) => { if (!showFilters) e.currentTarget.style.background = 'var(--surface-container-high, #141f38)'; }}
+          >
+            <FilterIcon aria-hidden="true" />
+            Filtrar
+          </button>
+        </div>
+
+        {/* Filtros activos como tags + panel expandible */}
+        <PriceSearchFilter
+          filters={filters}
+          onFiltersChange={handleFilterChange}
+          open={showFilters}
+          distanceLoading={geolocationLoading}
+          categories={categories}
+          onClearFilters={() => {
+            cachedLocationRef.current = null;
+            setGeolocationLoading(false);
+            setFilters((prev) => ({
+              ...prev,
+              productId: null,
+              productName: "",
+              storeName: "",
+              categoryId: null,
+              minPrice: null,
+              maxPrice: null,
+              maxDistance: null,
+              sortBy: "recent",
+            }));
+            setSearchQuery("");
+            seenIdsRef.current = new Set();
+            clearFilters();
+          }}
+        />
+      </section>
+
+      <div style={{ width: "100%" }}>
+        <div>
+          {loading && normalizedPublications.length === 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "60px 20px",
+                color: "var(--text-muted)",
+              }}
+            >
+              <div
+                style={{
+                  width: "40px",
+                  height: "40px",
+                  border: "3px solid rgba(56,189,248,0.15)",
+                  borderTop: "3px solid var(--accent, #38BDF8)",
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                  marginBottom: "16px",
+                }}
+              />
+              <p role="status" aria-live="polite" style={{ fontSize: "14px" }}>
+                {th.loading}
+              </p>
+            </div>
+          ) : !loading && normalizedPublications.length === 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "80px 20px",
+                color: "var(--text-muted)",
+                textAlign: "center",
+              }}
+            >
+              <EmptyIcon />
+              <h2
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "600",
+                  color: "var(--text-secondary)",
+                  marginTop: "16px",
+                  marginBottom: "8px",
+                }}
+              >
+                {th.noPublicationsTitle || th.noPublications}
+              </h2>
+              <p style={{ fontSize: "14px", maxWidth: "320px", lineHeight: "1.6" }}>
+                {th.noPublicationsDesc}{" "}
                 <button
-                  key={cat.id}
-                  type="button"
-                  className={`categories-btn${selectedCategory === cat.id ? " active" : ""}`}
-                  onClick={() => handleCategorySelect(cat.id)}
+                  onClick={handlePublish}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--accent)",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    textDecoration: "underline",
+                  }}
                 >
-                  {translateDbValue(t, 'categories', cat.name)}
+                  {th.beFirst}
                 </button>
+                .
+              </p>
+            </div>
+          ) : (
+            // ── 4.7: Grid virtualizado por filas ──
+            <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                    paddingBottom: '24px',
+                  }}
+                >
+                  <div className="home-pub-grid" style={{ display: 'grid', gap: '24px' }}>
+                    {rows[virtualRow.index].map((pub) => {
+                      const isNew = !seenIdsRef.current.has(pub.id);
+                      if (isNew) seenIdsRef.current.add(pub.id);
+                      return (
+                        <div
+                          key={pub.id}
+                          style={isNew ? { animation: 'pubFadeIn 0.32s ease both' } : undefined}
+                        >
+                          <PublicationCard
+                            publication={pub}
+                            isAuthenticated={isAuthenticated}
+                            isAuthor={user?.id === pub.user_id || user?.id === pub.user?.id}
+                            isAdmin={isAdmin(user?.role)}
+                            onRequireAuth={handleRequireAuth}
+                            onValidate={handleValidate}
+                            onDownvote={handleDownvote}
+                            onReport={handleReport}
+                            onDelete={handleDelete}
+                            onViewMore={handleOpenDetail}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
             </div>
-
-            <button
-              type="button"
-              className="categories-arrow"
-              onClick={() => setCategoryPage((p) => p + 1)}
-              disabled={categoryPage >= totalPages - 1}
-              aria-label={th.moreCategories}
-            >
-              ›
-            </button>
-          </nav>
-        );
-      })()}
-
-      <div className="layout">
-        <div className="feed">
-          {loading && normalizedPublications.length === 0 ? (
-            <p role="status" aria-live="polite">
-              {th.loading}
-            </p>
-          ) : !loading && normalizedPublications.length === 0 ? (
-            <p role="status" aria-live="polite">{th.noPublications}</p>
-          ) : (
-            normalizedPublications.map((pub) => (
-              <PublicationCard
-                key={pub.id}
-                pub={pub}
-                isAuthenticated={isAuthenticated}
-                currentUserId={user?.id}
-                userIsAdmin={isAdmin(user?.role)}
-                onRequireAuth={handleRequireAuth}
-                onValidate={handleValidate}
-                onDownvote={handleDownvote}
-                onReport={handleReport}
-                onDelete={handleDelete}
-                onOpenDetail={handleOpenDetail}
-              />
-            ))
           )}
         </div>
 
@@ -752,36 +735,76 @@ export default function HomePage() {
               </span>
             )}
             {!hasMore && !loading && (
-              <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-                •
+              <span style={{ color: "var(--text-secondary)", fontSize: "14px", fontWeight: 500 }}>
+                — Sin más resultados —
               </span>
             )}
           </div>
         )}
       </div>
 
-      {detailPublication && (
-        <PublicationDetailModal
-          publication={detailPublication}
-          onClose={() => setDetailPublication(null)}
-        />
-      )}
-
-      {reportingPublication && (
-       <ReportPublicationModal
-          publication={reportingPublication}
-          onClose={() => setReportingPublication(null)}
-          onSubmit={handleReportSubmit}
-        />
-      )}
+      {/* ── 4.8: Contribuir FAB ── */}
+      <button
+        type="button"
+        className="pub-create-fab"
+        onClick={handlePublish}
+        disabled={isAuthenticated && !user?.isVerified}
+        aria-label={th.contribuir || "Contribuir"}
+        title={isAuthenticated && !user?.isVerified ? th.verifyEmailTitle : (th.contribuir || "Contribuir")}
+        style={{
+          position: 'fixed',
+          bottom: '32px',
+          right: '32px',
+          zIndex: 50,
+          background: 'linear-gradient(135deg, var(--accent, #3bbffa), var(--primary-container, #22b1ec))',
+          color: '#002b3d',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          paddingLeft: '20px',
+          paddingRight: '24px',
+          paddingTop: '16px',
+          paddingBottom: '16px',
+          borderRadius: '16px',
+          border: 'none',
+          cursor: (isAuthenticated && !user?.isVerified) ? 'not-allowed' : 'pointer',
+          boxShadow: '0 8px 32px rgba(59,191,250,0.30)',
+          fontWeight: 700,
+          fontSize: '15px',
+          letterSpacing: '-0.01em',
+          opacity: (isAuthenticated && !user?.isVerified) ? 0.5 : 1,
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        }}
+        onMouseEnter={(e) => {
+          if (isAuthenticated && !user?.isVerified) return;
+          e.currentTarget.style.transform = 'scale(1.05)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+        onMouseDown={(e) => {
+          if (isAuthenticated && !user?.isVerified) return;
+          e.currentTarget.style.transform = 'scale(0.95)';
+        }}
+        onMouseUp={(e) => {
+          if (isAuthenticated && !user?.isVerified) return;
+          e.currentTarget.style.transform = 'scale(1.05)';
+        }}
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        <span>{th.contribuir || "Contribuir"}</span>
+      </button>
 
       {/* Feedback Toast */}
       {feedback && (
         <div
           style={{
             position: 'fixed',
-            bottom: '20px',
-            right: '20px',
+            bottom: '96px',
+            right: '32px',
             padding: '16px 20px',
             borderRadius: '8px',
             background: feedback.type === 'success' ? 'var(--success)' : 'var(--error)',

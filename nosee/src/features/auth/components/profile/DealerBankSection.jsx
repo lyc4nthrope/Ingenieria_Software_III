@@ -15,18 +15,20 @@ import {
   deleteDealerBankAccount,
   uploadQrImage,
 } from '@/services/api/bankAccounts.api';
+import { supabase } from '@/services/supabase.client';
 
 // ─── Config de métodos ────────────────────────────────────────────────────────
 const METHODS = [
-  { value: 'nequi',      label: 'Nequi',       emoji: '💜', color: '#6b21a8' },
-  { value: 'nu',         label: 'Nu',           emoji: '🟣', color: '#7c3aed' },
-  { value: 'daviplata',  label: 'Daviplata',    emoji: '🔵', color: '#1d4ed8' },
-  { value: 'bancolombia',label: 'Bancolombia',  emoji: '🟡', color: '#d97706' },
-  { value: 'otro',       label: 'Otro',         emoji: '🏦', color: '#374151' },
+  { value: 'efectivo',    label: 'Efectivo',     emoji: '💵', color: '#15803d', cashOnly: true },
+  { value: 'nequi',      label: 'Nequi',        emoji: '💜', color: '#6b21a8' },
+  { value: 'nu',         label: 'Nu',            emoji: '🟣', color: '#7c3aed' },
+  { value: 'daviplata',  label: 'Daviplata',     emoji: '🔵', color: '#1d4ed8' },
+  { value: 'bancolombia',label: 'Bancolombia',   emoji: '🟡', color: '#d97706' },
+  { value: 'otro',       label: 'Otro',          emoji: '🏦', color: '#374151' },
 ];
 
 function methodInfo(method) {
-  return METHODS.find((m) => m.value === method) ?? METHODS[4];
+  return METHODS.find((m) => m.value === method) ?? METHODS[5];
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -36,8 +38,15 @@ export function DealerBankSection({ dealerId }) {
   const [showForm,  setShowForm]  = useState(false);
   const [deleting,  setDeleting]  = useState(null); // id del que se está eliminando
 
+  // Teléfono de contacto del repartidor
+  const [phone,        setPhone]        = useState('');
+  const [phoneEditing, setPhoneEditing] = useState(false);
+  const [phoneSaving,  setPhoneSaving]  = useState(false);
+  const [phoneError,   setPhoneError]   = useState(null);
+  const [phoneSaved,   setPhoneSaved]   = useState(false);
+
   // Form state
-  const [form, setForm]       = useState({ method: 'nequi', label: '', accountNumber: '', alias: '' });
+  const [form, setForm]       = useState({ method: 'efectivo', label: '', accountNumber: '', alias: '' });
   const [qrFile, setQrFile]   = useState(null);
   const [qrPreview, setQrPreview] = useState(null);
   const [saving, setSaving]   = useState(false);
@@ -47,11 +56,31 @@ export function DealerBankSection({ dealerId }) {
   // ── Carga inicial ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!dealerId) return;
-    getDealerBankAccounts(dealerId).then(({ data }) => {
-      setAccounts(data);
+    Promise.all([
+      getDealerBankAccounts(dealerId),
+      supabase.from('users').select('phone_number').eq('id', dealerId).single(),
+    ]).then(([{ data: accs }, { data: userData }]) => {
+      setAccounts(accs);
+      if (userData?.phone_number) setPhone(userData.phone_number);
       setLoading(false);
     });
   }, [dealerId]);
+
+  // ── Guardar teléfono ──────────────────────────────────────────────────────
+  const handleSavePhone = async () => {
+    if (!phone.trim()) { setPhoneError('Ingresá tu número de contacto.'); return; }
+    setPhoneSaving(true);
+    setPhoneError(null);
+    const { error } = await supabase
+      .from('users')
+      .update({ phone_number: phone.trim() })
+      .eq('id', dealerId);
+    setPhoneSaving(false);
+    if (error) { setPhoneError('No se pudo guardar. Intentá de nuevo.'); return; }
+    setPhoneEditing(false);
+    setPhoneSaved(true);
+    setTimeout(() => setPhoneSaved(false), 3000);
+  };
 
   // ── QR preview ────────────────────────────────────────────────────────────
   const handleQrFile = (e) => {
@@ -64,9 +93,15 @@ export function DealerBankSection({ dealerId }) {
   };
 
   // ── Guardar cuenta ────────────────────────────────────────────────────────
+  const isCash = form.method === 'efectivo';
   const handleSave = async () => {
-    if (!form.accountNumber.trim() && !form.alias.trim()) {
+    if (!isCash && !form.accountNumber.trim() && !form.alias.trim()) {
       setFormError('Ingresá al menos el número de cuenta o el alias.');
+      return;
+    }
+    // Evitar duplicar la opción de efectivo
+    if (isCash && accounts.some((a) => a.method === 'efectivo')) {
+      setFormError('Ya tenés efectivo como método de cobro.');
       return;
     }
 
@@ -102,7 +137,7 @@ export function DealerBankSection({ dealerId }) {
 
     setAccounts((prev) => [...prev, data]);
     setShowForm(false);
-    setForm({ method: 'nequi', label: '', accountNumber: '', alias: '' });
+    setForm({ method: 'efectivo', label: '', accountNumber: '', alias: '' });
     setQrFile(null);
     setQrPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -118,7 +153,57 @@ export function DealerBankSection({ dealerId }) {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div style={s.root}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* ── Teléfono de contacto ── */}
+      <div style={{ ...s.root, gap: 12 }}>
+        <div>
+          <h2 style={s.title}>📞 Teléfono de contacto</h2>
+          <p style={s.subtitle}>Requerido para aceptar pedidos. Los clientes podrán llamarte durante la entrega.</p>
+        </div>
+
+        {loading ? (
+          <p style={s.muted}>Cargando...</p>
+        ) : phoneEditing || !phone ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {!phone && !phoneEditing && (
+              <div style={{ fontSize: 12, color: 'var(--error, #dc2626)', fontWeight: 700 }}>
+                ⚠️ Necesitás agregar tu teléfono antes de aceptar pedidos.
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); setPhoneError(null); }}
+                placeholder="Ej: 3001234567"
+                style={{ ...s.input, flex: 1 }}
+                autoFocus={phoneEditing}
+              />
+              <button type="button" onClick={handleSavePhone} disabled={phoneSaving}
+                style={{ ...s.saveBtn, opacity: phoneSaving ? 0.6 : 1, flexShrink: 0 }}>
+                {phoneSaving ? '...' : '✓ Guardar'}
+              </button>
+              {phoneEditing && (
+                <button type="button" onClick={() => setPhoneEditing(false)} style={s.ghostBtn}>
+                  Cancelar
+                </button>
+              )}
+            </div>
+            {phoneError && <p style={s.errorMsg}>{phoneError}</p>}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{phone}</span>
+            {phoneSaved && <span style={{ fontSize: 12, color: 'var(--success, #16a34a)', fontWeight: 700 }}>✓ Guardado</span>}
+            <button type="button" onClick={() => setPhoneEditing(true)} style={{ ...s.ghostBtn, padding: '4px 10px', fontSize: 12 }}>
+              Editar
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div style={s.root}>
       <div style={s.sectionHeader}>
         <div>
           <h2 style={s.title}>Métodos de cobro</h2>
@@ -222,29 +307,40 @@ export function DealerBankSection({ dealerId }) {
             </div>
           </div>
 
-          {/* Etiqueta opcional */}
-          <div style={s.fieldGroup}>
-            <label style={s.label}>Nombre descriptivo (opcional)</label>
-            <input
-              type="text"
-              value={form.label}
-              onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))}
-              placeholder="Ej: Nequi personal"
-              style={s.input}
-            />
-          </div>
+          {/* Descripción para efectivo */}
+          {isCash && (
+            <div style={{ padding: '10px 14px', background: 'var(--success-soft, #dcfce7)', border: '1px solid var(--success, #16a34a)', borderRadius: 8, fontSize: 12, color: 'var(--success, #16a34a)', fontWeight: 600 }}>
+              💵 Al agregar Efectivo, recibirás pedidos donde el cliente eligió pagar en efectivo.
+            </div>
+          )}
 
-          {/* Número de cuenta */}
-          <div style={s.fieldGroup}>
-            <label style={s.label}>Número de cuenta / celular</label>
-            <input
-              type="text"
-              value={form.accountNumber}
-              onChange={(e) => setForm((p) => ({ ...p, accountNumber: e.target.value }))}
-              placeholder="Ej: 3001234567 o 4532000011112222"
-              style={s.input}
-            />
-          </div>
+          {/* Etiqueta opcional (solo para no-efectivo) */}
+          {!isCash && (
+            <div style={s.fieldGroup}>
+              <label style={s.label}>Nombre descriptivo (opcional)</label>
+              <input
+                type="text"
+                value={form.label}
+                onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))}
+                placeholder="Ej: Nequi personal"
+                style={s.input}
+              />
+            </div>
+          )}
+
+          {/* Número de cuenta (solo para no-efectivo) */}
+          {!isCash && (
+            <div style={s.fieldGroup}>
+              <label style={s.label}>Número de cuenta / celular</label>
+              <input
+                type="text"
+                value={form.accountNumber}
+                onChange={(e) => setForm((p) => ({ ...p, accountNumber: e.target.value }))}
+                placeholder="Ej: 3001234567 o 4532000011112222"
+                style={s.input}
+              />
+            </div>
+          )}
 
           {/* Alias / Llave Bre */}
           <div style={s.fieldGroup}>
@@ -258,8 +354,8 @@ export function DealerBankSection({ dealerId }) {
             />
           </div>
 
-          {/* QR */}
-          <div style={s.fieldGroup}>
+          {/* QR (solo para no-efectivo) */}
+          {!isCash && <div style={s.fieldGroup}>
             <label style={s.label}>Código QR (opcional)</label>
             <input
               ref={fileInputRef}
@@ -288,7 +384,7 @@ export function DealerBankSection({ dealerId }) {
                 📷 Seleccionar imagen del QR
               </button>
             )}
-          </div>
+          </div>}
 
           {/* Error */}
           {formError && <p style={s.errorMsg}>{formError}</p>}
@@ -307,7 +403,7 @@ export function DealerBankSection({ dealerId }) {
               type="button"
               onClick={() => {
                 setShowForm(false);
-                setForm({ method: 'nequi', label: '', accountNumber: '', alias: '' });
+                setForm({ method: 'efectivo', label: '', accountNumber: '', alias: '' });
                 setQrFile(null);
                 setQrPreview(null);
                 setFormError(null);
@@ -319,6 +415,7 @@ export function DealerBankSection({ dealerId }) {
           </div>
         </div>
       )}
+      </div>{/* cierre root Métodos de cobro */}
     </div>
   );
 }
@@ -326,7 +423,6 @@ export function DealerBankSection({ dealerId }) {
 // ─── Estilos ──────────────────────────────────────────────────────────────────
 const s = {
   root: {
-    marginTop: '20px',
     background: 'var(--bg-surface)',
     border: '1px solid var(--border)',
     borderRadius: 'var(--radius-xl)',

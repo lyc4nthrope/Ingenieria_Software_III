@@ -1,80 +1,38 @@
 /**
  * PublicationCard.jsx
  *
- * Tarjeta que muestra una publicación de precio
- * Se usa en el feed de publicaciones
+ * Tarjeta Instagram-style para publicaciones de precio.
+ * Se usa en el feed de PublicationsPage y HomePage.
  *
  * UBICACIÓN: src/features/publications/components/PublicationCard.jsx
- * FECHA: 26-02-2026
- * STATUS: Paso 3a de Proceso 2
  *
  * PROPS:
- * - publication: {Object} Datos de la publicación
- * - onValidate: {Function} Callback al validar
+ * - publication: {Object} Datos de la publicación (normalizado: .product, .store, .user)
+ * - onValidate: {Function} Callback al validar/upvote
+ * - onDownvote: {Function} Callback al downvote
  * - onReport: {Function} Callback al reportar
  * - onDelete: {Function} Callback al eliminar
- *
- * FEATURES:
- * - Muestra foto expandible
- * - Contador de validaciones
- * - Botones de acción
- * - Información del usuario
- * - Tiempo relativo
+ * - onViewMore: {Function} Callback al ver más
+ * - isAuthor: {boolean} Si el usuario es el autor
+ * - isAdmin: {boolean} Si el usuario es admin
+ * - isAuthenticated: {boolean} Opcional — para HomePage (requiere login para votar)
+ * - onRequireAuth: {Function} Opcional — para HomePage (llamado si no está logueado)
  */
 
 import { memo, useState, useEffect, useId } from 'react';
 import { formatDistanceToNow } from '@/features/publications/utils/dateUtils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ReportPublicationModal } from '@/features/publications/components/ReportPublicationModal';
-import { optimizeCloudinaryUrl } from '@/services/cloudinary';
+import { optimizeCloudinaryUrl, buildCloudinarySrcSet } from '@/services/cloudinary';
 import { useShoppingListStore } from '@/features/shopping-list/store/shoppingListStore';
+import CelebrationOverlay from '@/components/ui/CelebrationOverlay';
 
-const HappyFaceIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-    <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3" strokeLinecap="round" />
-    <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3" strokeLinecap="round" />
+const DotsIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
   </svg>
 );
 
-const SadFaceIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
-    <line x1="9" y1="9" x2="9.01" y2="9" strokeWidth="3" strokeLinecap="round" />
-    <line x1="15" y1="9" x2="15.01" y2="9" strokeWidth="3" strokeLinecap="round" />
-  </svg>
-);
-
-/**
- * Componente: PublicationCard
- * Tarjeta visual de una publicación de precio
- *
- * @param {Object} publication - Datos de publicación
- * @param {number} publication.id - ID único
- * @param {number} publication.price - Precio
- * @param {string} publication.currency - Moneda (COP, USD, etc)
- * @param {string} publication.photo_url - URL de la foto
- * @param {string} publication.description - Descripción
- * @param {number} publication.validated_count - Upvotes
- * @param {number} publication.reported_count - Reportes
- * @param {Object} publication.user - Info del usuario
- * @param {Object} publication.product - Info del producto
- * @param {Object} publication.store - Info de la tienda
- * @param {Date} publication.created_at - Fecha de creación
- * @param {Function} onValidate - Callback: (publicationId) => Promise
- * @param {Function} onReport - Callback: (publicationId, type) => Promise
- * @param {Function} onDelete - Callback: (publicationId) => Promise
- *
- * @example
- * <PublicationCard
- *   publication={pub}
- *   onValidate={(id) => validatePublication(id)}
- *   onReport={(id, type) => reportPublication(id, type)}
- *   onDelete={(id) => deletePublication(id)}
- * />
- */
 export function PublicationCard({
   publication,
   onValidate,
@@ -84,48 +42,52 @@ export function PublicationCard({
   onViewMore,
   isAuthor,
   isAdmin,
+  isAuthenticated,
+  onRequireAuth,
 }) {
-  // ─── Idioma ─────────────────────────────────────────────────────────────────
   const { t } = useLanguage();
   const tc = t.publicationCard;
 
-  // ─── Lista de compras ───────────────────────────────────────────────────────
   const addItem = useShoppingListStore((s) => s.addItem);
-  // "Agregado" es persistente: se deriva del store, no de un timer local.
-  // Se resetea automáticamente cuando el ítem se elimina de la lista (p.ej. al confirmar pedido).
   const isInList = useShoppingListStore((s) =>
-    s.items.some((i) => i.publicationId === publication.id)
+    s.items.some((i) => i.publicationId === publication?.id)
   );
 
-  const handleAddToList = () => {
-    const name = publication.product?.name || tc.unknownProduct;
-    addItem(name, 1, {
-      storeName: publication.store?.name || '',
-      price: publication.price || null,
-      publicationId: publication.id,
-    });
-  };
-
-  // ─── Estados ───────────────────────────────────────────────────────────────
-
+  const [cardHovered, setCardHovered] = useState(false);
   const [photoExpanded, setPhotoExpanded] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isDownvoting, setIsDownvoting] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
 
   const photoModalId = useId();
 
-  // ─── Handlers ──────────────────────────────────────────────────────────────
+  const handleAddToList = () => {
+    if (isAuthenticated === false) {
+      onRequireAuth?.();
+      return;
+    }
+    if (!isInList) {
+      const name = publication.product?.name || tc.unknownProduct;
+      addItem(name, 1, {
+        storeName: publication.store?.name || '',
+        price: publication.price || null,
+        publicationId: publication.id,
+      });
+    }
+  };
 
   const handleValidate = async () => {
     if (isValidating || isDownvoting) return;
+    if (isAuthenticated === false) { onRequireAuth?.(); return; }
+    const wasAlreadyUpvoted = publication.user_vote === 1;
     setIsValidating(true);
     try {
-      await onValidate?.(publication.id);
-    } catch (err) {
-      console.error('Error validando:', err);
+      await onValidate?.(publication.id, publication.user_vote);
+      if (!wasAlreadyUpvoted) setShowCelebration(true);
     } finally {
       setIsValidating(false);
     }
@@ -133,11 +95,12 @@ export function PublicationCard({
 
   const handleDownvote = async () => {
     if (isDownvoting || isValidating) return;
+    if (isAuthenticated === false) { onRequireAuth?.(); return; }
+    const wasAlreadyDownvoted = publication.user_vote === -1;
     setIsDownvoting(true);
     try {
-      await onDownvote?.(publication.id);
-    } catch (err) {
-      console.error('Error downvoteando:', err);
+      await onDownvote?.(publication.id, publication.user_vote);
+      if (!wasAlreadyDownvoted) setShowCelebration(true);
     } finally {
       setIsDownvoting(false);
     }
@@ -145,15 +108,10 @@ export function PublicationCard({
 
   const handleReport = async ({ publicationId, reason, description, evidenceFile }) => {
     if (!reason || isReporting) return;
-
     setIsReporting(true);
     try {
       const result = await onReport?.(publicationId, { reason, description, evidenceFile });
-      if (result?.success) {
-        setShowReportModal(false);
-      }
-    } catch (err) {
-      console.error('Error reportando:', err);
+      if (result?.success) setShowReportModal(false);
     } finally {
       setIsReporting(false);
     }
@@ -161,21 +119,16 @@ export function PublicationCard({
 
   const handleDelete = async () => {
     if (!confirm(tc.confirmDelete) || isDeleting) return;
-
+    setShowMenu(false);
     setIsDeleting(true);
     try {
       await onDelete?.(publication.id);
-    } catch (err) {
-      console.error('Error eliminando:', err);
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // ─── Tiempo en tiempo real ──────────────────────────────────────────────────
-
   const pubDate = publication?.timestamp || publication?.created_at;
-
   const [timeAgo, setTimeAgo] = useState(() =>
     pubDate ? formatDistanceToNow(pubDate, t.timeAgo) : ''
   );
@@ -187,13 +140,30 @@ export function PublicationCard({
     return () => clearInterval(interval);
   }, [pubDate, t.timeAgo]);
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!showMenu) return;
+    const close = (e) => {
+      if (!e.target.closest('[data-menu-container]')) setShowMenu(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [showMenu]);
 
-  if (!publication) {
-    return <div>{tc.notAvailable}</div>;
-  }
+  useEffect(() => {
+    if (!photoExpanded) return;
+    const onKey = (e) => { if (e.key === 'Escape') setPhotoExpanded(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [photoExpanded]);
+
+  if (!publication) return <div>{tc.notAvailable}</div>;
+
   const productName = publication.product?.name || tc.unknownProduct;
-  const productBrand = publication.product?.brand?.name || publication.product?.brands?.name || publication.product?.brand_name || tc.noBrand;
+  const productBrand =
+    publication.product?.brand?.name ||
+    publication.product?.brands?.name ||
+    publication.product?.brand_name ||
+    tc.noBrand;
   const unitValue =
     publication.product?.base_quantity != null &&
     (publication.product?.unit_type?.abbreviation || publication.product?.unit_type?.name)
@@ -201,191 +171,267 @@ export function PublicationCard({
       : publication.product?.unit_type?.abbreviation ||
         publication.product?.unit_type?.name ||
         tc.noUnit;
-  const productDisplay = productName;
+
+  const storeName = publication.store?.name || tc.noStore;
+  const metaParts = [productBrand, unitValue].filter(Boolean).join(' · ');
+
+  const upActive = publication.user_vote === 1;
+  const downActive = publication.user_vote === -1;
+  const canDelete = isAuthor || isAdmin;
+
+  const photoUrl = publication.photo_url || publication.photo;
+  const resolvedPhoto = photoUrl
+    ? (photoUrl.includes('res.cloudinary.com')
+        ? optimizeCloudinaryUrl(photoUrl, { width: 600 })
+        : photoUrl)
+    : null;
 
   return (
-    <div style={styles.card}>
-      {/* Botón reportar: esquina superior derecha */}
-      <button
-        type="button"
-        aria-label={tc.reportLabel(publication.product?.name || tc.unknownProduct)}
-        title={tc.report}
-        style={styles.reportBtn}
-        onClick={() => setShowReportModal(true)}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(220, 38, 38, 0.65)';
-          e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.7)';
-          e.currentTarget.style.color = 'var(--bg-base)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'rgba(220, 38, 38, 0.15)';
-          e.currentTarget.style.borderColor = 'rgba(220, 38, 38, 0.35)';
-          e.currentTarget.style.color = 'rgba(220, 38, 38, 0.9)';
-        }}
-      >
-        !
-      </button>
-
-      {/* Header: Usuario */}
-      <div style={styles.header}>
-        <div style={styles.userInfo}>
-          <div style={styles.avatar}>
-            {(publication.user?.full_name || 'U')
-              .charAt(0)
-              .toUpperCase()}
-          </div>
-          <div>
-            <div style={styles.userName}>
-              {publication.user?.full_name || tc.user}
-            </div>
-            <div style={styles.timeAgo}>{timeAgo}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Body: Producto y Precio */}
-      <div style={styles.body}>
-        <div style={styles.productInfo}>
-          <div style={styles.productName}>
-            {productDisplay}
-          </div>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '4px 10px',
-            fontSize: '12px',
-            color: 'var(--text-muted)',
-            marginTop: '4px',
-          }}>
-            <span>
-              <strong style={{ color: 'var(--text-secondary)' }}>{tc.brandLabel}</strong> {productBrand}
-            </span>
-            <span>
-              <strong style={{ color: 'var(--text-secondary)' }}>{tc.unitLabel}</strong> {unitValue}
-            </span>
-          </div>
-          <div style={{ ...styles.storeName, marginTop: '4px' }}>
-            <strong style={{ color: 'var(--text-secondary)' }}>{tc.storeLabel}</strong>{' '}
-            <span aria-hidden="true">{Number(publication.store?.store_type_id) === 2 ? '🌐' : '🏪'} </span>{publication.store?.name || tc.noStore}
-          </div>
-        </div>
-
-        {/* Precio destacado */}
-        <div style={styles.priceSection}>
-          <div style={styles.price}>
-            ${publication.price?.toLocaleString('es-CO')}
-          </div>
-          <div style={styles.currency}>{publication.currency || 'COP'}</div>
-        </div>
-
-        {/* Descripción */}
-        {publication.description && (
-          <div style={styles.description}>{publication.description}</div>
+    <article
+      className="publication-card pub-card-hover"
+      style={styles.card}
+      onMouseEnter={(e) => {
+        setCardHovered(true);
+        e.currentTarget.style.transform = 'translateY(-8px)';
+        e.currentTarget.style.boxShadow = '0 24px 48px rgba(0,0,0,0.60)';
+        const img = e.currentTarget.querySelector('[data-pub-img]');
+        if (img) img.style.transform = 'scale(1.10)';
+      }}
+      onMouseLeave={(e) => {
+        setCardHovered(false);
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
+        const img = e.currentTarget.querySelector('[data-pub-img]');
+        if (img) img.style.transform = 'scale(1)';
+      }}
+    >
+      {/* ── IMAGE SECTION ── */}
+      <div style={styles.imageContainer}>
+        {resolvedPhoto ? (
+          <img
+            src={resolvedPhoto}
+            srcSet={buildCloudinarySrcSet(photoUrl, [400, 600, 900]) || undefined}
+            sizes="(max-width: 560px) calc(100vw - 40px), (max-width: 1023px) calc(50vw - 68px), calc(33vw - 72px)"
+            alt={productName}
+            data-pub-img=""
+            style={styles.image}
+            loading="lazy"
+            decoding="async"
+            onClick={() => setPhotoExpanded(true)}
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        ) : (
+          <div style={styles.imagePlaceholder} aria-hidden="true" />
         )}
 
-        {/* Foto */}
-        {publication.photo_url && (
-          <div
-            role="button"
-            tabIndex={0}
-            aria-expanded={photoExpanded}
-            aria-label={tc.photoExpandLabel(photoExpanded, publication.product?.name || tc.unknownProduct)}
-            style={styles.photoContainer}
-            onClick={() => setPhotoExpanded(!photoExpanded)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPhotoExpanded(!photoExpanded); } }}
-          >
-            <img
-              src={optimizeCloudinaryUrl(publication.photo_url, { width: 600 })}
-              alt={productDisplay}
-              style={styles.photo}
-              loading="lazy"
-              decoding="async"
-            />
-            <div aria-hidden="true" style={styles.photoOverlay}>
-              <span style={styles.photoIcon}>{tc.photoExpand}</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Votos + Acciones */}
-      <div style={styles.actionsRow} className="pub-actions-row">
-        {/* Grupo de votos estilo Reddit */}
-        <div style={styles.voteGroup}>
-          <button
-            type="button"
-            aria-label={tc.validateLabel(publication.product?.name || tc.unknownProduct)}
-            aria-pressed={publication.user_vote === 1}
-            style={{
-              ...styles.voteBtn,
-              ...styles.voteBtnLeft,
-              ...(publication.user_vote === 1 ? styles.voteBtnUpActive : {}),
-            }}
-            onClick={handleValidate}
-            disabled={isValidating || isDownvoting}
-          >
-            <HappyFaceIcon />
-            <span style={styles.voteCount}>{publication.validated_count || 0}</span>
-          </button>
-          <button
-            type="button"
-            aria-label={tc.downvoteLabel?.(publication.product?.name || tc.unknownProduct) ?? `Votar negativamente ${publication.product?.name || ''}`}
-            aria-pressed={publication.user_vote === -1}
-            style={{
-              ...styles.voteBtn,
-              ...styles.voteBtnRight,
-              ...(publication.user_vote === -1 ? styles.voteBtnDownActive : {}),
-            }}
-            onClick={handleDownvote}
-            disabled={isValidating || isDownvoting}
-          >
-            <SadFaceIcon />
-            <span style={styles.voteCount}>{publication.downvoted_count || 0}</span>
-          </button>
+        {/* Store name badge — top-right */}
+        <div style={styles.priceBadge} aria-label={`Tienda: ${storeName}`}>
+          {storeName}
         </div>
 
-        {/* Acciones secundarias */}
-        <div style={styles.actions}>
+        {/* Price Drop badge — top-left (conditional) */}
+        {publication.priceDropPercent > 0 && (
+          <div style={styles.priceDropBadge} aria-label={`Bajó ${publication.priceDropPercent}%`}>
+            ↓ {publication.priceDropPercent}%
+          </div>
+        )}
+
+        {/* Dots menu — top-left, semitransparente */}
+        <div
+          style={{ ...styles.imageActionsRow, opacity: cardHovered ? 1 : 0.8 }}
+          data-menu-container
+          className="pub-card-menu-trigger"
+        >
           <button
             type="button"
-            aria-label={tc.viewMoreLabel(productDisplay)}
-            style={{ ...styles.button, ...styles.buttonSecondary }}
-            onClick={() => onViewMore?.(publication.id)}
+            aria-label="Más opciones"
+            aria-expanded={showMenu}
+            aria-haspopup="menu"
+            style={styles.dotsBtn}
+            onClick={() => setShowMenu((v) => !v)}
           >
-            {tc.viewMore}
+            <DotsIcon />
           </button>
 
-          <button
-            type="button"
-            aria-label={`${t.shoppingList.addToList}: ${publication.product?.name || tc.unknownProduct}`}
-            style={{
-              ...styles.button,
-              background: isInList ? 'var(--success-soft)' : 'var(--accent-soft)',
-              color: isInList ? 'var(--success)' : 'var(--accent)',
-              border: `1px solid ${isInList ? 'var(--success)' : 'var(--accent)'}`,
-              fontWeight: 700,
-            }}
-            onClick={handleAddToList}
-          >
-            {isInList ? '✓ Agregado' : t.shoppingList.addToList}
-          </button>
+          {showMenu && (
+            <div style={styles.dropdownMenu} role="menu">
+              {/* Shopping list toggle */}
+              <button
+                type="button"
+                role="menuitem"
+                style={styles.dropdownItem}
+                onClick={() => { handleAddToList(); setShowMenu(false); }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                {isInList ? tc.removeFromList : tc.addToList}
+              </button>
 
-          {(isAuthor || isAdmin) && (
-            <button
-              type="button"
-              aria-label={tc.deleteLabel(productDisplay)}
-              aria-busy={isDeleting || undefined}
-              style={{ ...styles.button, ...styles.buttonDanger }}
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? tc.deleting : tc.delete}
-            </button>
+              <div style={styles.dropdownDivider} />
+
+              {/* Report — only if not author */}
+              {!isAuthor && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  style={styles.dropdownItemDanger}
+                  onClick={() => {
+                    setShowMenu(false);
+                    if (isAuthenticated === false) { onRequireAuth?.(); return; }
+                    setShowReportModal(true);
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--error-soft)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  {tc.report}
+                </button>
+              )}
+
+              {/* Delete (author/admin only) */}
+              {canDelete && (
+                <>
+                  <div style={styles.dropdownDivider} />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    style={styles.dropdownItemDanger}
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    aria-busy={isDeleting || undefined}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--error-soft)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    {isDeleting ? tc.deleting : tc.delete}
+                  </button>
+                </>
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Modal: Reportar publicación */}
+      {/* ── CONTENT SECTION ── */}
+      <div style={styles.content}>
+        {/* Clickable area: title, brand, unit, description */}
+        <div
+          style={{ cursor: onViewMore ? 'pointer' : 'default' }}
+          onClick={() => onViewMore?.(publication.id)}
+          onKeyDown={(e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && onViewMore) {
+              onViewMore(publication.id);
+            }
+          }}
+          role={onViewMore ? 'button' : undefined}
+          tabIndex={onViewMore ? 0 : undefined}
+          title={`${productName} - ${productBrand}`}
+        >
+          {/* Header: product name + category tag */}
+          <div style={styles.contentHeader}>
+            <div
+              style={{
+                ...styles.productTitle,
+                color: cardHovered ? 'var(--accent)' : 'var(--text-primary)',
+              }}
+            >
+              {productName}
+              {productBrand !== tc.noBrand && (
+                <><span style={styles.titleSep}> · </span><span style={styles.titleBrand}>{productBrand}</span></>
+              )}
+            </div>
+            <span style={styles.priceTag} aria-label={`Precio: $${publication.price?.toLocaleString('es-CO')} COP`}>
+              ${publication.price?.toLocaleString('es-CO')}
+            </span>
+          </div>
+
+          {unitValue !== tc.noUnit && (
+            <div style={styles.metaLine}>{unitValue}</div>
+          )}
+          {publication.description && (
+            <p style={styles.description}>{publication.description}</p>
+          )}
+        </div>
+
+        {/* ── FOOTER ROW ── */}
+        <div style={styles.footer}>
+          {/* Timestamp — left */}
+          {timeAgo && (
+            <div style={styles.timestamp}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              {timeAgo}
+            </div>
+          )}
+
+          {/* Social signal chips — right */}
+          <div style={styles.socialChips}>
+            {/* Upvote chip */}
+            <button
+              type="button"
+              aria-label={tc.validateLabel(productName)}
+              aria-pressed={upActive}
+              disabled={isValidating || isDownvoting}
+              style={{
+                ...styles.chip,
+                color: upActive ? 'var(--success)' : 'var(--text-secondary)',
+              }}
+              onClick={handleValidate}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = upActive ? 'var(--success)' : 'var(--text-secondary)';
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={upActive ? "currentColor" : "none"} stroke={upActive ? "none" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={upActive ? styles.chipIconActive : styles.chipIcon} aria-hidden="true">
+                <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/>
+                <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/>
+              </svg>
+              <span>{publication.validated_count || 0}</span>
+            </button>
+
+            {/* Downvote chip */}
+            <button
+              type="button"
+              aria-label={tc.downvoteLabel?.(productName) ?? `Votar negativamente ${productName}`}
+              aria-pressed={downActive}
+              disabled={isValidating || isDownvoting}
+              style={{
+                ...styles.chip,
+                color: downActive ? 'var(--error)' : 'var(--text-secondary)',
+              }}
+              onClick={handleDownvote}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--accent)'; }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = downActive ? 'var(--error)' : 'var(--text-secondary)';
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill={downActive ? "currentColor" : "none"} stroke={downActive ? "none" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={downActive ? styles.chipIconActive : styles.chipIcon} aria-hidden="true">
+                <path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/>
+                <path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/>
+              </svg>
+              <span>{publication.downvoted_count || 0}</span>
+            </button>
+
+            {/* Comment count chip — read-only */}
+            <div
+              style={{ ...styles.chip, cursor: 'default' }}
+              aria-label={`${publication.comment_count || 0} comentarios`}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={styles.chipIcon} aria-hidden="true">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+              </svg>
+              <span>{publication.comment_count || 0}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <CelebrationOverlay
+        visible={showCelebration}
+        message={t.celebration?.vote ?? "¡Voto registrado!"}
+        onDone={() => setShowCelebration(false)}
+      />
+
       {showReportModal && (
         <ReportPublicationModal
           publication={publication}
@@ -394,307 +440,362 @@ export function PublicationCard({
         />
       )}
 
-      {/* Modal: Foto expandida */}
-      {photoExpanded && (
+      {photoExpanded && resolvedPhoto && (
         <div
           id={photoModalId}
           role="dialog"
           aria-modal="true"
-          aria-label={tc.photoExpandLabel(true, publication.product?.name || tc.unknownProduct)}
+          aria-label={tc.photoExpandLabel(true, productName)}
           style={styles.photoModal}
           onClick={() => setPhotoExpanded(false)}
-          onKeyDown={(e) => { if (e.key === 'Escape') setPhotoExpanded(false); }}
         >
           <button
             type="button"
             aria-label={tc.closePhotoLabel}
             onClick={() => setPhotoExpanded(false)}
-            style={{
-              position: 'absolute', top: '16px', right: '16px',
-              background: 'rgba(0,0,0,0.75)', border: '2px solid rgba(255,255,255,0.7)',
-              color: '#fff', fontWeight: 800, borderRadius: '50%', width: '36px', height: '36px',
-              fontSize: '18px', cursor: 'pointer', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', lineHeight: 1,
-            }}
+            style={styles.photoModalClose}
           >
             ✕
           </button>
           <img
-            src={publication.photo_url}
-            alt={productDisplay}
+            src={photoUrl}
+            alt={productName}
             style={styles.photoModalImg}
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}
-    </div>
+    </article>
   );
 }
 
-// ─── Estilos ──────────────────────────────────────────────────────────────────
-
 const styles = {
+  // ── CARD ─────────────────────────────────────────────
   card: {
     background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-md)',
+    border: 'none',
+    borderRadius: '12px',
     overflow: 'hidden',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-    transition: 'box-shadow 0.2s',
     display: 'flex',
     flexDirection: 'column',
+    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+    boxShadow: 'none',
     height: '100%',
+  },
+
+  // ── IMAGE SECTION ─────────────────────────────────────
+  imageContainer: {
     position: 'relative',
+    height: '256px',
+    overflow: 'hidden',
+    background: 'var(--surface-container-highest, #192540)',
+    flexShrink: 0,
   },
 
-  header: {
-    padding: '12px 16px',
-    borderBottom: '1px solid var(--border)',
-    background: 'var(--bg-surface)',
+  image: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+    cursor: 'zoom-in',
+    transform: 'scale(1)',
+    transition: 'transform 0.5s ease',
   },
 
-  userInfo: {
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    background: 'var(--surface-container-highest, #192540)',
+  },
+
+  // Store name badge — top-RIGHT (sobre la imagen)
+  priceBadge: {
+    position: 'absolute',
+    top: '16px',
+    right: '16px',
+    background: 'rgba(0,0,0,0.55)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    color: 'rgba(255,255,255,0.95)',
+    padding: '4px 10px',
+    borderRadius: '999px',
+    fontSize: '12px',
+    fontWeight: '600',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
+    lineHeight: 1.5,
+    zIndex: 1,
+    maxWidth: '140px',
+    overflow: 'hidden',
+    whiteSpace: 'nowrap',
+    textOverflow: 'ellipsis',
+  },
+
+  // Price tag — en el content header (reemplaza categoryTag)
+  priceTag: {
+    display: 'inline-block',
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#ffffff',
+    background: 'var(--accent)',
+    padding: '2px 10px',
+    borderRadius: '6px',
+    flexShrink: 0,
+    whiteSpace: 'nowrap',
+    letterSpacing: '-0.01em',
+  },
+
+  // Price Drop badge — top-LEFT below dots button (conditional)
+  priceDropBadge: {
+    position: 'absolute',
+    top: '52px',
+    left: '8px',
+    background: '#9f0519',
+    color: '#ffa8a3',
+    padding: '3px 8px',
+    borderRadius: '4px',
+    fontSize: '10px',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    zIndex: 1,
+  },
+
+  // Dots menu row — top-left, semitransparente
+  imageActionsRow: {
+    position: 'absolute',
+    top: '8px',
+    left: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    transition: 'opacity 0.2s ease',
+    zIndex: 2,
+  },
+
+  dotsBtn: {
+    width: '28px',
+    height: '28px',
+    minWidth: '44px',
+    minHeight: '44px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,0,0,0.45)',
+    backdropFilter: 'blur(6px)',
+    WebkitBackdropFilter: 'blur(6px)',
+    border: '1px solid rgba(255,255,255,0.10)',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    color: 'rgba(255,255,255,0.9)',
+    transition: 'background 0.15s',
+  },
+
+  // ── DROPDOWN MENU ─────────────────────────────────────
+  dropdownMenu: {
+    position: 'absolute',
+    top: 'calc(100% + 4px)',
+    left: 0,
+    background: 'var(--surface-container-high, #141f38)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '10px',
+    boxShadow: '0 12px 32px rgba(0,0,0,0.55)',
+    zIndex: 20,
+    minWidth: '160px',
+    overflow: 'hidden',
+  },
+
+  dropdownItem: {
+    display: 'block',
+    width: '100%',
+    textAlign: 'left',
+    padding: '10px 14px',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text-primary)',
+    fontSize: '13px',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'background 0.15s',
+  },
+
+  dropdownItemDanger: {
+    display: 'block',
+    width: '100%',
+    textAlign: 'left',
+    padding: '10px 14px',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--error)',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'background 0.15s',
+  },
+
+  dropdownDivider: {
+    height: '1px',
+    background: 'rgba(255,255,255,0.06)',
+    margin: '2px 0',
+  },
+
+  // ── CONTENT SECTION ───────────────────────────────────
+  content: {
+    padding: '20px 20px 0',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0',
+    flexGrow: 1,
+  },
+
+  contentHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '8px',
+    marginBottom: '8px',
+  },
+
+  productTitle: {
+    fontSize: '18px',
+    fontWeight: 700,
+    color: 'var(--text-primary)',
+    lineHeight: 1.3,
+    flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
+    transition: 'color 0.2s ease',
+  },
+
+  titleSep: {
+    color: 'var(--text-muted)',
+    fontWeight: 400,
+  },
+
+  titleBrand: {
+    fontSize: '14px',
+    color: 'var(--text-secondary)',
+    fontWeight: 500,
+  },
+
+  description: {
+    fontSize: '14px',
+    color: 'var(--text-secondary)',
+    overflow: 'hidden',
+    whiteSpace: 'nowrap',
+    textOverflow: 'ellipsis',
+    lineHeight: 1.5,
+    marginBottom: '8px',
+  },
+
+  metaLine: {
+    fontSize: '12px',
+    color: 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    marginBottom: '4px',
+  },
+
+  // ── FOOTER ROW ────────────────────────────────────────
+  footer: {
+    marginTop: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: '6px',
+    paddingBottom: '8px',
+  },
+
+  timestamp: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '12px',
+    color: 'var(--text-secondary)',
+  },
+
+  timestampIcon: {
+    fontSize: '16px',
+    fontVariationSettings: "'FILL' 0, 'wght' 400",
+    lineHeight: 1,
+  },
+
+  socialChips: {
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
   },
 
-  avatar: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '50%',
-    background: 'var(--accent)',
-    color: 'var(--text-primary)',
+  chip: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 'bold',
-    fontSize: '16px',
-  },
-
-  userName: {
-    fontWeight: 600,
-    fontSize: '14px',
-    color: 'var(--text-primary)',
-  },
-
-  timeAgo: {
-    fontSize: '12px',
-    color: 'var(--text-muted)',
-    marginTop: '2px',
-  },
-
-  body: {
-    padding: '16px',
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-  },
-
-  productInfo: {
-    marginBottom: '12px',
-  },
-
-  productName: {
-    fontSize: '16px',
-    fontWeight: 600,
-    color: 'var(--text-primary)',
-    marginBottom: '4px',
-  },
-
-  storeName: {
-    fontSize: '13px',
-    color: 'var(--text-muted)',
-  },
-
-  priceSection: {
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: '8px',
-    marginBottom: '12px',
-    padding: '12px',
-    background: 'var(--accent-soft)',
-    borderRadius: 'var(--radius-md)',
-  },
-
-  price: {
-    fontSize: '24px',
-    fontWeight: 700,
-    color: 'var(--accent)',
-  },
-
-  currency: {
-    fontSize: '12px',
-    color: 'var(--text-secondary)',
-  },
-
-  description: {
-    fontSize: '13px',
-    color: 'var(--text-muted)',
-    marginBottom: '12px',
-    lineHeight: '1.4',
-  },
-
-  photoContainer: {
-    position: 'relative',
-    cursor: 'pointer',
-    marginBottom: '12px',
-    marginTop: 'auto',
-    borderRadius: 'var(--radius-md)',
-    overflow: 'hidden',
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    flexShrink: 0,
-  },
-
-  photo: {
-    width: '100%',
-    height: '200px',
-    objectFit: 'cover',
-    display: 'block',
-  },
-
-  photoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    background: 'var(--overlay-light)',
-    color: 'var(--text-primary)',
-    padding: '8px',
-    textAlign: 'center',
-    fontSize: '12px',
-    opacity: 0,
-    transition: 'opacity 0.2s',
-  },
-
-  photoIcon: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: '4px',
-  },
-
-  actionsRow: {
-    borderTop: '1px solid var(--border)',
-    padding: '10px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-
-  voteGroup: {
-    display: 'flex',
-    alignSelf: 'flex-start',
-    borderRadius: 'var(--radius-md)',
-    overflow: 'hidden',
-    border: '1px solid var(--border)',
-  },
-
-  voteBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '6px 14px',
+    background: 'none',
     border: 'none',
-    background: 'var(--bg-surface)',
     cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: 600,
-    color: 'var(--text-muted)',
-    transition: 'background 0.15s, color 0.15s',
+    color: 'var(--text-secondary)',
+    fontSize: '12px',
+    fontWeight: 500,
+    padding: '2px 0',
+    transition: 'color 0.15s',
+    minHeight: '32px',
+    minWidth: '32px',
   },
 
-  voteBtnLeft: {
-    borderRight: '1px solid var(--border)',
+  chipIcon: {
+    fontSize: '18px',
+    fontVariationSettings: "'FILL' 0, 'wght' 400",
+    lineHeight: 1,
   },
 
-  voteBtnRight: {},
-
-  voteBtnUpActive: {
-    background: 'var(--success-soft)',
-    color: 'var(--success)',
+  chipIconActive: {
+    fontSize: '18px',
+    fontVariationSettings: "'FILL' 1, 'wght' 400",
+    lineHeight: 1,
   },
 
-  voteBtnDownActive: {
-    background: 'var(--error-soft)',
-    color: 'var(--error)',
-  },
-
-  voteCount: {
-    fontSize: '13px',
-    fontWeight: 700,
-    minWidth: '14px',
-    textAlign: 'center',
-  },
-
-  actions: {
-    display: 'flex',
-    gap: '8px',
-  },
-
-  button: {
-    padding: '8px 14px',
-    border: 'none',
-    borderRadius: 'var(--radius-md)',
-    fontSize: '13px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    whiteSpace: 'nowrap',
-  },
-
-  buttonSecondary: {
-    background: 'var(--accent-soft)',
-    color: 'var(--text-primary)',
-    border: '1px solid var(--border)',
-  },
-
-  reportBtn: {
-    position: 'absolute',
-    top: '10px',
-    right: '10px',
-    zIndex: 1,
-    background: 'rgba(220, 38, 38, 0.15)',
-    border: '1.5px solid rgba(220, 38, 38, 0.35)',
-    borderRadius: '50%',
-    width: '22px',
-    height: '22px',
-    cursor: 'pointer',
-    fontSize: '11px',
-    fontWeight: 800,
-    color: 'rgba(220, 38, 38, 0.9)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backdropFilter: 'blur(4px)',
-    transition: 'background 0.15s, border-color 0.15s, color 0.15s',
-  },
-
-  buttonDanger: {
-    background: 'var(--error-soft)',
-    color: 'var(--error)',
-    border: '1px solid rgba(239,68,68,0.3)',
-  },
-
-  // Photo modal
+  // ── PHOTO MODAL (unchanged) ───────────────────────────
   photoModal: {
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    background: 'var(--overlay-heavy)',
+    background: 'rgba(0,0,0,0.88)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1001,
+    zIndex: 1200,
+    padding: '24px',
     cursor: 'pointer',
+  },
+
+  photoModalClose: {
+    position: 'absolute',
+    top: '16px',
+    right: '16px',
+    background: 'rgba(0,0,0,0.75)',
+    border: '2px solid rgba(255,255,255,0.7)',
+    color: '#fff',
+    fontWeight: 800,
+    borderRadius: '50%',
+    width: '36px',
+    height: '36px',
+    fontSize: '18px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
   },
 
   photoModalImg: {
     maxWidth: '90vw',
-    maxHeight: '90vh',
+    maxHeight: '85vh',
     objectFit: 'contain',
+    borderRadius: '10px',
+    boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
   },
 };
 

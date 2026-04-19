@@ -8,13 +8,16 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useChat from '@/features/chat/hooks/useChat';
 import styles from '@/features/chat/styles/chatStyles';
 import { ChatIcon, CloseIcon, SendIcon } from './chatIcons';
 
 // ─── Componente ─────────────────────────────────────────────────────────────
 
-export default function ChatWidget({ userId }) {
+export default function ChatWidget({ userId, isAuthenticated }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [inputValue, setInputValue] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
   const inputRef = useRef(null);
@@ -74,6 +77,14 @@ export default function ChatWidget({ userId }) {
     return () => document.removeEventListener('keydown', handleFocusTrap);
   }, [isOpen]);
 
+  const handleOpen = () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+    openChat();
+  };
+
   // ─── Botón flotante ─────────────────────────────────────────────────────
   if (!isOpen) {
     return (
@@ -81,7 +92,7 @@ export default function ChatWidget({ userId }) {
         ref={buttonRef}
         type="button"
         aria-label="Abrir chat de asistencia"
-        onClick={openChat}
+        onClick={handleOpen}
         className="chat-widget-button"
         style={styles.floatingButton}
       >

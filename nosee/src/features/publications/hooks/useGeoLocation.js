@@ -27,6 +27,27 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 const LAST_LOCATION_STORAGE_KEY = 'nosee:last-known-location';
 
+/**
+ * Obtiene ubicación aproximada por IP como último recurso.
+ * Se usa solo cuando el permiso fue denegado y no hay ubicación guardada.
+ */
+const fetchIpLocation = async () => {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch('https://ipwho.is/', { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.success && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+      return { latitude: data.latitude, longitude: data.longitude };
+    }
+  } catch {
+    // silently fail — IP geolocation es best-effort
+  }
+  return null;
+};
+
 const readStoredLocation = () => {
   if (typeof window === 'undefined') return null;
 
@@ -181,10 +202,24 @@ export const useGeoLocation = (options = {}) => {
 
         setError(errorMessage);
         setLoading(false);
-        if (!storedLocationRef.current) {
-          setLatitude(null);
-          setLongitude(null);
-          setAccuracy(null);
+
+        if (storedLocationRef.current) {
+          // Ya tenemos la última ubicación conocida — mantener los valores actuales
+        } else {
+          // Último recurso: aproximación por IP
+          fetchIpLocation().then((ipLoc) => {
+            if (ipLoc) {
+              setLatitude(ipLoc.latitude);
+              setLongitude(ipLoc.longitude);
+              setAccuracy(null);
+              persistLocation({ latitude: ipLoc.latitude, longitude: ipLoc.longitude, accuracy: null });
+              storedLocationRef.current = ipLoc;
+            } else {
+              setLatitude(null);
+              setLongitude(null);
+              setAccuracy(null);
+            }
+          });
         }
       },
 
@@ -242,13 +277,31 @@ export const useGeoLocation = (options = {}) => {
               errorMessage = err.message || errorMessage;
           }
           setError(errorMessage);
-          if (!storedLocationRef.current) {
-            setLatitude(null);
-            setLongitude(null);
-            setAccuracy(null);
-          }
           setLoading(false);
-          reject(new Error(errorMessage));
+
+          if (storedLocationRef.current) {
+            resolve({
+              latitude: storedLocationRef.current.latitude,
+              longitude: storedLocationRef.current.longitude,
+              accuracy: storedLocationRef.current.accuracy ?? null,
+            });
+          } else {
+            fetchIpLocation().then((ipLoc) => {
+              if (ipLoc) {
+                setLatitude(ipLoc.latitude);
+                setLongitude(ipLoc.longitude);
+                setAccuracy(null);
+                persistLocation({ latitude: ipLoc.latitude, longitude: ipLoc.longitude, accuracy: null });
+                storedLocationRef.current = ipLoc;
+                resolve({ latitude: ipLoc.latitude, longitude: ipLoc.longitude, accuracy: null });
+              } else {
+                setLatitude(null);
+                setLongitude(null);
+                setAccuracy(null);
+                reject(new Error(errorMessage));
+              }
+            });
+          }
         },
         { enableHighAccuracy, timeout, maximumAge },
       );

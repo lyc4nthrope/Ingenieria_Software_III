@@ -34,6 +34,10 @@ export async function createOrder({
   deliveryMode,
   deliveryAddress,
   deliveryCoords,
+  deliveryName,
+  deliveryPhone,
+  deliveryApartment,
+  deliveryInstructions,
   stores,
   items,
   totalCost,      // → total_estimated
@@ -58,8 +62,12 @@ export async function createOrder({
       status:                     deliveryMode ? 'pendiente_repartidor' : 'usuario_se_encarga',
       delivery_mode:              deliveryMode,
       // delivery_address es NOT NULL sin default — usar '' si el usuario no escribió dirección
-      delivery_address:           deliveryAddress || '',
-      delivery_coords:            deliveryCoords  || null,
+      delivery_address:           deliveryAddress       || '',
+      delivery_coords:            deliveryCoords        || null,
+      delivery_name:              deliveryName          || null,
+      delivery_phone:             deliveryPhone         || null,
+      delivery_apartment:         deliveryApartment     || null,
+      delivery_instructions:      deliveryInstructions  || null,
       stores:                     stores          ?? [],
       items:                      items           ?? [],
       // Columnas de costos que ya existían en el esquema
@@ -120,8 +128,9 @@ export async function getOrderById(id) {
 export async function getAvailableOrders({ limit = 30 } = {}) {
   const { data, error } = await supabase
     .from('orders')
-    .select('id, local_id, status, delivery_address, delivery_coords, stores, items, total_estimated, delivery_fee, created_at')
+    .select('id, local_id, status, delivery_address, delivery_coords, stores, items, total_estimated, delivery_fee, created_at, is_priority, payment_method')
     .eq('status', 'pendiente_repartidor')
+    .order('is_priority', { ascending: false }) // prioritarios primero
     .order('created_at', { ascending: true })
     .limit(limit);
 
@@ -135,7 +144,7 @@ export async function getDealerActiveOrders() {
   const { data, error } = await supabase
     .from('orders')
     .select('*')
-    .in('status', ['aceptado', 'pendiente_compromiso', 'comprando', 'en_camino', 'llegando'])
+    .in('status', ['aceptado', 'pendiente_compromiso', 'comprando', 'en_camino', 'llegando', 'comprobante_subido'])
     .order('created_at', { ascending: false });
 
   return { data: data ?? [], error };
@@ -419,11 +428,65 @@ export async function getPendingAdjustments(orderId) {
 }
 
 /**
+ * Cancela un pedido en estado 'llegando' por no pago del cliente.
+ * Solo el repartidor asignado puede llamarlo.
+ *
+ * @param {number} orderId - id INTEGER del pedido
+ */
+/**
+ * Cancela un pedido activo desde el lado del repartidor con justificación.
+ * El pedido vuelve al pool como prioritario y el cliente lo ve vía Realtime.
+ *
+ * @param {number} orderId
+ * @param {'minor'|'emergency'} cancelType
+ * @param {string|null} cancelReason
+ */
+export async function dealerCancelOrder(orderId, cancelType, cancelReason = null) {
+  const { error } = await supabase.rpc('dealer_cancel_order', {
+    p_order_id:     orderId,
+    p_cancel_type:  cancelType,
+    p_cancel_reason: cancelReason || null,
+  });
+  return { error };
+}
+
+export async function cancelOrderNoPago(orderId) {
+  const { error } = await supabase.rpc('cancel_order_no_payment', {
+    p_order_id: orderId,
+  });
+  return { error };
+}
+
+/**
+ * Persiste el mapa de ítems chequeados por el repartidor.
+ * Formato: { "si-pi": true } donde si = storeIdx, pi = productIdx.
+ *
+ * @param {number} orderId      - id INTEGER del pedido
+ * @param {object} checkedItems - { "0-1": true, "1-0": false, ... }
+ */
+export async function updateCheckedItems(orderId, checkedItems) {
+  const { error } = await supabase
+    .from('orders')
+    .update({ checked_items: checkedItems })
+    .eq('id', orderId);
+  return { error };
+}
+
+/**
  * Cancela un pedido desde el lado del cliente (ej: tras rechazar un ajuste de precio).
  * Funciona en cualquier estado excepto 'entregado' o ya 'cancelado'.
  */
 export async function cancelOrderByUser(orderId) {
   const { error } = await supabase.rpc('cancel_order_by_user', { p_order_id: orderId });
+  return { error };
+}
+
+/**
+ * El usuario solicita cambiar de repartidor (solo disponible en pendiente_compromiso / aceptado).
+ * Desasigna al repartidor y vuelve el pedido al pool.
+ */
+export async function requestDealerChange(orderId) {
+  const { error } = await supabase.rpc('request_dealer_change', { p_order_id: orderId });
   return { error };
 }
 
