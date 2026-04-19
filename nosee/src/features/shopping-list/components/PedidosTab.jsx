@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { DeliveryCard } from './DeliveryCard';
 import { VoyYoMapView } from './VoyYoMapView';
@@ -444,6 +444,22 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     setChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // Set de claves "si-pi" sincronizado con el checklist para VoyYoMapView
+  const voyYoCheckedKeys = useMemo(() => {
+    if (!selectedOrder) return new Set();
+    const prefix = `${selectedOrder.id}-`;
+    return new Set(
+      Object.entries(checklist)
+        .filter(([k, v]) => v && k.startsWith(prefix))
+        .map(([k]) => k.slice(prefix.length))
+    );
+  }, [checklist, selectedOrder]);
+
+  const handleVoyYoToggle = useCallback((key) => {
+    if (!selectedOrder) return;
+    toggleCheck(`${selectedOrder.id}-${key}`);
+  }, [selectedOrder, checklist]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCancelDelivery = async () => {
     if (!selectedOrder?.supabaseId) return;
     const charged = selectedOrder.deliveryStatus !== 'searching';
@@ -698,6 +714,8 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
               userCoords={selectedOrder.userCoords ?? null}
               onAddProduct={(name, tempId, cb) => onAddProduct?.(name, tempId, cb, selectedOrder.id)}
               onRemoveOrder={() => removeOrder(selectedOrder.id)}
+              checkedKeys={voyYoCheckedKeys}
+              onToggleCheck={handleVoyYoToggle}
             />
           </div>
         )}
