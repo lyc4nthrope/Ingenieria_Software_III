@@ -493,22 +493,31 @@ export const usePublications = (initialFilters = {}, options = {}) => {
    * Validar (upvote) una publicación
    */
   const validatePublication = useCallback(async (publicationId) => {
+    let prevState = null;
+    setPublications((prev) => {
+      const pub = prev.find((p) => p.id === publicationId);
+      if (pub) prevState = { validated_count: pub.validated_count, user_vote: pub.user_vote };
+      return prev.map((p) =>
+        p.id === publicationId
+          ? { ...p, validated_count: (p.validated_count || 0) + 1, user_vote: 1 }
+          : p
+      );
+    });
+
     try {
       const result = await publicationsApi.validatePublication(publicationId);
-
-      if (result.success) {
+      if (!result.success && prevState !== null) {
         setPublications((prev) =>
-          prev.map((pub) =>
-            pub.id === publicationId
-              ? { ...pub, validated_count: (pub.validated_count || 0) + 1, user_vote: 1 }
-              : pub
-          )
+          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
         );
-        return result;
-      } else {
-        return result;
       }
+      return result;
     } catch (err) {
+      if (prevState !== null) {
+        setPublications((prev) =>
+          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
+        );
+      }
       console.error('Error validando publicación:', err);
       return { success: false, error: err.message };
     }
@@ -518,25 +527,35 @@ export const usePublications = (initialFilters = {}, options = {}) => {
    * Quitar validación (unvote) de una publicación
    */
   const unvotePublication = useCallback(async (publicationId) => {
+    let prevState = null;
+    setPublications((prev) => {
+      const pub = prev.find((p) => p.id === publicationId);
+      if (pub) prevState = { validated_count: pub.validated_count, downvoted_count: pub.downvoted_count, user_vote: pub.user_vote };
+      return prev.map((p) => {
+        if (p.id !== publicationId) return p;
+        return {
+          ...p,
+          validated_count: p.user_vote === 1 ? Math.max((p.validated_count || 1) - 1, 0) : p.validated_count,
+          downvoted_count: p.user_vote === -1 ? Math.max((p.downvoted_count || 1) - 1, 0) : p.downvoted_count,
+          user_vote: null,
+        };
+      });
+    });
+
     try {
       const result = await publicationsApi.unvotePublication(publicationId);
-
-      if (result.success) {
+      if (!result.success && prevState !== null) {
         setPublications((prev) =>
-          prev.map((pub) => {
-            if (pub.id !== publicationId) return pub;
-            return {
-              ...pub,
-              validated_count: pub.user_vote === 1 ? Math.max((pub.validated_count || 1) - 1, 0) : pub.validated_count,
-              downvoted_count: pub.user_vote === -1 ? Math.max((pub.downvoted_count || 1) - 1, 0) : pub.downvoted_count,
-              user_vote: null,
-            };
-          }),
+          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
         );
       }
-
       return result;
     } catch (err) {
+      if (prevState !== null) {
+        setPublications((prev) =>
+          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
+        );
+      }
       console.error('Error quitando voto de publicación:', err);
       return { success: false, error: err.message };
     }
@@ -546,22 +565,31 @@ export const usePublications = (initialFilters = {}, options = {}) => {
    * Downvote una publicación
    */
   const downvotePublication = useCallback(async (publicationId) => {
+    let prevState = null;
+    setPublications((prev) => {
+      const pub = prev.find((p) => p.id === publicationId);
+      if (pub) prevState = { downvoted_count: pub.downvoted_count, user_vote: pub.user_vote };
+      return prev.map((p) =>
+        p.id === publicationId
+          ? { ...p, downvoted_count: (p.downvoted_count || 0) + 1, user_vote: -1 }
+          : p
+      );
+    });
+
     try {
       const result = await publicationsApi.downvotePublication(publicationId);
-
-      if (result.success) {
+      if (!result.success && prevState !== null) {
         setPublications((prev) =>
-          prev.map((pub) =>
-            pub.id === publicationId
-              ? { ...pub, downvoted_count: (pub.downvoted_count || 0) + 1, user_vote: -1 }
-              : pub
-          )
+          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
         );
-        return result;
-      } else {
-        return result;
       }
+      return result;
     } catch (err) {
+      if (prevState !== null) {
+        setPublications((prev) =>
+          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
+        );
+      }
       console.error('Error downvoteando publicación:', err);
       return { success: false, error: err.message };
     }

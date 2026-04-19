@@ -26,21 +26,25 @@ function buildGoogleMapsUrl(stores, userCoords) {
   return url;
 }
 
-export function VoyYoMapView({ result, userCoords, onAddProduct, onRemoveOrder }) {
+export function VoyYoMapView({ result, userCoords, onAddProduct, onRemoveOrder, checkedKeys: externalCheckedKeys, onToggleCheck }) {
   const [panelOpen, setPanelOpen]           = useState(true);
-  const [checkedKeys, setCheckedKeys]       = useState(new Set());
+  const [internalCheckedKeys, setInternalCheckedKeys] = useState(new Set());
   const [newProductInput, setNewProductInput] = useState('');
   const [pendingProducts, setPendingProducts] = useState([]);
   // pendingProduct shape: { tempId: string, name: string, status: 'loading'|'done'|'error' }
 
+  const controlled  = externalCheckedKeys !== undefined && onToggleCheck !== undefined;
+  const checkedKeys = controlled ? externalCheckedKeys : internalCheckedKeys;
+
   const toggleCheck = useCallback((key) => {
-    setCheckedKeys((prev) => {
+    if (controlled) { onToggleCheck(key); return; }
+    setInternalCheckedKeys((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
     });
-  }, []);
+  }, [controlled, onToggleCheck]);
 
   const handleAddProduct = useCallback(() => {
     const name = newProductInput.trim();
@@ -59,7 +63,7 @@ export function VoyYoMapView({ result, userCoords, onAddProduct, onRemoveOrder }
   const truncated   = stores.length > MAX_GMAPS_WAYPOINTS;
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '500px' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: '500px', zIndex: 0 }}>
       {/* ── Mapa full-screen ── */}
       <StoreOnlyMap stores={stores} userCoords={userCoords} />
 

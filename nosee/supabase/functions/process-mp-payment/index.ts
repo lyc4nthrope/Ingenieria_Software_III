@@ -115,28 +115,38 @@ Deno.serve(async (req) => {
   });
 
   if (order.user_id !== user.id) return json(403, { error: "Forbidden" });
-  if (order.status !== "pendiente_pago") {
+
+  const isUpfront     = order.status === "pendiente_pago";
+  const isFinalPayment = order.status === "llegando";
+
+  if (!isUpfront && !isFinalPayment) {
     console.error("[process-mp-payment] invalid status:", order.status);
     return json(400, { error: `Invalid status: ${order.status}` });
   }
 
-  // Pedidos legacy (previos a la migración service_fee) → calcular en tiempo real
-  const serviceFeeAmount = (order.service_fee && order.service_fee > 0)
-    ? Number(order.service_fee)
-    : 2000 + Math.round(Number(order.total_single_store_estimate ?? 0) * 0.03);
+  // Monto a cobrar según el momento del flujo:
+  //   - pendiente_pago → tarifa de servicio (upfront)
+  //   - llegando       → total completo (productos + domicilio)
+  const chargeAmount = isFinalPayment
+    ? Number(order.total_estimated ?? 0)
+    : (order.service_fee && order.service_fee > 0)
+      ? Number(order.service_fee)
+      : 2000 + Math.round(Number(order.total_single_store_estimate ?? 0) * 0.03);
 
-  console.log("[process-mp-payment] serviceFeeAmount:", serviceFeeAmount);
+  console.log("[process-mp-payment] chargeAmount:", chargeAmount, "| flow:", isUpfront ? "upfront" : "final");
 
-  if (serviceFeeAmount <= 0) {
-    console.error("[process-mp-payment] invalid serviceFeeAmount:", serviceFeeAmount);
-    return json(400, { error: "Cannot determine service_fee amount" });
+  if (chargeAmount <= 0) {
+    console.error("[process-mp-payment] invalid chargeAmount:", chargeAmount);
+    return json(400, { error: "Cannot determine charge amount" });
   }
 
   // ── 4. Procesar pago con MercadoPago ─────────────────────────────────────
   const mpPayload = {
-    transaction_amount: serviceFeeAmount,
+    transaction_amount: chargeAmount,
     token,
-    description:       `Tarifa de servicio — pedido #${orderId}`,
+    description: isFinalPayment
+      ? `Pago de entrega — pedido #${orderId}`
+      : `Tarifa de servicio — pedido #${orderId}`,
     installments:      installments ?? 1,
     payment_method_id: paymentMethodId,
     ...(issuerId ? { issuer_id: Number(issuerId) } : {}),
@@ -168,10 +178,25 @@ Deno.serve(async (req) => {
   }
 
   // ── 5. Confirmar pedido en BD ─────────────────────────────────────────────
-  const { error: rpcErr } = await anonClient.rpc("confirm_order_payment", { p_order_id: orderId });
-  if (rpcErr) {
-    console.error("[process-mp-payment] confirm_order_payment failed:", rpcErr.message);
-    return json(500, { error: "Payment approved but order confirmation failed", detail: rpcErr.message });
+  if (isUpfront) {
+    // Pago inicial: libera el pedido al pool de repartidores
+    const { error: rpcErr } = await anonClient.rpc("confirm_order_payment", { p_order_id: orderId });
+    if (rpcErr) {
+      console.error("[process-mp-payment] confirm_order_payment failed:", rpcErr.message);
+      return json(500, { error: "Payment approved but order confirmation failed", detail: rpcErr.message });
+    }
+  } else {
+    // Pago final (llegando): avanza a comprobante_subido para que el repartidor confirme con PIN
+    // Se usa adminClient con update directo porque advance_order_status no incluye esta transición
+    const { error: rpcErr } = await adminClient
+      .from("orders")
+      .update({ status: "comprobante_subido" })
+      .eq("id", orderId)
+      .eq("status", "llegando");
+    if (rpcErr) {
+      console.error("[process-mp-payment] status update failed:", rpcErr.message);
+      return json(500, { error: "Payment approved but status update failed", detail: rpcErr.message });
+    }
   }
 
   // ── 6. Guardar tarjeta en customer de MercadoPago ─────────────────────────

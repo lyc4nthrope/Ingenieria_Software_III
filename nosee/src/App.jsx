@@ -2,7 +2,7 @@
  * App.jsx
  */
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import {
   useAuthStore,
@@ -44,14 +44,14 @@ const DealerDashboard = lazy(
   () => import("@/features/dashboard/dealer/DealerDashboard")
 );
 
-const PublicationsPage = lazy(
-  () => import("@/features/publications/pages/PublicationsPage")
-);
 const CreatePublicationPage = lazy(
   () => import("@/features/publications/pages/CreatePublicationPage")
 );
 const EditPublicationPage = lazy(
   () => import("@/features/publications/pages/EditPublicationPage")
+);
+const PublicationDetailPage = lazy(
+  () => import("@/features/publications/pages/PublicationDetailPage")
 );
 const CreateStorePage = lazy(
   () => import("@/features/stores/pages/CreateStorePage")
@@ -170,11 +170,7 @@ function AppContent() {
 
         <Route
           path="/publicaciones"
-          element={
-            <ProtectedRoute>
-              <PublicationsPage />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/" replace />}
         />
 
         <Route
@@ -192,6 +188,10 @@ function AppContent() {
               <EditPublicationPage />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/publicaciones/:id"
+          element={<PublicationDetailPage />}
         />
 
         <Route
@@ -221,20 +221,12 @@ function AppContent() {
 
         <Route
           path="/tiendas"
-          element={
-            <ProtectedRoute>
-              <StoresPage />
-            </ProtectedRoute>
-          }
+          element={<StoresPage />}
         />
 
         <Route
           path="/lista"
-          element={
-            <ProtectedRoute>
-              <ShoppingListPage />
-            </ProtectedRoute>
-          }
+          element={<ShoppingListPage />}
         />
         <Route
           path="/pedido/nuevo"
@@ -458,7 +450,7 @@ function AppShell() {
       <Footer />
       <AccessibilityMenu />
       <RoleChangeToast />
-      {isAuthenticated && user?.id && <ChatWidget userId={user.id} />}
+      <ChatWidget userId={user?.id} isAuthenticated={isAuthenticated} />
     </div>
   );
 }

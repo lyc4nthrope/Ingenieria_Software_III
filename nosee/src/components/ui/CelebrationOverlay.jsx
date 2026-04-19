@@ -1,31 +1,23 @@
 /**
  * CelebrationOverlay.jsx
- * Muestra una animación de celebración con mensaje de reputación.
+ * Toast de celebración en esquina superior derecha.
  * Se auto-cierra después de 3 segundos.
- * Respeta a11y-pause-animations: sin animación si está activo.
+ * Respeta a11y-pause-animations y el tema día/noche.
  */
 import { useEffect, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const STYLE = `
-@keyframes celebrationBounce {
-  0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
-  60%  { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
-  80%  { transform: translate(-50%, -50%) scale(0.95); }
-  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+@keyframes celebrationSlideIn {
+  0%   { transform: translateX(calc(100% + 24px)); opacity: 0; }
+  60%  { transform: translateX(-6px); opacity: 1; }
+  100% { transform: translateX(0); opacity: 1; }
 }
-@keyframes celebrationFadeOut {
-  0%   { opacity: 1; }
-  100% { opacity: 0; }
-}
-@keyframes confettiFall {
-  0%   { transform: translateY(-10px) rotate(0deg); opacity: 1; }
-  100% { transform: translateY(80px) rotate(360deg); opacity: 0; }
+@keyframes celebrationSlideOut {
+  0%   { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(calc(100% + 24px)); opacity: 0; }
 }
 `;
-
-const CONFETTI_COLORS = ["#f59e0b", "#10b981", "#3b82f6", "#ef4444", "#8b5cf6"];
-const CONFETTI_COUNT = 12;
 
 export default function CelebrationOverlay({ visible, message, onDone }) {
   const { t } = useLanguage();
@@ -34,7 +26,7 @@ export default function CelebrationOverlay({ visible, message, onDone }) {
 
   useEffect(() => {
     if (!visible) return;
-    const delay = pauseAnimations ? 1500 : 3000;
+    const delay = pauseAnimations ? 1000 : 2000;
     timerRef.current = setTimeout(() => {
       onDone?.();
     }, delay);
@@ -46,108 +38,83 @@ export default function CelebrationOverlay({ visible, message, onDone }) {
   return (
     <>
       <style>{STYLE}</style>
-      {/* Backdrop */}
       <div
-        role="alertdialog"
-        aria-live="assertive"
+        role="status"
+        aria-live="polite"
         aria-label={t.celebration?.congrats || "¡Felicitaciones!"}
         style={{
           position: "fixed",
-          inset: 0,
+          top: "16px",
+          right: "16px",
           zIndex: 9999,
-          background: "var(--overlay-light)",
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "12px",
+          padding: "14px 16px",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
+          gap: "12px",
+          maxWidth: "300px",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+          animation: pauseAnimations
+            ? "none"
+            : "celebrationSlideIn 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards",
+          cursor: "pointer",
         }}
         onClick={() => onDone?.()}
-        onKeyDown={(e) => { if (e.key === 'Escape') onDone?.(); }}
+        onKeyDown={(e) => { if (e.key === 'Escape' || e.key === 'Enter') onDone?.(); }}
+        tabIndex={0}
       >
-        {/* Card */}
-        <div
-          role="button"
-          tabIndex={0}
-          style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: "var(--surface, #1e1e2e)",
-            border: "2px solid var(--accent, #7c3aed)",
-            borderRadius: "16px",
-            padding: "28px 24px",
-            textAlign: "center",
-            maxWidth: "340px",
-            width: "90vw",
-            boxShadow: "0 20px 60px var(--overlay-light)",
-            animation: pauseAnimations
-              ? "none"
-              : "celebrationBounce 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
-          <div style={{ fontSize: "56px", lineHeight: 1, marginBottom: "12px" }}>
-            🏆
-          </div>
-          <h2
+        <span style={{ fontSize: "28px", lineHeight: 1, flexShrink: 0 }}>🏆</span>
+        <div style={{ minWidth: 0 }}>
+          <p
             style={{
-              fontSize: "22px",
-              fontWeight: "800",
-              color: "var(--accent, #7c3aed)",
-              margin: "0 0 8px",
-              fontFamily: "inherit",
+              margin: 0,
+              fontSize: "13px",
+              fontWeight: "700",
+              color: "var(--accent)",
+              lineHeight: 1.2,
+              marginBottom: "2px",
             }}
           >
             {t.celebration?.congrats || "¡Felicitaciones!"}
-          </h2>
+          </p>
           <p
             style={{
-              fontSize: "15px",
-              color: "var(--text-primary, #e2e8f0)",
-              margin: "0 0 20px",
-              lineHeight: 1.5,
+              margin: 0,
+              fontSize: "13px",
+              color: "var(--text-secondary)",
+              lineHeight: 1.4,
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
             }}
           >
             {message}
           </p>
-          <button
-            onClick={() => onDone?.()}
-            style={{
-              padding: "8px 24px",
-              background: "var(--accent, #7c3aed)",
-              color: "var(--text-primary)",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "14px",
-              fontWeight: "600",
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            {t.celebration?.close || "Cerrar"}
-          </button>
         </div>
-
-        {/* Confetti */}
-        {!pauseAnimations &&
-          Array.from({ length: CONFETTI_COUNT }).map((_, i) => (
-            <div
-              key={i}
-              aria-hidden="true"
-              style={{
-                position: "fixed",
-                top: `${30 + Math.random() * 20}%`,
-                left: `${10 + (i / CONFETTI_COUNT) * 80}%`,
-                width: "10px",
-                height: "10px",
-                borderRadius: Math.random() > 0.5 ? "50%" : "2px",
-                background: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-                animation: `confettiFall ${0.8 + Math.random() * 1.2}s ease-in ${Math.random() * 0.5}s forwards`,
-                pointerEvents: "none",
-              }}
-            />
-          ))}
+        <button
+          aria-label="Cerrar"
+          onClick={(e) => { e.stopPropagation(); onDone?.(); }}
+          style={{
+            flexShrink: 0,
+            background: "none",
+            border: "none",
+            color: "var(--text-muted)",
+            cursor: "pointer",
+            padding: "2px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "4px",
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
     </>
   );

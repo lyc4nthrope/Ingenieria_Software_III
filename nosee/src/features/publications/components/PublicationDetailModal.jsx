@@ -1,3 +1,6 @@
+// @deprecated — replaced by PublicationDetailPage at /publicaciones/:id.
+// Do NOT add new features here. This file is kept for reference only.
+
 import { useEffect, useId, useRef, useState } from "react";
 import { useLanguage, translateDbValue } from "@/contexts/LanguageContext";
 import { useAuthStore, selectAuthUser } from "@/features/auth/store/authStore";
@@ -594,6 +597,7 @@ export default function PublicationDetailModal({ publication, onClose }) {
   const priceLabel = td?.price || "Precio";
   const storeLabel = td?.storeLabel || "Tienda";
   const titleId = useId();
+  const [commentsOpen, setCommentsOpen] = useState(false);
 
   const votes = publication?.votes || [];
   const positiveVotes = votes.filter((vote) => Number(vote.vote_type) === 1).length;
@@ -714,11 +718,39 @@ export default function PublicationDetailModal({ publication, onClose }) {
           )}
         </div>
 
-        <CommentsSection
-          publicationId={publication?.id}
-          initialComments={initialComments}
-          td={td}
-        />
+        {/* Comentarios colapsables */}
+        <div style={{ borderTop: "1px solid var(--border)", marginTop: 12 }}>
+          <button
+            type="button"
+            onClick={() => setCommentsOpen((v) => !v)}
+            aria-expanded={commentsOpen}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "12px 0",
+              color: "var(--text-primary)",
+            }}
+          >
+            <span style={{ fontWeight: 700, fontSize: 14 }}>
+              {td?.communityTitle ?? "Comunidad"} · {initialComments.length} {td?.reviewsLabel ?? "comentarios"}
+            </span>
+            <span style={{ fontSize: 18, transition: "transform 0.2s", transform: commentsOpen ? "rotate(180deg)" : "rotate(0deg)", display: "inline-block" }}>
+              ▾
+            </span>
+          </button>
+          {commentsOpen && (
+            <CommentsSection
+              publicationId={publication?.id}
+              initialComments={initialComments}
+              td={td}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -726,7 +758,7 @@ export default function PublicationDetailModal({ publication, onClose }) {
 
 const styles = {
   overlay: { position: "fixed", inset: 0, background: "var(--overlay)", zIndex: 1300, display: "flex", justifyContent: "center", alignItems: "center", padding: "20px" },
-  modal: { background: "var(--bg-surface)", color: "var(--text-primary)", width: "min(900px, 100%)", maxHeight: "92vh", overflowY: "auto", borderRadius: "var(--radius-lg)", padding: "16px", position: "relative", border: "1px solid var(--border)" },
+  modal: { background: "var(--surface-container-low, #181c22)", color: "var(--text-primary)", width: "min(900px, 100%)", maxHeight: "92vh", overflowY: "auto", borderRadius: "var(--radius-lg) var(--radius-lg) 8px 8px", padding: "16px", position: "relative", border: "1px solid rgba(255,255,255,0.05)" },
   closeButton: { position: "absolute", right: 12, top: 12, border: "2px solid var(--border)", background: "var(--bg-elevated)", color: "var(--text-primary)", fontSize: 18, fontWeight: 800, cursor: "pointer", borderRadius: "50%", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 },
   image: { width: "100%", maxHeight: 420, objectFit: "cover", borderRadius: "var(--radius-md)", marginBottom: 10 },
   title: { margin: "4px 0", color: "var(--text-primary)" },

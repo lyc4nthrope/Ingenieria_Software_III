@@ -5,7 +5,7 @@
  * Redirige a la homepage pública "/" después del login exitoso.
  */
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   useAuthStore,
   selectIsAuthenticated,
@@ -32,6 +32,7 @@ import {
 export default function LoginPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const login = useAuthStore((s) => s.login);
   const clearError = useAuthStore((s) => s.clearError);
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
@@ -59,9 +60,10 @@ export default function LoginPage() {
   useEffect(() => {
     if (isInitialized && isAuthenticated) {
       const user = useAuthStore.getState().user;
-      navigate(getRolePath(user?.role), { replace: true });
+      const redirectTo = location.state?.from || getRolePath(user?.role);
+      navigate(redirectTo, { replace: true });
     }
-  }, [isInitialized, isAuthenticated, navigate]);
+  }, [isInitialized, isAuthenticated, navigate, location.state]);
 
   const handleLogin = async (email, password) => {
     clearError();
@@ -77,7 +79,8 @@ export default function LoginPage() {
       trackLoginSuccess('email', durationMs);
       recordLoginAttempt('success', durationMs);
       const user = useAuthStore.getState().user;
-      navigate(getRolePath(user?.role), { replace: true });
+      const redirectTo = location.state?.from || getRolePath(user?.role);
+      navigate(redirectTo, { replace: true });
     } else {
       trackLoginFailure('email', result.error?.code ?? 'unknown');
       recordLoginAttempt('failure', durationMs);
@@ -107,7 +110,7 @@ export default function LoginPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "24px 16px",
+        padding: "12px 16px",
         minHeight: "calc(100vh - 60px)",
       }}
     >
@@ -119,14 +122,14 @@ export default function LoginPage() {
         }}
       >
         {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: "32px" }}>
+        <div style={{ textAlign: "center", marginBottom: "16px" }}>
           <div
             style={{
               fontSize: "32px",
               fontWeight: "800",
               letterSpacing: "-0.04em",
               color: "var(--accent)",
-              marginBottom: "8px",
+              marginBottom: "4px",
             }}
           >
             NØ<span style={{ color: "var(--text-secondary)" }}>SEE</span>
@@ -136,7 +139,7 @@ export default function LoginPage() {
               fontSize: "22px",
               fontWeight: "700",
               color: "var(--text-primary)",
-              marginBottom: "6px",
+              marginBottom: "4px",
             }}
           >
             {t.loginPage.title}
@@ -152,7 +155,7 @@ export default function LoginPage() {
             background: "var(--bg-surface)",
             border: "1px solid var(--border)",
             borderRadius: "var(--radius-xl)",
-            padding: "28px",
+            padding: "20px",
           }}
         >
           <LoginForm

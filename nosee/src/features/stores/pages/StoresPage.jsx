@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuthStore, selectIsAuthenticated } from '@/features/auth/store/authStore';
 import { listStores } from '@/services/api/stores.api';
 import StoreCard from '@/features/stores/components/StoreCard';
 import StoreDetailModal from '@/features/stores/components/StoreDetailModal';
@@ -26,6 +27,8 @@ const DEBOUNCE_MS = 350;
 export default function StoresPage() {
   const { t } = useLanguage();
   const ts = t.storesPage;
+  const navigate = useNavigate();
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
 
   const [search, setSearch] = useState('');
   const [stores, setStores] = useState([]);
@@ -100,6 +103,14 @@ export default function StoresPage() {
       fetchStores({ query: value, pageToLoad: 1, append: false });
     }, DEBOUNCE_MS);
   };
+
+  const handleViewDetail = useCallback((store) => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: '/tiendas' } });
+      return;
+    }
+    setSelectedStore(store);
+  }, [isAuthenticated, navigate]);
 
   const handleStoreUpdated = useCallback((updatedStore) => {
     if (!updatedStore?.id) return;
@@ -179,7 +190,7 @@ export default function StoresPage() {
               <li key={store.id} style={styles.listItem}>
                 <StoreCard
                   store={store}
-                  onViewDetail={setSelectedStore}
+                  onViewDetail={handleViewDetail}
                 />
               </li>
             ))}

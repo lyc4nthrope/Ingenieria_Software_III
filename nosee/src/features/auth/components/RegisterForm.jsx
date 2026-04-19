@@ -1,7 +1,7 @@
 /**
  * RegisterForm - Formulario de registro de nuevo usuario
  */
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -69,6 +69,8 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState(false);
+  const checkboxRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -92,6 +94,12 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!termsAccepted) {
+      setTermsError(true);
+      checkboxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      checkboxRef.current?.focus();
+      return;
+    }
     const errors = validate();
     if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
     onSubmit(form.email, form.password, { fullName: form.fullName });
@@ -119,14 +127,24 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
         size="lg"
         variant="secondary"
         onClick={() => {
+          if (!termsAccepted) {
+            setTermsError(true);
+            checkboxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            checkboxRef.current?.focus();
+            return;
+          }
           localStorage.setItem('nosee_google_intent', 'register');
           onGoogleRegister();
         }}
-        disabled={loading || !termsAccepted}
-        title={!termsAccepted ? tf.termsRequired : undefined}
+        disabled={loading}
       >
         {tf.googleRegister}
       </Button>
+      {termsError && !termsAccepted && (
+        <p role="alert" style={{ margin: '-10px 0 0', fontSize: '12px', color: 'var(--error)', textAlign: 'center' }}>
+          {tf.termsRequired}
+        </p>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <span style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
@@ -255,9 +273,13 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
       {/* Checkbox de aceptación de términos */}
       <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
         <input
+          ref={checkboxRef}
           type="checkbox"
           checked={termsAccepted}
-          onChange={(e) => setTermsAccepted(e.target.checked)}
+          onChange={(e) => {
+            setTermsAccepted(e.target.checked);
+            if (e.target.checked) setTermsError(false);
+          }}
           disabled={loading}
           style={{ marginTop: '2px', accentColor: 'var(--accent)', width: '15px', height: '15px', flexShrink: 0, cursor: 'pointer' }}
           aria-label={`${tf.terms} ${tf.termsLink} ${tf.and} ${tf.privacyLink}`}
@@ -270,7 +292,7 @@ export default function RegisterForm({ onSubmit, onGoogleRegister, loading = fal
         </span>
       </label>
 
-      <Button type="submit" fullWidth loading={loading} disabled={loading || !termsAccepted} size="lg">
+      <Button type="submit" fullWidth loading={loading} disabled={loading} size="lg">
         {loading ? tf.creatingAccount : tf.createAccount}
       </Button>
 

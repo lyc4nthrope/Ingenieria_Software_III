@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage, LANG_OPTIONS } from "@/contexts/LanguageContext";
 import { useLocation } from "react-router-dom";
+import useDraggable from "@/hooks/useDraggable";
 
 const STORAGE_KEY = "nosee-accessibility-settings";
 const FONT_STEP = 0.1;
@@ -145,6 +146,11 @@ export default function AccessibilityMenu() {
   const [langOpen, setLangOpen] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
   const langRef = useRef(null);
+
+  const { pos, wasDragged, elementRef, dragHandleProps, wrapperStyle } = useDraggable({
+    storageKey: 'nosee-a11y-widget-pos',
+    defaultPos: (w, h) => ({ x: w - 12 - 40, y: h - 12 - 40 }),
+  });
 
   // Persistir ajustes y aplicarlos al DOM
   useEffect(() => {
@@ -331,21 +337,50 @@ export default function AccessibilityMenu() {
   ];
 
   return (
-    <div className="a11y-widget" role="complementary" aria-label={ta.panelLabel}>
+    <>
+      {isOpen && (
+        <div
+          aria-hidden="true"
+          onClick={() => setIsOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 1999 }}
+        />
+      )}
+      <div
+        ref={elementRef}
+        className="a11y-widget"
+        role="complementary"
+        aria-label={ta.panelLabel}
+        style={{ ...wrapperStyle, zIndex: 2000 }}
+      >
       <button
         type="button"
         className="a11y-logo-trigger"
         aria-expanded={isOpen}
         aria-controls="a11y-panel"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => { if (!wasDragged()) setIsOpen((prev) => !prev); }}
         title={ta.triggerTitle}
+        {...dragHandleProps}
       >
         <AccessibilityIcon />
         <span className="sr-only">{ta.triggerLabel}</span>
       </button>
 
       {isOpen && (
-        <section id="a11y-panel" className="a11y-panel" aria-label={ta.panelLabel}>
+        <section
+          id="a11y-panel"
+          className="a11y-panel"
+          aria-label={ta.panelLabel}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            bottom: pos.y > window.innerHeight / 2 ? '62px' : 'auto',
+            top: pos.y > window.innerHeight / 2 ? 'auto' : '62px',
+            right: pos.x > window.innerWidth / 2 ? 0 : 'auto',
+            left: pos.x > window.innerWidth / 2 ? 'auto' : 0,
+            maxHeight: Math.max(200, pos.y > window.innerHeight / 2
+              ? pos.y - 18
+              : window.innerHeight - pos.y - 40 - 18),
+          }}
+        >
           <header className="a11y-panel-header">
             <h2>{ta.title}</h2>
             <button type="button" onClick={() => setIsOpen(false)} aria-label={ta.closeLabel}>
@@ -468,5 +503,6 @@ export default function AccessibilityMenu() {
 
       <p id="a11y-live-region" className="sr-only" aria-live="polite" />
     </div>
+    </>
   );
 }

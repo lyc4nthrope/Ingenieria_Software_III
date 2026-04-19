@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import OrderRouteMap from '@/features/orders/components/OrderRouteMap';
 import { DeliveryCard } from './DeliveryCard';
 import { VoyYoMapView } from './VoyYoMapView';
@@ -26,8 +26,10 @@ const STATUS_MAP = {
   comprando:              'comprando',
   en_camino:              'en_camino',
   llegando:               'llegando',
+  comprobante_subido:     'comprobante_subido',
   entregado:              'entregado',
   cancelado:              'cancelled',
+  cancelado_no_pago:      'cancelado_no_pago',
   usuario_se_encarga:     'auto_gestionado',
 };
 
@@ -63,7 +65,7 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
             <div style={resv.storeHeader}>
               <span>{emoji} {s.store?.name ?? 'Tienda'}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {!readOnly && checked > 0 && (
+                {checked > 0 && (
                   <span style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 700 }}>
                     {checked}/{s.products.length} ✓
                   </span>
@@ -123,6 +125,11 @@ function StoreCardPager({ stores, orderId, checklist, toggleCheck, onPriceReport
                       <span style={{ ...resv.prodTotal, ...(done ? { textDecoration: 'line-through' } : {}) }}>
                         ${((p.price || 0) * (p.item?.quantity || 1)).toLocaleString('es-CO')}
                       </span>
+                      {(p.item?.quantity || 1) > 1 && (
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                          ${(p.price || 0).toLocaleString('es-CO')} c/u × {p.item.quantity}
+                        </span>
+                      )}
                       {onPriceReport && (
                         <PriceReportInline
                           currentPrice={p.price}
@@ -251,18 +258,30 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
 
     supabase
       .from('orders')
-      .select('status, dealer_id, compromiso_amount')
+      .select('status, dealer_id, compromiso_amount, checked_items, delivery_pin, dealer_cancel_type, dealer_cancel_reason')
       .eq('id', selectedOrder.supabaseId)
       .single()
       .then(({ data }) => {
         if (!data) return;
         const uiStatus = STATUS_MAP[data.status];
+        const updates = {};
         if (uiStatus && uiStatus !== selectedOrder.deliveryStatus) {
-          updateOrderDeliveryRef.current(selectedOrder.id, {
-            deliveryStatus: uiStatus,
-            ...(data.dealer_id ? { dealerId: data.dealer_id } : {}),
-            ...(data.compromiso_amount ? { compromisoAmount: data.compromiso_amount } : {}),
-          });
+          updates.deliveryStatus = uiStatus;
+        }
+        if (data.dealer_id) updates.dealerId = data.dealer_id;
+        if (data.compromiso_amount) updates.compromisoAmount = data.compromiso_amount;
+        if (data.delivery_pin && !selectedOrder.deliveryPin) {
+          updates.deliveryPin = data.delivery_pin;
+        }
+        if (data.status === 'pendiente_repartidor' && data.dealer_cancel_reason) {
+          updates.dealerCancelInfo = { type: data.dealer_cancel_type, reason: data.dealer_cancel_reason };
+          updates.dealerId = null;
+        }
+        if (Object.keys(updates).length > 0) {
+          updateOrderDeliveryRef.current(selectedOrder.id, updates);
+        }
+        if (data.checked_items && typeof data.checked_items === 'object') {
+          applyDealerCheckedItems(selectedOrder.id, data.checked_items);
         }
       });
 
@@ -273,14 +292,21 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${selectedOrder.supabaseId}` },
         (payload) => {
           const uiStatus = STATUS_MAP[payload.new?.status];
-          if (!uiStatus) return;
-          updateOrderDeliveryRef.current(selectedOrder.id, {
-            deliveryStatus: uiStatus,
-            ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : {}),
-            // Capturar el timestamp de llegando para el timer de 10 min (Caso D)
-            ...(payload.new.status === 'llegando' ? { llegandoAt: payload.new.updated_at ?? payload.new.llegando_at ?? new Date().toISOString() } : {}),
-            ...(payload.new.compromiso_amount ? { compromisoAmount: payload.new.compromiso_amount } : {}),
-          });
+          if (uiStatus) {
+            updateOrderDeliveryRef.current(selectedOrder.id, {
+              deliveryStatus: uiStatus,
+              ...(payload.new.dealer_id ? { dealerId: payload.new.dealer_id } : { dealerId: null }),
+              ...(payload.new.status === 'llegando' ? { llegandoAt: payload.new.updated_at ?? payload.new.llegando_at ?? new Date().toISOString() } : {}),
+              ...(payload.new.compromiso_amount ? { compromisoAmount: payload.new.compromiso_amount } : {}),
+              // Motivo de cancelación del repartidor — visible al cliente en estado "searching"
+              ...(payload.new.status === 'pendiente_repartidor' && payload.new.dealer_cancel_reason
+                ? { dealerCancelInfo: { type: payload.new.dealer_cancel_type, reason: payload.new.dealer_cancel_reason } }
+                : {}),
+            });
+          }
+          if (payload.new?.checked_items && typeof payload.new.checked_items === 'object') {
+            applyDealerCheckedItems(selectedOrder.id, payload.new.checked_items);
+          }
         }
       )
       .subscribe();
@@ -288,6 +314,27 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     return () => supabase.removeChannel(channel);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrder?.supabaseId, selectedOrder?.id]);
+
+  // ── INFO DEL REPARTIDOR ───────────────────────────────────────────────────────
+  // Cuando se asigna un repartidor, fetchea su nombre y teléfono para mostrárselos al cliente.
+  useEffect(() => {
+    const dealerId = selectedOrder?.dealerId;
+    if (!dealerId) return;
+
+    supabase
+      .from('users')
+      .select('full_name, phone_number')
+      .eq('id', dealerId)
+      .single()
+      .then(({ data }) => {
+        if (!data) return;
+        updateOrderDeliveryRef.current(selectedOrder.id, {
+          ...(data.full_name    ? { dealerName:  data.full_name    } : {}),
+          ...(data.phone_number ? { dealerPhone: data.phone_number } : {}),
+        });
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.dealerId, selectedOrder?.id]);
 
   // ── REALTIME: ubicación GPS del repartidor ─────────────────────────────────
   // Se activa cuando el repartidor es asignado (dealerId en el pedido).
@@ -377,17 +424,52 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
     setSelectedIdx((prev) => Math.max(0, prev - 1));
   };
 
+  // Convierte checked_items del repartidor ({ "si-pi": true }) al formato del checklist
+  // del cliente ({ "localOrderId-si-pi": true }) y actualiza el estado.
+  // Reconstruye desde cero para manejar correctamente los ítems desmarcados.
+  const applyDealerCheckedItems = (localOrderId, dealerItems) => {
+    setChecklist((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((k) => {
+        if (k.startsWith(`${localOrderId}-`)) delete next[k];
+      });
+      Object.entries(dealerItems).forEach(([key, val]) => {
+        if (val) next[`${localOrderId}-${key}`] = true;
+      });
+      return next;
+    });
+  };
+
   const toggleCheck = (key) => {
     setChecklist((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleCancelDelivery = () => {
+  // Set de claves "si-pi" sincronizado con el checklist para VoyYoMapView
+  const voyYoCheckedKeys = useMemo(() => {
+    if (!selectedOrder) return new Set();
+    const prefix = `${selectedOrder.id}-`;
+    return new Set(
+      Object.entries(checklist)
+        .filter(([k, v]) => v && k.startsWith(prefix))
+        .map(([k]) => k.slice(prefix.length))
+    );
+  }, [checklist, selectedOrder]);
+
+  const handleVoyYoToggle = useCallback((key) => {
     if (!selectedOrder) return;
+    toggleCheck(`${selectedOrder.id}-${key}`);
+  }, [selectedOrder, checklist]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCancelDelivery = async () => {
+    if (!selectedOrder?.supabaseId) return;
     const charged = selectedOrder.deliveryStatus !== 'searching';
-    updateOrderDelivery(selectedOrder.id, {
-      deliveryStatus: 'cancelled',
-      cancellationCharged: charged,
-    });
+    const { error } = await cancelOrderByUser(selectedOrder.supabaseId);
+    if (!error) {
+      updateOrderDelivery(selectedOrder.id, {
+        deliveryStatus: 'cancelled',
+        cancellationCharged: charged,
+      });
+    }
   };
 
   // Cuando el usuario sube el comprobante de pago al repartidor (estado 'llegando')
@@ -632,6 +714,8 @@ export function PedidosTab({ orders, removeOrder, updateOrderDelivery, emptyHint
               userCoords={selectedOrder.userCoords ?? null}
               onAddProduct={(name, tempId, cb) => onAddProduct?.(name, tempId, cb, selectedOrder.id)}
               onRemoveOrder={() => removeOrder(selectedOrder.id)}
+              checkedKeys={voyYoCheckedKeys}
+              onToggleCheck={handleVoyYoToggle}
             />
           </div>
         )}
