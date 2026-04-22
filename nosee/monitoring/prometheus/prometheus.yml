@@ -9,7 +9,7 @@ scrape_configs:
   # ── Métricas personalizadas de NØSEE (Proceso 1 + 2) ──────────────────────
   - job_name: 'nosee-app'
     static_configs:
-      - targets: ['ingenieriasoftwareiii-production.up.railway.app']
+      - targets: ['lyc4nthrope-nosee-metrics.hf.space']
     scheme: https
     metrics_path: '/metrics'
     scrape_interval: 15s
