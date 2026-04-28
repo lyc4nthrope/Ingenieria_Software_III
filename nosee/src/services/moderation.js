@@ -13,14 +13,18 @@ const IMAGE_MIN_ANALYSIS_PIXELS = Number(
 const SKIN_RATIO_BLOCK_THRESHOLD = Number(
   import.meta.env.VITE_IMAGE_SKIN_RATIO_BLOCK || 0.58,
 );
+// 0.35 en vez de 0.20: fotos de carne, tomates, empaques rojos ya no se bloquean
 const BLOOD_RATIO_BLOCK_THRESHOLD = Number(
-  import.meta.env.VITE_IMAGE_BLOOD_RATIO_BLOCK || 0.20,
+  import.meta.env.VITE_IMAGE_BLOOD_RATIO_BLOCK || 0.35,
 );
+// 0.55 en vez de 0.32: el rango H=5-45° (naranja/amarillo) es común en alimentos
+// y packaging de supermercado; 0.32 producía falsos positivos en fotos de producto
 const ANIME_SKIN_RATIO_BLOCK_THRESHOLD = Number(
-  import.meta.env.VITE_IMAGE_ANIME_SKIN_RATIO_BLOCK || 0.32,
+  import.meta.env.VITE_IMAGE_ANIME_SKIN_RATIO_BLOCK || 0.55,
 );
+// 0.55 en vez de 0.38: fotos bajo luz fluorescente de supermercado superan 0.38
 const VIVID_RATIO_BLOCK_THRESHOLD = Number(
-  import.meta.env.VITE_IMAGE_VIVID_RATIO_BLOCK || 0.38,
+  import.meta.env.VITE_IMAGE_VIVID_RATIO_BLOCK || 0.55,
 );
 const IMAGE_HOTSPOT_GRID_SIZE = Number(
   import.meta.env.VITE_IMAGE_HOTSPOT_GRID_SIZE || 12,
