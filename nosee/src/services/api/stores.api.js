@@ -219,6 +219,8 @@ export async function createStore(payload = {}) {
     };
 
     if (
+      latitude != null &&
+      longitude != null &&
       Number.isFinite(Number(latitude)) &&
       Number.isFinite(Number(longitude))
     ) {
