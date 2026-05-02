@@ -27,6 +27,7 @@ const defaultSettings = {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function applyAccessibilitySettings(settings) {
   const root = document.documentElement;
+  root.classList.toggle("a11y-light-mode", settings.lightMode);
   root.style.setProperty("--user-font-scale", String(settings.fontScale));
   root.classList.toggle("a11y-high-contrast", settings.highContrast);
   root.classList.toggle("a11y-smart-contrast", settings.smartContrast);
@@ -39,7 +40,6 @@ function applyAccessibilitySettings(settings) {
   root.classList.toggle("a11y-line-height", settings.lineHeightBoost);
   root.classList.toggle("a11y-text-align-left", settings.textAlignLeft);
   root.classList.toggle("a11y-page-structure", settings.pageStructure);
-  root.classList.toggle("a11y-light-mode", settings.lightMode);
 }
 
 function applyInlineFontScaling(scale) {
@@ -231,6 +231,13 @@ export default function AccessibilityMenu() {
   };
 
   const featureItems = [
+     {
+      key: "lightMode",
+      label: settings.lightMode ? ta.features.nightMode : ta.features.lightMode,
+      icon: settings.lightMode ? "🌙" : "☀️",
+      active: settings.lightMode,
+      onClick: () => toggleSetting("lightMode"),
+    },
     {
       key: "readPage",
       label: ta.features.readPage,
@@ -298,13 +305,6 @@ export default function AccessibilityMenu() {
       icon: "🖱",
       active: settings.biggerCursor,
       onClick: () => toggleSetting("biggerCursor"),
-    },
-    {
-      key: "lightMode",
-      label: settings.lightMode ? ta.features.nightMode : ta.features.lightMode,
-      icon: settings.lightMode ? "🌙" : "☀️",
-      active: settings.lightMode,
-      onClick: () => toggleSetting("lightMode"),
     },
     {
       key: "info",
