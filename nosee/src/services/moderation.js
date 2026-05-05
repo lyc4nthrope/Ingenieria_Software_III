@@ -13,14 +13,17 @@ const IMAGE_MIN_ANALYSIS_PIXELS = Number(
 const SKIN_RATIO_BLOCK_THRESHOLD = Number(
   import.meta.env.VITE_IMAGE_SKIN_RATIO_BLOCK || 0.58,
 );
+// 0.35 en vez de 0.20: fotos de carne, tomates, empaques rojos no se bloquean
 const BLOOD_RATIO_BLOCK_THRESHOLD = Number(
-  import.meta.env.VITE_IMAGE_BLOOD_RATIO_BLOCK || 0.20,
+  import.meta.env.VITE_IMAGE_BLOOD_RATIO_BLOCK || 0.35,
 );
+// 0.55 en vez de 0.32: H=5-45° cubre naranja/amarillo, común en packaging de supermercado
 const ANIME_SKIN_RATIO_BLOCK_THRESHOLD = Number(
-  import.meta.env.VITE_IMAGE_ANIME_SKIN_RATIO_BLOCK || 0.32,
+  import.meta.env.VITE_IMAGE_ANIME_SKIN_RATIO_BLOCK || 0.55,
 );
+// 0.55 en vez de 0.38: fotos bajo luz fluorescente de supermercado superan 0.38
 const VIVID_RATIO_BLOCK_THRESHOLD = Number(
-  import.meta.env.VITE_IMAGE_VIVID_RATIO_BLOCK || 0.38,
+  import.meta.env.VITE_IMAGE_VIVID_RATIO_BLOCK || 0.55,
 );
 const IMAGE_HOTSPOT_GRID_SIZE = Number(
   import.meta.env.VITE_IMAGE_HOTSPOT_GRID_SIZE || 12,
@@ -256,20 +259,22 @@ export const detectInappropriateText = (text = "") => {
 };
 
 export const detectRestrictedContentText = (text = "") => {
-  const normalized = collapseRepeatedChars(
-    normalizeText(normalizeLeetspeak(text)),
-  );
+  const preCollapse = normalizeText(normalizeLeetspeak(text));
+  const normalized  = collapseRepeatedChars(preCollapse);
   if (!normalized) {
     return { flagged: false, score: 0, matches: [], strategy: "empty" };
   }
 
-  const matches = ADULT_GORE_KEYWORDS.filter((term) => {
-    const pattern = new RegExp(`(^|\\s)${term}(\\s|$)`, "i");
-    return pattern.test(normalized);
-  });
+  // Se revisan ambas versiones: la colapsada (detecta obfuscación como "puuuuta")
+  // y la sin colapsar (detecta keywords exactos como "xxx" que el colapso destruiría).
+  const findMatches = (str) =>
+    ADULT_GORE_KEYWORDS.filter((term) =>
+      new RegExp(`(^|\\s)${term}(\\s|$)`, "i").test(str),
+    );
+
+  const matches = [...new Set([...findMatches(normalized), ...findMatches(preCollapse)])];
 
   const score = matches.reduce((acc, term) => {
-    // Penaliza más términos explícitos fuertes.
     if (["porn", "porno", "xxx", "nsfw", "gore", "decapitado", "mutilacion"].includes(term)) return acc + 2;
     return acc + 1;
   }, 0);
