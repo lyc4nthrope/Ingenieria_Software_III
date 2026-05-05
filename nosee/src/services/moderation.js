@@ -260,20 +260,22 @@ export const detectInappropriateText = (text = "") => {
 };
 
 export const detectRestrictedContentText = (text = "") => {
-  const normalized = collapseRepeatedChars(
-    normalizeText(normalizeLeetspeak(text)),
-  );
+  const preCollapse = normalizeText(normalizeLeetspeak(text));
+  const normalized  = collapseRepeatedChars(preCollapse);
   if (!normalized) {
     return { flagged: false, score: 0, matches: [], strategy: "empty" };
   }
 
-  const matches = ADULT_GORE_KEYWORDS.filter((term) => {
-    const pattern = new RegExp(`(^|\\s)${term}(\\s|$)`, "i");
-    return pattern.test(normalized);
-  });
+  // Se revisan ambas versiones: la colapsada (detecta obfuscación como "puuuuta")
+  // y la sin colapsar (detecta keywords exactos como "xxx" que el colapso destruiría).
+  const findMatches = (str) =>
+    ADULT_GORE_KEYWORDS.filter((term) =>
+      new RegExp(`(^|\\s)${term}(\\s|$)`, "i").test(str),
+    );
+
+  const matches = [...new Set([...findMatches(normalized), ...findMatches(preCollapse)])];
 
   const score = matches.reduce((acc, term) => {
-    // Penaliza más términos explícitos fuertes.
     if (["porn", "porno", "xxx", "nsfw", "gore", "decapitado", "mutilacion"].includes(term)) return acc + 2;
     return acc + 1;
   }, 0);
