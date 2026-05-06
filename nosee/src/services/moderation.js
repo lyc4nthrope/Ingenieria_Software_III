@@ -13,9 +13,10 @@ const IMAGE_MIN_ANALYSIS_PIXELS = Number(
 const SKIN_RATIO_BLOCK_THRESHOLD = Number(
   import.meta.env.VITE_IMAGE_SKIN_RATIO_BLOCK || 0.58,
 );
-// 0.35 en vez de 0.20: fotos de carne, tomates, empaques rojos no se bloquean
+// 0.45 en vez de 0.35: etiquetas de marca con franjas rojas extensas (aceites, salsas)
+// pueden llegar a 35-40 % de píxeles rojizo-oscuros sin ser gore; se necesita >45 %
 const BLOOD_RATIO_BLOCK_THRESHOLD = Number(
-  import.meta.env.VITE_IMAGE_BLOOD_RATIO_BLOCK || 0.35,
+  import.meta.env.VITE_IMAGE_BLOOD_RATIO_BLOCK || 0.45,
 );
 // 0.55 en vez de 0.32: H=5-45° cubre naranja/amarillo, común en packaging de supermercado
 const ANIME_SKIN_RATIO_BLOCK_THRESHOLD = Number(
@@ -486,6 +487,8 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
       const { h, s, v } = rgbToHsv(r, g, b);
       const redDominance = r / (r + g + b + 1);
       const isRedHue = h <= 13 || h >= 348;
+      // v < 0.75: excluye rojos brillantes de plástico/lacado (empaques, tapas, marcas)
+      // que tienen v ≥ 0.75; la sangre real es más oscura (v ∈ [0.18, 0.75]).
       const isBloodLike =
         ((r > 110 && g < 115 && b < 115) || (r > 75 && g < 75 && b < 75)) &&
         redDominance > 0.52 &&
@@ -494,7 +497,7 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
         isRedHue &&
         s >= 0.35 &&
         v >= 0.18 &&
-        v < 0.80;
+        v < 0.75;
       if (isBloodLike) {
         bloodPixels += 1;
         bucket.blood += 1;
@@ -593,10 +596,12 @@ export const analyzeImageFileForRestrictedContent = async (file) => {
       animeSkinRatio >= ANIME_SKIN_RATIO_BLOCK_THRESHOLD &&
       vividRatio >= VIVID_RATIO_BLOCK_THRESHOLD &&
       maxAnimeHotspotRatio >= 0.24;
+    // Requiere ratio GLOBAL alto además del hotspot: packaging rojo concentrado
+    // (salsa, ketchup, etiqueta roja) no debe bloquearse solo por tener alta
+    // concentración local si el global está por debajo del umbral.
     const flaggedGore =
-      (bloodRatio >= BLOOD_RATIO_BLOCK_THRESHOLD &&
-        maxBloodHotspotRatio >= BLOOD_HOTSPOT_RATIO_BLOCK_THRESHOLD) ||
-      maxBloodHotspotRatio >= BLOOD_HOTSPOT_RATIO_BLOCK_THRESHOLD * 1.35;
+      bloodRatio >= BLOOD_RATIO_BLOCK_THRESHOLD &&
+      maxBloodHotspotRatio >= BLOOD_HOTSPOT_RATIO_BLOCK_THRESHOLD;
     const flagged = flaggedAdult || flaggedAnimeAdult || flaggedGore;
 
     const labels = [];
