@@ -64,11 +64,6 @@ const StoresDrawer = memo(function StoresDrawer({
       role="complementary"
       aria-label="Lista de tiendas"
     >
-      {/*
-        Drag zone: plain div — only handles pointer/touch drag.
-        Interactive children (buttons, links) are excluded from drag via
-        e.target.closest() check in onPointerDown.
-      */}
       <div
         style={styles.dragZone}
         onPointerDown={onPointerDown}
@@ -107,11 +102,10 @@ const StoresDrawer = memo(function StoresDrawer({
               {t.createBtn}
             </Link>
 
-            {/* Chevron: dedicated button — not nested inside role="button" */}
             <button
               type="button"
               style={styles.chevronBtn}
-              onClick={e => { e.stopPropagation(); cycleSnap(); }}
+              onClick={cycleSnap}
               aria-label={expandLabel}
               aria-expanded={snap !== 'peek'}
             >

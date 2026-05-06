@@ -75,7 +75,7 @@ export default function StoresPage() {
   return (
     <main style={styles.page} aria-label="Tiendas cercanas">
       {/* ── Map ── */}
-      <div style={styles.mapArea} aria-hidden={mapLoading}>
+      <div style={styles.mapArea} aria-hidden={mapLoading || undefined}>
         <div
           ref={mapContainerRef}
           id="nosee-stores-map"

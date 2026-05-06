@@ -12,13 +12,14 @@ export function useStoresList() {
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState(null);
 
-  const debounceRef = useRef(null);
-  const pageRef = useRef(1);
-  const searchRef = useRef('');
+  const debounceRef    = useRef(null);
+  const pageRef        = useRef(1);
+  const searchRef      = useRef('');
+  const loadingMoreRef = useRef(false); // sync guard — state update is async and can be bypassed by rapid scroll
 
   const fetchStores = useCallback(async ({ query, pageToLoad, append }) => {
     if (pageToLoad === 1) setLoading(true);
-    else setLoadingMore(true);
+    else { loadingMoreRef.current = true; setLoadingMore(true); }
     setError(null);
 
     const result = await listStores(query, {
@@ -39,8 +40,12 @@ export function useStoresList() {
       setError(result.error);
     }
 
-    if (pageToLoad === 1) setLoading(false);
-    else setLoadingMore(false);
+    if (pageToLoad === 1) {
+      setLoading(false);
+    } else {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -57,9 +62,9 @@ export function useStoresList() {
   }, [fetchStores]);
 
   const loadMore = useCallback(() => {
-    if (!hasMore || loading || loadingMore) return;
+    if (!hasMore || loading || loadingMoreRef.current) return;
     fetchStores({ query: searchRef.current, pageToLoad: pageRef.current + 1, append: true });
-  }, [hasMore, loading, loadingMore, fetchStores]);
+  }, [hasMore, loading, fetchStores]);
 
   const updateStore = useCallback((updatedStore) => {
     if (!updatedStore?.id) return;
