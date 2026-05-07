@@ -5,6 +5,7 @@
  */
 
 export { usePublications } from './usePublications';
+export { usePublicationMutations } from './usePublicationMutations';
 export { usePhotoUpload } from './usePhotoUpload';
 export { useGeoLocation } from './useGeoLocation';
 export { usePublicationCreation } from './usePublicationCreation';
