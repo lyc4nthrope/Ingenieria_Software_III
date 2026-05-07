@@ -10,6 +10,7 @@ import {
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
 import { usePublicationsStore } from "@/features/publications/store/publicationsStore";
+import { getBrands } from "@/services/api/products.api";
 import PublicationCard from "@/features/publications/components/PublicationCard";
 import PriceSearchFilter from "@/features/publications/components/PriceSearchFilter";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -77,7 +78,10 @@ export default function HomePage() {
     productId: null,
     productName: "",
     storeName: "",
+    storeId: null,
     categoryId: null,
+    brandId: null,
+    brandName: "",
     minPrice: null,
     maxPrice: null,
     maxDistance: null,
@@ -119,12 +123,14 @@ export default function HomePage() {
   const [geolocationLoading, setGeolocationLoading] = useState(false);
   const categories = usePublicationsStore((s) => s.categories);
   const loadCategories = usePublicationsStore((s) => s.loadCategories);
+  const [brands, setBrands] = useState([]);
 
   // ── 4.3: cachedLocationRef for on-demand geolocation ─────────────────────
   const cachedLocationRef = useRef(null);
 
   const hasInitializedRef = useRef(false);
   const lastLocationCoordsRef = useRef(null);
+  const hasStoreNameInitRef = useRef(false);
 
   // ── Virtualización ────────────────────────────────────────────────────────
   const columnCount = useColumnCount();
@@ -133,16 +139,31 @@ export default function HomePage() {
   // ── Load categories ───────────────────────────────────────────────────────
   useEffect(() => { loadCategories(); }, [loadCategories]);
 
+  // ── Load brands ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    let active = true;
+    const loadBrands = async () => {
+      const result = await getBrands();
+      if (result.success && active) {
+        setBrands(result.data || []);
+      }
+    };
+    loadBrands();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // ── Initialize filters with geolocation on first render ──────────────────
   useEffect(() => {
     if (hasInitializedRef.current) return;
     hasInitializedRef.current = true;
-    setPublicationFilters({
-      ...filters,
+    setPublicationFilters((prev) => ({
+      ...prev,
       latitude: latitude || null,
       longitude: longitude || null,
       sortBy: "recent",
-    });
+    }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latitude, longitude]);
 
@@ -164,6 +185,28 @@ export default function HomePage() {
     if (!pubId) return;
     navigate(`/publicaciones/${pubId}`, { replace: true });
   }, [searchParams, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── ?storeId=<id>&storeName=<name> — aplicar filtro de tienda desde URL ──
+  useEffect(() => {
+    const storeId = searchParams.get("storeId");
+    const storeName = searchParams.get("storeName");
+    if (!storeId && !storeName) return;
+
+    if (storeId) {
+      const numericStoreId = Number(storeId);
+      const validStoreId = Number.isFinite(numericStoreId) && numericStoreId > 0 ? numericStoreId : null;
+      const decodedName = storeName ? decodeURIComponent(storeName).trim() : "";
+      setFilters((prev) => ({ ...prev, storeId: validStoreId, storeName: decodedName }));
+      setPublicationFilters((prev) => ({ ...prev, storeId: validStoreId, storeName: decodedName }));
+    } else {
+      const decoded = decodeURIComponent(storeName).trim();
+      if (!decoded) return;
+      setFilters((prev) => ({ ...prev, storeName: decoded, storeId: null }));
+      setPublicationFilters((prev) => ({ ...prev, storeName: decoded, storeId: null }));
+    }
+    // Limpiar URL para evitar re-aplicar si el usuario navega dentro de la página
+    navigate("/", { replace: true });
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 4.4: Debounced search suggestions (200ms) ─────────────────────────────
   useEffect(() => {
@@ -435,7 +478,7 @@ export default function HomePage() {
               zIndex: 1,
               flex: 1,
               background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.09)",
+              border: searchFocused ? "1px solid var(--accent)" : "1px solid rgba(255,255,255,0.09)",
               backdropFilter: "blur(10px)",
               borderRadius: "var(--radius-lg)",
               padding: "12px 16px",
@@ -555,6 +598,9 @@ export default function HomePage() {
           open={showFilters}
           distanceLoading={geolocationLoading}
           categories={categories}
+          brands={brands}
+          userLat={latitude}
+          userLng={longitude}
           onClearFilters={() => {
             cachedLocationRef.current = null;
             setGeolocationLoading(false);
@@ -563,7 +609,10 @@ export default function HomePage() {
               productId: null,
               productName: "",
               storeName: "",
+              storeId: null,
               categoryId: null,
+              brandId: null,
+              brandName: "",
               minPrice: null,
               maxPrice: null,
               maxDistance: null,
