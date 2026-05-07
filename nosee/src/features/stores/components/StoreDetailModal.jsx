@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getStorePublications, getStoreEvidences, updateStore } from '@/services/api/stores.api';
@@ -445,7 +446,11 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
 
   const handleNavigate = useCallback((id) => {
     if (!id) return;
-    onClose();
+    // flushSync garantiza que el modal se desmonte del DOM antes de que
+    // React Router monte la página de detalle de publicación.
+    // Sin esto, React 18 puede batch ambas actualizaciones y el modal
+    // permanece visible encima de la nueva página por un frame.
+    flushSync(() => onClose());
     navigate(`/publicaciones/${id}`);
   }, [onClose, navigate]);
 
