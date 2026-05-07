@@ -5,7 +5,11 @@ import { INFINITE_SCROLL_CONFIG } from '@/config/infiniteScroll';
 
 const DEBOUNCE_MS = 350;
 
-export function useStoresList() {
+/**
+ * productName y categoryId son controlados externamente (StoresPage).
+ * El hook los recibe como props y re-fetcha cuando cambian.
+ */
+export function useStoresList({ productName = '', categoryId = null } = {}) {
   const [search, setSearch] = useState('');
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,20 +18,21 @@ export function useStoresList() {
   const [error, setError] = useState(null);
   const [storeType, setStoreType] = useState('all');
   const [onlyWithLocation, setOnlyWithLocation] = useState(false);
-  const [productName, setProductName] = useState('');
-  const [categoryId, setCategoryId] = useState(null);
   const [categories, setCategories] = useState([]);
 
   const storeTypeRef        = useRef('all');
   const onlyWithLocationRef = useRef(false);
-  const productNameRef      = useRef('');
-  const categoryIdRef       = useRef(null);
+  const productNameRef      = useRef(productName);
+  const categoryIdRef       = useRef(categoryId);
 
-  const debounceRef        = useRef(null);
-  const productDebounceRef = useRef(null);
-  const pageRef            = useRef(1);
-  const searchRef          = useRef('');
-  const loadingMoreRef     = useRef(false);
+  const debounceRef    = useRef(null);
+  const pageRef        = useRef(1);
+  const searchRef      = useRef('');
+  const loadingMoreRef = useRef(false);
+
+  // Keep refs in sync with external props
+  useEffect(() => { productNameRef.current = productName; }, [productName]);
+  useEffect(() => { categoryIdRef.current  = categoryId;  }, [categoryId]);
 
   // Load categories once on mount
   useEffect(() => {
@@ -71,9 +76,16 @@ export function useStoresList() {
     }
   }, []);
 
+  // Initial fetch
   useEffect(() => {
     fetchStores({ query: '', pageToLoad: 1, append: false });
   }, [fetchStores]);
+
+  // Re-fetch when product/category filters change (controlled externally)
+  useEffect(() => {
+    pageRef.current = 1;
+    fetchStores({ query: searchRef.current, pageToLoad: 1, append: false });
+  }, [productName, categoryId, fetchStores]);
 
   const handleSearchChange = useCallback((value) => {
     setSearch(value);
@@ -98,24 +110,6 @@ export function useStoresList() {
     fetchStores({ query: searchRef.current, pageToLoad: 1, append: false });
   }, [fetchStores]);
 
-  const handleProductNameChange = useCallback((value) => {
-    setProductName(value);
-    productNameRef.current = value;
-    clearTimeout(productDebounceRef.current);
-    productDebounceRef.current = setTimeout(() => {
-      pageRef.current = 1;
-      fetchStores({ query: searchRef.current, pageToLoad: 1, append: false });
-    }, DEBOUNCE_MS);
-  }, [fetchStores]);
-
-  const handleCategoryChange = useCallback((id) => {
-    const resolved = id ? Number(id) : null;
-    categoryIdRef.current = resolved;
-    setCategoryId(resolved);
-    pageRef.current = 1;
-    fetchStores({ query: searchRef.current, pageToLoad: 1, append: false });
-  }, [fetchStores]);
-
   const loadMore = useCallback(() => {
     if (!hasMore || loading || loadingMoreRef.current) return;
     fetchStores({ query: searchRef.current, pageToLoad: pageRef.current + 1, append: true });
@@ -135,14 +129,10 @@ export function useStoresList() {
     error,
     storeType,
     onlyWithLocation,
-    productName,
-    categoryId,
     categories,
     handleSearchChange,
     handleStoreTypeChange,
     handleOnlyWithLocationChange,
-    handleProductNameChange,
-    handleCategoryChange,
     loadMore,
     updateStore,
   };

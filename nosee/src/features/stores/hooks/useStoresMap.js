@@ -374,16 +374,15 @@ export function useStoresMap({ containerRef, onStoreClick, productName, category
   // Re-sync markers when product/category filter changes
   useEffect(() => {
     const hasFilter = productName?.trim() || categoryId;
-    const cluster   = clusterRef.current;
-    const map       = mapRef.current;
-    const L         = _cdnL;
-    const icon      = storeIconRef.current;
 
     if (!hasFilter) {
-      // Filter cleared: restore full set and re-sync if map is ready
-      allStoresRef.current = physicalStores;
+      // Filter cleared: allStoresRef already in sync via the dedicated effect
+      const cluster = clusterRef.current;
+      const map     = mapRef.current;
+      const L       = _cdnL;
+      const icon    = storeIconRef.current;
       if (cluster && map && L && icon) {
-        const next = getStoresInViewport(physicalStores, map);
+        const next = getStoresInViewport(allStoresRef.current, map);
         syncMarkers(cluster, L, activeMarkersRef.current, next, icon, onStoreClickRef);
       }
       return;
@@ -394,16 +393,17 @@ export function useStoresMap({ containerRef, onStoreClick, productName, category
       if (cancelled) return;
       const filtered = res.success ? res.data : [];
       allStoresRef.current = filtered;
-      const cl   = clusterRef.current;
-      const mp   = mapRef.current;
-      const icon = storeIconRef.current;
-      if (cl && mp && L && icon) {
-        const next = getStoresInViewport(filtered, mp);
-        syncMarkers(cl, L, activeMarkersRef.current, next, icon, onStoreClickRef);
+      const cluster = clusterRef.current;
+      const map     = mapRef.current;
+      const L       = _cdnL;
+      const icon    = storeIconRef.current;
+      if (cluster && map && L && icon) {
+        const next = getStoresInViewport(filtered, map);
+        syncMarkers(cluster, L, activeMarkersRef.current, next, icon, onStoreClickRef);
       }
     });
     return () => { cancelled = true; };
-  }, [productName, categoryId, physicalStores]);
+  }, [productName, categoryId]);
 
   return { isLoading: locationLoading || !mapReady, locationError, mapError };
 }
