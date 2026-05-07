@@ -1,11 +1,13 @@
 /**
  * publications.api.js
  *
- * API para gestionar publicaciones de precios en NØSEE
+ * API para gestionar publicaciones de precios en NØSEE.
+ * Contiene operaciones CRUD puras. La lógica de ranking y moderación
+ * está extraída en los módulos cohesivos adyacentes.
  *
  * UBICACIÓN: src/services/api/publications.api.js
  * FECHA: 26-02-2026
- * STATUS: Paso 1 de Proceso 2
+ * STATUS: Tier 2 — post-split
  *
  * FUNCIONES:
  * - createPublication()      : Crear nueva publicación de precio
@@ -26,51 +28,36 @@ import {
 } from "@/services/moderation";
 import { recordVote, recordPublicationReport, recordVoteDuplicateRejected, recordVoteDuplicateAttempted, recordVoteProcessingDuration, recordDbQueryDuration } from "@/services/metrics";
 
-import { clamp, normalizeSearchText, tokenTextScore } from "@/services/utils/normalization";
+import { normalizeSearchText } from "@/services/utils/normalization";
 import { hasCoordinates, parseStoreLocation, calculateDistance } from "@/services/utils/geoUtils";
 import {
   REQUEST_TIMEOUT_MS, EXTENDED_RETRY_TIMEOUT_MS,
   HYDRATION_TIMEOUT_MS, getRuntimeNetworkState,
   getAdaptiveRequestTimeout, withTimeout, isTimeoutMessage, runWithSessionRetry
 } from "@/services/utils/requestUtils";
-import { createAutoModerationReport } from "@/services/utils/moderationReports";
 import {
   searchProductsAndBrands, searchProducts, findProductByBarcode, getProducts, getStores,
-  searchStores, createProduct, updateProduct, createBrand, getProductCategories, getUnitTypes, searchBrands
+  searchStores, createProduct, updateProduct, createBrand, getProductCategories, getUnitTypes, searchBrands,
+  getBrands,
 } from "@/services/api/products.api";
 import { getComments, addComment, deleteComment } from "@/services/api/comments.api";
 
-// ─── TIPOS / INTERFACES ───────────────────────────────────────────────────────
+import { enrichSearchRankingSignals } from "@/services/api/publications.ranking";
+import { runCreateModerationBlock, runCreateAutoModerate } from "@/services/api/publications.moderation";
+import {
+  PUBLICATION_STATUS,
+  SORT_OPTIONS,
+  SEARCH_SORT_FIELDS,
+  REQUIRE_IMAGE_MODERATION,
+  VALID_REPORT_REASONS,
+} from "@/constants/publications";
 
-/**
- * Tipo de publicación (para búsqueda)
- */
-export const PUBLICATION_STATUS = {
-  PENDING: "pending",
-  VALIDATED: "validated",
-  REJECTED: "rejected",
-  EXPIRED: "expired",
-};
+import { debugPublications } from "@/utils/debugLogger";
 
-/**
- * Orden de resultados
- */
-export const SORT_OPTIONS = {
-  RECENT: "recent",
-  VALIDATED: "validated",
-  CHEAPEST: "cheapest",
-  BEST_MATCH: "best_match",
-};
+// Re-exportar constantes para backward compatibility
+export { PUBLICATION_STATUS, SORT_OPTIONS, SEARCH_SORT_FIELDS, REQUIRE_IMAGE_MODERATION, VALID_REPORT_REASONS };
 
-const SEARCH_SORT_FIELDS = new Set([
-  SORT_OPTIONS.RECENT,
-  SORT_OPTIONS.VALIDATED,
-  SORT_OPTIONS.CHEAPEST,
-  SORT_OPTIONS.BEST_MATCH,
-]);
-
-const REQUIRE_IMAGE_MODERATION =
-  String(import.meta.env.VITE_REQUIRE_IMAGE_MODERATION || "false").toLowerCase() === "true";
+// ─── HELPERS INTERNOS ─────────────────────────────────────────────────────────
 
 const hasUserIdentity = (candidate) =>
   !!candidate && typeof candidate === "object" && !!(candidate.id || candidate.full_name);
@@ -111,10 +98,10 @@ const hydrateRelatedPublicationData = async (publications = []) => {
   const storesById = {};
   const productsById = {};
 
-   const hydrationTasks = [];
+  const hydrationTasks = [];
 
   if (missingUserIds.length > 0) {
-       hydrationTasks.push(
+    hydrationTasks.push(
       withTimeout(
         supabase
           .from("users")
@@ -125,22 +112,21 @@ const hydrateRelatedPublicationData = async (publications = []) => {
       )
         .then(({ data: usersData, error: usersError }) => {
           if (usersError) {
-            console.error("Error hidratando usuarios de publicaciones:", usersError);
+            debugPublications("hydrateRelatedPublicationData:users-error", usersError);
             return;
           }
-
           (usersData || []).forEach((userRow) => {
             usersById[userRow.id] = userRow;
           });
         })
         .catch((hydrateUserError) => {
-          console.error("Timeout/exception hidratando usuarios de publicaciones:", hydrateUserError);
+          debugPublications("hydrateRelatedPublicationData:users-timeout", hydrateUserError);
         }),
-      );
+    );
   }
 
   if (missingStoreIds.length > 0) {
-      hydrationTasks.push(
+    hydrationTasks.push(
       withTimeout(
         supabase
           .from("stores")
@@ -151,19 +137,19 @@ const hydrateRelatedPublicationData = async (publications = []) => {
       )
         .then(({ data: storesData, error: storesError }) => {
           if (storesError) {
-            console.error("Error hidratando tiendas de publicaciones:", storesError);
+            debugPublications("hydrateRelatedPublicationData:stores-error", storesError);
             return;
           }
-
           (storesData || []).forEach((storeRow) => {
             storesById[storeRow.id] = storeRow;
           });
         })
         .catch((hydrateStoreError) => {
-          console.error("Timeout/exception hidratando tiendas de publicaciones:", hydrateStoreError);
+          debugPublications("hydrateRelatedPublicationData:stores-timeout", hydrateStoreError);
         }),
-      );
-    }
+    );
+  }
+
   if (missingProductIds.length > 0) {
     hydrationTasks.push(
       withTimeout(
@@ -176,7 +162,7 @@ const hydrateRelatedPublicationData = async (publications = []) => {
       )
         .then(({ data: productsData, error: productsError }) => {
           if (productsError) {
-            console.error("Error hidratando productos de publicaciones:", productsError);
+            debugPublications("hydrateRelatedPublicationData:products-error", productsError);
             return;
           }
           (productsData || []).forEach((productRow) => {
@@ -184,14 +170,14 @@ const hydrateRelatedPublicationData = async (publications = []) => {
           });
         })
         .catch((hydrateProductError) => {
-          console.error("Timeout/exception hidratando productos de publicaciones:", hydrateProductError);
+          debugPublications("hydrateRelatedPublicationData:products-timeout", hydrateProductError);
         }),
     );
   }
 
-    if (hydrationTasks.length > 0) {
-      await Promise.allSettled(hydrationTasks);
-    }
+  if (hydrationTasks.length > 0) {
+    await Promise.allSettled(hydrationTasks);
+  }
 
   return publications.map((publication) => {
     const embeddedUser = publication?.user || publication?.users || null;
@@ -235,115 +221,6 @@ const enrichPublicationsWithVoteCounts = async (publications) => {
   }));
 };
 
-const enrichSearchRankingSignals = async (publications, filters = {}) => {
-  if (!Array.isArray(publications) || publications.length === 0) {
-    return publications;
-  }
-
-  // Build product price stats in-memory from the already-fetched publications array
-  // (replaces the old price_publications sub-query — no extra round-trip needed)
-  const productPriceStats = {};
-  publications.forEach((pub) => {
-    const pid = pub.product_id;
-    const price = Number(pub.price);
-    if (!pid || !Number.isFinite(price)) return;
-    if (!productPriceStats[pid]) {
-      productPriceStats[pid] = { min: price, total: 0, count: 0 };
-    }
-    const stat = productPriceStats[pid];
-    if (price < stat.min) stat.min = price;
-    stat.total += price;
-    stat.count += 1;
-  });
-
-  const hasSearchTerm = String(filters.productName || "").trim().length > 0 || String(filters.storeName || "").trim().length > 0;
-  const normalizedSortBy = String(filters.sortBy || SORT_OPTIONS.RECENT);
-  const normalizedProductQuery = normalizeSearchText(filters.productName || "");
-  const normalizedStoreQuery = normalizeSearchText(filters.storeName || "");
-  const shouldSortByScore =
-    normalizedSortBy === SORT_OPTIONS.BEST_MATCH ||
-    (normalizedSortBy === SORT_OPTIONS.RECENT && hasSearchTerm);
-
-  return publications
-    .map((publication) => {
-      // Votes: read from denormalized columns (validated_count / downvoted_count on the row)
-      const validatedCount  = Number(publication.validated_count  ?? 0);
-      const downvotedCount  = Number(publication.downvoted_count  ?? 0);
-      // Reports: read from denormalized column (active_reports_count on price_publications)
-      const activeReports   = Number(publication.active_reports_count ?? 0);
-      // Store evidences: read from denormalized column (evidence_count on stores, joined via store relation)
-      const storeEvidences  = Number(publication?.store?.evidence_count ?? 0);
-      const userReputation  = Number(publication?.user?.reputation_points || 0);
-      const stats = productPriceStats[publication.product_id] || null;
-      const productName = publication?.product?.name || publication?.products?.name || "";
-      const productBrand = publication?.product?.brand?.name || publication?.products?.brand?.name || "";
-      const storeName = publication?.store?.name || publication?.stores?.name || "";
-      const normalizedProductText = normalizeSearchText(`${productName} ${productBrand}`);
-      const normalizedStoreText = normalizeSearchText(storeName);
-
-      const distanceScore = Number.isFinite(publication.distance_km)
-        ? clamp(1 - publication.distance_km / 50, 0, 1)
-        : 0.45;
-      const voteBalance = validatedCount - downvotedCount;
-      const voteScore = clamp((voteBalance + 5) / 10, 0, 1);
-      const reportScore = clamp(1 - activeReports / 5, 0, 1);
-      const reputationScore = clamp(userReputation / 500, 0, 1);
-      const evidenceScore = clamp(storeEvidences / 8, 0, 1);
-      const priceScore = stats
-        ? clamp(((stats.total / Math.max(stats.count, 1)) - Number(publication.price)) / Math.max(stats.total / Math.max(stats.count, 1), 1) + 0.5, 0, 1)
-        : 0.5;
-
-      const productTextScore = tokenTextScore(normalizedProductQuery, normalizedProductText);
-      const storeTextScore = tokenTextScore(normalizedStoreQuery, normalizedStoreText);
-
-      const textScore =
-        normalizedProductQuery || normalizedStoreQuery
-          ? clamp(
-              (normalizedProductQuery ? productTextScore * 0.75 : 0) +
-                (normalizedStoreQuery ? storeTextScore * 0.25 : 0),
-              0,
-              1,
-            )
-          : 0.5;
-
-      // Recency: publicaciones más recientes reciben mayor score (decae linealmente en 52 semanas)
-      const ageWeeks = (Date.now() - new Date(publication.created_at || 0).getTime()) / 604_800_000;
-      const recencyScore = clamp(1 - ageWeeks / 52, 0, 1);
-
-      const searchScore =
-        0.40 * textScore +
-        0.18 * priceScore +
-        0.14 * distanceScore +
-        0.10 * voteScore +
-        0.06 * reportScore +
-        0.05 * recencyScore +
-        0.04 * reputationScore +
-        0.03 * evidenceScore;
-
-      return {
-        ...publication,
-        search_signals: {
-          positive: validatedCount,
-          negative: downvotedCount,
-          reports_active: activeReports,
-          store_evidences: storeEvidences,
-          text_score: Number(textScore.toFixed(4)),
-          recency_score: Number(recencyScore.toFixed(4)),
-          user_reputation_points: userReputation,
-          product_avg_price: stats ? stats.total / Math.max(stats.count, 1) : null,
-          product_min_price: stats ? stats.min : null,
-        },
-        search_score: Number(searchScore.toFixed(4)),
-      };
-    })
-    .sort((a, b) => {
-      if (shouldSortByScore) {
-        return (b.search_score || 0) - (a.search_score || 0);
-      }
-      return 0;
-    });
-};
-
 // ─── 1️⃣ CREAR PUBLICACIÓN ────────────────────────────────────────────────────
 
 /**
@@ -360,18 +237,6 @@ const enrichSearchRankingSignals = async (publications, filters = {}) => {
  * @param {number} data.longitude - Longitud (de geolocation)
  *
  * @returns {Promise} { success, data, error }
- *
- * @example
- * const result = await createPublication({
- *   productId: 1,
- *   storeId: 5,
- *   price: 15999,
- *   currency: 'COP',
- *   photoUrl: 'https://res.cloudinary.com/...',
- *   description: 'Buen estado, precio justo',
- *   latitude: 4.7110,
- *   longitude: -74.0721,
- * });
  */
 export const createPublication = async (data) => {
   try {
@@ -411,166 +276,62 @@ export const createPublication = async (data) => {
       };
     }
 
-    // Verificar estado del usuario (activo + verificado)
-    const authEmailConfirmed = !!user.email_confirmed_at;
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("is_verified, is_active")
-      .eq("id", user.id)
-      .single();
-
-    const profileVerified = !!userData?.is_verified;
-    const profileActive = userData?.is_active !== false;
-
-    if (userError || !profileActive) {
-      return {
-        success: false,
-        error: "Tu cuenta no está habilitada para publicar",
-      };
-    }
-
-    if (!profileVerified && !authEmailConfirmed) {
-      return {
-        success: false,
-        error: "Debes verificar tu email para publicar",
-      };
-    }
-
-    // Evitar duplicados del mismo usuario/producto/tienda en las últimas 24h
-    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: duplicatePublication, error: duplicateError } = await supabase
-      .from("price_publications")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("product_id", data.productId)
-      .eq("store_id", data.storeId)
-      .gte("created_at", since24h)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (duplicateError) {
-      return { success: false, error: duplicateError.message };
-    }
-
-    if (duplicatePublication) {
-      return {
-        success: false,
-        error:
-          "Ya publicaste este producto en esta tienda durante las últimas 24 horas",
-      };
-    }
-
-    // Calcular puntuación inicial de confiabilidad basada en reputación del usuario
-    const { data: userProfile } = await supabase
-      .from("users")
-      .select("reputation_points")
-      .eq("id", user.id)
-      .single();
-    const reputationPoints = userProfile?.reputation_points ?? 0;
-    const confidence_score = Math.min(1.0, 0.5 + reputationPoints / 1000);
-
     const textModeration = detectInappropriateText(data.description || "");
-    const restrictedContentModeration = detectRestrictedContentText(
-      data.description || "",
-    );
+    const restrictedContentModeration = detectRestrictedContentText(data.description || "");
     const imageModeration = detectIndecentImageByModeration(data.photoModeration);
-    const shouldHardBlock =
-      restrictedContentModeration.flagged || imageModeration.flagged;
+    const shouldHardBlock = restrictedContentModeration.flagged || imageModeration.flagged;
 
     if (shouldHardBlock) {
-      const reasons = [];
-      if (restrictedContentModeration.flagged) {
-        reasons.push(
-          `Texto con contenido restringido: ${restrictedContentModeration.matches.join(", ")}`,
-        );
-      }
-      if (imageModeration.flagged) {
-        reasons.push(
-          `${imageModeration.reason || "Imagen con contenido adulto/gore"} (confianza: ${imageModeration.confidence ?? "n/a"})`,
-        );
-      }
+      const blockResult = await runCreateModerationBlock(
+        user,
+        restrictedContentModeration,
+        imageModeration,
+      );
+      return { success: false, error: blockResult.error };
+    }
 
-      await createAutoModerationReport({
-        reportedType: "user",
-        reportedId: user.id,
-        reporterUserId: user.id,
-        reportedUserId: user.id,
-        reason: "offensive",
-        description: `AUTO-MODERATION BLOCK (publication): ${reasons.join(" | ")}`,
-      });
+    // Crear publicación via RPC (auth, duplicado, reputación y confidence_score se manejan en server)
+    const { data: publicationArr, error } = await supabase.rpc("create_publication", {
+      p_product_id: data.productId,
+      p_store_id: data.storeId,
+      p_price: data.price,
+      p_photo_url: data.photoUrl,
+      p_description: data.description || "",
+    });
 
+    if (error) {
+      const rpcErrors = {
+        not_authenticated: "Usuario no autenticado",
+        account_not_enabled: "Tu cuenta no está habilitada para publicar",
+        email_not_verified: "Debes verificar tu email para publicar",
+        duplicate_publication:
+          "Ya publicaste este producto en esta tienda durante las últimas 24 horas",
+      };
+      const rpcKey = Object.keys(rpcErrors).find((key) =>
+        error.message?.includes(key),
+      );
       return {
         success: false,
-        error:
-          "No se permitió publicar porque la imagen o el texto parecen contener contenido adulto/gore.",
+        error: rpcKey ? rpcErrors[rpcKey] : error.message,
       };
     }
 
-    // Crear la publicación
-    const payload = {
-      product_id: data.productId,
-      store_id: data.storeId,
-      user_id: user.id,
-      price: data.price,
-      photo_url: data.photoUrl,
-      description: data.description || "No hay descripción",
-      confidence_score,
-    };
-
-    const _t0Pub = Date.now();
-    const { data: publication, error } = await supabase
-      .from("price_publications")
-      .insert(payload)
-      .select()
-      .single();
-    recordDbQueryDuration('publication_insert', (Date.now() - _t0Pub) / 1000);
-
-    if (error) {
-      console.error("Error creando publicación:", error);
-      return { success: false, error: error.message };
+    const publication = publicationArr?.[0];
+    if (!publication) {
+      return { success: false, error: "No se pudo crear la publicación" };
     }
 
     // Moderación automática adicional por lenguaje inapropiado (insultos, etc.)
     const shouldAutoModerate = textModeration.flagged;
 
     if (shouldAutoModerate) {
-      const moderationDescriptionParts = [];
-      if (textModeration.flagged) {
-        moderationDescriptionParts.push(
-          `Texto inapropiado detectado (score ${textModeration.score}/${textModeration.threshold}): ${textModeration.matches.map((m) => m.term).join(", ")}`,
-        );
-      }
-      if (restrictedContentModeration.flagged) {
-        moderationDescriptionParts.push(
-          `Contenido restringido (adulto/gore) detectado: ${restrictedContentModeration.matches.join(", ")}`,
-        );
-      }
-      if (imageModeration.flagged) {
-        moderationDescriptionParts.push(
-          `${imageModeration.reason || "Imagen potencialmente indecente detectada"} (confianza: ${imageModeration.confidence ?? "n/a"})`,
-        );
-      }
-
-      await supabase
-        .from("price_publications")
-        .update({
-          is_active: false,
-          is_admin_hidden: true,
-          hidden_admin_at: new Date().toISOString(),
-          hidden_admin_by: user.id,
-          hidden_admin_reason: "Moderación automática por contenido sensible",
-        })
-        .eq("id", publication.id);
-
-      await createAutoModerationReport({
-        reportedType: "publication",
-        reportedId: publication.id,
-        reporterUserId: user.id,
-        reportedUserId: user.id,
-        reason: "offensive",
-        description: `AUTO-MODERATION: ${moderationDescriptionParts.join(" | ")}`,
-      });
+      await runCreateAutoModerate(
+        publication,
+        user,
+        textModeration,
+        restrictedContentModeration,
+        imageModeration,
+      );
 
       return {
         success: true,
@@ -581,17 +342,9 @@ export const createPublication = async (data) => {
       };
     }
 
-    // Sumar reputación al autor por crear publicación (best-effort)
-    void (async () => {
-      await supabase.rpc("increment_user_reputation", {
-        target_user_id: user.id,
-        reputation_delta: 5,
-      });
-    })();
-
     return { success: true, data: publication };
   } catch (err) {
-    console.error("Error en createPublication:", err);
+    debugPublications("createPublication:error", err);
     return { success: false, error: err.message };
   }
 };
@@ -609,29 +362,17 @@ export const createPublication = async (data) => {
  * @param {number} filters.maxDistance - Distancia máxima en km
  * @param {number} filters.latitude - Latitud del usuario (para distancia)
  * @param {number} filters.longitude - Longitud del usuario (para distancia)
- * @param {string} filters.sortBy - 'recent', 'validated', 'cheapest'
+ * @param {string} filters.sortBy - 'recent', 'validated', 'cheapest', 'best_match'
  * @param {number} filters.page - Número de página (default 1)
  * @param {number} filters.limit - Resultados por página (default 20)
  *
  * @returns {Promise} { success, data, count, hasMore, error }
- *
- * @example
- * const result = await getPublications({
- *   productName: 'aceite',
- *   maxPrice: 30000,
- *   maxDistance: 5,
- *   latitude: 4.7110,
- *   longitude: -74.0721,
- *   sortBy: 'cheapest',
- *   page: 1,
- *   limit: 20,
- * });
  */
 export const getPublications = async (filters = {}) => {
   const startedAt = Date.now();
   try {
     const runtimeStateAtStart = getRuntimeNetworkState();
-    console.info("[NØSEE:publications.api] getPublications:start", {
+    debugPublications("getPublications:start", {
       runtime: runtimeStateAtStart,
       hasDistanceFilter: filters?.maxDistance !== null && filters?.maxDistance !== undefined,
       hasCoords: hasCoordinates(filters?.latitude, filters?.longitude),
@@ -643,6 +384,7 @@ export const getPublications = async (filters = {}) => {
       productId = null,
       productName = "",
       storeName = "",
+      storeId: rawStoreId = null,
       minPrice = null,
       maxPrice = null,
       maxDistance = null,
@@ -651,9 +393,13 @@ export const getPublications = async (filters = {}) => {
       sortBy = "recent",
       page = 1,
       limit = 20,
-      categoryId = null,
+      categoryId: rawCategoryId = null,
+      brandId: rawBrandId = null,
     } = filters;
-     const offset = (page - 1) * limit;
+    const storeId = rawStoreId != null ? Number(rawStoreId) || null : null;
+    const categoryId = rawCategoryId != null ? Number(rawCategoryId) || null : null;
+    const brandId = rawBrandId != null ? Number(rawBrandId) || null : null;
+    const offset = (page - 1) * limit;
 
     const hasMinPrice = minPrice !== null && minPrice !== undefined && String(minPrice).trim() !== "";
     const hasMaxPrice = maxPrice !== null && maxPrice !== undefined && String(maxPrice).trim() !== "";
@@ -693,7 +439,7 @@ export const getPublications = async (filters = {}) => {
         p_query: normalizeSearchText(productName),
       });
       if (searchError) {
-        console.error("[NØSEE:publications.api] search_products RPC error:", searchError);
+        debugPublications("getPublications:search_products-error", searchError);
         return { success: false, error: searchError.message };
       }
       productIdFilter = (searchResults || []).map((r) => r.product_id);
@@ -722,6 +468,29 @@ export const getPublications = async (filters = {}) => {
         }
       } else {
         productIdFilter = categoryProductIds;
+      }
+    }
+
+    // Pre-filtro: IDs de productos de la marca seleccionada
+    if (brandId) {
+      const { data: brandProducts } = await supabase
+        .from("products")
+        .select("id")
+        .eq("brand_id", brandId);
+
+      const brandProductIds = (brandProducts || []).map((p) => p.id);
+
+      if (brandProductIds.length === 0) {
+        return { success: true, data: [], count: 0, hasMore: false };
+      }
+
+      if (productIdFilter !== null) {
+        productIdFilter = productIdFilter.filter((id) => brandProductIds.includes(id));
+        if (productIdFilter.length === 0) {
+          return { success: true, data: [], count: 0, hasMore: false };
+        }
+      } else {
+        productIdFilter = brandProductIds;
       }
     }
 
@@ -763,7 +532,7 @@ export const getPublications = async (filters = {}) => {
       }
     }
 
-     const publicationListSelect = [
+    const publicationListSelect = [
       "id",
       "price",
       "photo_url",
@@ -792,12 +561,10 @@ export const getPublications = async (filters = {}) => {
         )
         .eq("is_active", true);
 
-      // Filtro por producto (IDs pre-filtrados por nombre)
       if (productIdFilter !== null) {
         query = query.in("product_id", productIdFilter);
       }
 
-      // Filtro por rango de precio
       if (Number.isFinite(normalizedMinPrice)) {
         query = query.gte("price", normalizedMinPrice);
       }
@@ -805,17 +572,17 @@ export const getPublications = async (filters = {}) => {
         query = query.lte("price", normalizedMaxPrice);
       }
 
-      // Filtro por tienda (IDs pre-filtrados por nombre, sin filtro de distancia)
-      if (storeNameFilter !== null) {
-        query = query.in("store_id", storeNameFilter);
+      if (storeId) {
+        query = query.eq("store_id", storeId);
+      } else {
+        if (storeNameFilter !== null) {
+          query = query.in("store_id", storeNameFilter);
+        }
+        if (Array.isArray(nearbyStoreIds) && nearbyStoreIds.length > 0) {
+          query = query.in("store_id", nearbyStoreIds);
+        }
       }
 
-      // Filtro por tiendas cercanas (filtro de distancia)
-      if (Array.isArray(nearbyStoreIds) && nearbyStoreIds.length > 0) {
-        query = query.in("store_id", nearbyStoreIds);
-      }
-
-      // Ordenamiento
       switch (sortBy) {
         case "cheapest":
           query = query.order("price", { ascending: true });
@@ -844,7 +611,7 @@ export const getPublications = async (filters = {}) => {
       );
 
       if (storesError) {
-        console.error("Error obteniendo tiendas para filtrar distancia:", storesError);
+        debugPublications("getPublications:stores-distance-error", storesError);
         return { success: false, error: storesError.message };
       }
 
@@ -895,17 +662,18 @@ export const getPublications = async (filters = {}) => {
       };
     }
 
-     const nearbyStoreIdsForQuery = shouldApplyDistanceFilter ? nearbyStoreIds : null;
+    const nearbyStoreIdsForQuery = shouldApplyDistanceFilter ? nearbyStoreIds : null;
 
-    // ─── BEST_MATCH: delegate entirely to server-side RPC ─────────────────────
+    // ─── BEST_MATCH: delega al RPC server-side ─────────────────────────────
     if (sortBy === SORT_OPTIONS.BEST_MATCH) {
-      // p_store_ids: prefer distance-filtered store ids; fall back to name-filter ids
       const rpcStoreIds =
-        nearbyStoreIds.length > 0
-          ? nearbyStoreIds
-          : storeNameFilter !== null
-            ? storeNameFilter
-            : null;
+        storeId
+          ? [storeId]
+          : nearbyStoreIds.length > 0
+            ? nearbyStoreIds
+            : storeNameFilter !== null
+              ? storeNameFilter
+              : null;
 
       const { data: rpcData, error: rpcError } = await supabase.rpc(
         "search_publications_ranked",
@@ -921,7 +689,7 @@ export const getPublications = async (filters = {}) => {
       );
 
       if (rpcError) {
-        console.error("[NØSEE:publications.api] search_publications_ranked RPC error:", rpcError);
+        debugPublications("getPublications:search_publications_ranked-error", rpcError);
         return { success: false, error: rpcError.message };
       }
 
@@ -935,10 +703,10 @@ export const getPublications = async (filters = {}) => {
         hasMore: (rpcData || []).length === limit,
       };
     }
-    // ──────────────────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────────
 
     const adaptiveTimeoutMs = getAdaptiveRequestTimeout();
-    console.info("[NØSEE:publications.api] publications-query:attempt", {
+    debugPublications("getPublications:query-attempt", {
       attempt: 1,
       timeoutMs: adaptiveTimeoutMs,
       withCount: true,
@@ -953,12 +721,12 @@ export const getPublications = async (filters = {}) => {
 
     if (publicationsResult?.error && isTimeoutMessage(publicationsResult.error.message)) {
       const runtimeState = getRuntimeNetworkState();
-      console.warn("Timeout en getPublications (primer intento)", {
+      debugPublications("getPublications:timeout-retry", {
         runtimeState,
         timeoutMs: adaptiveTimeoutMs,
       });
 
-      console.info("[NØSEE:publications.api] publications-query:attempt", {
+      debugPublications("getPublications:query-attempt", {
         attempt: 2,
         timeoutMs: EXTENDED_RETRY_TIMEOUT_MS,
         withCount: false,
@@ -975,13 +743,13 @@ export const getPublications = async (filters = {}) => {
     const { data, error, count } = publicationsResult;
 
     if (error) {
-      console.error("Error obteniendo publicaciones:", error);
+      debugPublications("getPublications:query-error", error);
       return { success: false, error: error.message };
     }
 
     const hydrationStartedAt = Date.now();
     const publicationsWithRelations = await hydrateRelatedPublicationData(data || []);
-    console.info("[NØSEE:publications.api] publications-hydration:done", {
+    debugPublications("getPublications:hydration-done", {
       elapsedMs: Date.now() - hydrationStartedAt,
       rows: publicationsWithRelations.length,
     });
@@ -1021,15 +789,16 @@ export const getPublications = async (filters = {}) => {
         ),
       };
     });
+
     const hasSearchTerm =
       String(productName || "").trim().length > 0 ||
       String(storeName || "").trim().length > 0;
-    // BEST_MATCH returns early via RPC branch above; only RECENT+search uses client scoring
-    const shouldUseBestMatch =
-      sortBy === SORT_OPTIONS.RECENT && hasSearchTerm;
+
+    // BEST_MATCH retorna antes vía RPC; solo RECENT + búsqueda usa scoring client-side
+    const shouldUseBestMatch = sortBy === SORT_OPTIONS.RECENT && hasSearchTerm;
 
     const rankedPublications = shouldUseBestMatch
-      ? await enrichSearchRankingSignals(publicationsWithCoordinates, {
+      ? enrichSearchRankingSignals(publicationsWithCoordinates, {
           productName,
           storeName,
           sortBy,
@@ -1040,8 +809,7 @@ export const getPublications = async (filters = {}) => {
 
     const fullySortedPublications = enrichedPublications;
 
-    // Filtro de seguridad en cliente para evitar inconsistencias por tipos/queries.
-    // Garantiza que min/max price siempre se respeten antes de paginar.
+    // Filtro de seguridad en cliente para garantizar min/max price antes de paginar
     const priceGuardedPublications = fullySortedPublications.filter((publication) => {
       const numericPrice = Number(publication?.price);
       if (!Number.isFinite(numericPrice)) return false;
@@ -1068,9 +836,9 @@ export const getPublications = async (filters = {}) => {
     };
   } catch (err) {
     const runtimeState = getRuntimeNetworkState();
-    console.error("Contexto runtime en getPublications:", runtimeState);
+    debugPublications("getPublications:runtime-context", runtimeState);
     if (err?.code === "QUERY_TIMEOUT") {
-      console.error("Timeout en getPublications", {
+      debugPublications("getPublications:timeout", {
         operation: err.operation,
         timeoutMs: err.timeoutMs,
         supabaseHost: err.supabaseHost,
@@ -1081,12 +849,11 @@ export const getPublications = async (filters = {}) => {
         error: `Timeout en ${err.operation}. Revisa conectividad y configuración de Supabase (${err.supabaseHost}).`,
       };
     }
-    console.error("[NØSEE:publications.api] getPublications:failed", {
+    debugPublications("getPublications:failed", {
       elapsedMs: Date.now() - startedAt,
       runtime: runtimeState,
       message: err?.message,
     });
-    console.error("Error en getPublications:", err);
     return { success: false, error: err.message };
   }
 };
@@ -1097,11 +864,7 @@ export const getPublications = async (filters = {}) => {
  * Obtener todos los detalles de una publicación específica
  *
  * @param {number} publicationId - ID de la publicación
- *
  * @returns {Promise} { success, data, error }
- *
- * @example
- * const result = await getPublicationDetail(123);
  */
 export const getPublicationDetail = async (publicationId) => {
   try {
@@ -1132,7 +895,7 @@ export const getPublicationDetail = async (publicationId) => {
       .single();
 
     if (error) {
-      console.error("Error obteniendo detalles:", error);
+      debugPublications("getPublicationDetail:error", error);
       return { success: false, error: error.message };
     }
 
@@ -1144,9 +907,8 @@ export const getPublicationDetail = async (publicationId) => {
     }
 
     return { success: true, data: { ...data, comments } };
-
   } catch (err) {
-    console.error("Error en getPublicationDetail:", err);
+    debugPublications("getPublicationDetail:exception", err);
     return { success: false, error: err.message };
   }
 };
@@ -1156,12 +918,8 @@ export const getPublicationDetail = async (publicationId) => {
 /**
  * Registrar voto sobre una publicación (upvote/downvote)
  *
- * - vote_type = 1 (upvote) | -1 (downvote)
- * - Unicidad garantizada por constraint unique_vote_per_publication
- * - Reputación del autor gestionada por trigger trg_publication_votes_rep
- *
  * @param {number} publicationId - ID de la publicación
- * @param {number} voteType - 1 o -1
+ * @param {number} voteType - 1 (upvote) o -1 (downvote)
  * @returns {Promise} { success, data, error }
  */
 export const validatePublication = async (publicationId, voteType = 1) => {
@@ -1208,7 +966,7 @@ export const validatePublication = async (publicationId, voteType = 1) => {
         recordVoteDuplicateRejected();
         return { success: false, error: "Ya votaste esta publicación" };
       }
-      console.error("Error registrando voto:", error);
+      debugPublications("validatePublication:error", error);
       return { success: false, error: error.message };
     }
 
@@ -1217,7 +975,7 @@ export const validatePublication = async (publicationId, voteType = 1) => {
     return { success: true, data: vote };
   } catch (err) {
     recordVoteProcessingDuration(Date.now() - voteStart);
-    console.error("Error en validatePublication:", err);
+    debugPublications("validatePublication:exception", err);
     return { success: false, error: err.message };
   }
 };
@@ -1263,7 +1021,7 @@ export const unvotePublication = async (publicationId) => {
 
     return { success: true, data: deletedVote };
   } catch (err) {
-    console.error("Error en unvotePublication:", err);
+    debugPublications("unvotePublication:exception", err);
     return { success: false, error: err.message };
   }
 };
@@ -1271,55 +1029,28 @@ export const unvotePublication = async (publicationId) => {
 // ─── 5️⃣ REPORTAR PUBLICACIÓN ───────────────────────────────────────────────────
 
 /**
- * Reportar una publicación (abuso, precio falso, etc.)
- *
- * @param {number} publicationId - ID de la publicación
- * @param {object} payload - Objeto con detalles del reporte
- *   - reason: Razón del reporte (fake_price, wrong_photo, spam, offensive, other)
- *   - description: Descripción opcional del reporte
- *   - evidenceFile: Archivo de evidencia opcional
- *
- * @returns {Promise} { success, data, error, message }
- *
- * @example
- * const result = await reportPublication(123, {
- *   reason: 'fake_price',
- *   description: 'El precio es imposible',
- *   evidenceFile: fileObject
- * });
- */
-
-/**
  * Verificar si el usuario ya reportó una publicación
  *
  * @param {number} publicationId - ID de la publicación
  * @returns {Promise} { success, hasReported: boolean, existingReport: object|null }
- *
- * @example
- * const result = await checkUserReportStatus(123);
- * // { success: true, hasReported: true, existingReport: { id: '...', createdAt: '...' } }
  */
 export const checkUserReportStatus = async (publicationId) => {
-  const logPrefix = '[📋 CHECK-REPORT]';
-
   try {
-    console.log(`${logPrefix} Verificando si usuario ya reportó publicación #${publicationId}`);
+    debugPublications("checkUserReportStatus:start", { publicationId });
 
-    // Obtener usuario actual
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
-      console.log(`${logPrefix} Usuario no autenticado`);
+      debugPublications("checkUserReportStatus:unauthenticated");
       return {
         success: true,
         hasReported: false,
-        existingReport: null
+        existingReport: null,
       };
     }
 
-    // Buscar reporte existente
     const { data: existingReport, error } = await supabase
       .from("reports")
       .select("id, created_at, reason, description")
@@ -1328,55 +1059,48 @@ export const checkUserReportStatus = async (publicationId) => {
       .eq("reporter_user_id", user.id)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
-      console.error(`${logPrefix} Error buscando reporte:`, error.message);
+    if (error && error.code !== 'PGRST116') {
+      debugPublications("checkUserReportStatus:error", error.message);
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
 
     const hasReported = !!existingReport;
-    console.log(`${logPrefix} Resultado:`, {
+    debugPublications("checkUserReportStatus:result", {
       hasReported,
-      reportId: existingReport?.id
+      reportId: existingReport?.id,
     });
 
     return {
       success: true,
       hasReported,
-      existingReport: existingReport || null
+      existingReport: existingReport || null,
     };
-
   } catch (err) {
-    console.error(`${logPrefix} Error crítico:`, err.message);
+    debugPublications("checkUserReportStatus:exception", err.message);
     return {
       success: false,
-      error: err.message
+      error: err.message,
     };
   }
 };
 
-export const reportPublication = async (
-  publicationId,
-  payload,
-  _deprecatedDescription,
-) => {
-  const logPrefix = '[📋 REPORTE]';
-
+/**
+ * Reportar una publicación (abuso, precio falso, etc.)
+ *
+ * @param {number} publicationId - ID de la publicación
+ * @param {object} payload - Objeto con { reason, description, evidenceFile }
+ * @returns {Promise} { success, data, error, message }
+ */
+export const reportPublication = async (publicationId, payload) => {
   try {
-    console.log(`${logPrefix} Iniciando reporte de publicación #${publicationId}`);
-    console.log(`${logPrefix} Payload recibido:`, payload);
+    debugPublications("reportPublication:start", { publicationId });
 
-    // ─── VALIDACIONES ───────────────────────────────────────────────────
+    const reportData = payload;
 
-    // Manejar tanto payload object como parámetros antiguos
-    const isLegacyCall = typeof payload === 'string';
-    const reportData = isLegacyCall
-      ? { reason: payload, description: _deprecatedDescription }
-      : payload;
-
-    console.log(`${logPrefix} Datos del reporte:`, {
+    debugPublications("reportPublication:data", {
       reason: reportData.reason,
       hasDescription: !!reportData.description,
       hasEvidence: !!reportData.evidenceFile,
@@ -1384,47 +1108,39 @@ export const reportPublication = async (
 
     if (!publicationId || !reportData.reason) {
       const errorMsg = "Datos incompletos: falta publicationId o reason";
-      console.error(`${logPrefix} ❌ ${errorMsg}`);
+      debugPublications("reportPublication:validation-error", errorMsg);
       return {
         success: false,
         error: errorMsg,
-        message: "Por favor completa la razón del reporte"
+        message: "Por favor completa la razón del reporte",
       };
     }
 
-    const validReasons = ["fake_price", "wrong_photo", "spam", "offensive", "other"];
-    if (!validReasons.includes(reportData.reason)) {
+    if (!VALID_REPORT_REASONS.includes(reportData.reason)) {
       const errorMsg = `Razón de reporte inválida: ${reportData.reason}`;
-      console.error(`${logPrefix} ❌ ${errorMsg}`);
+      debugPublications("reportPublication:invalid-reason", errorMsg);
       return {
         success: false,
         error: errorMsg,
-        message: "Razón de reporte no válida"
+        message: "Razón de reporte no válida",
       };
     }
 
-    // ─── AUTENTICACIÓN ──────────────────────────────────────────────────
-
-    console.log(`${logPrefix} Verificando autenticación...`);
+    debugPublications("reportPublication:auth-check");
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
-      const errorMsg = "Usuario no autenticado";
-      console.error(`${logPrefix} ❌ ${errorMsg}`);
+      debugPublications("reportPublication:unauthenticated");
       return {
         success: false,
-        error: errorMsg,
-        message: "Debes iniciar sesión para reportar"
+        error: "Usuario no autenticado",
+        message: "Debes iniciar sesión para reportar",
       };
     }
 
-    console.log(`${logPrefix} ✓ Usuario autenticado: ${user.id}`);
-
-    // ─── VERIFICAR REPORTE DUPLICADO ────────────────────────────────────
-
-    console.log(`${logPrefix} Verificando si ya reportó esta publicación...`);
+    debugPublications("reportPublication:checking-duplicate", { userId: user.id });
     const { data: existingReport, error: checkError } = await supabase
       .from("reports")
       .select("id, created_at")
@@ -1434,50 +1150,45 @@ export const reportPublication = async (
       .maybeSingle();
 
     if (checkError && checkError.code !== 'PGRST116') {
-      console.error(`${logPrefix} ❌ Error verificando reporte:`, checkError.message);
+      debugPublications("reportPublication:check-error", checkError.message);
       return {
         success: false,
         error: checkError.message,
-        message: "Error verificando reportes anteriores"
+        message: "Error verificando reportes anteriores",
       };
     }
 
     if (existingReport) {
       const errorMsg = `Ya reportaste esta publicación el ${new Date(existingReport.created_at).toLocaleString()}`;
-      console.warn(`${logPrefix} ⚠️ ${errorMsg}`);
+      debugPublications("reportPublication:duplicate", errorMsg);
       return {
         success: false,
         error: "Duplicate report",
         message: errorMsg,
-        existingReport
+        existingReport,
       };
     }
 
-    console.log(`${logPrefix} ✓ Sin reportes previos de este usuario`);
-
-    // ─── SUBIR EVIDENCIA (si existe) ────────────────────────────────────
-
+    // Subir evidencia (si existe)
     let evidenceUrl = null;
     if (reportData.evidenceFile) {
       try {
-        console.log(`${logPrefix} Subiendo archivo de evidencia a Cloudinary...`);
+        debugPublications("reportPublication:uploading-evidence");
 
         const cloudinaryResult = await uploadImageToCloudinary(reportData.evidenceFile, {
-          folder: 'nosee/reports-evidence'
+          folder: 'nosee/reports-evidence',
         });
 
         if (cloudinaryResult.success) {
           evidenceUrl = cloudinaryResult.optimizedUrl || cloudinaryResult.url;
-          console.log(`${logPrefix} ✓ Evidencia subida: ${evidenceUrl}`);
+          debugPublications("reportPublication:evidence-uploaded", { url: evidenceUrl });
         } else {
-          console.warn(`${logPrefix} ⚠️ Error subiendo evidencia (continuando sin ella):`, cloudinaryResult.error);
+          debugPublications("reportPublication:evidence-upload-warning", cloudinaryResult.error);
         }
       } catch (fileErr) {
-        console.warn(`${logPrefix} ⚠️ Error procesando archivo (continuando):`, fileErr.message);
+        debugPublications("reportPublication:evidence-file-error", fileErr.message);
       }
     }
-
-    // ─── CREAR REPORTE EN BD ────────────────────────────────────────────
 
     const { data: publicationOwner } = await supabase
       .from("price_publications")
@@ -1485,7 +1196,7 @@ export const reportPublication = async (
       .eq("id", publicationId)
       .maybeSingle();
 
-    console.log(`${logPrefix} Creando reporte en base de datos...`);
+    debugPublications("reportPublication:inserting");
     const { data: report, error } = await supabase
       .from("reports")
       .insert({
@@ -1503,15 +1214,15 @@ export const reportPublication = async (
       .single();
 
     if (error) {
-      console.error(`${logPrefix} ❌ Error en BD:`, error);
+      debugPublications("reportPublication:db-error", error);
       return {
         success: false,
         error: error.message,
-        message: "Hubo un error al guardar el reporte"
+        message: "Hubo un error al guardar el reporte",
       };
     }
 
-    console.log(`${logPrefix} ✅ Reporte creado exitosamente:`, {
+    debugPublications("reportPublication:success", {
       id: report.id,
       publicationId: report.reported_id,
       reason: report.reason,
@@ -1522,11 +1233,10 @@ export const reportPublication = async (
     return {
       success: true,
       data: report,
-      message: "Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE."
+      message: "Reporte enviado correctamente. Gracias por ayudarnos a mejorar NØSEE.",
     };
-
   } catch (err) {
-    console.error(`${logPrefix} ❌ Error crítico:`, {
+    debugPublications("reportPublication:exception", {
       message: err.message,
       stack: err.stack,
       publicationId,
@@ -1534,7 +1244,7 @@ export const reportPublication = async (
     return {
       success: false,
       error: err.message,
-      message: "Error al procesar el reporte. Intenta de nuevo."
+      message: "Error al procesar el reporte. Intenta de nuevo.",
     };
   }
 };
@@ -1546,11 +1256,7 @@ export const reportPublication = async (
  *
  * @param {number} publicationId - ID de la publicación
  * @param {Object} updates - Campos a actualizar { price, description, photoUrl }
- *
  * @returns {Promise} { success, data, error }
- *
- * @example
- * const result = await updatePublication(123, { price: 16000, description: 'Actualizado' });
  */
 export const updatePublication = async (publicationId, updates) => {
   try {
@@ -1558,7 +1264,6 @@ export const updatePublication = async (publicationId, updates) => {
       return { success: false, error: "ID de publicación requerido" };
     }
 
-    // Obtener usuario actual
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -1566,7 +1271,6 @@ export const updatePublication = async (publicationId, updates) => {
       return { success: false, error: "Usuario no autenticado" };
     }
 
-    // Verificar que es el autor
     const { data: publication } = await supabase
       .from("price_publications")
       .select("user_id")
@@ -1577,7 +1281,6 @@ export const updatePublication = async (publicationId, updates) => {
       return { success: false, error: "No puedes editar esta publicación" };
     }
 
-    // Actualizar
     const { data, error } = await supabase
       .from("price_publications")
       .update(updates)
@@ -1586,13 +1289,13 @@ export const updatePublication = async (publicationId, updates) => {
       .single();
 
     if (error) {
-      console.error("Error actualizando publicación:", error);
+      debugPublications("updatePublication:error", error);
       return { success: false, error: error.message };
     }
 
     return { success: true, data };
   } catch (err) {
-    console.error("Error en updatePublication:", err);
+    debugPublications("updatePublication:exception", err);
     return { success: false, error: err.message };
   }
 };
@@ -1605,11 +1308,7 @@ export const updatePublication = async (publicationId, updates) => {
  * @param {number} publicationId - ID de la publicación
  * @param {Object} [options]
  * @param {boolean} [options.permanent=false] - Si true, elimina físicamente (solo admin)
- *
  * @returns {Promise} { success, error }
- *
- * @example
- * const result = await deletePublication(123);
  */
 export const deletePublication = async (publicationId, options = {}) => {
   try {
@@ -1657,53 +1356,22 @@ export const deletePublication = async (publicationId, options = {}) => {
         };
       }
 
-      const { error: votesDeleteError } = await supabase
-        .from("publication_votes")
-        .delete()
-        .eq("publication_id", publicationId);
+      const { error: hardDeleteError } = await supabase.rpc("hard_delete_publication", {
+        p_publication_id: publicationId,
+      });
 
-      if (votesDeleteError) {
-        console.error("Error eliminando votos de publicación:", votesDeleteError);
-        return { success: false, error: votesDeleteError.message };
-      }
-
-      const { error: reportsDeleteError } = await supabase
-        .from("reports")
-        .delete()
-        .eq("reported_type", "publication")
-        .eq("reported_id", String(publicationId));
-
-      if (reportsDeleteError) {
-        console.error("Error eliminando reportes de publicación:", reportsDeleteError);
-        return { success: false, error: reportsDeleteError.message };
-      }
-
-      const { error: commentsDeleteError } = await supabase
-        .from("comments")
-        .delete()
-        .eq("publication_id", publicationId);
-
-      if (commentsDeleteError) {
-        console.error("Error eliminando comentarios de publicación:", commentsDeleteError);
-        return { success: false, error: commentsDeleteError.message };
-      }
-
-      const { data: deletedRows, error: publicationDeleteError } = await supabase
-        .from("price_publications")
-        .delete()
-        .eq("id", publicationId)
-        .select("id");
-
-      if (publicationDeleteError) {
-        console.error("Error eliminando publicación permanentemente:", publicationDeleteError);
-        return { success: false, error: publicationDeleteError.message };
-      }
-
-      if (!Array.isArray(deletedRows) || deletedRows.length === 0) {
+      if (hardDeleteError) {
+        const rpcErrors = {
+          not_authenticated: "Usuario no autenticado",
+          publication_not_found: "La publicación no existe",
+          not_authorized: "Solo un administrador puede eliminar permanentemente una publicación",
+        };
+        const rpcKey = Object.keys(rpcErrors).find((key) =>
+          hardDeleteError.message?.includes(key),
+        );
         return {
           success: false,
-          error:
-            "No se pudo eliminar permanentemente la publicación en base de datos (posible restricción de permisos/RLS).",
+          error: rpcKey ? rpcErrors[rpcKey] : hardDeleteError.message,
         };
       }
 
@@ -1715,13 +1383,13 @@ export const deletePublication = async (publicationId, options = {}) => {
     });
 
     if (error) {
-      console.error("Error eliminando publicación:", error);
+      debugPublications("deletePublication:error", error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (err) {
-    console.error("Error en deletePublication:", err);
+    debugPublications("deletePublication:exception", err);
     return { success: false, error: err.message };
   }
 };
@@ -1730,6 +1398,7 @@ export const deletePublication = async (publicationId, options = {}) => {
 export {
   searchProductsAndBrands, searchProducts, findProductByBarcode, getProducts, getStores,
   searchStores, createProduct, updateProduct, createBrand, getProductCategories, getUnitTypes, searchBrands,
+  getBrands,
   getComments, addComment, deleteComment,
 };
 
@@ -1754,6 +1423,7 @@ export default {
   getProductCategories,
   getUnitTypes,
   searchBrands,
+  getBrands,
   createBrand,
   updateProduct,
   updatePublication,
