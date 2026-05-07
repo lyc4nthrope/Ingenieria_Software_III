@@ -1,40 +1,58 @@
 # Features
 
-Módulos organizados por **procesos de negocio** (no por layer como MVC).
+Módulos organizados por **procesos de negocio** (Screaming Architecture — no por layer como MVC).
 
 ## Estructura General
 
-Cada feature (auth, publications, orders, delivery) contiene:
+Cada feature contiene:
 
 ```
 features/
 └── feature-name/
-    ├── components/      # Componentes específicos del feature
-    ├── hooks/           # Custom hooks para el feature
-    ├── services/        # Lógica + llamadas a services/api/
-    ├── store/           # Estado global (Zustand, Context, etc.)
-    └── pages/           # Páginas/vistas del feature
+    ├── components/      # Componentes UI específicos del feature
+    ├── hooks/           # Custom hooks (datos + mutaciones)
+    ├── pages/           # Páginas/vistas del feature
+    ├── schemas/         # Validación de formularios (donde aplica)
+    └── store/           # Estado global Zustand (donde aplica)
 ```
 
 ## Features Actuales
 
-### 1. **auth/** - Gestión de Usuario y Autenticación
-- Registro, login, logout
-- Perfil de usuario
-- Recuperación de contraseña
+### 1. **auth/** — Autenticación y perfil de usuario
+- Login / registro / logout con Supabase Auth (PKCE)
+- Perfil de usuario, cambio de contraseña
+- Store: `authStore.js` (Zustand) con StrictMode guard y recovery mode
 
-### 2. **publications/** - Gestión de Publicaciones
-- (Por implementar)
+### 2. **publications/** — Publicaciones de precios
+- Listado con filtros, paginación infinita, distancia geográfica
+- Crear / editar / eliminar publicaciones (soft y hard delete)
+- Votos (upvote/downvote/unvote) con optimistic updates
+- Reportes con evidencia fotográfica
+- Hooks: `usePublications` (datos) + `usePublicationMutations` (mutaciones)
+- API: `publications.api.js` (CRUD) + `publications.ranking.js` + `publications.moderation.js`
 
-### 3. **orders/** - Gestión de Pedidos  
-- (Por implementar)
+### 3. **stores/** — Tiendas
+- Listado con búsqueda y mapa interactivo (bottom sheet)
+- Crear / editar tiendas con geolocalización
+- Hook: `useStoresList` con infinite scroll y deduplicación
 
-### 4. **delivery/** - Gestión de Entregas
-- (Por implementar)
+### 4. **shopping-list/** — Lista de compras
+- Agregar / quitar / limpiar productos de la lista
+- Persistencia local con `withAutosave` middleware (localStorage)
+
+### 5. **dashboard/** — Panel de administración
+- Gestión de usuarios, publicaciones y reportes
+- Acceso restringido a role_id = 3 (Admin)
+
+### 6. **chat/** — Asistente IA
+- Chat con contexto de productos y precios
+
+### 7. **orders/** — Órdenes
+- (En desarrollo)
 
 ## Ventajas de esta Estructura
 
-✅ **Escalabilidad**: Agregar nuevos features es trivial  
-✅ **Aislamiento**: Cada feature es independiente  
-✅ **Mantenibilidad**: Todo en un lugar facilita refactorización  
-✅ **Reusabilidad**: Si un feature se repite, es fácil de extraer
+- **Escalabilidad**: agregar un feature nuevo no toca los existentes
+- **Aislamiento**: cada feature es independiente — sus hooks, store y componentes viven juntos
+- **Mantenibilidad**: todo lo relacionado a un proceso de negocio está en un solo lugar
+- **Separación de responsabilidades**: hooks de datos separados de hooks de mutaciones

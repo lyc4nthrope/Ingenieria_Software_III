@@ -121,6 +121,7 @@ export default function StoreMapPicker({
   onAddressChange,
   error,
   readOnly = false,
+  disableDragging = false,
 }) {
   const { t } = useLanguage();
   const tMapRef = useRef(t.storeMap);
@@ -220,6 +221,7 @@ export default function StoreMapPicker({
 
         const map = L.map(mapContainerRef.current, {
           zoomControl: true,
+          dragging: !disableDragging,
         }).setView([initLat, initLon], DEFAULT_ZOOM);
 
         const initialTheme = getA11yTileTheme();

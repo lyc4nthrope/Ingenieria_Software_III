@@ -1,11 +1,10 @@
- /*usePublications.js
+/**
+ * usePublications.js
  *
  * Hook personalizado para gestionar publicaciones de precios
- * 
+ *
  * UBICACIÓN: src/features/publications/hooks/usePublications.js
- * FECHA: 26-02-2026
- * STATUS: Paso 2a de Proceso 2
- * 
+ *
  * FUNCIÓN:
  * - Carga publicaciones desde BD
  * - Aplica filtros
@@ -22,6 +21,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as publicationsApi from '@/services/api/publications.api';
 import { debugPublications } from '@/utils/debugLogger';
 import { recordApiLatency } from '@/services/metrics';
+import { usePublicationMutations } from './usePublicationMutations';
 
 const REQUEST_GUARD_TIMEOUT_MS = 32000;
 const TAB_REFETCH_DEBOUNCE_MS = 1500;
@@ -40,12 +40,12 @@ const getRuntimeState = () => {
   };
 };
 
-
 const areFiltersEqual = (a = {}, b = {}) => {
   const keys = [
     'productId',
     'productName',
     'storeName',
+    'storeId',
     'minPrice',
     'maxPrice',
     'maxDistance',
@@ -54,6 +54,7 @@ const areFiltersEqual = (a = {}, b = {}) => {
     'sortBy',
     'limit',
     'categoryId',
+    'brandId',
   ];
 
   return keys.every((key) => {
@@ -63,11 +64,9 @@ const areFiltersEqual = (a = {}, b = {}) => {
   });
 };
 
-
-
 /**
  * Custom hook para gestionar publicaciones de precios
- * 
+ *
  * @param {Object} initialFilters - Filtros iniciales
  * @param {string} initialFilters.productName - Nombre de producto
  * @param {string} initialFilters.storeName - Nombre de tienda
@@ -121,7 +120,9 @@ export const usePublications = (initialFilters = {}, options = {}) => {
     productId: null,
     productName: '',
     storeName: '',
+    storeId: null,
     categoryId: null,
+    brandId: null,
     minPrice: null,
     maxPrice: null,
     maxDistance: null,
@@ -168,7 +169,7 @@ export const usePublications = (initialFilters = {}, options = {}) => {
         return;
       }
 
-       const requestId = activeRequestIdRef.current + 1;
+      const requestId = activeRequestIdRef.current + 1;
       activeRequestIdRef.current = requestId;
       const startedAt = Date.now();
       let guardTimeoutId = null;
@@ -253,7 +254,6 @@ export const usePublications = (initialFilters = {}, options = {}) => {
           }
         }
       } catch (err) {
-        console.error('Error en fetchPublications:', err);
         debugPublications('fetch:exception', {
           requestId,
           currentPage,
@@ -355,7 +355,6 @@ export const usePublications = (initialFilters = {}, options = {}) => {
   
   useEffect(() => {
     if (!refetchOnTabActive) return;
-    
 
     const handleTabActive = () => {
       if (document.visibilityState === 'visible') {
@@ -404,6 +403,10 @@ export const usePublications = (initialFilters = {}, options = {}) => {
     };
   }, [fetchPublications]);
 
+  // ─── Mutaciones (delegadas a usePublicationMutations) ─────────────────────
+
+  const mutations = usePublicationMutations({ setPublications });
+
   // ─── Funciones públicas ────────────────────────────────────────────────────
 
   /**
@@ -432,11 +435,13 @@ export const usePublications = (initialFilters = {}, options = {}) => {
    * Limpiar todos los filtros
    */
   const clearFilters = useCallback(() => {
-     const resetFilters = {
+    const resetFilters = {
       productId: null,
       productName: '',
       storeName: '',
+      storeId: null,
       categoryId: null,
+      brandId: null,
       minPrice: null,
       maxPrice: null,
       maxDistance: null,
@@ -444,14 +449,14 @@ export const usePublications = (initialFilters = {}, options = {}) => {
       longitude: null,
       sortBy: 'recent',
       limit: 20,
-       };
+    };
 
     let didChange = false;
     setFilters((prev) => {
       didChange = !areFiltersEqual(prev, resetFilters);
       return didChange ? resetFilters : prev;
     });
-    
+
     if (didChange) {
       setPage(1);
     }
@@ -489,154 +494,6 @@ export const usePublications = (initialFilters = {}, options = {}) => {
     );
   }, []);
 
-  /**
-   * Validar (upvote) una publicación
-   */
-  const validatePublication = useCallback(async (publicationId) => {
-    let prevState = null;
-    setPublications((prev) => {
-      const pub = prev.find((p) => p.id === publicationId);
-      if (pub) prevState = { validated_count: pub.validated_count, user_vote: pub.user_vote };
-      return prev.map((p) =>
-        p.id === publicationId
-          ? { ...p, validated_count: (p.validated_count || 0) + 1, user_vote: 1 }
-          : p
-      );
-    });
-
-    try {
-      const result = await publicationsApi.validatePublication(publicationId);
-      if (!result.success && prevState !== null) {
-        setPublications((prev) =>
-          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
-        );
-      }
-      return result;
-    } catch (err) {
-      if (prevState !== null) {
-        setPublications((prev) =>
-          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
-        );
-      }
-      console.error('Error validando publicación:', err);
-      return { success: false, error: err.message };
-    }
-  }, []);
-
-  /**
-   * Quitar validación (unvote) de una publicación
-   */
-  const unvotePublication = useCallback(async (publicationId) => {
-    let prevState = null;
-    setPublications((prev) => {
-      const pub = prev.find((p) => p.id === publicationId);
-      if (pub) prevState = { validated_count: pub.validated_count, downvoted_count: pub.downvoted_count, user_vote: pub.user_vote };
-      return prev.map((p) => {
-        if (p.id !== publicationId) return p;
-        return {
-          ...p,
-          validated_count: p.user_vote === 1 ? Math.max((p.validated_count || 1) - 1, 0) : p.validated_count,
-          downvoted_count: p.user_vote === -1 ? Math.max((p.downvoted_count || 1) - 1, 0) : p.downvoted_count,
-          user_vote: null,
-        };
-      });
-    });
-
-    try {
-      const result = await publicationsApi.unvotePublication(publicationId);
-      if (!result.success && prevState !== null) {
-        setPublications((prev) =>
-          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
-        );
-      }
-      return result;
-    } catch (err) {
-      if (prevState !== null) {
-        setPublications((prev) =>
-          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
-        );
-      }
-      console.error('Error quitando voto de publicación:', err);
-      return { success: false, error: err.message };
-    }
-  }, []);
-
-  /**
-   * Downvote una publicación
-   */
-  const downvotePublication = useCallback(async (publicationId) => {
-    let prevState = null;
-    setPublications((prev) => {
-      const pub = prev.find((p) => p.id === publicationId);
-      if (pub) prevState = { downvoted_count: pub.downvoted_count, user_vote: pub.user_vote };
-      return prev.map((p) =>
-        p.id === publicationId
-          ? { ...p, downvoted_count: (p.downvoted_count || 0) + 1, user_vote: -1 }
-          : p
-      );
-    });
-
-    try {
-      const result = await publicationsApi.downvotePublication(publicationId);
-      if (!result.success && prevState !== null) {
-        setPublications((prev) =>
-          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
-        );
-      }
-      return result;
-    } catch (err) {
-      if (prevState !== null) {
-        setPublications((prev) =>
-          prev.map((p) => (p.id === publicationId ? { ...p, ...prevState } : p))
-        );
-      }
-      console.error('Error downvoteando publicación:', err);
-      return { success: false, error: err.message };
-    }
-  }, []);
-
-  /**
-   * Reportar una publicación
-   * 
-   * @param {number} publicationId - ID de la publicación
-   * @param {object} reportPayload - Objeto con detalles del reporte
-   *   - reason: Razón del reporte
-   *   - description: Descripción opcional
-   *   - evidenceFile: Archivo de evidencia opcional
-   */
-  const reportPublication = useCallback(
-    async (publicationId, reportPayload) => {
-      try {
-        const result = await publicationsApi.reportPublication(
-          publicationId,
-          reportPayload
-        );
-
-        if (result.success) {
-          // Actualizar contador en la lista
-          setPublications((prev) =>
-            prev.map((pub) =>
-              pub.id === publicationId
-                ? { ...pub, reported_count: (pub.reported_count || 0) + 1 }
-                : pub
-            )
-          );
-          return result;
-        } else {
-          return result;
-        }
-      } catch (err) {
-        console.error('Error reportando publicación:', err);
-        return { 
-          success: false, 
-          error: err.message,
-          message: "Error al reportar la publicación"
-        };
-      }
-    },
-    []
-  );
-
   // ─── Return ────────────────────────────────────────────────────────────────
 
   return {
@@ -660,10 +517,9 @@ export const usePublications = (initialFilters = {}, options = {}) => {
     refetch,
     addPublication,
     removePublication,
-    validatePublication,
-    downvotePublication,
-    unvotePublication,
-    reportPublication,
+
+    // Mutations (backward compat — delegadas a usePublicationMutations)
+    ...mutations,
   };
 };
 

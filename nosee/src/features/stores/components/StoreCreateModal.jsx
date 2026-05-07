@@ -168,6 +168,7 @@ export default function StoreCreateModal({ initialName = '', onSuccess, onClose 
                 onLocationChange={setLocation}
                 onAddressChange={(v) => updateField('address', v)}
                 error={errors.location}
+                disableDragging={isMobile}
               />
             </div>
           )}

@@ -497,12 +497,8 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
     );
   };
 
-  const hasExactStoreMatch = storeResults.some(
-    (s) => s.name.toLowerCase() === storeQuery.trim().toLowerCase(),
-  );
-
   const storeDropdownItemsFinal = [
-    ...(!hasExactStoreMatch && storeQuery.trim().length >= 2 ? [{ __isCreate: true }] : []),
+    ...(storeQuery.trim().length >= 2 ? [{ __isCreate: true }] : []),
     ...storeResults,
   ];
 
@@ -856,8 +852,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
 
                 {/* Crear tienda — abre modal (siempre primero) */}
                 {!storeSearching &&
-                  storeQuery.trim().length >= 2 &&
-                  !hasExactStoreMatch && (
+                  storeQuery.trim().length >= 2 && (
                     <div
                       id="pub-store-option-0"
                       role="option"
@@ -866,6 +861,11 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
                         ...styles.dropdownItem,
                         ...styles.dropdownCreate,
                         ...(0 === activeStoreIndex ? styles.dropdownItemActive : {}),
+                      }}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        setShowStoreDropdown(false);
+                        setShowStoreModal(true);
                       }}
                       onMouseDown={() => {
                         setShowStoreDropdown(false);
@@ -878,7 +878,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
 
                 {!storeSearching &&
                   storeResults.map((s, i) => {
-                    const optionIndex = !hasExactStoreMatch && storeQuery.trim().length >= 2 ? i + 1 : i;
+                    const optionIndex = storeQuery.trim().length >= 2 ? i + 1 : i;
                     return (
                       <div
                         key={s.id}
@@ -935,8 +935,7 @@ export function PublicationForm({ mode = "create", publicationId = null, onSucce
 
                 {!storeSearching &&
                   storeResults.length === 0 &&
-                  storeQuery.trim().length >= 2 &&
-                  hasExactStoreMatch === false && (
+                  storeQuery.trim().length >= 2 && (
                     <div style={styles.dropdownState}>{tf.noResults}</div>
                   )}
               </div>
