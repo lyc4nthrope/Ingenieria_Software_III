@@ -413,25 +413,30 @@ export default function StoreDetailModal({ store, onClose, onStoreUpdated }) {
     if (!isPhysical) return;
     setSavingStore(true);
     setSaveMessage('');
-    const parsedLat = Number(editLatitude);
-    const parsedLon = Number(editLongitude);
-    const payload = {
-      address: editAddress,
-      latitude: Number.isFinite(parsedLat) ? parsedLat : undefined,
-      longitude: Number.isFinite(parsedLon) ? parsedLon : undefined,
-    };
-    const result = await updateStore(localStore.id, payload);
-    setSavingStore(false);
-    if (!result.success) { setSaveMessage(result.error || ts.errorUpdate); return; }
-    const updatedStore = { ...localStore, ...result.data, address: result.data.address ?? localStore.address, latitude: result.data.latitude, longitude: result.data.longitude };
-    setLocalStore((prev) => ({ ...prev, ...result.data, address: result.data.address ?? prev.address, latitude: result.data.latitude, longitude: result.data.longitude }));
-    if (typeof onStoreUpdated === 'function') onStoreUpdated(updatedStore);
-    if (typeof window !== 'undefined') {
-      const detail = { storeId: updatedStore.id, updatedStore, updatedAt: Date.now() };
-      window.dispatchEvent(new CustomEvent('nosee:store-updated', { detail }));
-      try { window.localStorage.setItem('NOSEE_STORE_UPDATED_AT', String(detail.updatedAt)); } catch {}
+    try {
+      const parsedLat = Number(editLatitude);
+      const parsedLon = Number(editLongitude);
+      const payload = {
+        address: editAddress,
+        latitude: Number.isFinite(parsedLat) ? parsedLat : undefined,
+        longitude: Number.isFinite(parsedLon) ? parsedLon : undefined,
+      };
+      const result = await updateStore(localStore.id, payload);
+      if (!result.success) { setSaveMessage(result.error || ts.errorUpdate); return; }
+      const updatedStore = { ...localStore, ...result.data, address: result.data.address ?? localStore.address, latitude: result.data.latitude, longitude: result.data.longitude };
+      setLocalStore((prev) => ({ ...prev, ...result.data, address: result.data.address ?? prev.address, latitude: result.data.latitude, longitude: result.data.longitude }));
+      if (typeof onStoreUpdated === 'function') onStoreUpdated(updatedStore);
+      if (typeof window !== 'undefined') {
+        const detail = { storeId: updatedStore.id, updatedStore, updatedAt: Date.now() };
+        window.dispatchEvent(new CustomEvent('nosee:store-updated', { detail }));
+        try { window.localStorage.setItem('NOSEE_STORE_UPDATED_AT', String(detail.updatedAt)); } catch {}
+      }
+      setSaveMessage(ts.successUpdate);
+    } catch (err) {
+      setSaveMessage(ts.errorUpdate);
+    } finally {
+      setSavingStore(false);
     }
-    setSaveMessage(ts.successUpdate);
   };
 
   useEffect(() => {
