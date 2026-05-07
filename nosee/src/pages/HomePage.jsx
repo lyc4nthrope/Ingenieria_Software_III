@@ -9,6 +9,7 @@ import {
 
 import { useGeoLocation, usePublications } from "@/features/publications/hooks";
 import * as publicationsApi from "@/services/api/publications.api";
+import { usePublicationsStore } from "@/features/publications/store/publicationsStore";
 import PublicationCard from "@/features/publications/components/PublicationCard";
 import PriceSearchFilter from "@/features/publications/components/PriceSearchFilter";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -116,7 +117,8 @@ export default function HomePage() {
   const [feedback, setFeedback] = useState(null);
   const [error, setError] = useState(null);
   const [geolocationLoading, setGeolocationLoading] = useState(false);
-  const [categories, setCategories] = useState([]);
+  const categories = usePublicationsStore((s) => s.categories);
+  const loadCategories = usePublicationsStore((s) => s.loadCategories);
 
   // ── 4.3: cachedLocationRef for on-demand geolocation ─────────────────────
   const cachedLocationRef = useRef(null);
@@ -129,32 +131,7 @@ export default function HomePage() {
   const seenIdsRef = useRef(new Set());
 
   // ── Load categories ───────────────────────────────────────────────────────
-  useEffect(() => {
-    let active = true;
-
-    const loadCategories = async () => {
-      const firstAttempt = await publicationsApi.getProductCategories();
-
-      if (firstAttempt.success) {
-        if (active) setCategories(firstAttempt.data || []);
-        return;
-      }
-
-      // Reintento corto para fallos transitorios en móvil (token/red al volver al tab).
-      const secondAttempt = await publicationsApi.getProductCategories();
-      if (secondAttempt.success) {
-        if (active) setCategories(secondAttempt.data || []);
-        return;
-      }
-
-      console.error("No se pudieron cargar categorías:", secondAttempt.error || firstAttempt.error);
-    };
-
-    loadCategories();
-    return () => {
-      active = false;
-    };
-  }, []);
+  useEffect(() => { loadCategories(); }, [loadCategories]);
 
   // ── Initialize filters with geolocation on first render ──────────────────
   useEffect(() => {
@@ -757,7 +734,7 @@ export default function HomePage() {
           right: '32px',
           zIndex: 50,
           background: 'linear-gradient(135deg, var(--accent, #3bbffa), var(--primary-container, #22b1ec))',
-          color: '#002b3d',
+          color: 'var(--on-primary-container, #002b3d)',
           display: 'flex',
           alignItems: 'center',
           gap: '12px',

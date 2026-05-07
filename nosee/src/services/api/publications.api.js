@@ -749,7 +749,8 @@ export const getPublications = async (filters = {}) => {
         const { data: broadStores } = await supabase
           .from("stores")
           .select("id, name")
-          .limit(1500);
+          .ilike("name", `%${normalizedStoreSearchTerm}%`)
+          .limit(50);
 
         storeNameFilter = (broadStores || [])
           .filter((store) =>

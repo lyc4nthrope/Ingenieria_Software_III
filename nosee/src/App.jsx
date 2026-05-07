@@ -10,7 +10,7 @@ import {
   selectAuthUser,
   selectIsAuthenticated,
 } from "@/features/auth/store/authStore";
-import ChatWidget from "@/features/chat/components/ChatWidget";
+const ChatWidget = lazy(() => import("@/features/chat/components/ChatWidget"));
 import { useShoppingListStore } from "@/features/shopping-list/store/shoppingListStore";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -450,7 +450,11 @@ function AppShell() {
       <Footer />
       <AccessibilityMenu />
       <RoleChangeToast />
-      <ChatWidget userId={user?.id} isAuthenticated={isAuthenticated} />
+      {isAuthenticated && (
+        <Suspense fallback={null}>
+          <ChatWidget userId={user?.id} isAuthenticated={isAuthenticated} />
+        </Suspense>
+      )}
     </div>
   );
 }
