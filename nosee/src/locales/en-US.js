@@ -1216,85 +1216,6 @@ const enUS = {
         noCategories: "No categories",
         productsLabel: "products",
       },
-    },
-
-      brandDetailModal: {
-        idLabel: (id) => `ID: ${id}`,
-        nameLabel: "Brand name",
-        namePlaceholder: "Brand name",
-        nameRequired: "Name is required.",
-        savedOk: "✓ Saved successfully",
-        closeBtn: "Close",
-
-        emptyOrders: "No orders",
-        noSearchResults: "No results for that search",
-        prevPage: "← Previous",
-        nextPage: "Next →",
-        pageLabel: (n) => `Page ${n}`,
-        statusLabels: {
-          pendiente_pago: "Pending payment",
-          pendiente_repartidor: "Pending delivery person",
-          aceptado: "Accepted",
-          pendiente_compromiso: "Pending commitment",
-          comprando: "Shopping",
-          en_camino: "On the way",
-          llegando: "Arriving",
-          comprobante_subido: "Receipt uploaded",
-          entregado: "Delivered",
-          cancelado: "Cancelled",
-          cancelado_no_pago: "Cancelled (no payment)",
-      },
-
-        srcLabelActivity: "Activity",
-
-        srcLabelAdmin: "Admin",
-
-        filterUserPlaceholder: "Search user...",
-
-        filterCategoryAll: "All actions",
-
-        filterCategorySession: "Session",
-
-        filterCategoryCreate: "Creation",
-
-        filterCategoryEdit: "Editing",
-
-        filterCategoryDelete: "Deletion/Report",
-
-        filterCategoryModerate: "Moderation",
-
-        filterCategorySecurity: "Security",
-
-        filterSourceAll: "All sources",
-
-        filterSourceSession: "Sessions only",
-
-        filterSourceActivity: "Activity only",
-
-        filterSourceAdmin: "Admin/mod only",
-
-        filterDateFrom: "From",
-
-        filterDateTo: "To",
-
-        recordsCount: (n, total) => `${n} / ${total} records`,
-
-
-        sourceSession: "Session:",
-
-        sourceActivity: "Activity:",
-
-        sourceAdmin: "Admin/Mod:",
-
-        liveIndicator: "Live",
-
-        sourceLabelSession: "Session",
-
-        sourceLabelActivity: "Activity",
-
-        sourceLabelAdmin: "Admin",
-      },
-
       storeDetailModal: {
         idLabel: (id) => `ID: ${id}`,
         nameLabel: "Name",
@@ -1354,6 +1275,8 @@ const enUS = {
         idSelected: (id) => `✓ ID: ${id}`,
         closeAria: "Close",
       },
+    },
+
     // ── Moderator Dashboard ───────────────────────────────────────────────────
     moderatorDashboard: {
       navReports: "Reports",

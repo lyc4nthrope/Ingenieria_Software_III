@@ -1216,79 +1216,6 @@ const esMX = {
         noCategories: "Sin categorías",
         productsLabel: "productos",
       },
-    },
-
-      brandDetailModal: {
-
-        emptyOrders: "No hay pedidos",
-        noSearchResults: "Sin resultados para esa búsqueda",
-        prevPage: "← Anterior",
-        nextPage: "Siguiente →",
-        pageLabel: (n) => `Página ${n}`,
-        statusLabels: {
-          pendiente_pago: "Pendiente pago",
-          pendiente_repartidor: "Pendiente repartidor",
-          aceptado: "Aceptado",
-          pendiente_compromiso: "Pendiente compromiso",
-          comprando: "Comprando",
-          en_camino: "En camino",
-          llegando: "Llegando",
-          comprobante_subido: "Comprobante subido",
-          entregado: "Entregado",
-          cancelado: "Cancelado",
-          cancelado_no_pago: "Cancelado (no pago)",
-      },
-
-        srcLabelActivity: "Actividad",
-
-        srcLabelAdmin: "Admin",
-
-        filterUserPlaceholder: "Buscar usuario...",
-
-        filterCategoryAll: "Todas las acciones",
-
-        filterCategorySession: "Sesión",
-
-        filterCategoryCreate: "Creación",
-
-        filterCategoryEdit: "Edición",
-
-        filterCategoryDelete: "Eliminación/Reporte",
-
-        filterCategoryModerate: "Moderación",
-
-        filterCategorySecurity: "Seguridad",
-
-        filterSourceAll: "Todas las fuentes",
-
-        filterSourceSession: "Solo sesiones",
-
-        filterSourceActivity: "Solo actividad",
-
-        filterSourceAdmin: "Solo admin/mod",
-
-        filterDateFrom: "Desde",
-
-        filterDateTo: "Hasta",
-
-        recordsCount: (n, total) => `${n} / ${total} registros`,
-
-
-        sourceSession: "Sesión:",
-
-        sourceActivity: "Actividad:",
-
-        sourceAdmin: "Admin/Mod:",
-
-        liveIndicator: "En vivo",
-
-        sourceLabelSession: "Sesión",
-
-        sourceLabelActivity: "Actividad",
-
-        sourceLabelAdmin: "Admin",
-      },
-
       storeDetailModal: {
         idLabel: (id) => `ID: ${id}`,
         nameLabel: "Nombre",
@@ -1354,6 +1281,8 @@ const esMX = {
         idSelected: (id) => `✓ ID: ${id}`,
         closeAria: "Cerrar",
       },
+    },
+
     // ── Dashboard Moderador ───────────────────────────────────────────────────
     moderatorDashboard: {
       navReports: "Reportes",
