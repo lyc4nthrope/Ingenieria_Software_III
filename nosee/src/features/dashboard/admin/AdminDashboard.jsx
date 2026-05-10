@@ -124,7 +124,7 @@ export default function AdminDashboard() {
       <main aria-label="Panel de administración" style={s.main} className="admin-main">
 
         {activeSection === 'overview' && (
-          <AdminPanelSection title={td.overviewTitle} sub={td.overviewSub} PanelComponent={OverviewPanel} />
+          <AdminPanelSection title={td.overviewTitle} sub={td.overviewSub}><OverviewPanel /></AdminPanelSection>
         )}
 
         {activeSection === 'users' && (
@@ -200,7 +200,7 @@ export default function AdminDashboard() {
         )}
 
         {activeSection === 'orders' && (
-          <AdminPanelSection title="Pedidos" sub="Gestión de pedidos y pagos" PanelComponent={OrdersPanel} />
+          <AdminPanelSection title="Pedidos" sub="Gestión de pedidos y pagos"><OrdersPanel /></AdminPanelSection>
         )}
 
         {activeSection === 'reports' && (
@@ -223,7 +223,7 @@ export default function AdminDashboard() {
         )}
 
         {activeSection === 'config' && (
-          <AdminPanelSection title={td.configTitle} sub={td.configSub} PanelComponent={SettingsPanel} />
+          <AdminPanelSection title={td.configTitle} sub={td.configSub}><SettingsPanel /></AdminPanelSection>
         )}
 
         {activeSection === 'logs' && (
