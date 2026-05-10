@@ -144,6 +144,9 @@ COMMENT ON FUNCTION public.delete_own_report(UUID) IS
 -- Retorna: id, full_name, avatar_url, reputation_points, role_name
 -- Solo usuarios activos, ordenados por reputación descendente.
 
+-- Se hace DROP primero porque esta funcion ya existe con OUT parameters diferentes
+-- y PostgreSQL no permite cambiar el tipo de retorno usando solo CREATE OR REPLACE.
+DROP FUNCTION IF EXISTS public.get_public_user_ranking(INT) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_public_user_ranking(
   p_limit INT DEFAULT 10
 )
