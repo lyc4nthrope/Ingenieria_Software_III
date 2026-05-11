@@ -66,7 +66,7 @@ export function ErrorBar({ msg, onRetry }) {
       padding: '12px 16px',
       borderRadius: 'var(--radius-md, 8px)',
       background: 'var(--error-soft)',
-      border: '1px solid rgba(248,113,113,0.25)',
+      border: '1px solid var(--error)',
       color: 'var(--error)',
       fontSize: 13,
       marginBottom: 20,
