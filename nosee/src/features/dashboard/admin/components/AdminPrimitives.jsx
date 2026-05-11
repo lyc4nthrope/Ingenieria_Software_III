@@ -1,6 +1,7 @@
 import { Spinner } from '@/components/ui/Spinner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { s, MUTED } from '../adminStyles';
+import { Icon } from '@/components/ui/Icon';
 
 export function DetailRow({ label, value }) {
   const isUrl = typeof value === 'string' && value.startsWith('http');
@@ -70,7 +71,7 @@ export function ErrorBar({ msg, onRetry }) {
       fontSize: 13,
       marginBottom: 20,
     }}>
-      <span aria-hidden="true">⚠️</span> {msg}
+      <Icon name="AlertTriangle" size={16} /> {msg}
       <button onClick={onRetry} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', textDecoration: 'underline', marginLeft: 12, fontWeight: 600 }}>
         {td.retry}
       </button>

@@ -3,6 +3,7 @@ import { getAdminOverviewMetrics } from '@/services/api/adminMetrics.api';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { s } from '../adminStyles';
 import { KpiCard } from './KpiCard';
+import { Icon } from '@/components/ui/Icon';
 
 const KPI_SECTIONS = [
   {
@@ -10,40 +11,40 @@ const KPI_SECTIONS = [
     labelKey: 'titleUsers',
     accent: 'var(--accent)',
     items: [
-      { key: 'totalUsers', icon: '👥', labelKey: 'totalUsers' },
-      { key: 'totalActiveUsers', icon: '✓', labelKey: 'activeUsers' },
-      { key: 'loginsLast24h', icon: '🔑', labelKey: 'logins24h' },
+      { key: 'totalUsers', icon: 'Users', labelKey: 'totalUsers' },
+      { key: 'totalActiveUsers', icon: 'Check', labelKey: 'activeUsers' },
+      { key: 'loginsLast24h', icon: 'Key', labelKey: 'logins24h' },
     ],
   },
   {
     key: 'content',
     labelKey: 'titleContent',
-    accent: '#0891b2',
+    accent: 'var(--info)',
     items: [
-      { key: 'totalPublications', icon: '📄', labelKey: 'totalPublications' },
-      { key: 'activePublications', icon: '📋', labelKey: 'activePublications' },
-      { key: 'publicationsToday', icon: '📝', labelKey: 'publicationsToday' },
-      { key: 'validationsToday', icon: '✓', labelKey: 'validationsToday' },
+      { key: 'totalPublications', icon: 'FileText', labelKey: 'totalPublications' },
+      { key: 'activePublications', icon: 'ClipboardList', labelKey: 'activePublications' },
+      { key: 'publicationsToday', icon: 'PenSquare', labelKey: 'publicationsToday' },
+      { key: 'validationsToday', icon: 'Check', labelKey: 'validationsToday' },
     ],
   },
   {
     key: 'commerce',
     labelKey: 'titleCommerce',
-    accent: '#7c3aed',
+    accent: 'var(--accent)',
     items: [
-      { key: 'totalOrders', icon: '📦', labelKey: 'totalOrders' },
-      { key: 'activeOrders', icon: '🛒', labelKey: 'activeOrders' },
+      { key: 'totalOrders', icon: 'Package', labelKey: 'totalOrders' },
+      { key: 'activeOrders', icon: 'ShoppingCart', labelKey: 'activeOrders' },
     ],
   },
   {
     key: 'platform',
     labelKey: 'titlePlatform',
-    accent: '#059669',
+    accent: 'var(--success)',
     items: [
-      { key: 'activeStores', icon: '🏪', labelKey: 'activeStores' },
-      { key: 'activeProducts', icon: '🏷️', labelKey: 'activeProducts' },
-      { key: 'activeDealers', icon: '🛵', labelKey: 'activeDealers' },
-      { key: 'pendingDealerApplications', icon: '📋', labelKey: 'pendingDealerApps' },
+      { key: 'activeStores', icon: 'Store', labelKey: 'activeStores' },
+      { key: 'activeProducts', icon: 'Tag', labelKey: 'activeProducts' },
+      { key: 'activeDealers', icon: 'Bike', labelKey: 'activeDealers' },
+      { key: 'pendingDealerApplications', icon: 'ClipboardList', labelKey: 'pendingDealerApps' },
     ],
   },
 ];
@@ -146,7 +147,7 @@ export default function OverviewPanel() {
           role="alert"
           aria-label={`${kpiT.pendingReports || 'Pending reports'}: ${pendingReports}`}
         >
-          <div style={s.kpiAlertIcon}>⚠</div>
+          <div style={s.kpiAlertIcon}><Icon name="AlertTriangle" size={20} /></div>
           <div>
             <div style={s.kpiAlertValue}>{pendingReports}</div>
             <div style={s.kpiAlertLabel}>

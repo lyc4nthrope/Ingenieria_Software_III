@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from '@/components/ui/Icon';
 import { reviewApplication } from '@/services/api/dealerApplications.api';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useClientDateOnlyFormat } from '../adminUtils';
@@ -36,9 +37,9 @@ function ApplicationRow({ app, processing, onApprove, onOpenReject, td }) {
         <div>
           <p style={rowStyles.name}>{app.full_name}</p>
           <p style={rowStyles.phone}>
-            📞 {app.phone}
+            <Icon name="Phone" size={16} /> {app.phone}
             {app.applicant?.reputation_points > 0 && (
-              <span style={{ marginLeft: '12px' }}>⭐ {app.applicant.reputation_points} pts</span>
+              <span style={{ marginLeft: '12px' }}><Icon name="Star" size={16} /> {app.applicant.reputation_points} pts</span>
             )}
           </p>
         </div>

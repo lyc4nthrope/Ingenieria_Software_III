@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { s, MUTED, TEXT } from '../adminStyles';
+import { Icon } from '@/components/ui/Icon';
 
 export const KpiCard = React.memo(({ icon, label, value, accentBg, accentColor }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -34,7 +35,7 @@ export const KpiCard = React.memo(({ icon, label, value, accentBg, accentColor }
       aria-label={`${label}: ${displayValue}`}
     >
       <div style={iconStyle} aria-hidden="true">
-        {icon}
+        <Icon name={icon} />
       </div>
       <div style={valueStyle}>{displayValue}</div>
       <div style={s.statLabel}>{label}</div>

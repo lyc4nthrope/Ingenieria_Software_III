@@ -1,4 +1,5 @@
 import { s } from '../adminStyles';
+import { Icon } from '@/components/ui/Icon';
 
 export default function AdminSidebar({ navSections, activeSection, setActiveSection }) {
   return (
@@ -10,7 +11,7 @@ export default function AdminSidebar({ navSections, activeSection, setActiveSect
             style={{ ...s.navItem, ...(activeSection === item.key ? s.navActive : {}) }}
             onClick={() => setActiveSection(item.key)}
           >
-            <span aria-hidden="true" style={s.navIcon}>{item.icon}</span>
+            <Icon name={item.icon} />
             <span className="admin-nav-label">{item.label}</span>
             {item.badge > 0 && <span style={s.navBadge}>{item.badge}</span>}
           </button>

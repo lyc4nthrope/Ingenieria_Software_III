@@ -1,5 +1,6 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { s, MUTED } from '../adminStyles';
+import { Icon } from '@/components/ui/Icon';
 import { EmptyMsg, StatusBadge } from '../components/AdminPrimitives';
 
 export function PublicationsTable({
@@ -96,7 +97,7 @@ export function PublicationsTable({
               disabled={deletingId === p.id}
               title={td.colAction}
             >
-              {deletingId === p.id ? '...' : '🗑'}
+              {deletingId === p.id ? '...' : <Icon name="Trash2" size={16} />}
             </button>
           </div>
         </div>

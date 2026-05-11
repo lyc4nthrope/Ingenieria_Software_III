@@ -106,15 +106,15 @@ export default function AdminDashboard() {
 
   const reportsBadge = reports.filter(r => ['PENDING', 'IN_REVIEW'].includes(String(r.status).toUpperCase())).length || null;
   const navSections = [
-    { key: 'overview', icon: '▦', label: td.navOverview },
-    { key: 'users',    icon: '◉', label: td.navUsers },
-    { key: 'content',  icon: '◈', label: td.navContent },
-    { key: 'catalog',  icon: '📋', label: 'Catálogo' },
-    { key: 'orders',   icon: '📦', label: 'Pedidos' },
-    { key: 'reports',  icon: '⚠', label: td.navReports, badge: reportsBadge },
-    { key: 'dealers',  icon: '🛵', label: 'Repartidores', badge: applications.filter(a => String(a.status || '').toLowerCase() === 'pending').length || null },
-    { key: 'config',   icon: '⚙', label: td.navConfig },
-    { key: 'logs',     icon: '◎', label: td.navLogs },
+    { key: 'overview', icon: 'LayoutDashboard', label: td.navOverview },
+    { key: 'users',    icon: 'Users', label: td.navUsers },
+    { key: 'content',  icon: 'Newspaper', label: td.navContent },
+    { key: 'catalog',  icon: 'ClipboardList', label: 'Catálogo' },
+    { key: 'orders',   icon: 'Package', label: 'Pedidos' },
+    { key: 'reports',  icon: 'AlertTriangle', label: td.navReports, badge: reportsBadge },
+    { key: 'dealers',  icon: 'Bike', label: 'Repartidores', badge: applications.filter(a => String(a.status || '').toLowerCase() === 'pending').length || null },
+    { key: 'config',   icon: 'Settings', label: td.navConfig },
+    { key: 'logs',     icon: 'ScrollText', label: td.navLogs },
   ];
 
   return (
