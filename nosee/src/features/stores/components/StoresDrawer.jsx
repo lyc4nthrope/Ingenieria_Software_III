@@ -66,29 +66,30 @@ const StoresDrawer = memo(function StoresDrawer({
     }
   }, [onLoadMore]);
 
-  const activeFilterItems = useMemo(() => {
-    const items = [];
-    if (search) {
-      items.push({ key: 'search', label: `${search}`, onRemove: () => onSearchChange('') });
-    }
+  // Solo datos — los handlers se resuelven por key en el render
+  const activeFilterKeys = useMemo(() => {
+    const keys = [];
+    if (search) keys.push({ key: 'search', label: search });
     if (storeType !== 'all') {
-      const typeLabel = storeType === 'physical'
-        ? (t.filterChips?.physical ?? 'Física')
-        : (t.filterChips?.virtual ?? 'Virtual');
-      items.push({ key: 'storeType', label: typeLabel, onRemove: () => onStoreTypeChange('all') });
+      keys.push({
+        key: 'storeType',
+        label: storeType === 'physical'
+          ? (t.filterChips?.physical ?? 'Física')
+          : (t.filterChips?.virtual ?? 'Virtual'),
+      });
     }
     if (onlyWithLocation) {
-      items.push({ key: 'location', label: t.onlyWithLocation ?? 'Solo con ubicación', onRemove: () => onOnlyWithLocationChange(false) });
+      keys.push({ key: 'location', label: t.onlyWithLocation ?? 'Solo con ubicación' });
     }
     if (productName) {
-      items.push({ key: 'product', label: productName, onRemove: () => onProductNameChange('') });
+      keys.push({ key: 'product', label: productName });
     }
     if (categoryId) {
       const cat = categories.find(c => c.id === Number(categoryId));
-      items.push({ key: 'category', label: cat?.name ?? `Cat. ${categoryId}`, onRemove: () => onCategoryChange(null) });
+      keys.push({ key: 'category', label: cat?.name ?? `Cat. ${categoryId}` });
     }
-    return items;
-  }, [search, storeType, onlyWithLocation, productName, categoryId, categories, onSearchChange, onStoreTypeChange, onOnlyWithLocationChange, onProductNameChange, onCategoryChange, t]);
+    return keys;
+  }, [search, storeType, onlyWithLocation, productName, categoryId, categories, t]);
 
   const hasActiveFilters = activeFiltersCount > 0;
   const expandLabel = snap === 'full' ? 'Contraer lista de tiendas' : 'Expandir lista de tiendas';
@@ -171,19 +172,28 @@ const StoresDrawer = memo(function StoresDrawer({
       {hasActiveFilters && snap !== 'peek' && (
         <div style={styles.activeFiltersBar}>
           <div style={styles.activeFiltersRow}>
-            {activeFilterItems.map(item => (
-              <span key={item.key} style={styles.filterTag}>
-                <span style={styles.filterTagLabel}>{item.label}</span>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); item.onRemove(); }}
-                  style={styles.filterTagX}
-                  aria-label={`Quitar filtro ${item.label}`}
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
+            {activeFilterKeys.map(item => {
+              const onRemove = {
+                search:    () => onSearchChange(''),
+                storeType: () => onStoreTypeChange('all'),
+                location:  () => onOnlyWithLocationChange(false),
+                product:   () => onProductNameChange(''),
+                category:  () => onCategoryChange(null),
+              }[item.key] || (() => {});
+              return (
+                <span key={item.key} style={styles.filterTag}>
+                  <span style={styles.filterTagLabel}>{item.label}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                    style={styles.filterTagX}
+                    aria-label={`Quitar filtro ${item.label}`}
+                  >
+                    ✕
+                  </button>
+                </span>
+              );
+            })}
           </div>
           <button
             type="button"

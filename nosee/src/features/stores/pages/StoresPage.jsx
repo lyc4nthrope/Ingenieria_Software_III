@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuthStore, selectIsAuthenticated } from '@/features/auth/store/authStore';
@@ -89,12 +89,9 @@ export default function StoresPage() {
     setSelectedStore(store);
   }, [isAuthenticated, navigate]);
 
-  const totalActiveFilters = useMemo(() => {
-    let count = activeFiltersCount;
-    if (productNameInput !== '') count++;
-    if (categoryId !== null) count++;
-    return count;
-  }, [activeFiltersCount, productNameInput, categoryId]);
+  const totalActiveFilters = activeFiltersCount +
+    (productNameInput !== '' ? 1 : 0) +
+    (categoryId !== null ? 1 : 0);
 
   const handleClearFilters = useCallback(() => {
     clearTimeout(productDebounceRef.current);

@@ -27,6 +27,16 @@ let _storesCache    = null;
 let _storesCacheAt  = 0;
 let _storesFetching = null; // deduplicates concurrent requests during the same tick
 
+/**
+ * Invalida el cache de tiendas físicas.
+ * Llamar después de crear/editar/eliminar una tienda para forzar un refetch.
+ */
+export function invalidateStoresCache() {
+  _storesCache    = null;
+  _storesCacheAt  = 0;
+  _storesFetching = null;
+}
+
 async function fetchPhysicalStores() {
   if (_storesCache && Date.now() - _storesCacheAt < CACHE_TTL_MS) {
     return _storesCache;
@@ -405,7 +415,7 @@ export function useStoresMap({ containerRef, onStoreClick, productName, category
       }
     });
     return () => { cancelled = true; };
-  }, [productName, categoryId]);
+  }, [productName, categoryId, physicalStores]);
 
   return { isLoading: locationLoading || !mapReady, locationError, mapError };
 }

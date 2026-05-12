@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { listStores } from '@/services/api/stores.api';
 import { getProductCategories } from '@/services/api/products.api';
 import { INFINITE_SCROLL_CONFIG } from '@/config/infiniteScroll';
@@ -25,10 +25,11 @@ export function useStoresList({ productName = '', categoryId = null } = {}) {
   const productNameRef      = useRef(productName);
   const categoryIdRef       = useRef(categoryId);
 
-  const debounceRef    = useRef(null);
-  const pageRef        = useRef(1);
-  const searchRef      = useRef('');
-  const loadingMoreRef = useRef(false);
+  const debounceRef     = useRef(null);
+  const pageRef         = useRef(1);
+  const searchRef       = useRef('');
+  const loadingMoreRef  = useRef(false);
+  const fetchGenRef     = useRef(0);
 
   // Keep refs in sync with external props
   useEffect(() => { productNameRef.current = productName; }, [productName]);
@@ -42,6 +43,7 @@ export function useStoresList({ productName = '', categoryId = null } = {}) {
   }, []);
 
   const fetchStores = useCallback(async ({ query, pageToLoad, append }) => {
+    const gen = ++fetchGenRef.current;
     if (pageToLoad === 1) setLoading(true);
     else { loadingMoreRef.current = true; setLoadingMore(true); }
     setError(null);
@@ -54,6 +56,9 @@ export function useStoresList({ productName = '', categoryId = null } = {}) {
       productName: productNameRef.current,
       categoryId: categoryIdRef.current,
     });
+
+    // Si otro fetch más nuevo ya arrancó, ignoramos esta respuesta
+    if (gen !== fetchGenRef.current) return;
 
     if (result.success) {
       const incoming = result.data ?? [];
@@ -110,13 +115,10 @@ export function useStoresList({ productName = '', categoryId = null } = {}) {
     fetchStores({ query: searchRef.current, pageToLoad: 1, append: false });
   }, [fetchStores]);
 
-  const activeFiltersCount = useMemo(() => {
-    let count = 0;
-    if (search !== '') count++;
-    if (storeType !== 'all') count++;
-    if (onlyWithLocation) count++;
-    return count;
-  }, [search, storeType, onlyWithLocation]);
+  const activeFiltersCount =
+    (search !== '' ? 1 : 0) +
+    (storeType !== 'all' ? 1 : 0) +
+    (onlyWithLocation ? 1 : 0);
 
   const resetFilters = useCallback(() => {
     setSearch('');
