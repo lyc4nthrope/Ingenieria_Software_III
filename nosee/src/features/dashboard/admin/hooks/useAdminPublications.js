@@ -169,7 +169,8 @@ export default function useAdminPublications() {
   }, [td]);
 
   const handleViewStore = useCallback(async (publication) => {
-    const storeId = publication?.storeId || publication?.store?.id || publication?.store_id;
+    // Soporta publicación (desde PublicationsTable) y objeto tienda crudo (desde CatalogPanel)
+    const storeId = publication?.storeId || publication?.store?.id || publication?.store_id || publication?.id;
     if (!storeId) return;
 
     const result = await getStoreDetail(storeId);
@@ -233,7 +234,8 @@ export default function useAdminPublications() {
   }, []);
 
   const handleViewBrand = useCallback(async (publication) => {
-    const brandId = publication?.brandId || publication?.product?.brand?.id;
+    // Soporta publicación (desde PublicationsTable) y objeto marca crudo (desde CatalogPanel)
+    const brandId = publication?.brandId || publication?.product?.brand?.id || publication?.id;
     if (!brandId) {
       console.error('[useAdminPublications] handleViewBrand: no brandId');
       return;
